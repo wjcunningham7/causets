@@ -1,0 +1,18 @@
+Compilation Instructions:
+gcc -o sets -lm main.c
+
+Execution Instructions:
+./sets -N 10000 -D 10 -S 4357398
+
+What the Program Does:
+1) Parse command line flags
+2) Generate 'N' nodes with eta and theta between some scaled values (used to tune the average degrees)
+3) Sort the array of nodes temporally (quick sort algorithm used)
+4) Identify causets by checking for existence of an overlap region of mutual light cones for each pair of points
+5) Calculate and print average degrees of nodes
+
+Data Structures:
+To represent the causal network I used a doubly linked list (defined in main.h) such that each forward and backward link could point to multiple other nodes.
+
+What I Couldn't Figure Out:
+When the program is executed I end up with an array of nodes with all the correct forward and backward pointers encoded in the structs.  I realized that scaling the (eta, theta) axes I could effectively control the average degrees of a node, which I'm thinking corresponds to a Lorentz boost in 1D.  I wasn't able to determine the relationship between the average degree and two scaling factors though.  I tuned them manually in the main.c though so that for 10000 nodes the average would be very close to 10 degrees.  What I would like to do if I could do more would be find the relationship between the scaling factors and the curvature of the 1+1 de Sitter spacetime so that I can convert the (t, theta) points to (x, y, z) points, and then the doubly linked list would be perfect with OpenGL for plotting 3D lines.
