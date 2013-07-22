@@ -86,6 +86,16 @@ int main(int argc, char **argv)
 	//Print Results to File
 	printf("Printing Results\n");
 	FILE *outfile;
+	outfile = fopen("locations.txt", "w");
+	if (outfile == NULL) {
+		printf("Error opening file: locations.txt\n");
+		exit(1);
+	}
+
+	for (i = 0; i < N; i++)
+		fprintf(outfile, "%5.9f %5.9f\n", nodes[i].eta, nodes[i].theta);
+	fclose(outfile);
+
 	outfile = fopen("connections.txt", "w");
 	if (outfile == NULL) {
 		printf("Error opening file: connections.txt\n");
@@ -99,6 +109,18 @@ int main(int argc, char **argv)
 		outIdx += nodes[i].numout - 1;
 	}
 
+	fclose(outfile);
+
+	outfile = fopen("limits.txt", "w");
+	if (outfile == NULL) {
+		printf("Error opening file: limits.txt\n");
+		exit(1);
+	}
+	
+	fprintf(outfile, "Spacetime Patch Limits:\n");
+	fprintf(outfile, "---------------------\n");
+	fprintf(outfile, "Eta:   (0, %5.9f)\n", eta0);
+	fprintf(outfile, "Theta: (0, %5.9f)\n", (2.0 * M_PI));
 	fclose(outfile);
 	
 	//Free Memory
