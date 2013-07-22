@@ -20,15 +20,14 @@ int main(int argc, char **argv)
 
 	//Poisson Sprinkling
 	printf("Poisson Sprinkling\n");
-	float timescale = M_PI;
-	float anglescale = 2.0 * M_PI;
 	unsigned int i, j;
-	
 	for (i = 0; i < N; i++) {
-		nodes[i].eta   = atan(ran2(&idum) * tan(eta0)) * timescale;
+		nodes[i].eta   = atan(ran2(&idum) * tan(eta0));
 		nodes[i].t     = acosh(1.0 / cos(nodes[i].eta));
-		nodes[i].theta = ran2(&idum) * anglescale;
-
+		nodes[i].theta = 2.0 * M_PI * ran2(&idum);
+	
+		//printf("i %d\teta %f\ttheta %f\n", i, nodes[i].eta, nodes[i].theta);
+	
 		nodes[i].numin = 0;
 		nodes[i].numout = 0;
 	}
@@ -36,47 +35,53 @@ int main(int argc, char **argv)
 	//Order Nodes Temporally
 	printf("Quicksort\n");
 	quicksort(nodes, 0, N - 1);
-	
+
 	//Allocate Link Structures
 	printf("Causets\n");
 	unsigned int M = N * D / 2;
+	unsigned int delta = 1000;
 
 	unsigned int *indeg = NULL;
-	indeg = (unsigned int*)malloc(sizeof(unsigned int) * M);
+	indeg = (unsigned int*)malloc(sizeof(unsigned int) * (M + delta));
 	assert(indeg != NULL);
 
 	unsigned int *outdeg = NULL;
-	outdeg = (unsigned int*)malloc(sizeof(unsigned int) * M);
+	outdeg = (unsigned int*)malloc(sizeof(unsigned int) * (M + delta));
 	assert(outdeg != NULL);
 
 	//Identify Causets
-	unsigned int dx, dt;
+	float dx, dt;
 	unsigned int inIdx  = 0;
 	unsigned int outIdx = 0;
-	printf("M: %d\n", M);
 	for (i = 0; i < N - 1; i++) {
 		//Look forward in time from node i to node j
 		for (j = i + 1; j < N; j++) {
 			//Do they lie within each other's light cones?
-			dx = M_PI - abs(M_PI - abs(nodes[j].theta - nodes[i].theta));
+			dx = M_PI - fabs(M_PI - fabs(nodes[j].theta - nodes[i].theta));
 			dt = nodes[j].eta - nodes[i].eta;
 			if (dx > dt)
 				continue;
 
+			//printf("dx: %f\tdt: %f\n", dx, dt);
+			
+			//Check for free memory
+			if (inIdx == M + delta) {
+				printf("Not enough memory allocated!  Increase 'delta' and try again.\n");
+				exit(-1);
+			}
+	
 			//In-Degrees
-			printf("inIdx: %d\n", inIdx);
 			indeg[inIdx] = i;
 			inIdx++;
 			nodes[j].numin++;
 
 			//Out-Degrees
-			/*outdeg[outIdx] = j;
+			outdeg[outIdx] = j;
 			outIdx++;
-			nodes[i].numout++;*/
+			nodes[i].numout++;
 		}
 	}
-	printf("Got Here!\n");
-	exit(0);
+	//printf("In: %d\tOut: %d\n", inIdx, outIdx);
 
 	//Print Results to File
 	printf("Printing Results\n");
