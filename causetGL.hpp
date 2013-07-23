@@ -1,8 +1,12 @@
 #ifndef CAUSETGL_HPP
 #define CAUSETGL_HPP
 
+#include <fstream>
 #include <getopt.h>
+#include <iostream>
 #include <stdio.h>
+#include <sstream>
+#include <string>
 
 #include <GL/glut.h>
 
@@ -19,6 +23,7 @@ float** loc;
 unsigned int** con;
 
 void parseArgs(int argc, char** argv);
+void initData();
 void display();
 
 void parseArgs(int argc, char** argv)

@@ -25,9 +25,9 @@ int main(int argc, char **argv)
 		nodes[i].eta   = atan(ran2(&idum) * tan(eta0));
 		nodes[i].t     = acosh(1.0 / cos(nodes[i].eta));
 		nodes[i].theta = 2.0 * M_PI * ran2(&idum);
-	
+
 		//printf("i %d\teta %f\ttheta %f\n", i, nodes[i].eta, nodes[i].theta);
-	
+
 		nodes[i].numin = 0;
 		nodes[i].numout = 0;
 	}
@@ -63,13 +63,13 @@ int main(int argc, char **argv)
 				continue;
 
 			//printf("dx: %f\tdt: %f\n", dx, dt);
-			
+
 			//Check for free memory
 			if (inIdx == M + delta) {
 				printf("Not enough memory allocated!  Increase 'delta' and try again.\n");
 				exit(-1);
 			}
-	
+
 			//In-Degrees
 			indeg[inIdx] = i;
 			inIdx++;
@@ -116,13 +116,14 @@ int main(int argc, char **argv)
 		printf("Error opening file: limits.txt\n");
 		exit(1);
 	}
-	
+
 	fprintf(outfile, "Spacetime Patch Limits:\n");
 	fprintf(outfile, "---------------------\n");
 	fprintf(outfile, "Eta:   (0, %5.9f)\n", eta0);
 	fprintf(outfile, "Theta: (0, %5.9f)\n", (2.0 * M_PI));
+	fprintf(outfile, "Connections: %d\n", outIdx);
 	fclose(outfile);
-	
+
 	//Free Memory
 	free(nodes);	nodes  = NULL;
 	free(indeg);	indeg  = NULL;
