@@ -1,4 +1,5 @@
 #include "causetGL.hpp"
+using namespace std;
 
 int main(int argc, char** argv)
 {
@@ -6,11 +7,13 @@ int main(int argc, char** argv)
 	initData();
 
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DOUBLE);
-	glutCreateWindow("Causets");
-	glutInitWindowSize(720, 720);
+	//glutInitDisplayMode(GLUT_DOUBLE);
+	glutInitWindowSize(900, 900);
 	glutInitWindowPosition(50, 50);
+	glutCreateWindow("Causets");
 	glutDisplayFunc(display);
+	//glutReshapeFunc(resize);
+	//initGL();
 	glutMainLoop();
 
 	return 0;
@@ -41,7 +44,7 @@ void initData()
 		locFile.close();
 	} else
 		printf("Error opening file: locations.txt\n");
-
+	
 	ifstream conFile ("connections.txt");
 
 	con = new unsigned int*[2];
@@ -58,7 +61,7 @@ void initData()
 			getline(liness, node1, ' ');
 			con[0][i] = atoi(node0.c_str());
 			con[1][i] = atoi(node1.c_str());
-			//printf("node0: %d\tnode1: %d\n", con[0][i], con[1][i]);
+			//printf("i: %d\tnode0: %d\tnode1: %d\n", i, con[0][i], con[1][i]);
 			i++;
 		}
 		conFile.close();
@@ -66,15 +69,32 @@ void initData()
 		printf("Error opening file: connections.txt\n");
 }
 
+void initGL()
+{
+	glOrtho(0.0f, 0.01f, 0.0f, 6.3f, -1.0f, 1.0f);
+}
+
 void display()
 {
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glBegin(GL_LINES);
-		for (unsigned int i = 0; i < K; i++)
-			glVertex2f(loc[0]
+		glColor3f(0.0f, 0.0f, 0.0f);
+		for (unsigned int i = 0; i < K; i++) {
+			glVertex2f(sizeFactor * loc[0][con[0][i]] * cos(loc[1][con[0][i]]), sizeFactor * loc[0][con[0][i]] * sin(loc[1][con[0][i]]));
+			glVertex2f(sizeFactor * loc[0][con[1][i]] * cos(loc[1][con[1][i]]), sizeFactor * loc[0][con[1][i]] * sin(loc[1][con[1][i]]));
+		}
 	glEnd();
 
-	//glFlush();
-	glutSwapBuffers();
+	glFlush();
+	//glutSwapBuffers();
+}
+
+void resize(int w, int h)
+{
+	glViewport(0, 0, w, h);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluOrtho2D(0, w, h, 0);
 }

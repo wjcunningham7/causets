@@ -4,6 +4,7 @@
 #include <fstream>
 #include <getopt.h>
 #include <iostream>
+#include <math.h>
 #include <stdio.h>
 #include <sstream>
 #include <string>
@@ -16,6 +17,9 @@ unsigned int N;
 //Number of Links
 unsigned int K;
 
+//Used to rescale data to viewport
+unsigned int sizeFactor = 100;
+
 //Locations of Nodes
 float** loc;
 
@@ -24,12 +28,14 @@ unsigned int** con;
 
 void parseArgs(int argc, char** argv);
 void initData();
+void initGL();
 void display();
+void resize(int w, int h);
 
 void parseArgs(int argc, char** argv)
 {
 	int c, longIndex;
-	static const char *optString = ":N:K:h";
+	static const char *optString = ":N:K:F:h";
 	static const struct option longOpts[] = {{ "help", no_argument, NULL, 'h' }};
 
 	while ((c = getopt_long(argc, argv, optString, longOpts, &longIndex)) != -1) {
@@ -39,6 +45,9 @@ void parseArgs(int argc, char** argv)
 				break;
 			case 'K':
 				K = atoi(optarg);
+				break;
+			case 'F':
+				sizeFactor = atoi(optarg);
 				break;
 			case 'h':
 				printf("Add help menu!\n");
