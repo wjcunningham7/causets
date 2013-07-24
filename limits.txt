@@ -2,3 +2,4 @@ Spacetime Patch Limits:
 ---------------------
 Eta:   (0, 0.009424751)
 Theta: (0, 6.283185307)
+Connections: 40134

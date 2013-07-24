@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 		nodes[i].t     = acosh(1.0 / cos(nodes[i].eta));
 		nodes[i].theta = 2.0 * M_PI * ran2(&idum);
 
-		//printf("i %d\teta %f\ttheta %f\n", i, nodes[i].eta, nodes[i].theta);
+		//printf("i %u\teta %f\ttheta %f\n", i, nodes[i].eta, nodes[i].theta);
 
 		nodes[i].numin = 0;
 		nodes[i].numout = 0;
@@ -81,7 +81,7 @@ int main(int argc, char **argv)
 			nodes[i].numout++;
 		}
 	}
-	//printf("In: %d\tOut: %d\n", inIdx, outIdx);
+	//printf("In: %u\tOut: %u\n", inIdx, outIdx);
 
 	//Print Results to File
 	printf("Printing Results\n");
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
 	outIdx = 0;
 	for (i = 0; i < N - 1; i++) {
 		for (j = 0; j < nodes[i].numout; j++)
-			fprintf(outfile, "%d %d\n", i, outdeg[outIdx+j]);
+			fprintf(outfile, "%u %u\n", i, outdeg[outIdx+j]);
 		outIdx += nodes[i].numout - 1;
 	}
 
@@ -121,17 +121,17 @@ int main(int argc, char **argv)
 	fprintf(outfile, "---------------------\n");
 	fprintf(outfile, "Eta:   (0, %5.9f)\n", eta0);
 	fprintf(outfile, "Theta: (0, %5.9f)\n", (2.0 * M_PI));
-	fprintf(outfile, "Connections: %d\n", outIdx);
+	fprintf(outfile, "Connections: %u\n", outIdx);
 	fclose(outfile);
 
 	outfile = fopen("distribution.txt", "w");
-	if (outfile = NULL) {
+	if (outfile == NULL) {
 		printf("Error opening file: distribution.txt\n");
 		exit(1);
 	}
-
+	
 	for (i = 0; i < N; i++)
-		fprintf(outfile, "%d\n", (nodes[i].numin + nodes[i].numout));
+		fprintf(outfile, "%u\n", (nodes[i].numin + nodes[i].numout));
 	fclose(outfile);
 
 	//Free Memory
