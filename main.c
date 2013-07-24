@@ -124,6 +124,16 @@ int main(int argc, char **argv)
 	fprintf(outfile, "Connections: %d\n", outIdx);
 	fclose(outfile);
 
+	outfile = fopen("distribution.txt", "w");
+	if (outfile = NULL) {
+		printf("Error opening file: distribution.txt\n");
+		exit(1);
+	}
+
+	for (i = 0; i < N; i++)
+		fprintf(outfile, "%d\n", (nodes[i].numin + nodes[i].numout));
+	fclose(outfile);
+
 	//Free Memory
 	free(nodes);	nodes  = NULL;
 	free(indeg);	indeg  = NULL;
