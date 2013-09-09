@@ -16,7 +16,9 @@ int main(int argc, char **argv)
 
 	printf("Newton Method\n");
 	//Determine Eta0
-	float eta0 = newton(M_PI / 4.0, 10000);
+	float eta0 = newton((M_PI / 2.0) - 0.0000001, 10000);
+	//printf("Eta0:    %E\n", eta0);
+	//printf("f(eta0): %E\n", f(eta0));
 
 	//Poisson Sprinkling
 	printf("Poisson Sprinkling\n");
@@ -159,6 +161,11 @@ float newton(float guess, int max_iter)
 		res = x1 - x0;
 		x0 = x1;
 		iter++;
+	}
+
+	if (x0 < M_PI / 4.0) {
+		printf("Newton method found incorrect solution!  Try different guess.\n");
+		exit(0);
 	}
 
 	return x0;
