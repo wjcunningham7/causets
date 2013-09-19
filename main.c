@@ -108,7 +108,7 @@ int main(int argc, char **argv)
 	for (i = 0; i < N - 1; i++) {
 		for (j = 0; j < nodes[i].numout; j++)
 			fprintf(outfile, "%u %u\n", i, outdeg[outIdx+j]);
-		outIdx += nodes[i].numout - 1;
+		outIdx += nodes[i].numout;
 	}
 
 	fclose(outfile);

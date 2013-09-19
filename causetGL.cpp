@@ -7,13 +7,13 @@ int main(int argc, char** argv)
 	initData();
 
 	glutInit(&argc, argv);
-	//glutInitDisplayMode(GLUT_DOUBLE);
+	glutInitDisplayMode(GLUT_DOUBLE);
 	glutInitWindowSize(900, 900);
 	glutInitWindowPosition(50, 50);
 	glutCreateWindow("Causets");
 	glutDisplayFunc(display);
 	//glutReshapeFunc(resize);
-	//initGL();
+	initGL();
 	glutMainLoop();
 
 	return 0;
@@ -87,8 +87,9 @@ void display()
 		}
 	glEnd();
 
-	glFlush();
-	//glutSwapBuffers();
+	//glFlush();
+	glLoadIdentity();
+	glutSwapBuffers();
 }
 
 void resize(int w, int h)

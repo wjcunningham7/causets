@@ -18,7 +18,7 @@ unsigned int N;
 unsigned int K;
 
 //Used to rescale data to viewport
-unsigned int sizeFactor = 100;
+float sizeFactor = 0.5;
 
 //Locations of Nodes
 float** loc;
@@ -47,7 +47,7 @@ void parseArgs(int argc, char** argv)
 				K = atoi(optarg);
 				break;
 			case 'F':
-				sizeFactor = atoi(optarg);
+				sizeFactor = atof(optarg) / 2.0;
 				break;
 			case 'h':
 				printf("Add help menu!\n");
