@@ -1,5 +1,0 @@
-Spacetime Patch Limits:
----------------------
-Eta:   (0, 1.570780754)
-Theta: (0, 6.283185307)
-Connections: 453125
