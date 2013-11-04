@@ -2,6 +2,7 @@
 
 int main(int argc, char **argv)
 {
+	stopwatchStart();
 	Network network = Network(parseArgs(argc, argv));
 	bool success = false;
 
@@ -13,6 +14,7 @@ int main(int argc, char **argv)
 	if (!initializeNetwork(&network)) goto CausetExit;
 	//Measure Network Properties Here
 	if (network.network_properties.flags.disp_network && !displayNetwork(network.nodes, network.links, argc, argv)) goto CausetExit;
+	printMemUsed(NULL, maxHostMemUsed, maxDevMemUsed);
 	if (network.network_properties.flags.print_network && !printNetwork(network)) goto CausetExit;
 	if (!destroyNetwork(&network)) goto CausetExit;
 
@@ -23,5 +25,6 @@ int main(int argc, char **argv)
 
 	CausetExit:
 	shrQAFinish(argc, (const char**)argv, success ? QA_PASSED : QA_FAILED);
+	printf("Time:  %5.9f s\n", stopwatchReadSeconds());
 	printf("PROGRAM COMPLETED\n");
 }

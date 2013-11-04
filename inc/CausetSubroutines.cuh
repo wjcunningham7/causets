@@ -15,7 +15,7 @@ bool initializeNetwork(Network *network)
 	unsigned int max_iter = 10000;
 
 	float eta0 = newton(guess, max_iter, network->network_properties.N, network->network_properties.k, network->network_properties.dim);
-	//printf("\tEta0: %5.5f\n", eta0);
+	//printf("\tEta0: %5.9f\n", eta0);
 
 	if (!generateNodes(network, eta0, network->network_properties.flags.use_gpu))
 		return false;
@@ -129,7 +129,7 @@ bool linkNodes(Network *network, bool &use_gpu)
 					powf(Z0(network->network_properties.a, network->nodes[j].eta) - Z0(network->network_properties.a, network->nodes[i].eta), 2) +
 					powf(network->network_properties.a * (network->nodes[j].eta - network->nodes[i].eta) / sinf(network->nodes[i].eta), 2));
 			}
-			printf("dx: %5.5f\n", dx);
+			//printf("dx: %5.5f\n", dx);
 			
 			if (dx > dt) continue;
 

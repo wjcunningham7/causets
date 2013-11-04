@@ -50,15 +50,15 @@ struct NetworkExec {
 };
 
 struct NetworkProperties {
-	NetworkProperties() : N(10000), k(10), dim(2), subnet_size(104857600), seed(12345L), flags(CausetFlags()), network_exec(NetworkExec()) {}
-	NetworkProperties(unsigned int _N, unsigned int _k, unsigned int _dim, size_t _subnet_size, long _seed, CausetFlags _flags, NetworkExec _network_exec) : N(_N), k(_k), dim(_dim), subnet_size(_subnet_size), seed(_seed), flags(_flags), network_exec(_network_exec) {}
+	NetworkProperties() : N(10000), k(10), dim(2), a(1.0), subnet_size(104857600), seed(4357398L), flags(CausetFlags()), network_exec(NetworkExec()) {}
+	NetworkProperties(unsigned int _N, unsigned int _k, unsigned int _dim, float _a, size_t _subnet_size, long _seed, CausetFlags _flags, NetworkExec _network_exec) : N(_N), k(_k), dim(_dim), a(_a), subnet_size(_subnet_size), seed(_seed), flags(_flags), network_exec(_network_exec) {}
 
 	CausetFlags flags;
 	NetworkExec network_exec;
 
 	unsigned int N;		//Number of Nodes
 	unsigned int k;		//Average Degrees
-	unsigned int dim;	//Spacetime Dimension (2 or 4)
+	unsigned int dim;		//Spacetime Dimension (2 or 4)
 
 	float a;			//Hyperboloid Pseudoradius
 
