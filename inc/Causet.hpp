@@ -12,7 +12,6 @@
 #include "CuResources.hpp"
 #include "ran2.h"
 
-#define M_PI (atan(1.0) * 4.0)
 #define TOL (10^-6)
 
 struct Node {
@@ -43,11 +42,11 @@ struct CausetFlags {
 
 //CUDA Kernel Execution Parameters
 struct NetworkExec {
-	NetworkExec() : threads_per_block(make_int3(256, 256, 1)), blocks_per_grid(make_int3(256, 256, 1)) {}
-	NetworkExec(int3 tpb, int3 bpg) : threads_per_block(tpb), blocks_per_grid(bpg) {}
+	NetworkExec() : threads_per_block(dim3(256, 256, 1)), blocks_per_grid(dim3(256, 256, 1)) {}
+	NetworkExec(dim3 tpb, dim3 bpg) : threads_per_block(tpb), blocks_per_grid(bpg) {}
 
-	int3 threads_per_block;
-	int3 blocks_per_grid;
+	dim3 threads_per_block;
+	dim3 blocks_per_grid;
 };
 
 struct NetworkProperties {
@@ -69,8 +68,8 @@ struct NetworkProperties {
 };
 
 struct Network {
-	Network() : network_properties(NetworkProperties()), nodes(nullptr), links(nullptr) {}
-	Network(NetworkProperties _network_properties) : network_properties(_network_properties), nodes(nullptr), links(nullptr) {}
+	Network() : network_properties(NetworkProperties()), nodes(NULL), links(NULL) {}
+	Network(NetworkProperties _network_properties) : network_properties(_network_properties), nodes(NULL), links(NULL) {}
 	Network(NetworkProperties _network_properties, Node *_nodes, unsigned int *_links) : network_properties(_network_properties), nodes(_nodes), links(_links) {}
 
 	NetworkProperties network_properties;
@@ -118,10 +117,8 @@ NetworkProperties parseArgs(int argc, char **argv)
 			break;
 		case 'd':
 			try {
-				if (!(optarg == 2 || optarg == 4)) {
+				if (!(atoi(optarg) == 2 || atoi(optarg) == 4))
 					throw CausetException("Dimension not supported.\n");
-					exit(EXIT_FAILURE);
-				}
 				else
 					network_properties.dim = atoi(optarg);
 			} catch (CausetException e) {

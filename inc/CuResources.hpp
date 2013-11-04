@@ -1,6 +1,7 @@
 #ifndef CU_RESOURCES_H_
 #define CU_RESOURCES_H_
 
+#include <assert.h>
 #include <cuda.h>
 #include <drvapi_error_string.h>
 #include <iostream>

@@ -1,7 +1,7 @@
 #ifndef CAUSET_SUBROUTINES_HPP_
 #define CAUSET_SUBROUTINES_HPP_
 
-#include <GL/glut.h>
+#include <GL/freeglut.h>
 
 #include "Causet.hpp"
 #include "GPUSubroutines.hpp"

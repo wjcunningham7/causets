@@ -9,12 +9,12 @@ CUDA_HOME 	?= /usr/local/cuda
 NVCC 		?= $(CUDA_HOME)/bin/nvcc
 CXX 		?= /usr/bin/g++
 INCD 		 = -I"$(CUDA_SDK_PATH)/common/inc" -I"$(CUDA_HOME)/include" -I"./" -I$(INCDIR)
-LIBS 		 = -L/usr/lib/nvidia-current/ -lcuda -L$(LD_LIBRARY_PATH) -L$(CUDA_HOME)/lib64/ -lcudart -lcublas -L"$(CUDA_SDK_PATH)/common/lib" -lstdc++ -lpthread -lm
+LIBS 		 = -L/usr/lib/nvidia-current/ -lcuda -L$(LD_LIBRARY_PATH) -L$(CUDA_HOME)/lib64/ -lcudart -lcublas -L"$(CUDA_SDK_PATH)/common/lib" -lstdc++ -lpthread -lm -lGLU -lglut
 
 NVCCFLAGS 	:= -arch=sm_30 -O3 -G -g
 
-SOURCES		:= $(SRCDIR)/Causet.cu $(SRCDIR)/CausetSubroutines.cu $(SRCDIR)/GPUSubroutines.cu
-HEADERS		:= $(INCDIR)/shrQATest.h $(INCDIR)/shrUtils.h $(INCDIR)/stopwatch.h $(INCDIR)/ran2.h $(INCDIR)/CuResources.h $(INCDIR)/Causet.hpp $(INCDIR)/GPUSubroutines.hpp $(INCDIR)/CausetSubroutines.hpp
+SOURCES		:= $(SRCDIR)/Causet.cu
+HEADERS		:= $(INCDIR)/shrQATest.h $(INCDIR)/shrUtils.h $(INCDIR)/stopwatch.h $(INCDIR)/ran2.h $(INCDIR)/CuResources.hpp $(INCDIR)/Causet.hpp $(INCDIR)/GPUSubroutines.hpp $(INCDIR)/CausetSubroutines.hpp $(INCDIR)/CausetSubroutines.cuh $(INCDIR)/GPUSubroutines.cuh
 OBJS		:= $(patsubst %.cu, %.cu_o, $(SOURCES))
  
 %.cu_o : %.cu 
