@@ -3,29 +3,39 @@
 
 #include "CausetSubroutines.hpp"
 #include "GPUSubroutines.cuh"
+#include "CausetOperations.cuh"
 
-//Handles all network generation routines
+//Handles all network generation and initialization procedures
 bool initializeNetwork(Network *network)
 {
 	printf("Initializing Causet Network...\n");
+
+	//Allocate memory needed by pointers
 	if (!createNetwork(network))
 		return false;
 
-	float guess = (M_PI / 2.0) - 0.0000001;
-	unsigned int max_iter = 10000;
+	//Solve for eta0 using Newton-Raphson Method
+	double guess = 0.08;
+	NewtonProperties np = NewtonProperties(guess, TOL, 10000, network->network_properties.N, network->network_properties.k, network->network_properties.dim);
+	newton(&solveZeta, &np, &network->network_properties.seed);
+	network->network_properties.zeta = np.x;
+	printf("\tTranscendental Equation Solved:\n");
+	//printf("\t\tZeta: %5.8f\n", network->network_properties.zeta);
+	printf("\t\tMaximum Conformal Time: %5.8f\n", (M_PI / 2.0) - network->network_properties.zeta);
+	printf("\t\tMaximum Rescaled Time: %5.8f\n", etaToTau((M_PI / 2.0) - network->network_properties.zeta, network->network_properties.a));
 
-	float eta0 = newton(guess, max_iter, network->network_properties.N, network->network_properties.k, network->network_properties.dim);
-	//printf("\tEta0: %5.9f\n", eta0);
-
-	if (!generateNodes(network, eta0, network->network_properties.flags.use_gpu))
+	//Generate coordinates of nodes in 1+1 or 3+1 de Sitter spacetime
+	if (!generateNodes(network, network->network_properties.flags.use_gpu))
 		return false;
 
+	//Order nodes temporally
 	int low  = 0;
 	int high = network->network_properties.N - 1;
 
-	quicksort(network->nodes, low, high);
+	quicksort(network->nodes, network->network_properties.a, low, high);
 	printf("\tQuick sort successfully performed.\n");
 
+	//Identify links as points connected by timelike intervals
 	if (!linkNodes(network, network->network_properties.flags.use_gpu))
 		return false;
 
@@ -37,6 +47,8 @@ bool initializeNetwork(Network *network)
 bool createNetwork(Network *network)
 {
 	//Implement subnet_size later
+	//Chanage sizeof(Node) to reflect number of dimensions necessary
+	//	so that for 1+1 phi and chi are not allocated
 	try {
 		network->nodes = (Node*)malloc(sizeof(Node) * network->network_properties.N);
 		if (network->nodes == NULL) throw std::bad_alloc();
@@ -47,6 +59,7 @@ bool createNetwork(Network *network)
 		if (network->links == NULL) throw std::bad_alloc();
 		hostMemUsed += sizeof(Node) * network->network_properties.N * network->network_properties.k / 2;
 
+		//Allocate memory on GPU if necessary
 		if (network->network_properties.flags.use_gpu) {
 			checkCudaErrors(cuMemAlloc(&network->d_nodes, sizeof(Node) * network->network_properties.N));
 			devMemUsed += sizeof(Node) * network->network_properties.N;
@@ -67,34 +80,62 @@ bool createNetwork(Network *network)
 }
 
 //Poisson Sprinkling
-bool generateNodes(Network *network, float &eta0, bool &use_gpu)
+bool generateNodes(Network *network, bool &use_gpu)
 {
 	if (use_gpu) {
-		if (!generateNodesGPU(network, eta0))
+		if (!generateNodesGPU(network))
 			return false;
 	} else {
+		//Initialize Newton-Raphson Parameters
+		NewtonProperties np = NewtonProperties(network->network_properties.zeta, TOL, network->network_properties.N, network->network_properties.k, network->network_properties.dim);
+
+		//Generate coordinates for each of N nodes
 		for (unsigned int i = 0; i < network->network_properties.N; i++) {
-			network->nodes[i].eta = atanf(ran2(&network->network_properties.seed) * tan(eta0));
-			//printf("Eta: %5.5f\n", network.nodes[i].eta);
+			network->nodes[i] = Node();
 
-			//Sample Theta from (0, 2pi)
+			///////////////////////////////////////////////////////////
+			//~~~~~~~~~~~~~~~~~~~~~~~~~Theta~~~~~~~~~~~~~~~~~~~~~~~~~//
+			//Sample Theta from (0, 2pi), as described on p. 2 of [1]//
+			///////////////////////////////////////////////////////////
+
 			network->nodes[i].theta = 2.0 * M_PI * ran2(&network->network_properties.seed);
-			//printf("Theta: %5.5f\n", network.nodes[i].theta);
+			//printf("Theta: %5.5f\n", network->nodes[i].theta);
 
-			if (network->network_properties.dim == 4) {
+			if (network->network_properties.dim == 2)
+				//CDF derived from PDF identified in (2) of [2]
+				network->nodes[i].tau = etaToTau(atan(ran2(&network->network_properties.seed) / tan(network->network_properties.zeta)), network->network_properties.a);
+			else if (network->network_properties.dim == 4) {
+				/////////////////////////////////////////////////
+				//~~~~~~~~~~~~~~~~~~~~~~Tau~~~~~~~~~~~~~~~~~~~~//
+				//CDF derived from PDF identified in (6) of [2]//
+				/////////////////////////////////////////////////
+
+				np.rval = ran2(&network->network_properties.seed);
+				np.x = etaToTau((M_PI / 2.0) - np.zeta, network->network_properties.a);	//Pick appropriate starting value for tau distribution
+				np.a = network->network_properties.a;	//Scaling from 'tau' to 't'
+				np.max = 1000;	//Max number of Netwon-Raphson iterations
+
+				newton(&solveTau, &np, &network->network_properties.seed);
+				network->nodes[i].tau = np.x;
+				
+				////////////////////////////////////////////////////
+				//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
+				//CDFs derived from PDFs identified on p. 3 of [2]//
+				////////////////////////////////////////////////////
+
 				//Sample Phi from (0, pi)
-				network->nodes[i].phi = powf((3.0 * M_PI / 2.0) * ran2(&network->network_properties.seed), 1.0 / 3.0);	//Gives phi between [0, pi/2] with O(phi^5) error
-				if (ran2(&network->network_properties.seed) > 0.5)	//Reflects half the time to double range to (0, pi)
-					network->nodes[i].phi = M_PI - network->nodes[i].phi;
-				//printf("Phi: %5.5f\n", network.nodes[i].phi);
+				np.x = M_PI / 2.0;
+				np.max = 100;
+
+				newton(&solvePhi, &np, &network->network_properties.seed);
+				network->nodes[i].phi = np.x;
+				//printf("Phi: %5.5f\n", network->nodes[i].phi);
 
 				//Sample Chi from (0, pi)
 				network->nodes[i].chi = acosf(1.0 - (2.0 * ran2(&network->network_properties.seed)));
-				//printf("Chi: %5.5f\n", network.nodes[i].chi);
+				//printf("Chi: %5.5f\n", network->nodes[i].chi);
 			}
-
-			network->nodes[i].num_in = 0;
-			network->nodes[i].num_out = 0;
+			//printf("Tau: %E\n", network->nodes[i].tau);
 		}
 	}
 
@@ -111,36 +152,36 @@ bool linkNodes(Network *network, bool &use_gpu)
 	for (unsigned int i = 0; i < network->network_properties.N - 1; i++) {
 		for (unsigned int j = i + 1; j < network->network_properties.N; j++) {
 			//Causal Condition (Light Cone)
-			if (network->network_properties.dim == 2) {
+			dt = tauToEta(network->nodes[j].tau, network->network_properties.a) - tauToEta(network->nodes[i].tau, network->network_properties.a);
+			//printf("dt: %5.8f\n", dt);
 
-				dt = network->nodes[j].eta - network->nodes[i].eta;
-				//printf("dt: %5.5f\n", dt);
+			//////////////////////////////////////////
+			//~~~~~~~~~~~Spatial Distances~~~~~~~~~~//
+			//////////////////////////////////////////
 
-				//Periodic Boundary Condition
+			if (network->network_properties.dim == 2)
+				//Formula given on p. 2 of [2]
 				dx = M_PI - fabs(M_PI - fabs(network->nodes[j].theta - network->nodes[i].theta));
-				//printf("dx: %5.5f\n", dx);
-			} else if (network->network_properties.dim == 4) {
-				//Transform coordinates so dS is embedded in 5D Euclidean manifold
-				//Distance measured there is equal due to  invariance
-				dx = sqrt(powf(Z1(network->network_properties.a, network->nodes[j].eta, network->nodes[j].phi) - Z1(network->network_properties.a, network->nodes[i].eta, network->nodes[i].phi), 2) +
-					powf(Z2(network->network_properties.a, network->nodes[j].eta, network->nodes[j].phi, network->nodes[j].chi) - Z2(network->network_properties.a, network->nodes[i].eta, network->nodes[i].phi, network->nodes[i].chi), 2) +
-					powf(Z3(network->network_properties.a, network->nodes[j].eta, network->nodes[j].phi, network->nodes[j].chi, network->nodes[j].theta) - Z3(network->network_properties.a, network->nodes[i].eta, network->nodes[i].phi, network->nodes[i].chi, network->nodes[i].theta), 2) +
-					powf(Z4(network->network_properties.a, network->nodes[j].eta, network->nodes[j].phi, network->nodes[j].chi, network->nodes[j].theta) - Z4(network->network_properties.a, network->nodes[i].eta, network->nodes[i].phi, network->nodes[i].chi, network->nodes[i].theta), 2) -
-					powf(Z0(network->network_properties.a, network->nodes[j].eta) - Z0(network->network_properties.a, network->nodes[i].eta), 2) +
-					powf(network->network_properties.a * (network->nodes[j].eta - network->nodes[i].eta) / sinf(network->nodes[i].eta), 2));
-			}
-			//printf("dx: %5.5f\n", dx);
-			
+			else if (network->network_properties.dim == 4)
+				//Spherical Law of Cosines
+				dx = acosf((X1(network->nodes[i].phi) * X1(network->nodes[j].phi)) + 
+					    (X2(network->nodes[i].phi, network->nodes[i].chi) * X2(network->nodes[j].phi, network->nodes[j].chi)) + 
+					    (X3(network->nodes[i].phi, network->nodes[i].chi, network->nodes[i].theta) * X3(network->nodes[j].phi, network->nodes[j].chi, network->nodes[j].theta)) + 
+					    (X4(network->nodes[i].phi, network->nodes[i].chi, network->nodes[i].theta) * X4(network->nodes[j].phi, network->nodes[j].chi, network->nodes[j].theta)));
+			//printf("dx: %5.8f\n", dx);
+						
+			//Ignore spacelike (non-causal) relations
 			if (dx > dt) continue;
-
+						
 			network->links[idx] = j;
 			idx++;
 
+			//Record number of degrees for each node
 			network->nodes[j].num_in++;
 			network->nodes[i].num_out++;
 		}
 	}
-	//printf("Idx: %5.5f\n", idx);
+	//printf("Forward Links: %u\n", idx);
 
 	printf("\tCausets Successfully Connected.\n");
 	return true;
@@ -149,14 +190,14 @@ bool linkNodes(Network *network, bool &use_gpu)
 //Plot using OpenGL
 bool displayNetwork(Node *nodes, unsigned int *links, int argc, char **argv)
 {
-	/*glutInit(&argc, argv);
+	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE);
 	glutInitWindowSize(900, 900);
 	glutInitWindowPosition(50, 50);
 	glutCreateWindow("Causets");
 	glutDisplayFunc(display);
 	glOrtho(0.0f, 0.01f, 0.0f, 6.3f, -1.0f, 1.0f);
-	glutMainLoop();*/
+	glutMainLoop();
 
 	return true;
 }
@@ -171,9 +212,12 @@ bool printNetwork(Network network)
 	
 	if (network.network_properties.flags.use_gpu)
 		sstm << "Dev" << gpuID << "_";
+	else
+		sstm << "CPU_";
 	sstm << network.network_properties.N << "_";
 	sstm << network.network_properties.k << "_";
-	sstm << network.network_properties.dim << "_";
+	sstm << network.network_properties.a << "_";
+	sstm << network.network_properties.dim;
 	sstm << "-" << (int)time(NULL);
 	std::string filename = sstm.str();
 
@@ -190,13 +234,19 @@ bool printNetwork(Network network)
 
 	outputStream << "\nCauset Input Parameters:" << std::endl;
 	outputStream << "------------------------" << std::endl;
-	outputStream << "Nodes (N)\t" << network.network_properties.N << std::endl;
-	outputStream << "Average Degrees (k)\t" << network.network_properties.k << std::endl;
+	outputStream << "Nodes (N)\t\t\t" << network.network_properties.N << std::endl;
+	outputStream << "Expected Average Degrees (k)\t" << network.network_properties.k << std::endl;
+	outputStream << "Pseudoradius (a)\t\t" << network.network_properties.a << std::endl;
+
+	outputStream << "\nCauset Calculated Values:" << std::endl;
+	outputStream << "--------------------------" << std::endl;
+	outputStream << "Maximum Conformal Time (eta_0)\t" << ((M_PI / 2.0) - network.network_properties.zeta) << std::endl;
+	outputStream << "Maximum Rescaled Time (tau_0)\t\t" << etaToTau((M_PI / 2.0) - network.network_properties.zeta, network.network_properties.a) << std::endl;
 
 	outputStream << "\nNetwork Analysis Results:" << std::endl;
 	outputStream << "-------------------------" << std::endl;
-	outputStream << "Node Position Data:\t" << "pos/" << filename << "_POS.cset" << std::endl;
-	outputStream << "Node Link Data:\t" << "lnk/" << filename << "_LNK.cset" << std::endl;
+	outputStream << "Node Position Data:\t\t" << "pos/" << filename << "_POS.cset" << std::endl;
+	outputStream << "Node Link Data:\t\t\t" << "lnk/" << filename << "_LNK.cset" << std::endl;
 	outputStream << "Degree Distribution Data:\t" << "dst/" << filename << "_DST.cset" << std::endl;
 
 	outputStream << "\nAlgorithmic Performance:" << std::endl;
@@ -209,7 +259,7 @@ bool printNetwork(Network network)
 
 	dataStream.open(("./dat/pos/" + filename + "_POS.cset").c_str());
 	for (unsigned int i = 0; i < network.network_properties.N; i++) {
-		dataStream << network.nodes[i].eta << " " << network.nodes[i].theta;
+		dataStream << tauToEta(network.nodes[i].tau, network.network_properties.a) << " " << network.nodes[i].theta;
 		if (network.network_properties.dim == 4)
 			dataStream << " " << network.nodes[i].phi << " " << network.nodes[i].chi;
 		dataStream << std::endl;
@@ -232,13 +282,14 @@ bool printNetwork(Network network)
 		dataStream << (network.nodes[i].num_in + network.nodes[i].num_out) << std::endl;
 	dataStream.flush();
 	dataStream.close();
-
-	printf("Completed.\n");
-	printf("Filename: %s.cset\n\n", filename.c_str());
+	
+	printf("\tFilename: %s.cset\n", filename.c_str());
+	printf("\tCompleted.\n\n");
 
 	return true;
 }
 
+//Free Memory
 bool destroyNetwork(Network *network)
 {
 	free(network->nodes);	network->nodes = NULL;	hostMemUsed -= sizeof(Node) * network->network_properties.N;
@@ -250,30 +301,8 @@ bool destroyNetwork(Network *network)
 	return true;
 }
 
-//Newton-Raphson Method
-//Solves Transcendental Equation for eta0
-//Eta0 in (-pi/2, pi/2)
-float newton(float guess, unsigned int &max_iter, unsigned int &N, unsigned int &k, unsigned int &dim)
-{
-	float res, x0, x1;
-	res = 1.0;
-	x0 = guess;
-
-	int iter = 0;
-	while (fabs(res) > TOL && iter < max_iter) {
-		if (dim == 2)
-			x1 = x0 - (f2D(x0, N, k) / fprime2D(x0));
-		else if (dim == 4)
-			x1 = x0 - (f4D(x0) / fprime4D(x0));
-		res = x1 - x0;
-		x0 = x1;
-		iter++;
-	}
-
-	return x0;
-}
-
-void quicksort(Node *nodes, int low, int high)
+//Sort nodes temporally by eta coordinate
+void quicksort(Node *nodes, double a, int low, int high)
 {
 	int i, j, k;
 	float key;
@@ -281,25 +310,26 @@ void quicksort(Node *nodes, int low, int high)
 	if (low < high) {
 		k = (low + high) / 2;
 		swap(&nodes[low], &nodes[k]);
-		key = nodes[low].eta;
+		key = tauToEta(nodes[low].tau, a);
 		i = low + 1;
 		j = high;
 
 		while (i <= j) {
-			while ((i <= high) && (nodes[i].eta <= key))
+			while ((i <= high) && (tauToEta(nodes[i].tau, a) <= key))
 				i++;
-			while ((j >= low) && (nodes[j].eta > key))
+			while ((j >= low) && (tauToEta(nodes[j].tau, a) > key))
 				j--;
 			if (i < j)
 				swap(&nodes[i], &nodes[j]);
 		}
 
 		swap(&nodes[low], &nodes[j]);
-		quicksort(nodes, low, j - 1);
-		quicksort(nodes, j + 1, high);
+		quicksort(nodes, a, low, j - 1);
+		quicksort(nodes, a, j + 1, high);
 	}
 }
 
+//Exchange two nodes
 void swap(Node *n, Node *m)
 {
 	Node temp;
@@ -308,56 +338,40 @@ void swap(Node *n, Node *m)
 	*m = temp;
 }
 
-inline float f2D(float &x, unsigned int &N, unsigned int &k)
+//Newton-Raphson Method
+//Solves Transcendental Equations
+void newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *seed)
 {
-	return ((2.0 / M_PI) * (((x / tanf(x)) + logf(1.0 / cosf(x)) - 1.0) / tanf(x))) - ((float)k / N);
+	double x1;
+	double res = 1.0;
+
+	int iter = 0;
+	while (abs(res) > np->tol && iter < np->max) {
+		res = (*solve)(np);
+		//printf("res: %E\n", res);
+		if (res != res) {
+			printf("NaN Error in Newton-Raphson\n");
+			exit(0);
+		}
+
+		x1 = np->x + res;
+		//printf("x1: %E\n", x1);
+
+		np->x = x1;
+		iter++;
+	}
+
+	//printf("Newton-Raphson Results:\n");
+	//printf("Tolerance: %E\n", np->tol);
+	//printf("%d of %d iterations performed.\n", iter, np->max);
+	//printf("Residual: %E\n", res);
+	//printf("Solution: %E\n", np->x);
 }
 
-inline float fprime2D(float &x)
-{
-	return (2.0 / M_PI) * (((1.0 / tanf(x)) * ((1.0 / tanf(x)) - (x / (sinf(x) * sinf(x))) + tanf(x))) - ((1.0 / (sinf(x) * sinf(x))) * (logf(1.0 / cosf(x)) + (x / tanf(x)) - 1.0)));
-}
-
-inline float f4D(float &x)
-{
-	return (2.0 / (3.0 * M_PI)) * ((12 * ((x / tanf(x)) + logf(1.0 / cosf(x)))) + (((6 * logf(1.0 / cosf(x))) - 5.0) * (1.0 / (cosf(x) * cosf(x)))) - 7.0) / (powf((2.0 + (1.0 / (cosf(x) * cosf(x)))), 2) * tanf(x));
-}
-
-inline float fprime4D(float &x)
-{
-	return (2.0 / (3.0 * M_PI)) * ((-4 * (1.0 / cosf(x) * cosf(x)) * (-7.0 + 12.0 * ((x / tanf(x)) + logf(1.0 / cosf(x))) + (-5.0 + 6.0 * logf(1.0 / cosf(x))) * (1.0 / (cosf(x) * cosf(x))))) / (powf(2.0 + (1.0 / (cosf(x) * cosf(x))), 3))
-		- (1.0 / (sinf(x) * sinf(x)) * (-7.0 + 12.0 * ((x / tanf(x)) + logf(1.0 / cosf(x))) + (-5.0 + 6.0 * logf(1.0 / cosf(x))) * (1.0 / (cosf(x) * cosf(x))))) / (powf(2.0 + (1.0 / (cosf(x) * cosf(x))), 2))
-		+ (1.0 / (powf(2.0 + (1.0 / (cosf(x) * cosf(x))), 2))) * (1.0 / tanf(x)) * ((6.0 * tanf(x) / (cosf(x) * cosf(x))) + 2.0 * (-5.0 + 6.0 * logf(1.0 / cosf(x))) * tanf(x) / (cosf(x) * cosf(x))) + 12.0 * ((1.0 / tanf(x)) - x * (1.0 / (sinf(x) * sinf(x))) + tanf(x)));
-}
-
-inline float Z0(float &a, float &eta)
-{
-	return a * tanf(eta);
-}
-
-inline float Z1(float &a, float &eta, float &phi)
-{
-	return a * (1.0 / cosf(eta)) * cosf(phi);
-}
-
-inline float Z2(float &a, float &eta, float &phi, float &chi)
-{
-	return a * (1.0 / cosf(eta)) * sinf(phi) * cosf(chi);
-}
-
-inline float Z3(float &a, float &eta, float &phi, float &chi, float &theta)
-{
-	return a * (1.0 / cosf(eta)) * sinf(phi) * sinf(chi) * cosf(theta);
-}
-
-inline float Z4(float &a, float &eta, float &phi, float &chi, float &theta)
-{
-	return a * (1.0 / cosf(eta)) * sinf(phi) * sinf(chi) * sinf(theta);
-}
-
+//Display Function for OpenGL Instructions
 void display()
 {
-	/*glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glBegin(GL_LINES);
@@ -366,7 +380,7 @@ void display()
 	glEnd();
 
 	glLoadIdentity();
-	glutSwapBuffers();*/
+	glutSwapBuffers();
 }
 
 #endif

@@ -13,7 +13,7 @@ __global__ void Generate(Node *nodes, unsigned int N, long seed)
 	//Implement CURAND package here for random number generation
 }
 
-bool generateNodesGPU(Network *network, float &eta0)
+bool generateNodesGPU(Network *network)
 {
 	//Invoke Kernel
 	Generate<<<network->network_properties.network_exec.blocks_per_grid, network->network_properties.network_exec.threads_per_block>>>((Node*)network->d_nodes, network->network_properties.N, network->network_properties.seed);

@@ -1,0 +1,22 @@
+Causet Simulation
+23:38:02 11/20/13
+
+Causet Input Parameters:
+------------------------
+Nodes (N)			10000
+Expected Average Degrees (k)	10
+Pseudoradius (a)		1
+
+Causet Calculated Values:
+--------------------------
+Maximum Conformal Time (eta_0)	1.49371
+Maximum Rescaled Time (tau_0)		3.25545
+
+Network Analysis Results:
+-------------------------
+Node Position Data:		pos/CPU_10000_10_1_4-1385008682_POS.cset
+Node Link Data:			lnk/CPU_10000_10_1_4-1385008682_LNK.cset
+Degree Distribution Data:	dst/CPU_10000_10_1_4-1385008682_DST.cset
+
+Algorithmic Performance:
+--------------------------

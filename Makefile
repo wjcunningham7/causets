@@ -14,7 +14,7 @@ LIBS 		 = -L/usr/lib/nvidia-current/ -lcuda -L$(LD_LIBRARY_PATH) -L$(CUDA_HOME)/
 NVCCFLAGS 	:= -arch=sm_30 -O3 -G -g
 
 SOURCES		:= $(SRCDIR)/Causet.cu
-HEADERS		:= $(INCDIR)/shrQATest.h $(INCDIR)/shrUtils.h $(INCDIR)/stopwatch.h $(INCDIR)/ran2.h $(INCDIR)/CuResources.hpp $(INCDIR)/Causet.hpp $(INCDIR)/GPUSubroutines.hpp $(INCDIR)/CausetSubroutines.hpp $(INCDIR)/CausetSubroutines.cuh $(INCDIR)/GPUSubroutines.cuh
+HEADERS		:= $(INCDIR)/shrQATest.h $(INCDIR)/shrUtils.h $(INCDIR)/stopwatch.h $(INCDIR)/ran2.h $(INCDIR)/CuResources.hpp $(INCDIR)/Causet.hpp $(INCDIR)/GPUSubroutines.hpp $(INCDIR)/CausetOperations.hpp $(INCDIR)/CausetSubroutines.hpp $(INCDIR)/CausetSubroutines.cuh $(INCDIR)/GPUSubroutines.cuh $(INCDIR)/CausetOperations.cuh
 OBJS		:= $(patsubst %.cu, %.cu_o, $(SOURCES))
  
 %.cu_o : %.cu 

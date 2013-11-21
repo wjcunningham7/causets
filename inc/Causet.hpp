@@ -12,14 +12,22 @@
 #include "CuResources.hpp"
 #include "ran2.h"
 
-#define TOL (10^-6)
+#define TOL (1e-28)
+
+////////////////////////////////////////////////////////////////////////////
+//References
+//[1] Network Cosmology
+//    http://www.nature.com/srep/2012/121113/srep00793/full/srep00793.html
+//[2] Supplementary Information for Network Cosmology
+//    http://complex.ffn.ub.es/~mbogunya/archivos_cms/files/srep00793-s1.pdf
+////////////////////////////////////////////////////////////////////////////
 
 struct Node {
-	Node() : eta(0.0), theta(0.0), phi(0.0), chi(0.0), num_in(0), num_out(0) {}
-	Node(float _eta, float _theta, float _phi, float _chi, unsigned int _num_in, unsigned int _num_out) : eta(_eta), theta(_theta), phi(_phi), chi(_chi), num_in(_num_in), num_out(_num_out) {}
+	Node() : tau(0.0), theta(0.0), phi(0.0), chi(0.0), num_in(0), num_out(0) {}
+	Node(float _tau, float _theta, float _phi, float _chi, unsigned int _num_in, unsigned int _num_out) : tau(_tau), theta(_theta), phi(_phi), chi(_chi), num_in(_num_in), num_out(_num_out) {}
 
 	//Temporal Coordinate
-	float eta;
+	float tau;
 
 	//Spatial Coordinates
 	float theta;
@@ -50,8 +58,8 @@ struct NetworkExec {
 };
 
 struct NetworkProperties {
-	NetworkProperties() : N(10000), k(10), dim(2), a(1.0), subnet_size(104857600), seed(4357398L), flags(CausetFlags()), network_exec(NetworkExec()) {}
-	NetworkProperties(unsigned int _N, unsigned int _k, unsigned int _dim, float _a, size_t _subnet_size, long _seed, CausetFlags _flags, NetworkExec _network_exec) : N(_N), k(_k), dim(_dim), a(_a), subnet_size(_subnet_size), seed(_seed), flags(_flags), network_exec(_network_exec) {}
+	NetworkProperties() : N(10000), k(10), dim(4), a(1.0), zeta(0.0), subnet_size(104857600), seed(4357398L), flags(CausetFlags()), network_exec(NetworkExec()) {}
+	NetworkProperties(unsigned int _N, unsigned int _k, unsigned int _dim, float _a, double _zeta, size_t _subnet_size, long _seed, CausetFlags _flags, NetworkExec _network_exec) : N(_N), k(_k), dim(_dim), a(_a), zeta(_zeta), subnet_size(_subnet_size), seed(_seed), flags(_flags), network_exec(_network_exec) {}
 
 	CausetFlags flags;
 	NetworkExec network_exec;
@@ -61,6 +69,7 @@ struct NetworkProperties {
 	unsigned int dim;		//Spacetime Dimension (2 or 4)
 
 	float a;			//Hyperboloid Pseudoradius
+	double zeta;			//Pi/2 - Eta_0
 
 	size_t subnet_size;	//Maximum Contiguous Memory Request (Default 100 MB)
 
@@ -158,6 +167,18 @@ NetworkProperties parseArgs(int argc, char **argv)
 	}
 
 	return network_properties;
+}
+
+void printValues(Node *values, unsigned int num_vals, char *filename)
+{
+	std::ofstream outputStream;
+	outputStream.open(filename);
+
+	for (unsigned int i = 0; i < num_vals; i++)
+		outputStream << values[i].tau << std::endl;
+	
+	outputStream.flush();
+	outputStream.close();
 }
 
 #endif

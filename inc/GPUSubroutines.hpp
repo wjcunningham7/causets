@@ -5,6 +5,6 @@
 
 __global__ void Generate(Node *nodes, unsigned int N, long seed);
 
-bool generateNodesGPU(Network *network, float &eta0);
+bool generateNodesGPU(Network *network);
 
 #endif
