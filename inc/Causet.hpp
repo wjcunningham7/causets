@@ -9,6 +9,8 @@
 #include <sstream>
 #include <string>
 
+#include <curand.h>
+
 #include "CuResources.hpp"
 #include "ran2.h"
 
@@ -58,8 +60,8 @@ struct NetworkExec {
 };
 
 struct NetworkProperties {
-	NetworkProperties() : N(10000), k(10), dim(4), a(1.0), zeta(0.0), subnet_size(104857600), seed(4357398L), flags(CausetFlags()), network_exec(NetworkExec()) {}
-	NetworkProperties(unsigned int _N, unsigned int _k, unsigned int _dim, float _a, double _zeta, size_t _subnet_size, long _seed, CausetFlags _flags, NetworkExec _network_exec) : N(_N), k(_k), dim(_dim), a(_a), zeta(_zeta), subnet_size(_subnet_size), seed(_seed), flags(_flags), network_exec(_network_exec) {}
+	NetworkProperties() : N(10000), k(10), dim(4), a(1.0), zeta(0.0), subnet_size(104857600), core_edge_ratio(0.01), seed(4357398L), flags(CausetFlags()), network_exec(NetworkExec()) {}
+	NetworkProperties(unsigned int _N, unsigned int _k, unsigned int _dim, float _a, double _zeta, size_t _subnet_size, float _core_edge_ratio, long _seed, CausetFlags _flags, NetworkExec _network_exec) : N(_N), k(_k), dim(_dim), a(_a), zeta(_zeta), subnet_size(_subnet_size), core_edge_ratio(_core_edge_ratio), seed(_seed), flags(_flags), network_exec(_network_exec) {}
 
 	CausetFlags flags;
 	NetworkExec network_exec;
@@ -71,23 +73,26 @@ struct NetworkProperties {
 	float a;			//Hyperboloid Pseudoradius
 	double zeta;			//Pi/2 - Eta_0
 
-	size_t subnet_size;	//Maximum Contiguous Memory Request (Default 100 MB)
+	size_t subnet_size;		//Maximum Contiguous Memory Request (Default 100 MB)
+	float core_edge_ratio;	//Fraction of nodes designated as having core edges
 
 	long seed;
 };
 
 struct Network {
-	Network() : network_properties(NetworkProperties()), nodes(NULL), links(NULL) {}
-	Network(NetworkProperties _network_properties) : network_properties(_network_properties), nodes(NULL), links(NULL) {}
-	Network(NetworkProperties _network_properties, Node *_nodes, unsigned int *_links) : network_properties(_network_properties), nodes(_nodes), links(_links) {}
+	Network() : network_properties(NetworkProperties()), nodes(NULL), edges(NULL), edge_row_start(NULL), core_edge_exists(NULL) {}
+	Network(NetworkProperties _network_properties) : network_properties(_network_properties), nodes(NULL), edges(NULL), edge_row_start(NULL), core_edge_exists(NULL) {}
+	Network(NetworkProperties _network_properties, Node *_nodes, unsigned int *_edges, unsigned int *_edge_row_start, bool *_core_edge_exists) : network_properties(_network_properties), nodes(_nodes), edges(_edges), edge_row_start(_edge_row_start), core_edge_exists(_core_edge_exists) {}
 
 	NetworkProperties network_properties;
 	Node *nodes;
-	unsigned int *links;	//Connections between Nodes
+	unsigned int *edges;			//Sparse adjacency list
+	unsigned int *edge_row_start;	//Adjacency list indices for outer nodes
+	bool *core_edge_exists;		//Adjacency matrix for core nodes
 
 	//GPU Memory Pointers
 	CUdeviceptr d_nodes;
-	CUdeviceptr d_links;
+	CUdeviceptr d_edges;
 };
 
 class CausetException : public std::exception
@@ -107,7 +112,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 {
 	NetworkProperties network_properties = NetworkProperties();
 	int c, longIndex;
-	static const char *optString = ":n:k:d:s:a:h";
+	static const char *optString = ":n:k:d:s:a:c:h";
 	static const struct option longOpts[] = {
 		{ "help", no_argument, NULL, 'h' },
 		{ "gpu", no_argument, NULL, 0 },
@@ -142,6 +147,9 @@ NetworkProperties parseArgs(int argc, char **argv)
 		case 'a':
 			network_properties.a = atof(optarg);
 			break;
+		case 'c':
+			network_properties.core_edge_ratio = atof(optarg);
+			break;
 		case 0:
 			if (strcmp("gpu", longOpts[longIndex].name) == 0)
 				network_properties.flags.use_gpu = true;
@@ -154,7 +162,23 @@ NetworkProperties parseArgs(int argc, char **argv)
 				network_properties.subnet_size = size_t(atof(optarg) * 1048576);
 			break;
 		case 'h':
-			printf("Don't forget to make help menu\n");
+			printf("\nUsage  : CausalSet [options]\n\n");
+			printf("CausalSet Options...................\n");
+			printf("====================================\n");
+			printf("Flag:\tParam.:\t\tVariable:\t\t\tSuggested Values:\n");
+			printf("  -N\t<int>\t\tNumber of Nodes\t\t\t100-100000\n");
+			printf("  -k\t<int>\t\tExpected Average Degrees\t10-100\n");
+			printf("  -d\t<int>\t\tSpacetime Dimensions\t\t2 or 4\n");
+			printf("  -s\t<long>\t\tRNG Seed\t\t\t12345L\n");
+			printf("  -a\t<double>\tPseudoradius\t\t\t~1.0\n");
+			printf("  -c\t<double>\tCore Edge Ratio\t\t\t~0.01\n");
+
+			printf("\n");
+			printf("Flag:\t\tPurpose:\n");
+			printf(" --gpu\t\tUse GPU\n");
+			printf(" --print\tPrint Results\n");
+			printf(" --display\tDisplay Graph\n");
+			printf("\n");
 			exit(EXIT_SUCCESS);
 		case ':':
 			fprintf(stderr, "%s: option '-%c' requires an argument\n", argv[0], optopt);
@@ -174,8 +198,8 @@ void printValues(Node *values, unsigned int num_vals, char *filename)
 	std::ofstream outputStream;
 	outputStream.open(filename);
 
-	for (unsigned int i = 0; i < num_vals; i++)
-		outputStream << values[i].tau << std::endl;
+	//for (unsigned int i = 0; i < num_vals; i++)
+	//	outputStream << values[i].tau << std::endl;
 	
 	outputStream.flush();
 	outputStream.close();

@@ -7,11 +7,9 @@
 //Returns zeta Residual
 inline double solveZeta(NewtonProperties *np)
 {
-	/*return (np->dim == 2) ? 
+	return (np->dim == 2) ?
 		-1.0 * eta02D(np->x, np->N, np->k) / eta0Prime2D(np->x) : 
-		-1.0 * eta04D(np->x, np->N, np->k) / eta0Prime4D(np->x);*/
-
-	return -1.0 * zeta4D(np->x, np->N, np->k) / zetaPrime4D(np->x);
+		-1.0 * zeta4D(np->x, np->N, np->k) / zetaPrime4D(np->x);
 }
 
 //Returns tau Residual
@@ -30,7 +28,7 @@ inline double solvePhi(NewtonProperties *np)
 //Secondary Newton-Raphson Functions
 ////////////////////////////////////
 
-/*inline double eta02D(double &x, unsigned int &N, unsigned int &k)
+inline double eta02D(double &x, unsigned int &N, unsigned int &k)
 {
 	return ((2.0 / M_PI) * (((x / tan(x)) + log(1.0 / cos(x)) - 1.0) / tan(x))) - ((double)k / N);
 }
@@ -38,24 +36,24 @@ inline double solvePhi(NewtonProperties *np)
 inline double eta0Prime2D(double &x)
 {
 	return (2.0 / M_PI) * (((1.0 / tan(x)) * ((1.0 / tan(x)) - (x / (sin(x) * sin(x))) + tan(x))) - ((1.0 / (sin(x) * sin(x))) * (log(1.0 / cos(x)) + (x / tan(x)) - 1.0)));
-}*/
+}
 
 inline double zeta4D(double &x, unsigned int &N, unsigned int &k)
 {
 	return ((2.0 / (3.0 * M_PI)) * (12.0 * (((M_PI / 2.0) - x) * tan(x) + log(1.0 / sin(x))) + ((6.0 * log(1.0 / sin(x)) - 5.0) / (sin(x) * sin(x))) - 7) / ((2.0 + (1.0 / (sin(x) * sin(x)))) * (2.0 + (1.0 / (sin(x) * sin(x)))) / tan(x))) - ((double)k / N);
 }
 
-double zetaPrime4D(double &x)
+inline double zetaPrime4D(double &x)
 {
 	return (3.0 * (cos(5.0 * x) - 32.0 * (M_PI - 2.0 * x) * sin(x) * sin(x) * sin(x)) + cos(x) * (84.0 - 72.0 * log(1.0 / sin(x))) + cos(3.0 * x) * (24.0 * log(1.0 / sin(x)) - 31.0)) / (-4.0 * M_PI * sin(x) * sin(x) * sin(x) * sin(x) * cos(x) * cos(x) * cos(x) * pow(2.0 + (1.0 / (sin(x) * sin(x))), 3.0));
 }
 
-double tau4D(double &x, double &zeta, double &a, double rval)
+inline double tau4D(double &x, double &zeta, double &a, double rval)
 {
 	return ((cosh(a * x) * cosh(a * x) + 2.0) * sinh(a * x) / ((2.0 + 1.0 / (sin(zeta) * sin(zeta))) / tan(zeta))) - rval;
 }
 
-double tauPrime4D(double &x, double &zeta, double &a)
+inline double tauPrime4D(double &x, double &zeta, double &a)
 {
 	return 3.0 * a * cosh(a * x) * cosh(a * x) * cosh(a * x) / ((2.0 + 1.0 / (sin(zeta) * sin(zeta))) / tan(zeta));
 }

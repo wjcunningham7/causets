@@ -12,7 +12,7 @@ bool initializeNetwork(Network *network);
 bool createNetwork(Network *network);
 bool generateNodes(Network *network, bool &use_gpu);
 bool linkNodes(Network *network, bool &use_gpu);
-bool displayNetwork(Node *nodes, unsigned int *links, int argc, char **argv);
+bool displayNetwork(Node *nodes, unsigned int *edges, int argc, char **argv);
 bool printNetwork(Network network);
 bool destroyNetwork(Network *network);
 

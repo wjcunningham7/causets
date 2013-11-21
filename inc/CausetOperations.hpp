@@ -30,8 +30,8 @@ double solveTau(NewtonProperties *np);
 double solvePhi(NewtonProperties *np);
 
 //Secondary Newton-Raphson Functions
-//double eta02D(double &x, unsigned int &N, unsigned int &k);
-//double eta0Prime2D(double &x);
+double eta02D(double &x, unsigned int &N, unsigned int &k);
+double eta0Prime2D(double &x);
 
 double zeta4D(double &x, unsigned int &N, unsigned int &k);
 double zetaPrime4D(double &x);

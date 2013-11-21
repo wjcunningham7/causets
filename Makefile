@@ -9,7 +9,7 @@ CUDA_HOME 	?= /usr/local/cuda
 NVCC 		?= $(CUDA_HOME)/bin/nvcc
 CXX 		?= /usr/bin/g++
 INCD 		 = -I"$(CUDA_SDK_PATH)/common/inc" -I"$(CUDA_HOME)/include" -I"./" -I$(INCDIR)
-LIBS 		 = -L/usr/lib/nvidia-current/ -lcuda -L$(LD_LIBRARY_PATH) -L$(CUDA_HOME)/lib64/ -lcudart -lcublas -L"$(CUDA_SDK_PATH)/common/lib" -lstdc++ -lpthread -lm -lGLU -lglut
+LIBS 		 = -L/usr/lib/nvidia-current/ -lcuda -L$(LD_LIBRARY_PATH) -L$(CUDA_HOME)/lib64/ -lcudart -lcurand -L"$(CUDA_SDK_PATH)/common/lib" -lstdc++ -lpthread -lm -lGLU -lglut
 
 NVCCFLAGS 	:= -arch=sm_30 -O3 -G -g
 
@@ -27,4 +27,4 @@ clean:
 	rm -f $(SRCDIR)/*.cu_o ./*.pyc ./*.mek
 
 cleandata:
-	rm -f $(DATDIR)/*.cset $(DATDIR)/pos/*.cset $(DATDIR)/lnk/*.cset $(DATDIR)/dst/*.cset
+	rm -f $(DATDIR)/*.cset $(DATDIR)/pos/*.cset $(DATDIR)/edg/*.cset $(DATDIR)/dst/*.cset

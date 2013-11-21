@@ -17,8 +17,14 @@ bool initializeNetwork(Network *network)
 	//Solve for eta0 using Newton-Raphson Method
 	double guess = 0.08;
 	NewtonProperties np = NewtonProperties(guess, TOL, 10000, network->network_properties.N, network->network_properties.k, network->network_properties.dim);
+	if (network->network_properties.dim == 2)
+		np.x = (M_PI / 2.0) - 0.0001;
+
 	newton(&solveZeta, &np, &network->network_properties.seed);
 	network->network_properties.zeta = np.x;
+	if (network->network_properties.dim == 2)
+		network->network_properties.zeta = (M_PI / 2.0) - np.x;
+
 	printf("\tTranscendental Equation Solved:\n");
 	//printf("\t\tZeta: %5.8f\n", network->network_properties.zeta);
 	printf("\t\tMaximum Conformal Time: %5.8f\n", (M_PI / 2.0) - network->network_properties.zeta);
@@ -35,7 +41,7 @@ bool initializeNetwork(Network *network)
 	quicksort(network->nodes, network->network_properties.a, low, high);
 	printf("\tQuick sort successfully performed.\n");
 
-	//Identify links as points connected by timelike intervals
+	//Identify edges as points connected by timelike intervals
 	if (!linkNodes(network, network->network_properties.flags.use_gpu))
 		return false;
 
@@ -55,16 +61,24 @@ bool createNetwork(Network *network)
 		hostMemUsed += sizeof(Node) * network->network_properties.N;
 		//printMemUsed("Memory Allocated for Nodes", hostMemUsed, devMemUsed);
 
-		network->links = (unsigned int*)malloc(sizeof(Node) * network->network_properties.N * network->network_properties.k / 2);
-		if (network->links == NULL) throw std::bad_alloc();
+		network->edges = (unsigned int*)malloc(sizeof(Node) * network->network_properties.N * network->network_properties.k / 2);
+		if (network->edges == NULL) throw std::bad_alloc();
 		hostMemUsed += sizeof(Node) * network->network_properties.N * network->network_properties.k / 2;
+
+		network->edge_row_start = (unsigned int*)malloc(sizeof(unsigned int) * (network->network_properties.N - 1));
+		if (network->edge_row_start == NULL) throw std::bad_alloc();
+		hostMemUsed += sizeof(unsigned int) * (network->network_properties.N - 1);
+
+		network->core_edge_exists = (bool*)malloc(sizeof(bool) * powf(network->network_properties.core_edge_ratio * network->network_properties.N, 2.0));
+		if (network->core_edge_exists == NULL) throw std::bad_alloc();
+		hostMemUsed += sizeof(bool) * powf(network->network_properties.core_edge_ratio * network->network_properties.N, 2.0);
 
 		//Allocate memory on GPU if necessary
 		if (network->network_properties.flags.use_gpu) {
 			checkCudaErrors(cuMemAlloc(&network->d_nodes, sizeof(Node) * network->network_properties.N));
 			devMemUsed += sizeof(Node) * network->network_properties.N;
 
-			checkCudaErrors(cuMemAlloc(&network->d_links, sizeof(Node) * network->network_properties.N * network->network_properties.k / 2));
+			checkCudaErrors(cuMemAlloc(&network->d_edges, sizeof(Node) * network->network_properties.N * network->network_properties.k / 2));
 			devMemUsed += sizeof(Node) * network->network_properties.N * network->network_properties.k / 2;
 		}
 
@@ -150,6 +164,7 @@ bool linkNodes(Network *network, bool &use_gpu)
 	unsigned int idx  = 0;
 
 	for (unsigned int i = 0; i < network->network_properties.N - 1; i++) {
+		network->edge_row_start[i] = idx;
 		for (unsigned int j = i + 1; j < network->network_properties.N; j++) {
 			//Causal Condition (Light Cone)
 			dt = tauToEta(network->nodes[j].tau, network->network_properties.a) - tauToEta(network->nodes[i].tau, network->network_properties.a);
@@ -169,11 +184,19 @@ bool linkNodes(Network *network, bool &use_gpu)
 					    (X3(network->nodes[i].phi, network->nodes[i].chi, network->nodes[i].theta) * X3(network->nodes[j].phi, network->nodes[j].chi, network->nodes[j].theta)) + 
 					    (X4(network->nodes[i].phi, network->nodes[i].chi, network->nodes[i].theta) * X4(network->nodes[j].phi, network->nodes[j].chi, network->nodes[j].theta)));
 			//printf("dx: %5.8f\n", dx);
+
+			//Core Edge Adjacency Matrix
+			if (i < network->network_properties.core_edge_ratio * network->network_properties.N && j < network->network_properties.core_edge_ratio * network->network_properties.N) {
+				if (dx > dt)
+					network->core_edge_exists[(unsigned int)(i * network->network_properties.core_edge_ratio * network->network_properties.N) + j] = false;
+				else
+					network->core_edge_exists[(unsigned int)(i * network->network_properties.core_edge_ratio * network->network_properties.N) + j] = true;
+			}
 						
 			//Ignore spacelike (non-causal) relations
 			if (dx > dt) continue;
 						
-			network->links[idx] = j;
+			network->edges[idx] = j;
 			idx++;
 
 			//Record number of degrees for each node
@@ -181,14 +204,14 @@ bool linkNodes(Network *network, bool &use_gpu)
 			network->nodes[i].num_out++;
 		}
 	}
-	//printf("Forward Links: %u\n", idx);
+	//printf("Forward Edges: %u\n", idx);
 
 	printf("\tCausets Successfully Connected.\n");
 	return true;
 }
 
 //Plot using OpenGL
-bool displayNetwork(Node *nodes, unsigned int *links, int argc, char **argv)
+bool displayNetwork(Node *nodes, unsigned int *edges, int argc, char **argv)
 {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE);
@@ -241,12 +264,12 @@ bool printNetwork(Network network)
 	outputStream << "\nCauset Calculated Values:" << std::endl;
 	outputStream << "--------------------------" << std::endl;
 	outputStream << "Maximum Conformal Time (eta_0)\t" << ((M_PI / 2.0) - network.network_properties.zeta) << std::endl;
-	outputStream << "Maximum Rescaled Time (tau_0)\t\t" << etaToTau((M_PI / 2.0) - network.network_properties.zeta, network.network_properties.a) << std::endl;
+	outputStream << "Maximum Rescaled Time (tau_0)\t" << etaToTau((M_PI / 2.0) - network.network_properties.zeta, network.network_properties.a) << std::endl;
 
 	outputStream << "\nNetwork Analysis Results:" << std::endl;
 	outputStream << "-------------------------" << std::endl;
 	outputStream << "Node Position Data:\t\t" << "pos/" << filename << "_POS.cset" << std::endl;
-	outputStream << "Node Link Data:\t\t\t" << "lnk/" << filename << "_LNK.cset" << std::endl;
+	outputStream << "Node Edge Data:\t\t\t" << "edg/" << filename << "_EDG.cset" << std::endl;
 	outputStream << "Degree Distribution Data:\t" << "dst/" << filename << "_DST.cset" << std::endl;
 
 	outputStream << "\nAlgorithmic Performance:" << std::endl;
@@ -268,10 +291,10 @@ bool printNetwork(Network network)
 	dataStream.close();
 
 	unsigned int idx = 0;
-	dataStream.open(("./dat/lnk/" + filename + "_LNK.cset").c_str());
+	dataStream.open(("./dat/edg/" + filename + "_EDG.cset").c_str());
 	for (unsigned int i = 0; i < network.network_properties.N - 1; i++) {
 		for (unsigned int j = 0; j < network.nodes[i].num_out; j++)
-			dataStream << i << " " << network.links[idx + j] << std::endl;
+			dataStream << i << " " << network.edges[idx + j] << std::endl;
 		idx += network.nodes[i].num_out;
 	}
 	dataStream.flush();
@@ -292,11 +315,13 @@ bool printNetwork(Network network)
 //Free Memory
 bool destroyNetwork(Network *network)
 {
-	free(network->nodes);	network->nodes = NULL;	hostMemUsed -= sizeof(Node) * network->network_properties.N;
-	free(network->links);	network->links = NULL;	hostMemUsed -= sizeof(Node) * network->network_properties.N * network->network_properties.k / 2;
+	free(network->nodes);		network->nodes = NULL;		hostMemUsed -= sizeof(Node)  * network->network_properties.N;
+	free(network->edges);		network->edges = NULL;		hostMemUsed -= sizeof(Node)  * network->network_properties.N * network->network_properties.k / 2;
+	free(network->edge_row_start);	network->edge_row_start = NULL;	hostMemUsed -= sizeof(unsigned int) * (network->network_properties.N - 1);
+	free(network->core_edge_exists);	network->core_edge_exists = NULL;	hostMemUsed -= sizeof(bool) * powf(network->network_properties.core_edge_ratio * network->network_properties.N, 2.0);
 
-	cuMemFree(network->d_nodes);	network->d_nodes = NULL;	devMemUsed -= sizeof(Node) * network->network_properties.N;
-	cuMemFree(network->d_links);	network->d_links = NULL;	devMemUsed -= sizeof(Node) * network->network_properties.N * network->network_properties.k / 2;
+	cuMemFree(network->d_nodes);	network->d_nodes = NULL;		devMemUsed  -= sizeof(Node)  * network->network_properties.N;
+	cuMemFree(network->d_edges);	network->d_edges = NULL;		devMemUsed  -= sizeof(Node)  * network->network_properties.N * network->network_properties.k / 2;
 
 	return true;
 }
