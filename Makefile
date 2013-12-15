@@ -14,7 +14,7 @@ LIBS 		 = -L/usr/lib/nvidia-current/ -lcuda -L$(LD_LIBRARY_PATH) -L$(CUDA_HOME)/
 NVCCFLAGS 	:= -arch=sm_30 -O3 -G -g
 
 SOURCES		:= $(SRCDIR)/Causet.cu
-HEADERS		:= $(INCDIR)/shrQATest.h $(INCDIR)/shrUtils.h $(INCDIR)/stopwatch.h $(INCDIR)/ran2.h $(INCDIR)/CuResources.hpp $(INCDIR)/Causet.hpp $(INCDIR)/GPUSubroutines.hpp $(INCDIR)/CausetOperations.hpp $(INCDIR)/CausetSubroutines.hpp $(INCDIR)/CausetSubroutines.cuh $(INCDIR)/GPUSubroutines.cuh $(INCDIR)/CausetOperations.cuh
+HEADERS		:= $(INCDIR)/shrQATest.h $(INCDIR)/shrUtils.h $(INCDIR)/stopwatch.h $(INCDIR)/ran2.h $(INCDIR)/CuResources.h $(INCDIR)/Causet.h $(INCDIR)/Subroutines.cu $(INCDIR)/Operations.cu $(INCDIR)/GPUSubroutines.cu $(INCDIR)/NetworkCreator.cu $(INCDIR)/Measurements.cu 
 OBJS		:= $(patsubst %.cu, %.cu_o, $(SOURCES))
  
 %.cu_o : %.cu 
@@ -27,4 +27,4 @@ clean:
 	rm -f $(SRCDIR)/*.cu_o ./*.pyc ./*.mek
 
 cleandata:
-	rm -f $(DATDIR)/*.cset $(DATDIR)/pos/*.cset $(DATDIR)/edg/*.cset $(DATDIR)/dst/*.cset
+	rm -f $(DATDIR)/*.cset $(DATDIR)/pos/*.cset $(DATDIR)/edg/*.cset $(DATDIR)/dst/*.cset $(DATDIR)/cls/*.cset $(DATDIR)/cdk/*.cset

@@ -1,1 +1,4 @@
-./bin/CausalSet -n 50000 -k 15 -d 4
+for i in {1..1000}
+do
+	./bin/CausalSet -C
+done
