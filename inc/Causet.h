@@ -16,6 +16,7 @@
 #include "ran2.h"
 
 #define TOL (1e-28)
+#define NPRINT 10000
 
 bool CAUSET_DEBUG = false;
 
@@ -65,7 +66,7 @@ struct NetworkExec {
 };
 
 struct NetworkProperties {
-	NetworkProperties() : N_tar(10000), k_tar(10.0), N_res(0), k_res(0.0), N_deg2(0), dim(4), a(1.0), zeta(0.0), subnet_size(104857600), core_edge_ratio(0.01), edge_buffer(10000), seed(4357398L), flags(CausetFlags()), network_exec(NetworkExec()) {}
+	NetworkProperties() : N_tar(10000), k_tar(10.0), N_res(0), k_res(0.0), N_deg2(0), dim(4), a(1.0), zeta(0.0), subnet_size(104857600), core_edge_ratio(0.01), edge_buffer(25000), seed(-12345L), flags(CausetFlags()), network_exec(NetworkExec()) {}
 	NetworkProperties(unsigned int _N_tar, float _k_tar, unsigned int _dim, float _a, double _zeta, size_t _subnet_size, float _core_edge_ratio, unsigned int _edge_buffer, long _seed, CausetFlags _flags, NetworkExec _network_exec) : N_tar(_N_tar), k_tar(_k_tar), N_res(0), k_res(0), N_deg2(0), dim(_dim), a(_a), zeta(_zeta), subnet_size(_subnet_size), core_edge_ratio(_core_edge_ratio), edge_buffer(_edge_buffer), seed(_seed), flags(_flags), network_exec(_network_exec) {}
 
 	CausetFlags flags;
@@ -85,7 +86,7 @@ struct NetworkProperties {
 	double zeta;			//Pi/2 - Eta_0
 
 	size_t subnet_size;		//Maximum Contiguous Memory Request (Default 100 MB)
-	float core_edge_ratio;	//Fraction of nodes designated as having core edges
+	float core_edge_ratio;		//Fraction of nodes designated as having core edges
 	unsigned int edge_buffer;	//Small memory buffer for adjacency list
 
 	long seed;
@@ -181,7 +182,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 			
 			break;
 		case 's':
-			network_properties.seed = atol(optarg);
+			network_properties.seed = -1.0 * atol(optarg);
 			break;
 		case 'a':
 			network_properties.a = atof(optarg);
@@ -240,7 +241,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 
 	if (!CAUSET_DEBUG) {
 		srand(time(NULL));
-		network_properties.seed = (long)time(NULL);
+		network_properties.seed = -1.0 * (long)time(NULL);
 	}
 
 	if (!network_properties.flags.calc_clustering && !CAUSET_DEBUG) {
@@ -251,18 +252,6 @@ NetworkProperties parseArgs(int argc, char **argv)
 	} 
 
 	return network_properties;
-}
-
-void printValues(Node *values, unsigned int num_vals, char *filename)
-{
-	std::ofstream outputStream;
-	outputStream.open(filename);
-
-	for (unsigned int i = 0; i < num_vals; i++)
-		outputStream << values[i].theta << std::endl;
-	
-	outputStream.flush();
-	outputStream.close();
 }
 
 #endif

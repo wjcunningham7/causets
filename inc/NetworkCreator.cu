@@ -9,6 +9,14 @@ bool createNetwork(Network *network);
 bool generateNodes(Network *network, bool &use_gpu);
 bool linkNodes(Network *network, bool &use_gpu);
 
+//Debugging
+void compareAdjacencyLists(Node *nodes, unsigned int *future_edges, int *future_edge_row_start, unsigned int *past_edges, int *past_edge_row_start);
+void compareAdjacencyListIndices(Node *nodes, unsigned int *future_edges, int *future_edge_row_start, unsigned int *past_edges, int *past_edge_row_start);
+
+//Printing
+void printValues(Node *values, unsigned int num_vals, char *filename);
+void printSpatialDistances(Node *nodes, unsigned int N_tar, unsigned int dim);
+
 //Allocates memory for network
 bool createNetwork(Network *network)
 {
@@ -81,7 +89,7 @@ bool generateNodes(Network *network, bool &use_gpu)
 			///////////////////////////////////////////////////////////
 
 			network->nodes[i].theta = 2.0 * M_PI * ran2(&network->network_properties.seed);
-			//printf("Theta: %5.5f\n", network->nodes[i].theta);
+			//if (i % NPRINT == 0) printf("Theta: %5.5f\n", network->nodes[i].theta);
 
 			if (network->network_properties.dim == 2)
 				//CDF derived from PDF identified in (2) of [2]
@@ -106,18 +114,14 @@ bool generateNodes(Network *network, bool &use_gpu)
 				////////////////////////////////////////////////////
 
 				//Sample Phi from (0, pi)
-				np.x = M_PI / 2.0;
-				np.max = 100;
-
-				newton(&solvePhi, &np, &network->network_properties.seed);
-				network->nodes[i].phi = np.x;
-				//printf("Phi: %5.5f\n", network->nodes[i].phi);
+				network->nodes[i].phi = (M_PI * ran2(&network->network_properties.seed) + asinf(ran2(&network->network_properties.seed)) + M_PI / 2.0) / 2.0;
+				//if (i % NPRINT == 0) printf("Phi: %5.5f\n", network->nodes[i].phi);
 
 				//Sample Chi from (0, pi)
-				network->nodes[i].chi = acosf(1.0 - (2.0 * ran2(&network->network_properties.seed)));
-				//printf("Chi: %5.5f\n", network->nodes[i].chi);
+				network->nodes[i].chi = acosf(1.0 - 2.0 * ran2(&network->network_properties.seed));
+				//if (i % NPRINT == 0) printf("Chi: %5.5f\n", network->nodes[i].chi);
 			}
-			//printf("Tau: %E\n", network->nodes[i].tau);
+			//if (i % NPRINT == 0) printf("Tau: %E\n", network->nodes[i].tau);
 		}
 	}
 
@@ -135,14 +139,13 @@ bool linkNodes(Network *network, bool &use_gpu)
 
 	//Identify future connections
 	for (unsigned int i = 0; i < network->network_properties.N_tar - 1; i++) {
-		if (i < core_limit)
-			network->core_edge_exists[(i*core_limit)+i] = false;
+		if (i < core_limit) network->core_edge_exists[(i*core_limit)+i] = false;
 		network->future_edge_row_start[i] = future_idx;
 
 		for (unsigned int j = i + 1; j < network->network_properties.N_tar; j++) {
 			//Apply Causal Condition (Light Cone)
-			dt = tauToEta(network->nodes[j].tau, network->network_properties.a) - tauToEta(network->nodes[i].tau, network->network_properties.a);
-			//printf("dt: %5.8f\n", dt);
+			dt = fabs(tauToEta(network->nodes[j].tau, network->network_properties.a) - tauToEta(network->nodes[i].tau, network->network_properties.a));
+			//if (i % NPRINT == 0) printf("dt: %.5f\n", dt);
 
 			//////////////////////////////////////////
 			//~~~~~~~~~~~Spatial Distances~~~~~~~~~~//
@@ -153,11 +156,12 @@ bool linkNodes(Network *network, bool &use_gpu)
 				dx = M_PI - fabs(M_PI - fabs(network->nodes[j].theta - network->nodes[i].theta));
 			else if (network->network_properties.dim == 4)
 				//Spherical Law of Cosines
-				dx = acosf((X1(network->nodes[i].phi) * X1(network->nodes[j].phi)) + 
-					    (X2(network->nodes[i].phi, network->nodes[i].chi) * X2(network->nodes[j].phi, network->nodes[j].chi)) + 
-					    (X3(network->nodes[i].phi, network->nodes[i].chi, network->nodes[i].theta) * X3(network->nodes[j].phi, network->nodes[j].chi, network->nodes[j].theta)) + 
-					    (X4(network->nodes[i].phi, network->nodes[i].chi, network->nodes[i].theta) * X4(network->nodes[j].phi, network->nodes[j].chi, network->nodes[j].theta)));
-			//printf("dx: %5.8f\n", dx);
+				dx = acosf(X1(network->nodes[i].phi) * X1(network->nodes[j].phi) + 
+					   X2(network->nodes[i].phi, network->nodes[i].chi) * X2(network->nodes[j].phi, network->nodes[j].chi) + 
+					   X3(network->nodes[i].phi, network->nodes[i].chi, network->nodes[i].theta) * X3(network->nodes[j].phi, network->nodes[j].chi, network->nodes[j].theta) + 
+					   X4(network->nodes[i].phi, network->nodes[i].chi, network->nodes[i].theta) * X4(network->nodes[j].phi, network->nodes[j].chi, network->nodes[j].theta));
+			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx);
+			//if (i % NPRINT == 0) printf("cos(dx): %.5f\n", cosf(dx));
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {
@@ -170,25 +174,28 @@ bool linkNodes(Network *network, bool &use_gpu)
 				}
 			}
 						
-			//Ignore spacelike (non-causal) relations
-			if (dx > dt) continue;
-			
-			network->future_edges[future_idx] = j;
-			future_idx++;
+			//Link timelike relations
+			if (dx < dt) {
+				//if (i % NPRINT == 0) printf("\tConnected %u to %u\n", i, j);
+				network->future_edges[future_idx] = j;
+				future_idx++;
 
-			if (future_idx == (network->network_properties.N_tar * network->network_properties.k_tar / 2) + network->network_properties.edge_buffer)
-				throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer.\n");
+				if (future_idx == (network->network_properties.N_tar * network->network_properties.k_tar / 2) + network->network_properties.edge_buffer)
+					throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer.\n");
 
-			//Record number of degrees for each node
-			network->nodes[j].num_in++;
-			network->nodes[i].num_out++;
+				//Record number of degrees for each node
+				network->nodes[j].num_in++;
+				network->nodes[i].num_out++;
+			}
 		}
 
 		//If there are no forward connections from node i, mark with -1
 		if (network->future_edge_row_start[i] == future_idx)
 			network->future_edge_row_start[i] = -1;
 	}
-	printf("\t\tForward Edges: %u\n", future_idx);
+	printf("\t\tEdges (forward): %u\n", future_idx);
+
+	//printSpatialDistances(network->nodes, network->network_properties.N_tar, network->network_properties.dim);
 
 	/*std::ofstream deg;
 	deg.open("degrees.txt", std::ios::app);
@@ -200,8 +207,7 @@ bool linkNodes(Network *network, bool &use_gpu)
 	for (unsigned int i = 1; i < network->network_properties.N_tar; i++) {
 		network->past_edge_row_start[i] = past_idx;
 		for (unsigned int j = 0; j < i; j++) {
-			if (network->future_edge_row_start[j] == -1)
-				continue;
+			if (network->future_edge_row_start[j] == -1) continue;
 
 			for (unsigned int k = 0; k < network->nodes[j].num_out; k++) {
 				if (i == network->future_edges[network->future_edge_row_start[j]+k]) {
@@ -216,86 +222,132 @@ bool linkNodes(Network *network, bool &use_gpu)
 			network->past_edge_row_start[i] = -1;
 	}
 	//The quantities future_idx and past_idx should be equal
-	//printf("\t\tBackward Edges: %u\n", past_idx);
+	//printf("\t\tEdges (backward): %u\n", past_idx);
 
 	//Identify Resulting Network
 	for (unsigned int i = 0; i < network->network_properties.N_tar; i++) {
-		if (network->nodes[i].num_in + network->nodes[i].num_out > 0) {
+		if (network->nodes[i].num_in > 0 || network->nodes[i].num_out > 0) {
 			network->network_properties.N_res++;
 			network->network_properties.k_res += network->nodes[i].num_in + network->nodes[i].num_out;
 
 			if (network->nodes[i].num_in + network->nodes[i].num_out > 1)
 				network->network_properties.N_deg2++;
-		}
+		} 
 	}
 	network->network_properties.k_res /= network->network_properties.N_res;
 
-	//Debug:  Future vs Past Edges in Adjacency List
-	/*for (unsigned int i = 0; i < 20; i++) {
-		printf("\nNode i: %d\n", i);
-
-		printf("Forward Connections:\n");
-		if (network->future_edge_row_start[i] == -1)
-			printf("\tNo future connections.\n");
-		else {
-			for (unsigned int j = 0; j < network->nodes[i].num_out && j < 10; j++)
-				printf("%d ", network->future_edges[network->future_edge_row_start[i]+j]);
-			printf("\n");
-		}
-
-		printf("Backward Connections:\n");
-		if (network->past_edge_row_start[i] == -1)
-			printf("\tNo past connections.\n");
-		else {
-			for (unsigned int j = 0; j < network->nodes[i].num_in && j < 10; j++)
-				printf("%d ", network->past_edges[network->past_edge_row_start[i]+j]);
-			printf("\n");
-		}
-	}*/
-
-	//Debug:  Future and Past Adjacency List Indices
-	/*printf("\nFuture Edge Indices:\n");
-	for (unsigned int i = 0; i < 20; i++)
-		printf("%d\n", network->future_edge_row_start[i]);
-	printf("\nPast Edge Indices:\n");
-	for (unsigned int i = 0; i < 20; i++)
-		printf("%d\n", network->past_edge_row_start[i]);
-
-	unsigned int next_future_idx, next_past_idx;
-	for (unsigned int i = 0; i < 20; i++) {
-		printf("\nNode i: %d\n", i);
-
-		printf("Out-Degrees: %u\n", network->nodes[i].num_out);
-		if (network->future_edge_row_start[i] == -1)
-			printf("Pointer: 0\n");
-		else {
-			for (unsigned int j = 1; j < 100; j++) {
-				if (network->future_edge_row_start[i+j] != -1) {
-					next_future_idx = j;
-					break;
-				}
-			}
-			printf("Pointer: %d\n", (network->future_edge_row_start[i+next_future_idx] - network->future_edge_row_start[i]));
-		}
-
-		printf("In-Degrees: %u\n", network->nodes[i].num_in);
-		if (network->past_edge_row_start[i] == -1)
-			printf("Pointer: 0\n");
-		else {
-			for (unsigned int j = 1; j < 100; j++) {
-				if (network->past_edge_row_start[i+j] != -1) {
-					next_past_idx = j;
-					break;
-				}
-			}
-			printf("Pointer: %d\n", (network->past_edge_row_start[i+next_past_idx] - network->past_edge_row_start[i]));
-		}
-	}*/
+	//Debugging Options
+	//compareAdjacencyLists(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
+	//compareAdjacencyListIndices(network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
 
 	printf("\tCausets Successfully Connected.\n");
 	printf("\t\tResulting Network Size: %u\n", network->network_properties.N_res);
 	printf("\t\tResulting Average Degree: %f\n", network->network_properties.k_res);
 	return true;
+}
+
+//Debug:  Future vs Past Edges in Adjacency List
+void compareAdjacencyLists(Node *nodes, unsigned int *future_edges, int *future_edge_row_start, unsigned int *past_edges, int *past_edge_row_start)
+{
+	for (unsigned int i = 0; i < 20; i++) {
+		printf("\nNode i: %d\n", i);
+
+		printf("Forward Connections:\n");
+		if (future_edge_row_start[i] == -1)
+			printf("\tNo future connections.\n");
+		else {
+			for (unsigned int j = 0; j < nodes[i].num_out && j < 10; j++)
+				printf("%d ", future_edges[future_edge_row_start[i]+j]);
+			printf("\n");
+		}
+
+		printf("Backward Connections:\n");
+		if (past_edge_row_start[i] == -1)
+			printf("\tNo past connections.\n");
+		else {
+			for (unsigned int j = 0; j < nodes[i].num_in && j < 10; j++)
+				printf("%d ", past_edges[past_edge_row_start[i]+j]);
+			printf("\n");
+		}
+	}
+}
+
+//Debug:  Future and Past Adjacency List Indices
+void compareAdjacencyListIndices(Node *nodes, unsigned int *future_edges, int *future_edge_row_start, unsigned int *past_edges, int *past_edge_row_start)
+{
+	printf("\nFuture Edge Indices:\n");
+	for (unsigned int i = 0; i < 20; i++)
+		printf("%d\n", future_edge_row_start[i]);
+	printf("\nPast Edge Indices:\n");
+	for (unsigned int i = 0; i < 20; i++)
+		printf("%d\n", past_edge_row_start[i]);
+
+	unsigned int next_future_idx, next_past_idx;
+	for (unsigned int i = 0; i < 20; i++) {
+		printf("\nNode i: %d\n", i);
+
+		printf("Out-Degrees: %u\n", nodes[i].num_out);
+		if (future_edge_row_start[i] == -1)
+			printf("Pointer: 0\n");
+		else {
+			for (unsigned int j = 1; j < 100; j++) {
+				if (future_edge_row_start[i+j] != -1) {
+					next_future_idx = j;
+					break;
+				}
+			}
+			printf("Pointer: %d\n", (future_edge_row_start[i+next_future_idx] - future_edge_row_start[i]));
+		}
+
+		printf("In-Degrees: %u\n", nodes[i].num_in);
+		if (past_edge_row_start[i] == -1)
+			printf("Pointer: 0\n");
+		else {
+			for (unsigned int j = 1; j < 100; j++) {
+				if (past_edge_row_start[i+j] != -1) {
+					next_past_idx = j;
+					break;
+				}
+			}
+			printf("Pointer: %d\n", (past_edge_row_start[i+next_past_idx] - past_edge_row_start[i]));
+		}
+	}
+}
+
+void printValues(Node *values, unsigned int num_vals, char *filename)
+{
+	std::ofstream outputStream;
+	outputStream.open(filename);
+
+	for (unsigned int i = 0; i < num_vals; i++)
+		outputStream << values[i].chi << std::endl;
+	
+	outputStream.flush();
+	outputStream.close();
+}
+
+void printSpatialDistances(Node *nodes, unsigned int N_tar, unsigned int dim)
+{
+	if (nodes == NULL)
+		return;
+	
+	std::ofstream dbgStream;
+	float dx;
+	dbgStream.open("distances.cset");
+	for (unsigned int i = 0; i < N_tar - 1; i++) {
+		for (unsigned int j = i + 1; j < N_tar; j++) {
+			if (dim == 2) dx = M_PI - fabs(M_PI - fabs(nodes[j].theta - nodes[i].theta));
+			else if (dim == 4)
+				dx = acosf((X1(nodes[i].phi) * X1(nodes[j].phi)) +
+					   (X2(nodes[i].phi, nodes[i].chi) * X2(nodes[j].phi, nodes[j].chi)) +
+					   (X3(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X3(nodes[j].phi, nodes[j].chi, nodes[j].theta)) +
+					   (X4(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X4(nodes[j].phi, nodes[j].chi, nodes[j].theta)));
+			dbgStream << dx << std::endl;
+		}
+	}
+
+	dbgStream.flush();
+	dbgStream.close();
 }
 
 #endif

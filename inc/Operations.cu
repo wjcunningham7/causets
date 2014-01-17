@@ -59,21 +59,21 @@ float tauToEta(float tau, double a);
 //Returns zeta Residual
 inline double solveZeta(NewtonProperties *np)
 {
-	return (np->dim == 2) ?
+	return ((np->dim == 2) ?
 		-1.0 * eta02D(np->x, np->N_tar, np->k_tar) / eta0Prime2D(np->x) : 
-		-1.0 * zeta4D(np->x, np->N_tar, np->k_tar) / zetaPrime4D(np->x);
+		-1.0 * zeta4D(np->x, np->N_tar, np->k_tar) / zetaPrime4D(np->x));
 }
 
 //Returns tau Residual
 inline double solveTau(NewtonProperties *np)
 {
-	return -1.0 * tau4D(np->x, np->zeta, np->a, np->rval) / tauPrime4D(np->x, np->zeta, np->a);
+	return (-1.0 * tau4D(np->x, np->zeta, np->a, np->rval) / tauPrime4D(np->x, np->zeta, np->a));
 }
 
 //Returns phi Residual
 inline double solvePhi(NewtonProperties *np)
 {
-	return -1.0 * phi4D(np->x, np->rval) / phiPrime4D(np->x);
+	return (-1.0 * phi4D(np->x, np->rval) / phiPrime4D(np->x));
 }
 
 ////////////////////////////////////
@@ -82,42 +82,42 @@ inline double solvePhi(NewtonProperties *np)
 
 inline double eta02D(double &x, unsigned int &N_tar, float &k_tar)
 {
-	return ((2.0 / M_PI) * (((x / tan(x)) + log(1.0 / cos(x)) - 1.0) / tan(x))) - (k_tar / N_tar);
+	return (((2.0 / M_PI) * (((x / tan(x)) + log(1.0 / cos(x)) - 1.0) / tan(x))) - (k_tar / N_tar));
 }
 
 inline double eta0Prime2D(double &x)
 {
-	return (2.0 / M_PI) * (((1.0 / tan(x)) * ((1.0 / tan(x)) - (x / (sin(x) * sin(x))) + tan(x))) - ((1.0 / (sin(x) * sin(x))) * (log(1.0 / cos(x)) + (x / tan(x)) - 1.0)));
+	return ((2.0 / M_PI) * (((1.0 / tan(x)) * ((1.0 / tan(x)) - (x / (sin(x) * sin(x))) + tan(x))) - ((1.0 / (sin(x) * sin(x))) * (log(1.0 / cos(x)) + (x / tan(x)) - 1.0))));
 }
 
 inline double zeta4D(double &x, unsigned int &N_tar, float &k_tar)
 {
-	return ((2.0 / (3.0 * M_PI)) * (12.0 * (((M_PI / 2.0) - x) * tan(x) + log(1.0 / sin(x))) + ((6.0 * log(1.0 / sin(x)) - 5.0) / (sin(x) * sin(x))) - 7) / ((2.0 + (1.0 / (sin(x) * sin(x)))) * (2.0 + (1.0 / (sin(x) * sin(x)))) / tan(x))) - (k_tar / N_tar);
+	return (((2.0 / (3.0 * M_PI)) * (12.0 * (((M_PI / 2.0) - x) * tan(x) + log(1.0 / sin(x))) + ((6.0 * log(1.0 / sin(x)) - 5.0) / (sin(x) * sin(x))) - 7) / ((2.0 + (1.0 / (sin(x) * sin(x)))) * (2.0 + (1.0 / (sin(x) * sin(x)))) / tan(x))) - (k_tar / N_tar));
 }
 
 inline double zetaPrime4D(double &x)
 {
-	return (3.0 * (cos(5.0 * x) - 32.0 * (M_PI - 2.0 * x) * sin(x) * sin(x) * sin(x)) + cos(x) * (84.0 - 72.0 * log(1.0 / sin(x))) + cos(3.0 * x) * (24.0 * log(1.0 / sin(x)) - 31.0)) / (-4.0 * M_PI * sin(x) * sin(x) * sin(x) * sin(x) * cos(x) * cos(x) * cos(x) * pow(2.0 + (1.0 / (sin(x) * sin(x))), 3.0));
+	return ((3.0 * (cos(5.0 * x) - 32.0 * (M_PI - 2.0 * x) * sin(x) * sin(x) * sin(x)) + cos(x) * (84.0 - 72.0 * log(1.0 / sin(x))) + cos(3.0 * x) * (24.0 * log(1.0 / sin(x)) - 31.0)) / (-4.0 * M_PI * sin(x) * sin(x) * sin(x) * sin(x) * cos(x) * cos(x) * cos(x) * pow(2.0 + (1.0 / (sin(x) * sin(x))), 3.0)));
 }
 
 inline double tau4D(double &x, double &zeta, double &a, double rval)
 {
-	return ((cosh(a * x) * cosh(a * x) + 2.0) * sinh(a * x) / ((2.0 + 1.0 / (sin(zeta) * sin(zeta))) / tan(zeta))) - rval;
+	return (((cosh(a * x) * cosh(a * x) + 2.0) * sinh(a * x) / ((2.0 + 1.0 / (sin(zeta) * sin(zeta))) / tan(zeta))) - rval);
 }
 
 inline double tauPrime4D(double &x, double &zeta, double &a)
 {
-	return 3.0 * a * cosh(a * x) * cosh(a * x) * cosh(a * x) / ((2.0 + 1.0 / (sin(zeta) * sin(zeta))) / tan(zeta));
+	return (3.0 * a * cosh(a * x) * cosh(a * x) * cosh(a * x) / ((2.0 + 1.0 / (sin(zeta) * sin(zeta))) / tan(zeta)));
 }
 
 inline double phi4D(double &x, double rval)
 {
-	return ((x - sin(2.0 * x) / 2.0) / M_PI) - rval;
+	return (((x - sin(2.0 * x) / 2.0) / M_PI) - rval);
 }
 
 inline double phiPrime4D(double &x)
 {
-	return (2.0 / M_PI) * sin(x) * sin(x);
+	return ((2.0 / M_PI) * sin(x) * sin(x));
 }
 
 ///////////////////////////
@@ -133,19 +133,19 @@ inline float X1(float &phi)
 //X2 Coordinate of de Sitter Metric
 inline float X2(float &phi, float &chi)
 {
-	return sinf(phi) * cosf(chi);
+	return (sinf(phi) * cosf(chi));
 }
 
 //X3 Coordinate of de Sitter Metric
 inline float X3(float &phi, float &chi, float &theta)
 {
-	return sinf(phi) * sinf(chi) * cosf(theta);
+	return (sinf(phi) * sinf(chi) * cosf(theta));
 }
 
 //X4 Coordinate of de Sitter Metric
 inline float X4(float &phi, float &chi, float &theta)
 {
-	return sinf(phi) * sinf(chi) * sinf(theta);
+	return (sinf(phi) * sinf(chi) * sinf(theta));
 }
 
 //////////////////////////
@@ -155,13 +155,13 @@ inline float X4(float &phi, float &chi, float &theta)
 //Conformal to Rescaled Time
 inline float etaToTau(float eta, double a)
 {
-	return acosh(1.0 / cos(eta)) / a;
+	return (acoshf(1.0 / cosf(eta)) / a);
 }
 
 //Rescaled to Conformal Time
 inline float tauToEta(float tau, double a)
 {
-	return acos(1.0 / cosh(a * tau));
+	return (acosf(1.0 / coshf(a * tau)));
 }
 
 #endif

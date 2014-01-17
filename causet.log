@@ -1,0 +1,2329 @@
+nohup: ignoring input
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 73360
+	Causets Successfully Connected.
+		Resulting Network Size: 22718
+		Resulting Average Degree: 6.458315
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.347691
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.534368000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 83086
+	Causets Successfully Connected.
+		Resulting Network Size: 24369
+		Resulting Average Degree: 6.818991
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.293081
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.616562000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6691 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 67621
+	Causets Successfully Connected.
+		Resulting Network Size: 24495
+		Resulting Average Degree: 5.521208
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.273183
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.944821000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6696 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 71997
+	Causets Successfully Connected.
+		Resulting Network Size: 25143
+		Resulting Average Degree: 5.727002
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.339219
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.241670000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 82788
+	Causets Successfully Connected.
+		Resulting Network Size: 23071
+		Resulting Average Degree: 7.176802
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.255284
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.516424000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 52930
+	Causets Successfully Connected.
+		Resulting Network Size: 22383
+		Resulting Average Degree: 4.729482
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.261677
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.692527000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 71143
+	Causets Successfully Connected.
+		Resulting Network Size: 24167
+		Resulting Average Degree: 5.887615
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.328857
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.348728000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6722 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 91525
+	Causets Successfully Connected.
+		Resulting Network Size: 24966
+		Resulting Average Degree: 7.331972
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.281314
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.783450000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 69615
+	Causets Successfully Connected.
+		Resulting Network Size: 23835
+		Resulting Average Degree: 5.841410
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.295242
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.148490000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 79042
+	Causets Successfully Connected.
+		Resulting Network Size: 23245
+		Resulting Average Degree: 6.800775
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.313437
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.602814000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 65648
+	Causets Successfully Connected.
+		Resulting Network Size: 23872
+		Resulting Average Degree: 5.500000
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.343702
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.156915000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 65562
+	Causets Successfully Connected.
+		Resulting Network Size: 23240
+		Resulting Average Degree: 5.642169
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.261398
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.166369000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 61115
+	Causets Successfully Connected.
+		Resulting Network Size: 23426
+		Resulting Average Degree: 5.217707
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.255740
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.914763000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 72394
+	Causets Successfully Connected.
+		Resulting Network Size: 25055
+		Resulting Average Degree: 5.778807
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.311946
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.177463000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6735 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 60798
+	Causets Successfully Connected.
+		Resulting Network Size: 24073
+		Resulting Average Degree: 5.051136
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.285719
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.820970000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 64139
+	Causets Successfully Connected.
+		Resulting Network Size: 23177
+		Resulting Average Degree: 5.534711
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.330125
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  71.442599000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 50613
+	Causets Successfully Connected.
+		Resulting Network Size: 21944
+		Resulting Average Degree: 4.612924
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.256874
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.673010000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 80522
+	Causets Successfully Connected.
+		Resulting Network Size: 24592
+		Resulting Average Degree: 6.548634
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.332364
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.765065000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6743 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 74463
+	Causets Successfully Connected.
+		Resulting Network Size: 24411
+		Resulting Average Degree: 6.100774
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.316948
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.392102000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 76913
+	Causets Successfully Connected.
+		Resulting Network Size: 24208
+		Resulting Average Degree: 6.354346
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.271501
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.222790000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 77294
+	Causets Successfully Connected.
+		Resulting Network Size: 23898
+		Resulting Average Degree: 6.468658
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.343218
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.652811000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 60382
+	Causets Successfully Connected.
+		Resulting Network Size: 24133
+		Resulting Average Degree: 5.004102
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.299958
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.860072000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 79848
+	Causets Successfully Connected.
+		Resulting Network Size: 24263
+		Resulting Average Degree: 6.581873
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.279417
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.341494000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 67219
+	Causets Successfully Connected.
+		Resulting Network Size: 23637
+		Resulting Average Degree: 5.687608
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.279988
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.014287000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 89084
+	Causets Successfully Connected.
+		Resulting Network Size: 24504
+		Resulting Average Degree: 7.270976
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.321089
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.765767000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6756 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+causet.sh: line 1:  6758 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 55997
+	Causets Successfully Connected.
+		Resulting Network Size: 23236
+		Resulting Average Degree: 4.819849
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.288653
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.752301000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 58429
+	Causets Successfully Connected.
+		Resulting Network Size: 23025
+		Resulting Average Degree: 5.075266
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.280314
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.389193000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 68283
+	Causets Successfully Connected.
+		Resulting Network Size: 23622
+		Resulting Average Degree: 5.781306
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.341533
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.180098000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 61732
+	Causets Successfully Connected.
+		Resulting Network Size: 22629
+		Resulting Average Degree: 5.456008
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.273995
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.502367000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6770 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 78650
+	Causets Successfully Connected.
+		Resulting Network Size: 25089
+		Resulting Average Degree: 6.269680
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.299439
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.357554000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6805 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 76457
+	Causets Successfully Connected.
+		Resulting Network Size: 23463
+		Resulting Average Degree: 6.517240
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.229347
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.158312000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 88464
+	Causets Successfully Connected.
+		Resulting Network Size: 25026
+		Resulting Average Degree: 7.069767
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.254509
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.681588000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6810 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 86244
+	Causets Successfully Connected.
+		Resulting Network Size: 24794
+		Resulting Average Degree: 6.956844
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.308442
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.478226000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 64130
+	Causets Successfully Connected.
+		Resulting Network Size: 23251
+		Resulting Average Degree: 5.516322
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.292465
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.051787000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 58147
+	Causets Successfully Connected.
+		Resulting Network Size: 21828
+		Resulting Average Degree: 5.327744
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.326698
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.972360000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 61327
+	Causets Successfully Connected.
+		Resulting Network Size: 22766
+		Resulting Average Degree: 5.387596
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.250264
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.881739000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 51371
+	Causets Successfully Connected.
+		Resulting Network Size: 21741
+		Resulting Average Degree: 4.725726
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.238516
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.680637000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 72857
+	Causets Successfully Connected.
+		Resulting Network Size: 23215
+		Resulting Average Degree: 6.276718
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.277698
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.418388000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6820 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+causet.sh: line 1:  6822 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 75947
+	Causets Successfully Connected.
+		Resulting Network Size: 24249
+		Resulting Average Degree: 6.263928
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.291717
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.216180000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 78026
+	Causets Successfully Connected.
+		Resulting Network Size: 24884
+		Resulting Average Degree: 6.271178
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.310213
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.336424000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 47494
+	Causets Successfully Connected.
+		Resulting Network Size: 22133
+		Resulting Average Degree: 4.291691
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.311252
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.661081000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 72764
+	Causets Successfully Connected.
+		Resulting Network Size: 24335
+		Resulting Average Degree: 5.980193
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.317109
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.237966000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 52969
+	Causets Successfully Connected.
+		Resulting Network Size: 21768
+		Resulting Average Degree: 4.866685
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.255381
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.782668000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 65571
+	Causets Successfully Connected.
+		Resulting Network Size: 23196
+		Resulting Average Degree: 5.653647
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.235239
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.020666000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 77950
+	Causets Successfully Connected.
+		Resulting Network Size: 24207
+		Resulting Average Degree: 6.440286
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.327731
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.703608000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 66684
+	Causets Successfully Connected.
+		Resulting Network Size: 23572
+		Resulting Average Degree: 5.657899
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.293751
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.144917000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 75614
+	Causets Successfully Connected.
+		Resulting Network Size: 23926
+		Resulting Average Degree: 6.320655
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.290552
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.179377000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 61786
+	Causets Successfully Connected.
+		Resulting Network Size: 22928
+		Resulting Average Degree: 5.389567
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.301577
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.934469000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 74355
+	Causets Successfully Connected.
+		Resulting Network Size: 25122
+		Resulting Average Degree: 5.919513
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.317669
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.183179000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6851 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+causet.sh: line 1:  6857 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 74502
+	Causets Successfully Connected.
+		Resulting Network Size: 24245
+		Resulting Average Degree: 6.145762
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.327645
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  71.941465000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6861 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 59179
+	Causets Successfully Connected.
+		Resulting Network Size: 23413
+		Resulting Average Degree: 5.055226
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.249463
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.709293000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 52383
+	Causets Successfully Connected.
+		Resulting Network Size: 22337
+		Resulting Average Degree: 4.690245
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.275410
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.832287000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 71631
+	Causets Successfully Connected.
+		Resulting Network Size: 23583
+		Resulting Average Degree: 6.074800
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.230750
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.082391000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6868 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+causet.sh: line 1:  6869 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 85746
+	Causets Successfully Connected.
+		Resulting Network Size: 24342
+		Resulting Average Degree: 7.045107
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.333276
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  78.813960000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 59145
+	Causets Successfully Connected.
+		Resulting Network Size: 23765
+		Resulting Average Degree: 4.977488
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.363201
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.966701000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 86568
+	Causets Successfully Connected.
+		Resulting Network Size: 24492
+		Resulting Average Degree: 7.069084
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.290259
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.552118000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 70539
+	Causets Successfully Connected.
+		Resulting Network Size: 23971
+		Resulting Average Degree: 5.885362
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.323240
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  78.105566000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 75530
+	Causets Successfully Connected.
+		Resulting Network Size: 24173
+		Resulting Average Degree: 6.249121
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.252871
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.205448000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 86739
+	Causets Successfully Connected.
+		Resulting Network Size: 24603
+		Resulting Average Degree: 7.051091
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.358313
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  69.024148000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 43733
+	Causets Successfully Connected.
+		Resulting Network Size: 21225
+		Resulting Average Degree: 4.120895
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.265898
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.552585000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 88335
+	Causets Successfully Connected.
+		Resulting Network Size: 23472
+		Resulting Average Degree: 7.526841
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.271966
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.944132000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 71864
+	Causets Successfully Connected.
+		Resulting Network Size: 24364
+		Resulting Average Degree: 5.899196
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.306875
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.166080000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 61207
+	Causets Successfully Connected.
+		Resulting Network Size: 22779
+		Resulting Average Degree: 5.373985
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.281328
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.948455000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 70903
+	Causets Successfully Connected.
+		Resulting Network Size: 24390
+		Resulting Average Degree: 5.814104
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.316762
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.107075000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 75913
+	Causets Successfully Connected.
+		Resulting Network Size: 24046
+		Resulting Average Degree: 6.313982
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.340825
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.549869000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 76861
+	Causets Successfully Connected.
+		Resulting Network Size: 23583
+		Resulting Average Degree: 6.518340
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.311856
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.344984000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 79445
+	Causets Successfully Connected.
+		Resulting Network Size: 23595
+		Resulting Average Degree: 6.734054
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.325593
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.559196000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 57831
+	Causets Successfully Connected.
+		Resulting Network Size: 23270
+		Resulting Average Degree: 4.970434
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.348971
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.920149000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6976 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 72823
+	Causets Successfully Connected.
+		Resulting Network Size: 23884
+		Resulting Average Degree: 6.098057
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.253023
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  70.224286000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  6978 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 78587
+	Causets Successfully Connected.
+		Resulting Network Size: 24161
+		Resulting Average Degree: 6.505277
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.302634
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.938371000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 77884
+	Causets Successfully Connected.
+		Resulting Network Size: 23907
+		Resulting Average Degree: 6.515581
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.335689
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.895334000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 68104
+	Causets Successfully Connected.
+		Resulting Network Size: 23044
+		Resulting Average Degree: 5.910779
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.347975
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.227665000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 55737
+	Causets Successfully Connected.
+		Resulting Network Size: 21827
+		Resulting Average Degree: 5.107161
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.284112
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.988593000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  7068 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 37525
+	Causets Successfully Connected.
+		Resulting Network Size: 20474
+		Resulting Average Degree: 3.665625
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.279988
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.526256000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 74382
+	Causets Successfully Connected.
+		Resulting Network Size: 23476
+		Resulting Average Degree: 6.336854
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.370996
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.644998000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  7109 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 63080
+	Causets Successfully Connected.
+		Resulting Network Size: 23218
+		Resulting Average Degree: 5.433715
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.263176
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  67.899435000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+causet.sh: line 1:  7142 Segmentation fault      ./bin/CausalSet -n 25441 -k 5.29 -a 2 -C
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 81813
+	Causets Successfully Connected.
+		Resulting Network Size: 24288
+		Resulting Average Degree: 6.736907
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.314209
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  69.017234000 s
+PROGRAM COMPLETED
+[CausalSet] starting...
+
+Initializing Causet Network...
+	Memory Successfully Allocated.
+	Transcendental Equation Solved:
+		Maximum Conformal Time: 1.52969323
+		Maximum Rescaled Time:  1.94233930
+	Nodes Successfully Generated.
+	Quick Sort Successfully Performed.
+		Edges (forward): 57691
+	Causets Successfully Connected.
+		Resulting Network Size: 23086
+		Resulting Average Degree: 4.997921
+Task Completed.
+
+Calculating Network Observables...
+	Calculated Clustering Coefficients.
+		Average Clustering: 0.426679
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+1 MB	555 KB	270 bytes	 [HOST]
+
+[CausalSet] test results...
+PASSED
+
+Time:  68.104607000 s
+PROGRAM COMPLETED

@@ -55,7 +55,7 @@ void newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *s
 	double res = 1.0;
 
 	int iter = 0;
-	while (abs(res) > np->tol && iter < np->max) {
+	while (fabs(res) > np->tol && iter < np->max) {
 		res = (*solve)(np);
 		//printf("res: %E\n", res);
 		if (res != res) {

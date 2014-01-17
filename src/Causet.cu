@@ -70,7 +70,7 @@ bool initializeNetwork(Network *network)
 	if (!linkNodes(network, network->network_properties.flags.use_gpu))
 		return false;
 
-	printf("Task Completed.\n");	exit(0);
+	printf("Task Completed.\n");
 	return true;
 }
 
@@ -201,7 +201,8 @@ bool printNetwork(Network network)
 
 	dataStream.open(("./dat/dst/" + filename + "_DST.cset").c_str());
 	for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
-		dataStream << (network.nodes[i].num_in + network.nodes[i].num_out) << std::endl;
+		if (network.nodes[i].num_in + network.nodes[i].num_out > 0)
+			dataStream << (network.nodes[i].num_in + network.nodes[i].num_out) << std::endl;
 	dataStream.flush();
 	dataStream.close();
 

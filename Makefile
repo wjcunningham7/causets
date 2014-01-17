@@ -24,7 +24,7 @@ $(BINDIR): $(OBJS) $(HEADERS)
 	$(CXX) -o $(BINDIR)/CausalSet $(OBJS) $(INCD) $(LIBS)
  
 clean:
-	rm -f $(SRCDIR)/*.cu_o ./*.pyc ./*.mek
+	rm -f $(SRCDIR)/*.cu_o
 
 cleandata:
 	rm -f $(DATDIR)/*.cset $(DATDIR)/pos/*.cset $(DATDIR)/edg/*.cset $(DATDIR)/dst/*.cset $(DATDIR)/cls/*.cset $(DATDIR)/cdk/*.cset
