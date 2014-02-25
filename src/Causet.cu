@@ -5,6 +5,7 @@ int main(int argc, char **argv)
 {
 	stopwatchStart();
 	Network network = Network(parseArgs(argc, argv));
+	long init_seed = network.network_properties.seed;
 	bool success = false;
 
 	shrQAStart(argc, argv);
@@ -16,7 +17,7 @@ int main(int argc, char **argv)
 	measureNetworkObservables(&network);
 	if (network.network_properties.flags.disp_network && !displayNetwork(network.nodes, network.future_edges, argc, argv)) goto CausetExit;
 	printMemUsed(NULL, maxHostMemUsed, maxDevMemUsed);
-	if (network.network_properties.flags.print_network && !printNetwork(network)) goto CausetExit;
+	if (network.network_properties.flags.print_network && !printNetwork(network, init_seed)) goto CausetExit;
 	if (!destroyNetwork(&network)) goto CausetExit;
 
 	if (network.network_properties.flags.use_gpu)
@@ -115,7 +116,7 @@ void display()
 }
 
 //Print to File
-bool printNetwork(Network network)
+bool printNetwork(Network network, long init_seed)
 {
 	printf("Printing Results to File...\n");
 
@@ -130,11 +131,12 @@ bool printNetwork(Network network)
 	sstm << network.network_properties.k_tar << "_";
 	sstm << network.network_properties.a << "_";
 	sstm << network.network_properties.dim;
-	sstm << "-" << (int)time(NULL);
+	sstm << init_seed;
 	std::string filename = sstm.str();
 
-	outputStream.open(("./dat/" + filename + ".cset").c_str());
+	outputStream.open(("./dat/" + filename + ".cset.out").c_str());
 	outputStream << "Causet Simulation\n";
+	outputStream << "Graph ID: " << (int)time(NULL) << std::endl;
 
 	time_t rawtime;
 	struct tm * timeinfo;
@@ -154,21 +156,21 @@ bool printNetwork(Network network)
 	outputStream << "--------------------------" << std::endl;
 	outputStream << "Resulting Nodes (N_res)\t" << network.network_properties.N_res << std::endl;
 	outputStream << "Resulting Average Degrees (k_res)\t" << network.network_properties.k_res << std::endl;
-	outputStream << "Maximum Conformal Time (eta_0)\t" << ((M_PI / 2.0) - network.network_properties.zeta) << std::endl;
-	outputStream << "Maximum Rescaled Time (tau_0)\t" << etaToTau((M_PI / 2.0) - network.network_properties.zeta, network.network_properties.a) << std::endl;
+	outputStream << "Maximum Conformal Time (eta_0)\t\t" << ((M_PI / 2.0) - network.network_properties.zeta) << std::endl;
+	outputStream << "Maximum Rescaled Time (tau_0)\t\t" << etaToTau((M_PI / 2.0) - network.network_properties.zeta, network.network_properties.a) << std::endl;
 
 	if (network.network_properties.flags.calc_clustering)
 		outputStream << "Average Clustering\t\t\t" << network.network_observables.average_clustering << std::endl;
 
 	outputStream << "\nNetwork Analysis Results:" << std::endl;
 	outputStream << "-------------------------" << std::endl;
-	outputStream << "Node Position Data:\t\t" << "pos/" << filename << "_POS.cset" << std::endl;
-	outputStream << "Node Edge Data:\t\t" << "edg/" << filename << "_EDG.cset" << std::endl;
-	outputStream << "Degree Distribution Data:\t" << "dst/" << filename << "_DST.cset" << std::endl;
+	outputStream << "Node Position Data:\t\t" << "pos/" << filename << ".cset.pos.dat" << std::endl;
+	outputStream << "Node Edge Data:\t\t" << "edg/" << filename << ".cset.edg.dat" << std::endl;
+	outputStream << "Degree Distribution Data:\t" << "dst/" << filename << ".cset.dst.dat" << std::endl;
 
 	if (network.network_properties.flags.calc_clustering) {
-		outputStream << "Clustering Coefficient Data:\t" << "cls/" << filename << "_CLS.cset" << std::endl;
-		outputStream << "Clustering by Degree Data:\t" << "cdk/" << filename << "_CDK.cset" << std::endl;
+		outputStream << "Clustering Coefficient Data:\t" << "cls/" << filename << ".cset.cls.dat" << std::endl;
+		outputStream << "Clustering by Degree Data:\t" << "cdk/" << filename << ".cset.cdk.dat" << std::endl;
 	}
 
 	outputStream << "\nAlgorithmic Performance:" << std::endl;
@@ -179,7 +181,7 @@ bool printNetwork(Network network)
 
 	std::ofstream dataStream;
 
-	dataStream.open(("./dat/pos/" + filename + "_POS.cset").c_str());
+	dataStream.open(("./dat/pos/" + filename + ".cset.pos.dat").c_str());
 	for (unsigned int i = 0; i < network.network_properties.N_tar; i++) {
 		dataStream << tauToEta(network.nodes[i].tau, network.network_properties.a) << " " << network.nodes[i].theta;
 		if (network.network_properties.dim == 4)
@@ -190,7 +192,7 @@ bool printNetwork(Network network)
 	dataStream.close();
 
 	unsigned int idx = 0;
-	dataStream.open(("./dat/edg/" + filename + "_EDG.cset").c_str());
+	dataStream.open(("./dat/edg/" + filename + ".cset.edg.dat").c_str());
 	for (unsigned int i = 0; i < network.network_properties.N_tar; i++) {
 		for (unsigned int j = 0; j < network.nodes[i].num_out; j++)
 			dataStream << i << " " << network.future_edges[idx + j] << std::endl;
@@ -199,7 +201,7 @@ bool printNetwork(Network network)
 	dataStream.flush();
 	dataStream.close();
 
-	dataStream.open(("./dat/dst/" + filename + "_DST.cset").c_str());
+	dataStream.open(("./dat/dst/" + filename + ".cset.dst.dat").c_str());
 	for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
 		if (network.nodes[i].num_in + network.nodes[i].num_out > 0)
 			dataStream << (network.nodes[i].num_in + network.nodes[i].num_out) << std::endl;
@@ -207,13 +209,13 @@ bool printNetwork(Network network)
 	dataStream.close();
 
 	if (network.network_properties.flags.calc_clustering) {
-		dataStream.open(("./dat/cls/" + filename + "_CLS.cset").c_str());
+		dataStream.open(("./dat/cls/" + filename + ".cset.cls.dat").c_str());
 		for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
 			dataStream << network.network_observables.clustering[i] << std::endl;
 		dataStream.flush();
 		dataStream.close();
 
-		dataStream.open(("./dat/cdk/" + filename + "_CDK.cset").c_str());
+		dataStream.open(("./dat/cdk/" + filename + ".cset.cdk.dat").c_str());
 		double cdk;
 		unsigned int ndk;
 		for (unsigned int i = 0; i < network.network_properties.N_tar; i++) {
@@ -232,7 +234,7 @@ bool printNetwork(Network network)
 		dataStream.close();
 	}
 	
-	printf("\tFilename: %s.cset\n", filename.c_str());
+	printf("\tFilename: %s.cset.out\n", filename.c_str());
 	printf("\tCompleted.\n\n");
 
 	return true;

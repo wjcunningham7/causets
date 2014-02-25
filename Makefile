@@ -24,7 +24,7 @@ $(BINDIR): $(OBJS) $(HEADERS)
 	$(CXX) -o $(BINDIR)/CausalSet $(OBJS) $(INCD) $(LIBS)
  
 clean:
-	rm -f $(SRCDIR)/*.cu_o
+	rm -f $(SRCDIR)/*.cu_o ./*.log
 
 cleandata:
-	rm -f $(DATDIR)/*.cset $(DATDIR)/pos/*.cset $(DATDIR)/edg/*.cset $(DATDIR)/dst/*.cset $(DATDIR)/cls/*.cset $(DATDIR)/cdk/*.cset
+	rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat

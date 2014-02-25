@@ -124,7 +124,7 @@ bool initializeNetwork(Network *network);
 void measureNetworkObservables(Network *network);
 bool displayNetwork(Node *nodes, unsigned int *future_edges, int argc, char **argv);
 void display();
-bool printNetwork(Network network);
+bool printNetwork(Network network, long init_seed);
 bool destroyNetwork(Network *network);
 
 class CausetException : public std::exception
