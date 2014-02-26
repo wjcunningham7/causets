@@ -7,6 +7,7 @@
 #include <iostream>
 #include <math.h>
 #include <sstream>
+#include <stdio.h>
 #include <string>
 
 #include <curand.h>
@@ -26,11 +27,19 @@ bool CAUSET_DEBUG = false;
 //    http://www.nature.com/srep/2012/121113/srep00793/full/srep00793.html
 //[2] Supplementary Information for Network Cosmology
 //    http://complex.ffn.ub.es/~mbogunya/archivos_cms/files/srep00793-s1.pdf
+//[3] Uniformly Distributed Random Unit Quaternions
+//    mathproofs.blogspot.com/2005/05/uniformly-distributed-random-unit.html
 ////////////////////////////////////////////////////////////////////////////
 
+enum Manifold {
+	EUCLIDEAN,
+	DE_SITTER,
+	ANTI_DE_SITTER
+};
+
 struct Node {
-	Node() : tau(0.0), theta(0.0), phi(0.0), chi(0.0), num_in(0), num_out(0) {}
-	Node(float _tau, float _theta, float _phi, float _chi, unsigned int _num_in, unsigned int _num_out) : tau(_tau), theta(_theta), phi(_phi), chi(_chi), num_in(_num_in), num_out(_num_out) {}
+	Node() : tau(0.0), theta(0.0), phi(0.0), chi(0.0), k_in(0), k_out(0) {}
+	Node(float _tau, float _theta, float _phi, float _chi, unsigned int _k_in, unsigned int _k_out) : tau(_tau), theta(_theta), phi(_phi), chi(_chi), k_in(_k_in), k_out(_k_out) {}
 
 	//Temporal Coordinate
 	float tau;
@@ -41,17 +50,17 @@ struct Node {
 	float chi;
 
 	//Neighbors
-	unsigned int num_in;
-	unsigned int num_out;
+	unsigned int k_in;
+	unsigned int k_out;
 };
 
 struct CausetFlags {
 	CausetFlags() : use_gpu(false), disp_network(false), print_network(false), calc_clustering(false) {}
 	CausetFlags(bool _use_gpu, bool _disp_network, bool _print_network, bool _calc_clustering) : use_gpu(_use_gpu), disp_network(_disp_network), print_network(_print_network), calc_clustering(_calc_clustering) {}
 
-	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
-	bool disp_network;		//Plot Network using OpenGL
-	bool print_network;		//Print to File
+	bool use_gpu;		//Use GPU to Accelerate Select Algorithms
+	bool disp_network;	//Plot Network using OpenGL
+	bool print_network;	//Print to File
 
 	bool calc_clustering;	//Find Clustering Coefficients
 };
@@ -66,11 +75,12 @@ struct NetworkExec {
 };
 
 struct NetworkProperties {
-	NetworkProperties() : N_tar(10000), k_tar(10.0), N_res(0), k_res(0.0), N_deg2(0), dim(4), a(1.0), zeta(0.0), subnet_size(104857600), core_edge_ratio(0.01), edge_buffer(25000), seed(-12345L), flags(CausetFlags()), network_exec(NetworkExec()) {}
-	NetworkProperties(unsigned int _N_tar, float _k_tar, unsigned int _dim, float _a, double _zeta, size_t _subnet_size, float _core_edge_ratio, unsigned int _edge_buffer, long _seed, CausetFlags _flags, NetworkExec _network_exec) : N_tar(_N_tar), k_tar(_k_tar), N_res(0), k_res(0), N_deg2(0), dim(_dim), a(_a), zeta(_zeta), subnet_size(_subnet_size), core_edge_ratio(_core_edge_ratio), edge_buffer(_edge_buffer), seed(_seed), flags(_flags), network_exec(_network_exec) {}
+	NetworkProperties() : N_tar(10000), k_tar(10.0), N_res(0), k_res(0.0), N_deg2(0), dim(3), a(1.0), zeta(0.0), subnet_size(104857600), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), flags(CausetFlags()), network_exec(NetworkExec()), manifold(DE_SITTER) {}
+	NetworkProperties(unsigned int _N_tar, float _k_tar, unsigned int _dim, float _a, double _zeta, size_t _subnet_size, float _core_edge_fraction, unsigned int _edge_buffer, long _seed, CausetFlags _flags, NetworkExec _network_exec, Manifold _manifold) : N_tar(_N_tar), k_tar(_k_tar), N_res(0), k_res(0), N_deg2(0), dim(_dim), a(_a), zeta(_zeta), subnet_size(_subnet_size), core_edge_fraction(_core_edge_fraction), edge_buffer(_edge_buffer), seed(_seed), flags(_flags), network_exec(_network_exec), manifold(_manifold) {}
 
 	CausetFlags flags;
 	NetworkExec network_exec;
+	Manifold manifold;		//Manifold of the Network
 
 	unsigned int N_tar;		//Target Number of Nodes
 	float k_tar;			//Target Average Degree
@@ -86,7 +96,7 @@ struct NetworkProperties {
 	double zeta;			//Pi/2 - Eta_0
 
 	size_t subnet_size;		//Maximum Contiguous Memory Request (Default 100 MB)
-	float core_edge_ratio;		//Fraction of nodes designated as having core edges
+	float core_edge_fraction;	//Fraction of nodes designated as having core edges
 	unsigned int edge_buffer;	//Small memory buffer for adjacency list
 
 	long seed;
@@ -145,8 +155,9 @@ NetworkProperties parseArgs(int argc, char **argv)
 	NetworkProperties network_properties = NetworkProperties();
 
 	int c, longIndex;
-	static const char *optString = ":n:k:d:s:a:c:Ch";
+	static const char *optString = ":m:n:k:d:s:a:c:Ch";
 	static const struct option longOpts[] = {
+		{ "manifold",	required_argument,	NULL, 'm' },
 		{ "nodes", 	required_argument,	NULL, 'n' },
 		{ "degrees",	required_argument,	NULL, 'k' },
 		{ "dim",	required_argument,	NULL, 'd' },
@@ -163,6 +174,14 @@ NetworkProperties parseArgs(int argc, char **argv)
 
 	while ((c = getopt_long(argc, argv, optString, longOpts, &longIndex)) != -1) {
 		switch (c) {
+		case 'm':
+			if (strcmp(optarg, "e"))
+				network_properties.manifold = EUCLIDEAN;
+			else if (strcmp(optarg, "d"))
+				network_properties.manifold = DE_SITTER;
+			else if (strcmp(optarg, "a"))
+				network_properties.manifold = ANTI_DE_SITTER;
+			break;
 		case 'n':
 			network_properties.N_tar = atoi(optarg);
 			break;
@@ -171,7 +190,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 			break;
 		case 'd':
 			try {
-				if (!(atoi(optarg) == 2 || atoi(optarg) == 4))
+				if (!(atoi(optarg) == 1 || atoi(optarg) == 3))
 					throw CausetException("Dimension not supported.\n");
 				else
 					network_properties.dim = atoi(optarg);
@@ -188,7 +207,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 			network_properties.a = atof(optarg);
 			break;
 		case 'c':
-			network_properties.core_edge_ratio = atof(optarg);
+			network_properties.core_edge_fraction = atof(optarg);
 			break;
 		case 'C':
 			network_properties.flags.calc_clustering = true;
@@ -213,7 +232,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 			printf("Flag:\t\t\tVariable:\t\t\tSuggested Values:\n");
 			printf("  -n, --nodes\t\tNumber of Nodes\t\t\t100-100000\n");
 			printf("  -k, --degrees\t\tExpected Average Degrees\t10-100\n");
-			printf("  -d, --dim\t\tSpacetime Dimensions\t\t2 or 4\n");
+			printf("  -d, --dim\t\tSpatial Dimensions\t\t1 or 3\n");
 			printf("  -s, --seed\t\tRNG Seed\t\t\t12345L\n");
 			printf("  -a\t\t\tPseudoradius\t\t\t~1.0\n");
 			printf("  -c\t\t\tCore Edge Ratio\t\t\t~0.01\n");

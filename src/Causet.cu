@@ -43,12 +43,12 @@ bool initializeNetwork(Network *network)
 	//Solve for eta0 using Newton-Raphson Method
 	double guess = 0.08;
 	NewtonProperties np = NewtonProperties(guess, TOL, 10000, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim);
-	if (network->network_properties.dim == 2)
+	if (network->network_properties.dim == 1)
 		np.x = (M_PI / 2.0) - 0.0001;
 
 	newton(&solveZeta, &np, &network->network_properties.seed);
 	network->network_properties.zeta = np.x;
-	if (network->network_properties.dim == 2)
+	if (network->network_properties.dim == 1)
 		network->network_properties.zeta = (M_PI / 2.0) - np.x;
 
 	printf("\tTranscendental Equation Solved:\n");
@@ -154,7 +154,7 @@ bool printNetwork(Network network, long init_seed)
 
 	outputStream << "\nCauset Calculated Values:" << std::endl;
 	outputStream << "--------------------------" << std::endl;
-	outputStream << "Resulting Nodes (N_res)\t" << network.network_properties.N_res << std::endl;
+	outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_properties.N_res << std::endl;
 	outputStream << "Resulting Average Degrees (k_res)\t" << network.network_properties.k_res << std::endl;
 	outputStream << "Maximum Conformal Time (eta_0)\t\t" << ((M_PI / 2.0) - network.network_properties.zeta) << std::endl;
 	outputStream << "Maximum Rescaled Time (tau_0)\t\t" << etaToTau((M_PI / 2.0) - network.network_properties.zeta, network.network_properties.a) << std::endl;
@@ -165,7 +165,7 @@ bool printNetwork(Network network, long init_seed)
 	outputStream << "\nNetwork Analysis Results:" << std::endl;
 	outputStream << "-------------------------" << std::endl;
 	outputStream << "Node Position Data:\t\t" << "pos/" << filename << ".cset.pos.dat" << std::endl;
-	outputStream << "Node Edge Data:\t\t" << "edg/" << filename << ".cset.edg.dat" << std::endl;
+	outputStream << "Node Edge Data:\t\t\t" << "edg/" << filename << ".cset.edg.dat" << std::endl;
 	outputStream << "Degree Distribution Data:\t" << "dst/" << filename << ".cset.dst.dat" << std::endl;
 
 	if (network.network_properties.flags.calc_clustering) {
@@ -184,7 +184,7 @@ bool printNetwork(Network network, long init_seed)
 	dataStream.open(("./dat/pos/" + filename + ".cset.pos.dat").c_str());
 	for (unsigned int i = 0; i < network.network_properties.N_tar; i++) {
 		dataStream << tauToEta(network.nodes[i].tau, network.network_properties.a) << " " << network.nodes[i].theta;
-		if (network.network_properties.dim == 4)
+		if (network.network_properties.dim == 3)
 			dataStream << " " << network.nodes[i].phi << " " << network.nodes[i].chi;
 		dataStream << std::endl;
 	}
@@ -194,17 +194,17 @@ bool printNetwork(Network network, long init_seed)
 	unsigned int idx = 0;
 	dataStream.open(("./dat/edg/" + filename + ".cset.edg.dat").c_str());
 	for (unsigned int i = 0; i < network.network_properties.N_tar; i++) {
-		for (unsigned int j = 0; j < network.nodes[i].num_out; j++)
+		for (unsigned int j = 0; j < network.nodes[i].k_out; j++)
 			dataStream << i << " " << network.future_edges[idx + j] << std::endl;
-		idx += network.nodes[i].num_out;
+		idx += network.nodes[i].k_out;
 	}
 	dataStream.flush();
 	dataStream.close();
 
 	dataStream.open(("./dat/dst/" + filename + ".cset.dst.dat").c_str());
 	for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
-		if (network.nodes[i].num_in + network.nodes[i].num_out > 0)
-			dataStream << (network.nodes[i].num_in + network.nodes[i].num_out) << std::endl;
+		if (network.nodes[i].k_in + network.nodes[i].k_out > 0)
+			dataStream << (network.nodes[i].k_in + network.nodes[i].k_out) << std::endl;
 	dataStream.flush();
 	dataStream.close();
 
@@ -222,7 +222,7 @@ bool printNetwork(Network network, long init_seed)
 			cdk = 0.0;
 			ndk = 0;
 			for (unsigned int j = 0; j < network.network_properties.N_tar; j++) {
-				if (i == (network.nodes[j].num_in + network.nodes[j].num_out)) {
+				if (i == (network.nodes[j].k_in + network.nodes[j].k_out)) {
 					cdk += network.network_observables.clustering[j];
 					ndk++;
 				}
@@ -235,7 +235,7 @@ bool printNetwork(Network network, long init_seed)
 	}
 	
 	printf("\tFilename: %s.cset.out\n", filename.c_str());
-	printf("\tCompleted.\n\n");
+	printf("Task Completed.\n\n");
 
 	return true;
 }
@@ -248,7 +248,7 @@ bool destroyNetwork(Network *network)
 	free(network->future_edges);		network->future_edges = NULL;		hostMemUsed -= sizeof(unsigned int)  * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
 	free(network->past_edge_row_start);	network->past_edge_row_start = NULL;	hostMemUsed -= sizeof(int)   * network->network_properties.N_tar;
 	free(network->future_edge_row_start);	network->future_edge_row_start = NULL;	hostMemUsed -= sizeof(int)   * network->network_properties.N_tar;
-	free(network->core_edge_exists);		network->core_edge_exists = NULL;		hostMemUsed -= sizeof(bool)  * powf(network->network_properties.core_edge_ratio * network->network_properties.N_tar, 2.0);
+	free(network->core_edge_exists);		network->core_edge_exists = NULL;		hostMemUsed -= sizeof(bool)  * powf(network->network_properties.core_edge_fraction * network->network_properties.N_tar, 2.0);
 
 	if (network->network_properties.flags.calc_clustering) {
 		free(network->network_observables.clustering);

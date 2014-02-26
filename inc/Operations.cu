@@ -5,7 +5,7 @@
 
 //Variables used to evaluate Newton-Raphson Functions
 struct NewtonProperties {
-	NewtonProperties() : x(0.0), zeta(0.0), a(1.0), rval(0.0), tol(TOL), max(10000), N_tar(10000), k_tar(10.0), dim(4) {}
+	NewtonProperties() : x(0.0), zeta(0.0), a(1.0), rval(0.0), tol(TOL), max(10000), N_tar(10000), k_tar(10.0), dim(3) {}
 	NewtonProperties(double _zeta, double _tol, unsigned int _N_tar, float _k_tar, unsigned int _dim) : zeta(_zeta), tol(_tol), N_tar(_N_tar), k_tar(_k_tar), dim(_dim) {}
 	NewtonProperties(double &_x, double _tol, int _max, unsigned int _N_tar, float _k_tar, unsigned int _dim) : x(_x), tol(_tol), max(_max), N_tar(_N_tar), k_tar(_k_tar), dim(_dim) {}
 	NewtonProperties(double &_x, double _zeta, double _a, double _rval, double _tol, int _max, unsigned int _N_tar, float _k_tar, unsigned int _dim) : x(_x), zeta(_zeta), a(_a), rval(_rval), tol(_tol), max(_max), N_tar(_N_tar), k_tar(_k_tar), dim(_dim) {}
@@ -59,7 +59,7 @@ float tauToEta(float tau, double a);
 //Returns zeta Residual
 inline double solveZeta(NewtonProperties *np)
 {
-	return ((np->dim == 2) ?
+	return ((np->dim == 1) ?
 		-1.0 * eta02D(np->x, np->N_tar, np->k_tar) / eta0Prime2D(np->x) : 
 		-1.0 * zeta4D(np->x, np->N_tar, np->k_tar) / zetaPrime4D(np->x));
 }

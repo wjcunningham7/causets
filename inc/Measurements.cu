@@ -22,21 +22,21 @@ void measureClustering(Network *network)
 
 	for (unsigned int i = 0; i < network->network_properties.N_tar; i++) {
 		//printf("\nNode %u:\n", i);
-		//printf("\tDegrees: %u\n", (network->nodes[i].num_in + network->nodes[i].num_out));
-		//printf("\t\tIn-Degrees: %u\n", network->nodes[i].num_in);
-		//printf("\t\tOut-Degrees: %u\n", network->nodes[i].num_out);
+		//printf("\tDegrees: %u\n", (network->nodes[i].k_in + network->nodes[i].k_out));
+		//printf("\t\tIn-Degrees: %u\n", network->nodes[i].k_in);
+		//printf("\t\tOut-Degrees: %u\n", network->nodes[i].k_out);
 
 		//Ingore nodes of degree 0 and 1
-		if (network->nodes[i].num_in + network->nodes[i].num_out < 2)
+		if (network->nodes[i].k_in + network->nodes[i].k_out < 2)
 			continue;
 
 		c_i = 0.0;
-		c_k = (float)(network->nodes[i].num_in + network->nodes[i].num_out);
+		c_k = (float)(network->nodes[i].k_in + network->nodes[i].k_out);
 		c_max = c_k * (c_k - 1.0) / 2.0;
 
 		//(1) Consider both neighbors in the past
 		if (network->past_edge_row_start[i] != -1)
-			for (unsigned int j = 0; j < network->nodes[i].num_in; j++)
+			for (unsigned int j = 0; j < network->nodes[i].k_in; j++)
 				//3 < 2 < 1
 				for (unsigned int k = 0; k < j; k++)
 					if (nodesAreConnected(network, network->past_edges[network->past_edge_row_start[i] + k], network->past_edges[network->past_edge_row_start[i] + j]))
@@ -44,7 +44,7 @@ void measureClustering(Network *network)
 
 		//(2) Consider both neighbors in the future
 		if (network->future_edge_row_start[i] != -1)
-			for (unsigned int j = 0; j < network->nodes[i].num_out; j++)
+			for (unsigned int j = 0; j < network->nodes[i].k_out; j++)
 				//1 < 3 < 2
 				for (unsigned int k = 0; k < j; k++)
 					if (nodesAreConnected(network, network->future_edges[network->future_edge_row_start[i] + k], network->future_edges[network->future_edge_row_start[i] + j]))
@@ -52,8 +52,8 @@ void measureClustering(Network *network)
 
 		//(3) Consider one neighbor in the past and one in the future
 		if (network->past_edge_row_start[i] != -1 && network->future_edge_row_start[i] != -1)
-			for (unsigned int j = 0; j < network->nodes[i].num_out; j++)
-				for (unsigned int k = 0; k < network->nodes[i].num_in; k++)
+			for (unsigned int j = 0; j < network->nodes[i].k_out; j++)
+				for (unsigned int k = 0; k < network->nodes[i].k_in; k++)
 					//3 < 1 < 2
 					if (nodesAreConnected(network, network->past_edges[network->past_edge_row_start[i] + k], network->future_edges[network->future_edge_row_start[i] + j]))
 						c_i += 1.0;
@@ -91,13 +91,13 @@ bool nodesAreConnected(Network *network, unsigned int past_idx, unsigned int fut
 		return false;
 
 	//Check if the adjacency matrix can be used
-	unsigned int core_limit = (unsigned int)(network->network_properties.core_edge_ratio * network->network_properties.N_tar);
+	unsigned int core_limit = (unsigned int)(network->network_properties.core_edge_fraction * network->network_properties.N_tar);
 	if (past_idx < core_limit && future_idx < core_limit)
 		return (network->core_edge_exists[(past_idx * core_limit) + future_idx]);
 	else if (network->future_edge_row_start[past_idx] == -1)
 		return false;
 	else
-		for (unsigned int i = 0; i < network->nodes[past_idx].num_out; i++)
+		for (unsigned int i = 0; i < network->nodes[past_idx].k_out; i++)
 			if (network->future_edges[network->future_edge_row_start[past_idx] + i] == future_idx)
 				return true;
 
