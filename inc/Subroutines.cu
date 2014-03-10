@@ -11,6 +11,7 @@ void swap(Node *n, Node *m);
 void newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *seed);
 
 //Sort nodes temporally by tau coordinate
+//O(N*log(N)) Efficiency
 void quicksort(Node *nodes, int low, int high)
 {
 	int i, j, k;
@@ -39,6 +40,7 @@ void quicksort(Node *nodes, int low, int high)
 }
 
 //Exchange two nodes
+//O(1) Efficiency
 void swap(Node *n, Node *m)
 {
 	Node temp;
@@ -49,6 +51,7 @@ void swap(Node *n, Node *m)
 
 //Newton-Raphson Method
 //Solves Transcendental Equations
+//O(1) Efficiency
 void newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *seed)
 {
 	double x1;

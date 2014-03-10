@@ -1,6 +1,7 @@
 #ifndef CAUSET_H_
 #define CAUSET_H_
 
+#include <cstring>
 #include <exception>
 #include <fstream>
 #include <getopt.h>
@@ -75,8 +76,8 @@ struct NetworkExec {
 };
 
 struct NetworkProperties {
-	NetworkProperties() : N_tar(10000), k_tar(10.0), N_res(0), k_res(0.0), N_deg2(0), dim(3), a(1.0), zeta(0.0), subnet_size(104857600), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), flags(CausetFlags()), network_exec(NetworkExec()), manifold(DE_SITTER) {}
-	NetworkProperties(unsigned int _N_tar, float _k_tar, unsigned int _dim, float _a, double _zeta, size_t _subnet_size, float _core_edge_fraction, unsigned int _edge_buffer, long _seed, CausetFlags _flags, NetworkExec _network_exec, Manifold _manifold) : N_tar(_N_tar), k_tar(_k_tar), N_res(0), k_res(0), N_deg2(0), dim(_dim), a(_a), zeta(_zeta), subnet_size(_subnet_size), core_edge_fraction(_core_edge_fraction), edge_buffer(_edge_buffer), seed(_seed), flags(_flags), network_exec(_network_exec), manifold(_manifold) {}
+	NetworkProperties() : N_tar(10000), k_tar(10.0), N_res(0), k_res(0.0), N_deg2(0), dim(3), a(1.0), zeta(0.0), subnet_size(104857600), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()), network_exec(NetworkExec()), manifold(DE_SITTER) {}
+	NetworkProperties(unsigned int _N_tar, float _k_tar, unsigned int _dim, float _a, double _zeta, size_t _subnet_size, float _core_edge_fraction, unsigned int _edge_buffer, long _seed, int _graphID, CausetFlags _flags, NetworkExec _network_exec, Manifold _manifold) : N_tar(_N_tar), k_tar(_k_tar), N_res(0), k_res(0), N_deg2(0), dim(_dim), a(_a), zeta(_zeta), subnet_size(_subnet_size), core_edge_fraction(_core_edge_fraction), edge_buffer(_edge_buffer), seed(_seed), graphID(_graphID), flags(_flags), network_exec(_network_exec), manifold(_manifold) {}
 
 	CausetFlags flags;
 	NetworkExec network_exec;
@@ -99,7 +100,8 @@ struct NetworkProperties {
 	float core_edge_fraction;	//Fraction of nodes designated as having core edges
 	unsigned int edge_buffer;	//Small memory buffer for adjacency list
 
-	long seed;
+	long seed;			//Random Seed
+	int graphID;			//Unique Simulation ID
 };
 
 struct NetworkObservables {
@@ -134,6 +136,7 @@ bool initializeNetwork(Network *network);
 void measureNetworkObservables(Network *network);
 bool displayNetwork(Node *nodes, unsigned int *future_edges, int argc, char **argv);
 void display();
+bool loadNetwork(Network *network);
 bool printNetwork(Network network, long init_seed);
 bool destroyNetwork(Network *network);
 
@@ -155,14 +158,15 @@ NetworkProperties parseArgs(int argc, char **argv)
 	NetworkProperties network_properties = NetworkProperties();
 
 	int c, longIndex;
-	static const char *optString = ":m:n:k:d:s:a:c:Ch";
+	static const char *optString = ":m:n:k:d:s:a:c:g:Ch";
 	static const struct option longOpts[] = {
 		{ "manifold",	required_argument,	NULL, 'm' },
 		{ "nodes", 	required_argument,	NULL, 'n' },
 		{ "degrees",	required_argument,	NULL, 'k' },
 		{ "dim",	required_argument,	NULL, 'd' },
 		{ "seed",	required_argument,	NULL, 's' },
-		{ "clustering",no_argument,		NULL, 'C' },
+		{ "clustering",	no_argument,		NULL, 'C' },
+		{ "graph",	required_argument,	NULL, 'g' },
 
 		{ "help", 	no_argument,		NULL, 'h' },
 		{ "gpu", 	no_argument, 		NULL,  0  },
@@ -211,6 +215,9 @@ NetworkProperties parseArgs(int argc, char **argv)
 			break;
 		case 'C':
 			network_properties.flags.calc_clustering = true;
+			break;
+		case 'g':
+			network_properties.graphID = atoi(optarg);
 			break;
 		case 0:
 			if (strcmp("gpu", longOpts[longIndex].name) == 0)
@@ -268,7 +275,15 @@ NetworkProperties parseArgs(int argc, char **argv)
 		char response = getchar();
 		if (response != 'y')
 			exit(EXIT_FAILURE);
-	} 
+	}
+
+	if (network_properties.graphID != 0) {
+		//printf("You have chosen to load a graph from memory.  Some parameters may be ignored as a result.  Continue [y/N]? ", network_properties.graphID);
+		//char response = getchar();
+		//if (response != 'y')
+		//	exit(EXIT_FAILURE);
+		network_properties.dim = 3;
+	}
 
 	return network_properties;
 }

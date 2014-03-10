@@ -15,9 +15,10 @@ void compareAdjacencyListIndices(Node *nodes, unsigned int *future_edges, int *f
 
 //Printing
 void printValues(Node *values, unsigned int num_vals, char *filename);
-void printSpatialDistances(Node *nodes, unsigned int N_tar, unsigned int dim);
+void printSpatialDistances(Node *nodes, Manifold manifold, unsigned int N_tar, unsigned int dim);
 
 //Allocates memory for network
+//O(1) Efficiency
 bool createNetwork(Network *network)
 {
 	//Implement subnet_size later
@@ -70,6 +71,7 @@ bool createNetwork(Network *network)
 }
 
 //Poisson Sprinkling
+//O(N) Efficiency
 bool generateNodes(Network *network, bool &use_gpu)
 {
 	if (use_gpu) {
@@ -149,6 +151,7 @@ bool generateNodes(Network *network, bool &use_gpu)
 }
 
 //Identify Causal Sets
+//O(k*N^2) Efficiency
 bool linkNodes(Network *network, bool &use_gpu)
 {
 	float dt, dx;
@@ -232,9 +235,10 @@ bool linkNodes(Network *network, bool &use_gpu)
 		if (network->future_edge_row_start[i] == future_idx)
 			network->future_edge_row_start[i] = -1;
 	}
+	network->future_edge_row_start[network->network_properties.N_tar-1] = -1;
 	printf("\t\tEdges (forward): %u\n", future_idx);
 
-	//printSpatialDistances(network->nodes, network->network_properties.N_tar, network->network_properties.dim);
+	//printSpatialDistances(network->nodes, network->network_properties.manifold, network->network_properties.N_tar, network->network_properties.dim);
 
 	/*std::ofstream deg;
 	deg.open("degrees.txt", std::ios::app);
@@ -243,6 +247,7 @@ bool linkNodes(Network *network, bool &use_gpu)
 	deg.close();*/
 
 	//Identify past connections
+	network->past_edge_row_start[0] = -1;
 	for (unsigned int i = 1; i < network->network_properties.N_tar; i++) {
 		network->past_edge_row_start[i] = past_idx;
 		for (unsigned int j = 0; j < i; j++) {
@@ -277,7 +282,7 @@ bool linkNodes(Network *network, bool &use_gpu)
 
 	//Debugging Options
 	//compareAdjacencyLists(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
-	//compareAdjacencyListIndices(network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
+	//compareAdjacencyListIndices(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
 
 	printf("\tCausets Successfully Connected.\n");
 	printf("\t\tResulting Network Size: %u\n", network->network_properties.N_res);
@@ -286,6 +291,7 @@ bool linkNodes(Network *network, bool &use_gpu)
 }
 
 //Debug:  Future vs Past Edges in Adjacency List
+//O(1) Efficiency
 void compareAdjacencyLists(Node *nodes, unsigned int *future_edges, int *future_edge_row_start, unsigned int *past_edges, int *past_edge_row_start)
 {
 	for (unsigned int i = 0; i < 20; i++) {
@@ -312,6 +318,7 @@ void compareAdjacencyLists(Node *nodes, unsigned int *future_edges, int *future_
 }
 
 //Debug:  Future and Past Adjacency List Indices
+//O(1) Effiency
 void compareAdjacencyListIndices(Node *nodes, unsigned int *future_edges, int *future_edge_row_start, unsigned int *past_edges, int *past_edge_row_start)
 {
 	printf("\nFuture Edge Indices:\n");
@@ -353,6 +360,8 @@ void compareAdjacencyListIndices(Node *nodes, unsigned int *future_edges, int *f
 	}
 }
 
+//Write Node Coordinates to File
+//O(num_vals) Efficiency
 void printValues(Node *values, unsigned int num_vals, char *filename)
 {
 	std::ofstream outputStream;
@@ -365,10 +374,12 @@ void printValues(Node *values, unsigned int num_vals, char *filename)
 	outputStream.close();
 }
 
-void printSpatialDistances(Node *nodes, unsigned int N_tar, unsigned int dim)
+//Write Spatial Distances to File
+//O(N^2) Efficiency
+void printSpatialDistances(Node *nodes, Manifold manifold, unsigned int N_tar, unsigned int dim)
 {
-	//only de Sitter implemented here
-	if (nodes == NULL)
+	//Only de Sitter implemented here
+	if (nodes == NULL || manifold != DE_SITTER)
 		return;
 	
 	std::ofstream dbgStream;

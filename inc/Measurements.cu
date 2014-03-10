@@ -5,6 +5,7 @@ void measureClustering(Network *network);
 bool nodesAreConnected(Network *network, unsigned int past_idx, unsigned int future_idx);
 
 //Calculates clustering coefficient for each node in network
+//O(N*k^3) Efficiency
 void measureClustering(Network *network)
 {
 	float c_i, c_k, c_max;
@@ -68,7 +69,7 @@ void measureClustering(Network *network)
 
 		//printf("\tConnected Triplets: %f\n", (c_i * c_max));
 		//printf("\tMaximum Triplets: %f\n", c_max);
-		//printf("\tClustering Coefficient: %f\n", c_i);
+		//printf("\tClustering Coefficient: %f\n\n", c_i);
 	}
 
 	network->network_observables.average_clustering = c_avg / network->network_properties.N_deg2;
@@ -80,11 +81,13 @@ void measureClustering(Network *network)
 	cls.close();*/
 
 	printf("\tCalculated Clustering Coefficients.\n");
-	printf("\t\tAverage Clustering: %f\n", network->network_observables.average_clustering);
+	printf("\t\tAverage Clustering:\t%f\n", network->network_observables.average_clustering);
 }
 
 //Returns true if two nodes are causally connected
-//Note:  past_idx must be less than future_idx
+//Note: i past_idx must be less than future_idx
+//O(1) Efficiency for Adjacency Matrix
+//O(k) Efficiency for Adjacency List
 bool nodesAreConnected(Network *network, unsigned int past_idx, unsigned int future_idx)
 {
 	if (past_idx >= future_idx || past_idx >= network->network_properties.N_tar || future_idx >= network->network_properties.N_tar)

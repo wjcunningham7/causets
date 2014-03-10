@@ -4,6 +4,7 @@
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{amssymb}
+\DeclareMathSymbol{\comma}{\mathpunct}{letters}{"3B}
 \begin{document}
 \title{Causal Set Research Notes}
 \author{Will Cunningham}
@@ -119,15 +120,169 @@ V_p(\eta) &= \int_0^\eta \! \mathrm d \eta^\prime \int_0^{\eta - \eta^\prime} \!
 \end{split}
 \end{equation}
 
+\begin{align}
+\langle\bar{k_o}\rangle &= \int_0^{\eta0} \! \rho\delta V_p(\eta)\,\mathrm d\eta \\
+  &\begin{aligned}
+    = \frac{2\pi\delta a^4}{(2+\sec^2\eta_0)\tan\eta_0} \int_0^{\eta_0} &\left(\eta\sec^6\eta + \sec^4\ln\sec^2\eta + \frac{1}{2}\sec^6\eta \right. \\ 
+    & \quad \left. - \eta\sec^6\eta\tan\eta - \frac{1}{2}\sec^4\eta\right)\,\mathrm d\eta
+  \end{aligned} \\
+  &\qquad\begin{aligned}
+    \int_0^{\eta_0}\! \eta\sec^6\eta\,\mathrm d\eta = &-\frac{8}{15}\ln\sec\eta_0 - \frac{2}{15}\sec^2\eta_0 - \frac{1}{20}\sec^4\eta_0 + \frac{8}{15}\eta_0\tan\eta_0 \\ 
+    & + \frac{4}{15}\eta_0\sec^2\eta_0\tan\eta_0 + \frac{1}{5}\eta_0\sec^4\eta_0\tan\eta_0 + \frac{11}{60}
+  \end{aligned} \\
+  &\qquad\begin{aligned}
+    \int_0^{\eta_0} \! \sec^4\eta\ln\sec\eta\,\mathrm d\eta = &\frac{2}{3}\eta_0 - \frac{5}{9}\tan\eta_0 - \frac{1}{9}\sec^2\eta_0\tan\eta_0 \\
+    & + \frac{1}{3}\ln\sec\eta_0\sec^2\eta_0\tan\eta_0 + \frac{2}{3}\ln\sec\eta_0\tan\eta_0
+  \end{aligned} \\
+  &\qquad\begin{aligned}
+    \int_0^{\eta_0} \! \sec^6\eta\,\mathrm d\eta = &\frac{8}{15}\tan\eta_0 + \frac{4}{15}\sec^2\eta_0\tan\eta_0 \\ 
+    & + \frac{1}{5}\sec^4\eta_0\tan\eta_0
+  \end{aligned} \\
+  &\qquad\begin{aligned}
+    \int_0^{\eta_0} \! \eta\sec^6\eta\tan\eta\,\mathrm d\eta = &\frac{1}{6}\eta_0\sec^6\eta_0 - \frac{4}{45}\tan\eta_0 \\ 
+    & - \frac{2}{45}\sec^2\eta_0\tan\eta_0 - \frac{1}{30}\sec^4\eta_0\tan\eta_0
+  \end{aligned} \\
+  &\qquad\int_0^{\eta_0} \! \sec^4\eta\,\mathrm d\eta = \frac{2}{3}\tan\eta_0 + \frac{1}{3}\sec^2\eta_0\tan\eta_0 \\
+  &= \frac{2\pi\delta a^4}{\left(2+\sec^2\eta_0\right)\tan\eta_0}I
+\end{align}
+
+\begin{align}
+I = &-\frac{8}{15}\ln\sec\eta_0 - \frac{2}{15}\sec^2\eta_0 - \frac{1}{20}\sec^4\eta_0 + \frac{8}{15}\eta_0\tan\eta_0 + \frac{4}{15}\eta_0\sec^2\eta_0\tan\eta_0 \notag \\
+  & + \frac{1}{5}\eta_0\sec^4\eta_0\tan\eta_0 + \frac{11}{60} + \frac{4}{3}\eta_0 - \frac{49}{45}\tan\eta_0 - \frac{19}{90}\sec^2\eta_0\tan\eta_0 \notag \\
+  & + \frac{2}{3}\ln\sec\eta_0\sec^2\eta_0\tan\eta_0 + \frac{4}{3}\ln\sec\eta_0\tan\eta_0 + \frac{2}{15}\sec^4\eta_0\tan\eta_0 \notag \\
+  &- {1}{6}\eta_0\sec^6\eta_0
+\end{align}
+
+\begin{align}
+\langle\bar{k}\rangle &= 2\langle\bar{k_o}\rangle \\
+  &\begin{aligned}
+    = &\frac{4}{9}\frac{\pi\delta a^4}{2+\sec^2\eta_0} \left[12\left(\eta_0\cot\eta_0 + \ln\sec\eta_0\right) + \left(6\ln\sec\eta_0 -\frac{19}{10}\right) \sec^2\eta_0 \right. \\
+    & \left. - \frac{49}{5} - \frac{24}{5}\ln\sec\eta_0\cot\eta_0 - \frac{6}{5}\sec^2\eta_0\cot\eta_0 - \frac{9}{20}\sec^4\eta_0\cot\eta_0 \right. \\
+    & \left. + \frac{24}{5}\eta_0 + \frac{12}{5}\eta_0\sec^2\eta_0 + \frac{9}{5}\eta_0\sec^4\eta_0 + \frac{33}{20}\cot\eta_0 + \frac{6}{5}\sec^4\eta_0 \right. \\
+    & \left. - \frac{3}{2}\eta_0\sec^6\eta_0\cot\eta_0\right]
+  \end{aligned}
+\end{align}
+
+\section{Expected Isolated Nodes}
+\subsection{1+1 Dimensions}
+
+The discrete Poisson distribution is given by
+
+\begin{equation}
+P(X=x) = \frac{\left(\delta V\right)^x}{x!}e^{-\delta V}
+\end{equation}
+
+which describes the probability $X$ points fall in the volume $V$.  The respective volumes of the past and future light cones at conformal time $\eta$ are given by
+
 \begin{equation}
 \begin{split}
-\langle\bar{k_o}\rangle &= \int_0^{\eta0} \! \rho\delta V_p(\eta)\,\mathrm d\eta \\
-  &= \frac{2\pi\delta a^4}{(2+\sec^2\eta_0)\tan\eta_0} \int_0^{\eta_0} \left(\eta\sec^6\eta + \sec^4\ln\sec^2\eta + \frac{1}{2}\sec^6\eta \right. \\ \,\,\,\,\, \left. - \eta\sec^6\eta\tan\eta - \frac{1}{2}\sec^4\eta\right)\,\mathrm d\eta \\
-  & \;\;\;\;\;\;\;\;\;\; \int_0^{\eta_0}\! \eta\sec^6\eta\,\mathrm d\eta = -\frac{8}{15}\ln\sec\eta_0 - \frac{2}{15}\sec^2\eta_0 - \frac{1}{20}\sec^4\eta_0 + \frac{8}{15}\eta_0\tan\eta_0 \\ \;\;\;\;\;\;\;\;\;\;\,\,\,\,\, + \frac{4}{15}\eta_0\sec^2\eta_0\tan\eta_0 + \frac{1}{5}\eta_0\sec^4\eta_0\tan\eta_0 + \frac{11}{60} \\
-  & \;\;\;\;\;\;\;\;\;\; \int_0^{\eta_0} \! \sec^4\eta\ln\sec\eta\,\mathrm d\eta = \frac{2}{3}\eta_0 - \frac{5}{9}\tan\eta_0 - \frac{1}{9}\sec^2\eta_0\tan\eta_0 \\ \;\;\;\;\;\;\;\;\;\;\,\,\,\,\, + \frac{1}{3}\ln\sec\eta_0\sec^2\eta_0\tan\eta_0 + \frac{2}{3}\ln\sec\eta_0\tan\eta_0 \\
-  & \;\;\;\;\;\;\;\;\;\; \int_0^{\eta_0} \! \sec^6\eta\,\mathrm d\eta = \frac{8}{15}\tan\eta_0 + \frac{4}{15}\sec^2\eta_0\tan\eta_0 + \frac{1}{5}\sec^4\eta_0\tan\eta_0 \\
-  & \;\;\;\;\;\;\;\;\;\; \int_0^{\eta_0} \! \eta\sec^6\eta\tan\eta\,\mathrm d\eta = \frac{1}{6}\eta_0\sec^6\eta_0 - \frac{4}{45}\tan\eta_0 - \frac{2}{45}\sec^2\eta_0\tan\eta_0 - \frac{1}{30}\sec^4\eta_0\tan\eta_0 \\
-  & \;\;\;\;\;\;\;\;\;\; \int_0^{\eta_0} \! \sec^4\eta\,\mathrm d\eta = \frac{2}{3}\tan\eta_0 + \frac{1}{3}\sec^2\eta_0\tan\eta_0 \\
+V_p\left(\eta\right) &= 2a^2\ln\sec\eta \\
+V_f\left(\eta\right) &= 2a^2\left[\left(\eta_0-\eta\right)\tan\eta_0 + \ln\left(\frac{\sec\eta}{\sec\eta_0}\right)\right] \\
+V &= 2\pi a^2 \tan\eta_0
+\end{split}
+\end{equation}
 
+where $V$ is the total volume of the spacetime patch on the de Sitter manifold.  The volume of the region outside a given node's past and future light cones is described by
+
+\begin{align}
+\phantom{\delta V_0\left(\eta\right)}
+V_o\left(\eta\right) &= V - \left(V_p\left(\eta\right)+V_f\left(\eta\right)\right) \\
+  &\begin{aligned}
+    = 2a^2 & \left[\pi\tan\eta_0 - 2\ln\sec\eta + \left(\eta-\eta_0\right)\tan\eta_0 \right. \\
+    & \quad \left. + \ln\sec\eta_0 \right]
+  \end{aligned} \\
+  &\begin{aligned}
+    = 2a^2 & \left[\left(\eta\tan\eta_0 - \ln\sec^2\eta\right) + \left(\pi\tan\eta_0 \right. \right. \\
+    & \quad \left. \left. -\eta_0\tan\eta_0 + \ln\sec\eta_0\right)\right]
+  \end{aligned} \\
+  &= 2a^2 \left(\mu\left(\eta\right) + \xi\right) \\
+\delta V_o\left(\eta\right) &= 2a^2\delta\left(\mu\left(\eta\right) + \xi\right)
+\end{align}
+
+where we have defined the functions
+
+\begin{equation}
+\begin{split}
+\mu\left(\eta\right) &\equiv \eta\tan\eta_0 - \ln\sec^2\eta \\
+\xi & \equiv \pi\tan\eta_0 - \eta_0\tan\eta_0 + \ln\sec\eta_0
+\end{split}
+\end{equation}
+
+Thus, the continuous Poissonian distribution is
+
+\begin{equation}
+P\left(N\comma \eta\right) = \frac{\left(2a^2\delta\right)^N}{\Gamma\left(N+1\right)}\left(\mu\left(\eta\right) + \xi\right)^N e^{-2a^2\delta\left(\mu\left(\eta\right) + \xi\right)}
+\end{equation}
+
+which describes the probability $N$ points lie outside the light cones at conformal time $\eta$.  Therefore, the expected number of isolated nodes is simply
+
+\begin{equation}
+\langle N\left(0\right)\rangle = N\int_0^{\eta_0} \! \rho\left(\eta\right)P\left(N-1\comma\eta\right) \, \mathrm d\eta
+\end{equation}
+
+To evaluate the integral, we must expand the term $\left(\mu\left(\eta\right)+\xi\right)^N$ using a Binomial expansion.  This is allowed if $N$ is large enough.  Note that we use $N-1$ because the point whose light cones we are considering is not included in the Poisson point process.  To do this trick, consider $\alpha \equiv \frac{\pi}{2} - \eta$.  
+\begin{equation}
+\begin{split}
+\left(\mu\left(\eta\right) + \xi\right)^N &= x - m\left(\alpha\right) \\
+  &= x\left(1-\frac{m\left(\alpha\right)}{x}\right)
+\end{split}
+\end{equation}
+
+where we have defined the new quantities
+
+\begin{equation}
+\begin{split}
+m & \equiv \alpha\tan\eta_0 + \ln\csc^2\alpha \\
+x & \equiv \frac{3\pi}{2}\tan\eta_0 - \eta_0\tan\eta_0 + \ln\sec\eta_0
+\end{split}
+\end{equation}
+
+Now, we may use the binomial expansion:
+
+\begin{equation}
+\begin{split}
+\left(1-\frac{m\left(\alpha\right)}{x}\right)^N &\approx 1 - \frac{N}{x}m\left(\alpha\right) + \frac{N\left(N-1\right)}{2}\left(\frac{m\left(\alpha\right)}{x}\right)^2 - \frac{N\left(N-1\right)\left(N-2\right)}{6}\left(\frac{m\left(\alpha\right)}{x}\right)^3 \\
+  & \qquad m\left(\alpha\right) = \left(\frac{\pi}{2} - \eta\right)\tan\eta_0 + \ln\sec^2\eta \\
+  & \approx 1 - \frac{N}{x}\left[\left(\frac{\pi}{2} - \eta\right)\tan\eta_0 + \ln\sec^2\eta\right]
+\end{split}
+\end{equation}
+
+and use the following approximations:
+
+\begin{equation}
+\begin{split}
+m &\approx \frac{\pi}{2}\tan\eta_0 - \eta\tan\eta_0 \\
+m^2 &\approx \pi\tan\eta_0\left(\frac{\pi}{4}\tan\eta_0 - \eta_0\right) + \eta^2\tan^2\eta_0 \\
+x &\approx \left(\frac{3\pi}{2}-\eta_0\right)\tan\eta_0
+\end{split}
+\end{equation}
+
+so that the distribution is now
+
+\begin{align}
+P\left(N\comma\eta\right)
+  &\begin{aligned}
+     = \frac{\left[2a^2\delta\left(\frac{3\pi}{2}-\eta_0\right)\tan\eta_0\right]^N}{\Gamma\left(N+1\right)}e^{-2a^2\delta\left(\pi-\eta_0\right)\tan\eta_0}
+  \end{aligned} \notag \\
+  &\quad\begin{aligned}
+    \left[1-N\left(\frac{\pi-2\eta}{3\pi-2\eta_0}\right) + \frac{N\left(N-1\right)}{2}\frac{\pi\left(\frac{\pi}{4}-\eta_0\cot\eta_0\right) + \eta^2}{\left(\frac{3\pi}{2}-\eta_0\right)^2}\right]e^{-2a^2\delta\eta\tan\eta_0}
+  \end{aligned} \\
+  &\begin{aligned}
+    = \Xi\left(N\right)\left[1-N\left(\frac{\pi-2\eta}{3\pi-2\eta_0}\right) + \frac{N\left(N-1\right)}{2}\frac{\pi\left(\frac{\pi}{4}-\eta_0\cot\eta_0\right) + \eta^2}{\left(\frac{3\pi}{2}-\eta_0\right)^2}\right]e^{-2a^2\delta\eta\tan\eta_0}
+  \end{aligned} \\
+\langle N\left(0\right)\rangle
+  &\begin{aligned}
+    = \frac{N}{\tan\eta_0}\Xi\left(N\right) \int_0^{\eta_0} \! \sec^2\eta e^{-2a^2\delta\eta\tan\eta_0}
+  \end{aligned} \notag \\
+  &\quad\begin{aligned}
+    \left[1-N\left(\frac{\pi-2\eta}{3\pi-2\eta_0}\right) + \frac{N\left(N-1\right)}{2}\frac{\pi\left(\frac{\pi}{4}-\eta_0\cot\eta_0\right) + \eta^2}{\left(\frac{3\pi}{2}-\eta_0\right)^2}\right] \, \mathrm d\eta
+  \end{aligned}
+\end{align}
+
+where the function $\Xi\left(N\right)$ has been defined to be
+
+\begin{equation}
+\Xi\left(N\right) \equiv \frac{\left[2a^2\delta\left(\frac{3\pi}{2}-\eta_0\right)\tan\eta_0\right]^N}{\Gamma\left(N+1\right)}e^{-2a^2\delta\left(\pi-\eta_0\right)\tan\eta_0}
+\end{equation}
 
 \end{document}

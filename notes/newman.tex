@@ -44,7 +44,7 @@ A_{ij} =
   \end{cases}
 \end{equation}
 
-Note that the direction indicates the edge runs \textit{from} the second index \textit{to} the first. \\
+Note that the direction indicates the edge runs \textit{from} the second index \textit{to} the first. 
 
 We can think of undirected networks as directed networks in which each undirected edge has been replaced with two directed ones running in opposite directions between the same pair of vertices.  The adjacency matrix for such a network is then symmetric and exactly the same as for the original undirected network.
 
@@ -155,5 +155,71 @@ c=\frac{m}{n}
 \end{equation}
 
 \section{Paths}
+A \textit{path} is any sequence of vertices such that every consecutive pair of vertices in the sequence is connected by an edge in the network. \textit{Self-avoiding paths} are more important - Hamiltonian and geodesic paths are two special cases.  The \textit{length} of a path in a network is the number of edges traversed along the path.  The number of paths of length $r$ from vertex $j$ to vertex $i$ is given by
+
+\begin{equation}
+N_{ij}^{(r)} = \left[\mathbf{A}^r\right]_{ij}
+\end{equation}
+
+and the number of loops of length $r$ is given by
+
+\begin{equation}
+\begin{split}
+L_r &= \sum_{i=1}^n \left[\mathbf{A}^r\right]_{ii} \\
+    &= \mathrm{Tr}\mathbf{A}^r \\
+    &= \sum_i \kappa_i^r
+\end{split}
+\end{equation}
+
+where $\kappa_i$ are the eigenvalues of the adjacency matrix.  Note that for a directed graph, the adjacency matrix is asymmetric and therefore may have complex eigenvalues.
+
+\subsection{Geodesic Paths}
+A \textit{geodesic path} is a path between two vertices such that no shorter path exists.  These paths are necessarily self-avoiding, though they are not necessarily unique.  The \textit{diameter} of a graph is the length of the longest geodesic path between any pair of vertices in the network for which a path actually exists.
+
+\subsection{Eulerian and Hamiltonian Paths}
+An \textit{Eulerian path} is a path which traverses each edge in a network exactly once.  A \textit{Hamiltonian path} is a path that visits each vertex only once.
+
+\section{Components}
+The disconnected subgroups of a network are called \textit{components}.  The adjacency matrix of a network with more than one component can be written in block diagonal form.
+
+\section{Independent Paths, Connectivity, and Cut Sets}
+The number of independent paths between given vertices gives a simple measure of how strongly the vertices are connected to one another.  The number of independent paths cannot exceed the number of edges in the network.  The number of independent paths between a pair of vertices is called the \textit{connectivity} of the vertices.  A \textit{cut set} is a set of vertices whose removal will disconnect a specified pair of vertices.  A \textit{minimum cut set} is the smallest cut set that will disconnect a specified pair of vertices. \\
+
+\textit{Menger's Theorem} states that if there is not cut set of size less than $n$ between a given pair of vertices, then there are at least $n$ independent paths between the same vertices.  It implies that the size of the minimum vertex cut set that disconnects a given pair of vertices in a network is equal to the vertex connectivity of the same vertices.
+
+\section{The Graph Laplacian}
+\subsection{Diffusion}
+The diffusion equation is
+
+\begin{equation}
+\frac{\mathrm d\psi_i}{\mathrm dt} = C\sum_j A_{ij}\left(\psi_j - \psi_i\right)
+\end{equation}
+
+We can now define the \textit{graph Laplacian} as
+
+\begin{equation}
+\mathbf{L} = \mathbf{D} - \mathbf{A}
+\end{equation}
+
+where $\mathbf{D}$ is the diagonal matrix of vertex degrees and $\mathbf{A}$ is the adjacency matrix.  The elements of this matrix are
+
+\begin{equation}
+L_{ij} = \begin{cases}
+  k_i & \mbox{if} \,\, i = j \\
+  -1  & \mbox{if} \,\, i \neq j \mbox{and there is an edge} \,\, (i,j) \\
+  0   & \mbox{otherwise}
+\end{cases}
+\end{equation}
+
+This becomes an eigenvector equation $\mathbf{Lv}_i = \lambda_i\mathbf{v}_i$, with the solution
+
+\begin{equation}
+a_i(t) = a_i(0)e^{-C\lambda_i t}
+\end{equation}
+
+where $C$ is the \textit{diffusion constant}.
+
+\subsection{Eigenvalues of the Graph Laplacian}
+Because the Laplacian is a symmetric matrix, its eigenvalues are real
 
 \end{document}

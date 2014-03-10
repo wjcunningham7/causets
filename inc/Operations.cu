@@ -3,6 +3,11 @@
 
 #include "Causet.h"
 
+//Algorithmic Performance
+struct CausetPerformance {
+	double time1;
+};
+
 //Variables used to evaluate Newton-Raphson Functions
 struct NewtonProperties {
 	NewtonProperties() : x(0.0), zeta(0.0), a(1.0), rval(0.0), tol(TOL), max(10000), N_tar(10000), k_tar(10.0), dim(3) {}
@@ -54,6 +59,7 @@ float tauToEta(float tau, double a);
 
 //////////////////////////////////
 //Primary Newton-Raphson Functions
+//All O(1) Efficiency
 //////////////////////////////////
 
 //Returns zeta Residual
