@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=pdflatex 2013.10.9)  28 FEB 2014 05:02
+This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=pdflatex 2013.10.9)  14 MAR 2014 14:15
 entering extended mode
  %&-line parsing enabled.
 **causets.tex
@@ -198,28 +198,27 @@ LaTeX Font Info:    Try loading font information for U+msb on input line 11.
 File: umsb.fd 2002/01/19 v2.2g AMS font definitions
 ) [1
 
-{/usr/share/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2] [3] [4] [5] [6] [7] 
-(./causets.aux) ) 
+{/usr/share/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2] [3] [4] [5] (./cause
+ts.aux) ) 
 Here is how much of TeX's memory you used:
  1883 strings out of 256216
  23941 string characters out of 1917072
- 87770 words of memory out of 1500000
+ 88770 words of memory out of 1500000
  5185 multiletter control sequences out of 10000+200000
  12105 words of font info for 47 fonts, out of 1200000 for 2000
  645 hyphenation exceptions out of 8191
- 33i,18n,22p,367b,191s stack positions out of 5000i,500n,6000p,200000b,15000s
-</usr/share/texmf/fonts/type1/bluesky/cm/cmbx12.pfb></usr/shar
-e/texmf/fonts/type1/bluesky/cm/cmex10.pfb></usr/share/texmf/fonts/type1/bluesky
-/cm/cmmi12.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmmi8.pfb></usr/share/t
-exmf/fonts/type1/bluesky/cm/cmr12.pfb></usr/share/texmf/fonts/type1/bluesky/cm/
-cmr17.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmr6.pfb></usr/share/texmf/f
-onts/type1/bluesky/cm/cmr8.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmsy10.
-pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmsy6.pfb></usr/share/texmf/fonts/
-type1/bluesky/cm/cmsy8.pfb></usr/share/texmf/fonts/type1/bluesky/ams/msam10.pfb
->
-Output written on causets.pdf (7 pages, 75807 bytes).
+ 33i,18n,22p,342b,191s stack positions out of 5000i,500n,6000p,200000b,15000s
+</usr/share/texmf/fonts/type1/bluesky/cm/cmbx12.pfb></usr/share/texmf/
+fonts/type1/bluesky/cm/cmex10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmmi
+12.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmmi8.pfb></usr/share/texmf/fon
+ts/type1/bluesky/cm/cmr12.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmr17.pf
+b></usr/share/texmf/fonts/type1/bluesky/cm/cmr6.pfb></usr/share/texmf/fonts/typ
+e1/bluesky/cm/cmr8.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmsy10.pfb></us
+r/share/texmf/fonts/type1/bluesky/cm/cmsy6.pfb></usr/share/texmf/fonts/type1/bl
+uesky/cm/cmsy8.pfb></usr/share/texmf/fonts/type1/bluesky/ams/msam10.pfb>
+Output written on causets.pdf (5 pages, 65539 bytes).
 PDF statistics:
- 74 PDF objects out of 1000 (max. 8388607)
+ 66 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 131072)
  1 words of extra memory for PDF output out of 10000 (max. 10000000)
 

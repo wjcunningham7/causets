@@ -4,8 +4,26 @@
 #include "Causet.h"
 
 //Algorithmic Performance
-struct CausetPerformance {
-	double time1;
+class CausetPerformance
+{
+	private:
+		double time1;
+
+		static const unsigned int FLOPS1;
+
+	public:
+		CausetPerformance();
+		~CausetPerformance();
+
+		void setTime1(double t1)
+		{
+			time1 = t1;
+		}
+
+		inline double rate1()
+		{
+			return (FLOPS1 / (1E9 * time1));
+		}
 };
 
 //Variables used to evaluate Newton-Raphson Functions
