@@ -399,6 +399,8 @@ bool printNetwork(Network network, long init_seed)
 	outputStream << "Node Position Data:\t\t" << "pos/" << network.network_properties.graphID << ".cset.pos.dat" << std::endl;
 	outputStream << "Node Edge Data:\t\t\t" << "edg/" << network.network_properties.graphID << ".cset.edg.dat" << std::endl;
 	outputStream << "Degree Distribution Data:\t" << "dst/" << network.network_properties.graphID << ".cset.dst.dat" << std::endl;
+	outputStream << "In-Degree Distribution Data:\t" << "idd/" << network.network_properties.graphID << ".cset.idd.dat" << std::endl;
+	outputStream << "Out-Degree Distribution Data:\t" << "odd/" << network.network_properties.graphID << ".cset.odd.dat" << std::endl;
 
 	if (network.network_properties.flags.calc_clustering) {
 		outputStream << "Clustering Coefficient Data:\t" << "cls/" << network.network_properties.graphID << ".cset.cls.dat" << std::endl;
@@ -451,6 +453,26 @@ bool printNetwork(Network network, long init_seed)
 	for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
 		if (network.nodes[i].k_in + network.nodes[i].k_out > 0)
 			dataStream << (network.nodes[i].k_in + network.nodes[i].k_out) << std::endl;
+	dataStream.flush();
+	dataStream.close();
+
+	sstm.str("");
+	sstm.clear();
+	sstm << "./dat/idd/" << network.network_properties.graphID << ".cset.idd.dat";
+	dataStream.open(sstm.str().c_str());
+	for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
+		if (network.nodes[i].k_in > 0)
+			dataStream << network.nodes[i].k_in << std::endl;
+	dataStream.flush();
+	dataStream.close();
+
+	sstm.str("");
+	sstm.clear();
+	sstm << "./dat/odd/" << network.network_properties.graphID << ".cset.odd.dat";
+	dataStream.open(sstm.str().c_str());
+	for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
+		if (network.nodes[i].k_out > 0)
+			dataStream << network.nodes[i].k_out << std::endl;
 	dataStream.flush();
 	dataStream.close();
 
