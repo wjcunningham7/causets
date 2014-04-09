@@ -59,7 +59,7 @@ bool initializeNetwork(Network *network)
 	printf("\tTranscendental Equation Solved:\n");
 	//printf("\t\tZeta: %5.8f\n", network->network_properties.zeta);
 	printf("\t\tMaximum Conformal Time: %5.8f\n", (M_PI / 2.0) - network->network_properties.zeta);
-	printf("\t\tMaximum Rescaled Time:  %5.8f\n", etaToTau((M_PI / 2.0) - network->network_properties.zeta, network->network_properties.a));
+	printf("\t\tMaximum Rescaled Time:  %5.8f\n", etaToT((M_PI / 2.0) - network->network_properties.zeta, network->network_properties.a));
 
 	//Generate coordinates of nodes in 1+1 or 3+1 de Sitter spacetime
 	if (!generateNodes(network, network->network_properties.flags.use_gpu))
@@ -218,7 +218,7 @@ bool loadNetwork(Network *network)
 			try {
 				getline(dataStream, line);
 				network->nodes[i] = Node();
-				network->nodes[i].tau = etaToTau(atof(strtok((char*)line.c_str(), " ")), network->network_properties.a);
+				network->nodes[i].t = etaToT(atof(strtok((char*)line.c_str(), " ")), network->network_properties.a);
 				network->nodes[i].theta = atof(strtok(NULL, " "));
 				network->nodes[i].phi = atof(strtok(NULL, " "));
 				network->nodes[i].chi = atof(strtok(NULL, " "));
@@ -232,7 +232,7 @@ bool loadNetwork(Network *network)
 	}
 
 	//for (unsigned int i = 0; i < network->network_properties.N_tar; i++)
-	//	printf("%f\t%f\t%f\t%f\n", network->nodes[i].tau, network->nodes[i].theta, network->nodes[i].phi, network->nodes[i].chi);
+	//	printf("%f\t%f\t%f\t%f\n", network->nodes[i].t, network->nodes[i].theta, network->nodes[i].phi, network->nodes[i].chi);
 
 	printf("\tReading Edge Data.\n");
 	dataname.str("");
@@ -389,7 +389,7 @@ bool printNetwork(Network network, long init_seed)
 	outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_properties.N_res << std::endl;
 	outputStream << "Resulting Average Degrees (k_res)\t" << network.network_properties.k_res << std::endl;
 	outputStream << "Maximum Conformal Time (eta_0)\t\t" << ((M_PI / 2.0) - network.network_properties.zeta) << std::endl;
-	outputStream << "Maximum Rescaled Time (tau_0)\t\t" << etaToTau((M_PI / 2.0) - network.network_properties.zeta, network.network_properties.a) << std::endl;
+	outputStream << "Maximum Rescaled Time (t_0)  \t\t" << etaToT((M_PI / 2.0) - network.network_properties.zeta, network.network_properties.a) << std::endl;
 
 	if (network.network_properties.flags.calc_clustering)
 		outputStream << "Average Clustering\t\t\t" << network.network_observables.average_clustering << std::endl;
@@ -425,7 +425,7 @@ bool printNetwork(Network network, long init_seed)
 	sstm << "./dat/pos/" << network.network_properties.graphID << ".cset.pos.dat";
 	dataStream.open(sstm.str().c_str());
 	for (unsigned int i = 0; i < network.network_properties.N_tar; i++) {
-		dataStream << tauToEta(network.nodes[i].tau, network.network_properties.a) << " " << network.nodes[i].theta;
+		dataStream << tToEta(network.nodes[i].t, network.network_properties.a) << " " << network.nodes[i].theta;
 		if (network.network_properties.dim == 3)
 			dataStream << " " << network.nodes[i].phi << " " << network.nodes[i].chi;
 		dataStream << std::endl;
@@ -450,9 +450,15 @@ bool printNetwork(Network network, long init_seed)
 	sstm.clear();
 	sstm << "./dat/dst/" << network.network_properties.graphID << ".cset.dst.dat";
 	dataStream.open(sstm.str().c_str());
-	for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
-		if (network.nodes[i].k_in + network.nodes[i].k_out > 0)
-			dataStream << (network.nodes[i].k_in + network.nodes[i].k_out) << std::endl;
+	unsigned int k_max = network.network_properties.N_res - 1;
+	for (unsigned int k = 1; k <= k_max; k++) {
+		idx = 0;
+		for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
+			if (network.nodes[i].k_in + network.nodes[i].k_out == k)
+				idx++;
+		if (idx > 0)
+			dataStream << k << " " << idx << std::endl;
+	}
 	dataStream.flush();
 	dataStream.close();
 
@@ -460,9 +466,14 @@ bool printNetwork(Network network, long init_seed)
 	sstm.clear();
 	sstm << "./dat/idd/" << network.network_properties.graphID << ".cset.idd.dat";
 	dataStream.open(sstm.str().c_str());
-	for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
-		if (network.nodes[i].k_in > 0)
-			dataStream << network.nodes[i].k_in << std::endl;
+	for (unsigned int k = 1; k <= k_max; k++) {
+		idx = 0;
+		for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
+			if (network.nodes[i].k_in == k)
+				idx++;
+		if (idx > 0)
+			dataStream << k << " " << idx << std::endl;
+	}
 	dataStream.flush();
 	dataStream.close();
 
@@ -470,9 +481,14 @@ bool printNetwork(Network network, long init_seed)
 	sstm.clear();
 	sstm << "./dat/odd/" << network.network_properties.graphID << ".cset.odd.dat";
 	dataStream.open(sstm.str().c_str());
-	for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
-		if (network.nodes[i].k_out > 0)
-			dataStream << network.nodes[i].k_out << std::endl;
+	for (unsigned int k = 1; k <= k_max; k++) {
+		idx = 0;
+		for (unsigned int i = 0; i < network.network_properties.N_tar; i++)
+			if (network.nodes[i].k_out == k)
+				idx++;
+		if (idx > 0)
+			dataStream << k << " " << idx << std::endl;
+	}
 	dataStream.flush();
 	dataStream.close();
 

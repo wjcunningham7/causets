@@ -39,11 +39,11 @@ enum Manifold {
 };
 
 struct Node {
-	Node() : tau(0.0), theta(0.0), phi(0.0), chi(0.0), k_in(0), k_out(0) {}
-	Node(float _tau, float _theta, float _phi, float _chi, unsigned int _k_in, unsigned int _k_out) : tau(_tau), theta(_theta), phi(_phi), chi(_chi), k_in(_k_in), k_out(_k_out) {}
+	Node() : t(0.0), theta(0.0), phi(0.0), chi(0.0), k_in(0), k_out(0) {}
+	Node(float _t, float _theta, float _phi, float _chi, unsigned int _k_in, unsigned int _k_out) : t(_t), theta(_theta), phi(_phi), chi(_chi), k_in(_k_in), k_out(_k_out) {}
 
 	//Temporal Coordinate
-	float tau;
+	float t;
 
 	//Spatial Coordinates
 	float theta;
@@ -125,7 +125,7 @@ struct Network {
 	unsigned int *future_edges;
 	int *past_edge_row_start;	//Adjacency list indices
 	int *future_edge_row_start;
-	bool *core_edge_exists;	//Adjacency matrix
+	bool *core_edge_exists;		//Adjacency matrix
 
 	//GPU Memory Pointers
 	CUdeviceptr d_nodes;
@@ -158,7 +158,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 	NetworkProperties network_properties = NetworkProperties();
 
 	int c, longIndex;
-	static const char *optString = ":m:n:k:d:s:a:c:g:Ch";
+	static const char *optString = ":m:n:k:d:s:a:c:g:vCh";
 	static const struct option longOpts[] = {
 		{ "manifold",	required_argument,	NULL, 'm' },
 		{ "nodes", 	required_argument,	NULL, 'n' },
@@ -173,7 +173,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 		{ "display", 	no_argument, 		NULL,  0  },
 		{ "print", 	no_argument, 		NULL,  0  },
 		{ "size", 	required_argument,	NULL,  0  },
-		{ "debug", 	no_argument, 		NULL,  0  }
+		{ "verbose", 	no_argument, 		NULL, 'v' }
 	};
 
 	while ((c = getopt_long(argc, argv, optString, longOpts, &longIndex)) != -1) {
@@ -219,6 +219,9 @@ NetworkProperties parseArgs(int argc, char **argv)
 		case 'g':
 			network_properties.graphID = atoi(optarg);
 			break;
+		case 'v':
+			CAUSET_DEBUG = true;
+			break;
 		case 0:
 			if (strcmp("gpu", longOpts[longIndex].name) == 0)
 				network_properties.flags.use_gpu = true;
@@ -229,8 +232,6 @@ NetworkProperties parseArgs(int argc, char **argv)
 				network_properties.flags.print_network = true;
 			else if (strcmp("size", longOpts[longIndex].name) == 0)
 				network_properties.subnet_size = size_t(atof(optarg) * 1048576);
-			else if (strcmp("debug", longOpts[longIndex].name) == 0)
-				CAUSET_DEBUG = true;
 			break;
 		case 'h':
 			printf("\nUsage  : CausalSet [options]\n\n");
@@ -241,8 +242,11 @@ NetworkProperties parseArgs(int argc, char **argv)
 			printf("  -k, --degrees\t\tExpected Average Degrees\t10-100\n");
 			printf("  -d, --dim\t\tSpatial Dimensions\t\t1 or 3\n");
 			printf("  -s, --seed\t\tRNG Seed\t\t\t12345L\n");
+			printf("  -m, --manifold\tManifold\t\t\tEUCLIDEAN, DE_SITTER, ANTI_DE_SITTER\n");
 			printf("  -a\t\t\tPseudoradius\t\t\t~1.0\n");
 			printf("  -c\t\t\tCore Edge Ratio\t\t\t~0.01\n");
+			printf("  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
+			printf("  -v, --verbose\t\tVerbose Output\n");
 			printf("  -C, --clustering\tCalculate Clustering\n");
 			printf("  -h, --help\t\tDisplay this menu\n");
 
@@ -252,7 +256,6 @@ NetworkProperties parseArgs(int argc, char **argv)
 			printf("  --print\t\tPrint Results\n");
 			printf("  --display\t\tDisplay Graph\n");
 			printf("  --size\t\tNot Implemented Yet!\n");
-			printf("  --debug\t\tActivate Debug Statements\n");
 			printf("\n");
 			exit(EXIT_SUCCESS);
 		case ':':
@@ -270,12 +273,12 @@ NetworkProperties parseArgs(int argc, char **argv)
 		network_properties.seed = -1.0 * (long)time(NULL);
 	}
 
-	if (!network_properties.flags.calc_clustering && !CAUSET_DEBUG) {
+	/*if (!network_properties.flags.calc_clustering && !CAUSET_DEBUG) {
 		printf("You have not chosen to measure any observables!  Continue [y/N]? ");
 		char response = getchar();
 		if (response != 'y')
 			exit(EXIT_FAILURE);
-	}
+	}*/
 
 	if (network_properties.graphID != 0) {
 		//printf("You have chosen to load a graph from memory.  Some parameters may be ignored as a result.  Continue [y/N]? ", network_properties.graphID);

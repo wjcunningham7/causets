@@ -74,6 +74,7 @@ void measureClustering(Network *network)
 
 	network->network_observables.average_clustering = c_avg / network->network_properties.N_deg2;
 
+	//Print average clustering to file
 	/*std::ofstream cls;
 	cls.open("clustering.txt", std::ios::app);
 	cls << network->network_observables.average_clustering << std::endl;

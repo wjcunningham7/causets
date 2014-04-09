@@ -49,7 +49,7 @@ struct NewtonProperties {
 
 //Primary Newton-Raphson Functions
 double solveZeta(NewtonProperties *np);
-double solveTau(NewtonProperties *np);
+double solveT(NewtonProperties *np);
 double solvePhi(NewtonProperties *np);
 
 //Secondary Newton-Raphson Functions
@@ -59,8 +59,8 @@ double eta0Prime2D(double &x);
 double zeta4D(double &x, unsigned int &N_tar, float &k_tar);
 double zetaPrime4D(double &x);
 
-double tau4D(double &x, double &zeta, double &a, double rval);
-double tauPrime4D(double &x, double &zeta, double &a);
+double t4D(double &x, double &zeta, double &a, double rval);
+double tPrime4D(double &x, double &zeta, double &a);
 
 double phi4D(double &x, double rval);
 double phiPrime4D(double &x);
@@ -72,8 +72,8 @@ float X3(float &phi, float &chi, float &theta);
 float X4(float &phi, float &chi, float &theta);
 
 //Temporal Transformations
-float etaToTau(float eta, double a);
-float tauToEta(float tau, double a);
+float etaToT(float eta, double a);
+float tToEta(float t, double a);
 
 //////////////////////////////////
 //Primary Newton-Raphson Functions
@@ -89,9 +89,9 @@ inline double solveZeta(NewtonProperties *np)
 }
 
 //Returns tau Residual
-inline double solveTau(NewtonProperties *np)
+inline double solveT(NewtonProperties *np)
 {
-	return (-1.0 * tau4D(np->x, np->zeta, np->a, np->rval) / tauPrime4D(np->x, np->zeta, np->a));
+	return (-1.0 * t4D(np->x, np->zeta, np->a, np->rval) / tPrime4D(np->x, np->zeta, np->a));
 }
 
 //Returns phi Residual
@@ -124,24 +124,24 @@ inline double zetaPrime4D(double &x)
 	return ((3.0 * (cos(5.0 * x) - 32.0 * (M_PI - 2.0 * x) * sin(x) * sin(x) * sin(x)) + cos(x) * (84.0 - 72.0 * log(1.0 / sin(x))) + cos(3.0 * x) * (24.0 * log(1.0 / sin(x)) - 31.0)) / (-4.0 * M_PI * sin(x) * sin(x) * sin(x) * sin(x) * cos(x) * cos(x) * cos(x) * pow(2.0 + (1.0 / (sin(x) * sin(x))), 3.0)));
 }
 
-inline double tau4D(double &x, double &zeta, double &a, double rval)
+inline double t4D(double &x, double &zeta, double &a, double rval)
 {
-	return (((cosh(a * x) * cosh(a * x) + 2.0) * sinh(a * x) / ((2.0 + 1.0 / (sin(zeta) * sin(zeta))) / tan(zeta))) - rval);
+	return ((((2.0 + cosh(x / a) * cosh(x / a)) * sinh(x / a)) / ((2.0 + (1.0 / (sin(zeta) * sin(zeta)))) / tan(zeta))) - rval);
 }
 
-inline double tauPrime4D(double &x, double &zeta, double &a)
+inline double tPrime4D(double &x, double &zeta, double &a)
 {
-	return (3.0 * a * cosh(a * x) * cosh(a * x) * cosh(a * x) / ((2.0 + 1.0 / (sin(zeta) * sin(zeta))) / tan(zeta)));
+	return ((3.0 * cosh(x / a) * cosh(x / a) * cosh(x / a) * cosh(x / a)) / ((2.0 + (1.0 / (sin(zeta) * sin(zeta)))) / tan(zeta)));
 }
 
 inline double phi4D(double &x, double rval)
 {
-	return (((x - sin(2.0 * x) / 2.0) / M_PI) - rval);
+	return (((x - sin(x) * cos(x)) / M_PI) - rval);
 }
 
 inline double phiPrime4D(double &x)
 {
-	return ((2.0 / M_PI) * sin(x) * sin(x));
+	return ((2 / M_PI) * sin(x) * sin(x));
 }
 
 ///////////////////////////
@@ -177,15 +177,15 @@ inline float X4(float &phi, float &chi, float &theta)
 //////////////////////////
 
 //Conformal to Rescaled Time
-inline float etaToTau(float eta, double a)
+inline float etaToT(float eta, double a)
 {
-	return (acoshf(1.0 / cosf(eta)) / a);
+	return (acoshf(1.0 / cosf(eta)) * a);
 }
 
 //Rescaled to Conformal Time
-inline float tauToEta(float tau, double a)
+inline float tToEta(float t, double a)
 {
-	return (acosf(1.0 / coshf(a * tau)));
+	return (acosf(1.0 / coshf(t / a)));
 }
 
 #endif

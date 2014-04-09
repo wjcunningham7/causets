@@ -28,7 +28,7 @@ bool createNetwork(Network *network)
 		network->nodes = (Node*)malloc(sizeof(Node) * network->network_properties.N_tar);
 		if (network->nodes == NULL) throw std::bad_alloc();
 		hostMemUsed += sizeof(Node) * network->network_properties.N_tar;
-		//printMemUsed("Memory Allocated for Nodes", hostMemUsed, devMemUsed);
+		if (CAUSET_DEBUG) printMemUsed("Memory Allocated for Nodes", hostMemUsed, devMemUsed);
 
 		network->past_edges = (unsigned int*)malloc(sizeof(unsigned int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer));
 		if (network->past_edges == NULL) throw std::bad_alloc();
@@ -60,7 +60,7 @@ bool createNetwork(Network *network)
 		}
 
 		memoryCheckpoint();
-		//printMemUsed("Total Memory Allocated for Network", hostMemUsed, devMemUsed);
+		if (CAUSET_DEBUG) printMemUsed("Total Memory Allocated for Network", hostMemUsed, devMemUsed);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure!\n");
 		return false;
@@ -104,7 +104,7 @@ bool generateNodes(Network *network, bool &use_gpu)
 					//
 				} else if (network->network_properties.manifold == DE_SITTER) {
 					//CDF derived from PDF identified in (2) of [2]
-					network->nodes[i].tau = etaToTau(atan(ran2(&network->network_properties.seed) / tan(network->network_properties.zeta)), network->network_properties.a);
+					network->nodes[i].t = etaToT(atan(ran2(&network->network_properties.seed) / tan(network->network_properties.zeta)), network->network_properties.a);
 				} else if (network->network_properties.manifold == ANTI_DE_SITTER) {
 					//
 				}
@@ -113,17 +113,17 @@ bool generateNodes(Network *network, bool &use_gpu)
 					//
 				} else if (network->network_properties.manifold == DE_SITTER) {
 					/////////////////////////////////////////////////
-					//~~~~~~~~~~~~~~~~~~~~~~Tau~~~~~~~~~~~~~~~~~~~~//
+					//~~~~~~~~~~~~~~~~~~~~~~T~~~~~~~~~~~~~~~~~~~~~~//
 					//CDF derived from PDF identified in (6) of [2]//
 					/////////////////////////////////////////////////
 
 					np.rval = ran2(&network->network_properties.seed);
-					np.x = etaToTau((M_PI / 2.0) - np.zeta, network->network_properties.a);
+					np.x = etaToT((M_PI / 2.0) - np.zeta, network->network_properties.a);
 					np.a = network->network_properties.a;	//Scaling from 'tau' to 't'
 					np.max = 1000;	//Max number of Netwon-Raphson iterations
 
-					newton(&solveTau, &np, &network->network_properties.seed);
-					network->nodes[i].tau = np.x;
+					newton(&solveT, &np, &network->network_properties.seed);
+					network->nodes[i].t = np.x;
 				
 					////////////////////////////////////////////////////
 					//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
@@ -132,7 +132,13 @@ bool generateNodes(Network *network, bool &use_gpu)
 					////////////////////////////////////////////////////
 
 					//Sample Phi from (0, pi)
-					network->nodes[i].phi = (M_PI * ran2(&network->network_properties.seed) + asinf(ran2(&network->network_properties.seed)) + M_PI / 2.0) / 2.0;
+					//network->nodes[i].phi = (M_PI * ran2(&network->network_properties.seed) + asinf(ran2(&network->network_properties.seed)) + M_PI / 2.0) / 2.0;
+					np.rval = ran2(&network->network_properties.seed);
+					np.x = M_PI / 2.0;
+					np.max = 500;
+
+					newton(&solvePhi, &np, &network->network_properties.seed);
+					network->nodes[i].phi = np.x;
 					//if (i % NPRINT == 0) printf("Phi: %5.5f\n", network->nodes[i].phi);
 
 					//Sample Chi from (0, pi)
@@ -142,8 +148,9 @@ bool generateNodes(Network *network, bool &use_gpu)
 					//
 				}
 			}
-			//if (i % NPRINT == 0) printf("Tau: %E\n", network->nodes[i].tau);
+			//if (i % NPRINT == 0) printf("T: %E\n", network->nodes[i].t);
 		}
+		//printValues(network->nodes, network->network_properties.N_tar, "t_dist.cset.dbg.dat");
 	}
 
 	printf("\tNodes Successfully Generated.\n");
@@ -169,7 +176,7 @@ bool linkNodes(Network *network, bool &use_gpu)
 			if (network->network_properties.manifold == EUCLIDEAN) {
 				//
 			} else if (network->network_properties.manifold == DE_SITTER) {
-				dt = fabs(tauToEta(network->nodes[j].tau, network->network_properties.a) - tauToEta(network->nodes[i].tau, network->network_properties.a));
+				dt = fabs(tToEta(network->nodes[j].t, network->network_properties.a) - tToEta(network->nodes[i].t, network->network_properties.a));
 				//if (i % NPRINT == 0) printf("dt: %.5f\n", dt);
 			} else if (network->network_properties.manifold == ANTI_DE_SITTER) {
 				//
@@ -240,6 +247,7 @@ bool linkNodes(Network *network, bool &use_gpu)
 
 	//printSpatialDistances(network->nodes, network->network_properties.manifold, network->network_properties.N_tar, network->network_properties.dim);
 
+	//Write total degrees to file for this graph
 	/*std::ofstream deg;
 	deg.open("degrees.txt", std::ios::app);
 	deg << future_idx << std::endl;
@@ -266,7 +274,7 @@ bool linkNodes(Network *network, bool &use_gpu)
 			network->past_edge_row_start[i] = -1;
 	}
 	//The quantities future_idx and past_idx should be equal
-	//printf("\t\tEdges (backward): %u\n", past_idx);
+	if (CAUSET_DEBUG) printf("\t\tEdges (backward): %u\n", past_idx);
 
 	//Identify Resulting Network
 	for (unsigned int i = 0; i < network->network_properties.N_tar; i++) {
@@ -281,8 +289,10 @@ bool linkNodes(Network *network, bool &use_gpu)
 	network->network_properties.k_res /= network->network_properties.N_res;
 
 	//Debugging Options
-	//compareAdjacencyLists(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
-	//compareAdjacencyListIndices(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
+	if (CAUSET_DEBUG) {
+		compareAdjacencyLists(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
+		compareAdjacencyListIndices(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
+	}
 
 	printf("\tCausets Successfully Connected.\n");
 	printf("\t\tResulting Network Size: %u\n", network->network_properties.N_res);
@@ -368,7 +378,7 @@ void printValues(Node *values, unsigned int num_vals, char *filename)
 	outputStream.open(filename);
 
 	for (unsigned int i = 0; i < num_vals; i++)
-		outputStream << values[i].chi << std::endl;
+		outputStream << values[i].t << std::endl;
 	
 	outputStream.flush();
 	outputStream.close();
@@ -384,7 +394,7 @@ void printSpatialDistances(Node *nodes, Manifold manifold, unsigned int N_tar, u
 	
 	std::ofstream dbgStream;
 	float dx;
-	dbgStream.open("distances.cset");
+	dbgStream.open("distances.cset.dbg.dat");
 	for (unsigned int i = 0; i < N_tar - 1; i++) {
 		for (unsigned int j = i + 1; j < N_tar; j++) {
 			if (dim == 1) dx = M_PI - fabs(M_PI - fabs(nodes[j].theta - nodes[i].theta));
@@ -394,6 +404,10 @@ void printSpatialDistances(Node *nodes, Manifold manifold, unsigned int N_tar, u
 					   (X3(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X3(nodes[j].phi, nodes[j].chi, nodes[j].theta)) +
 					   (X4(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X4(nodes[j].phi, nodes[j].chi, nodes[j].theta)));
 			dbgStream << dx << std::endl;
+			if (i*N_tar+j > 500000) {
+				i = N_tar;
+				break;
+			}
 		}
 	}
 

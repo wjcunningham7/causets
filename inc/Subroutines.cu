@@ -20,14 +20,14 @@ void quicksort(Node *nodes, int low, int high)
 	if (low < high) {
 		k = (low + high) / 2;
 		swap(&nodes[low], &nodes[k]);
-		key = nodes[low].tau;
+		key = nodes[low].t;
 		i = low + 1;
 		j = high;
 
 		while (i <= j) {
-			while ((i <= high) && (nodes[i].tau <= key))
+			while ((i <= high) && (nodes[i].t <= key))
 				i++;
-			while ((j >= low) && (nodes[j].tau > key))
+			while ((j >= low) && (nodes[j].t > key))
 				j--;
 			if (i < j)
 				swap(&nodes[i], &nodes[j]);
@@ -73,11 +73,13 @@ void newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *s
 		iter++;
 	}
 
-	//printf("Newton-Raphson Results:\n");
-	//printf("Tolerance: %E\n", np->tol);
-	//printf("%d of %d iterations performed.\n", iter, np->max);
-	//printf("Residual: %E\n", res);
-	//printf("Solution: %E\n", np->x);
+	if (CAUSET_DEBUG) {
+		printf("Newton-Raphson Results:\n");
+		printf("Tolerance: %E\n", np->tol);
+		printf("%d of %d iterations performed.\n", iter, np->max);
+		printf("Residual: %E\n", res);
+		printf("Solution: %E\n", np->x);
+	}
 }
 
 #endif
