@@ -4,24 +4,37 @@
 #include <cstdlib>
 #include <sys/time.h>
 
-void stopwatchStart();
-double stopwatchReadSeconds();
+struct Stopwatch {
+	Stopwatch() : startTime((struct timeval){0,0}), stopTime((struct timeval){0,0}), elapsedTime(0.0) {}
 
-struct timeval StartTime;
+	struct timeval startTime;
+	struct timeval stopTime;
+	double elapsedTime;
+};
 
-void stopwatchStart()
+void stopwatchStart(struct Stopwatch *sw);
+void stopwatchStop(struct Stopwatch *sw);
+void stopwatchReset(struct Stopwatch *sw);
+
+void stopwatchStart(struct Stopwatch *sw)
 {
-	gettimeofday(&StartTime, NULL);
+	gettimeofday(&sw->startTime, NULL);
 }
 
-double stopwatchReadSeconds()
+void stopwatchStop(struct Stopwatch *sw)
 {
-	struct timeval endTime;
-	gettimeofday(&endTime, 0);
-    
-	long ds = endTime.tv_sec - StartTime.tv_sec;
-	long dus = endTime.tv_usec - StartTime.tv_usec;
-	return ds + 0.000001*dus;
+	assert (sw->startTime.tv_sec != 0 && sw->startTime.tv_usec != 0);
+	gettimeofday(&sw->stopTime, NULL);
+	long ds = sw->stopTime.tv_sec - sw->startTime.tv_sec;
+	long dus = sw->stopTime.tv_usec - sw->startTime.tv_usec;
+	sw->elapsedTime = ds + 0.000001 * dus;
+}
+
+void stopwatchReset(struct Stopwatch *sw)
+{
+	sw->startTime = (struct timeval){0,0};
+	sw->stopTime = (struct timeval){0,0};
+	sw->elapsedTime = 0.0;
 }
 
 #endif

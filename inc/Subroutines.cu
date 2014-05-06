@@ -14,6 +14,10 @@ void newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *s
 //O(N*log(N)) Efficiency
 void quicksort(Node *nodes, int low, int high)
 {
+	assert (nodes != NULL);
+	assert (low >= 0);
+	assert (high >= 0);
+
 	int i, j, k;
 	float key;
 
@@ -43,6 +47,9 @@ void quicksort(Node *nodes, int low, int high)
 //O(1) Efficiency
 void swap(Node *n, Node *m)
 {
+	assert (n != NULL);
+	assert (m != NULL);
+
 	Node temp;
 	temp = *n;
 	*n = *m;
@@ -54,32 +61,39 @@ void swap(Node *n, Node *m)
 //O(1) Efficiency
 void newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *seed)
 {
+	assert (np != NULL);
+	assert (solve != NULL);
+
 	double x1;
 	double res = 1.0;
 
 	int iter = 0;
-	while (fabs(res) > np->tol && iter < np->max) {
-		res = (*solve)(np);
-		//printf("res: %E\n", res);
-		if (res != res) {
-			printf("NaN Error in Newton-Raphson\n");
-			exit(0);
+	try {
+		while (fabs(res) > np->tol && iter < np->max) {
+			res = (*solve)(np);
+			//printf("res: %E\n", res);
+			if (res != res)
+				throw CausetException("NaN Error in Newton-Raphson\n");
+	
+			x1 = np->x + res;
+			//printf("x1: %E\n", x1);
+	
+			np->x = x1;
+			iter++;
 		}
-
-		x1 = np->x + res;
-		//printf("x1: %E\n", x1);
-
-		np->x = x1;
-		iter++;
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		exit(EXIT_FAILURE);
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		exit(EXIT_FAILURE);
 	}
 
-	if (CAUSET_DEBUG) {
-		printf("Newton-Raphson Results:\n");
-		printf("Tolerance: %E\n", np->tol);
-		printf("%d of %d iterations performed.\n", iter, np->max);
-		printf("Residual: %E\n", res);
-		printf("Solution: %E\n", np->x);
-	}
+	//printf("Newton-Raphson Results:\n");
+	//printf("Tolerance: %E\n", np->tol);
+	//printf("%d of %d iterations performed.\n", iter, np->max);
+	//printf("Residual: %E\n", res);
+	//printf("Solution: %E\n", np->x);
 }
 
 #endif

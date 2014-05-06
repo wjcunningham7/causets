@@ -5,49 +5,59 @@
 #include "GPUSubroutines.cu"
 
 //Primary Causet Subroutines
-bool createNetwork(Network *network);
-bool generateNodes(Network *network, bool &use_gpu);
-bool linkNodes(Network *network, bool &use_gpu);
+bool createNetwork(Network *network, CausetPerformance *cp);
+bool generateNodes(Network *network, CausetPerformance *cp, bool &use_gpu);
+bool linkNodes(Network *network, CausetPerformance *cp, bool &use_gpu);
 
 //Debugging
-void compareAdjacencyLists(Node *nodes, unsigned int *future_edges, int *future_edge_row_start, unsigned int *past_edges, int *past_edge_row_start);
-void compareAdjacencyListIndices(Node *nodes, unsigned int *future_edges, int *future_edge_row_start, unsigned int *past_edges, int *past_edge_row_start);
+void compareAdjacencyLists(Node *nodes, int *future_edges, int *future_edge_row_start, int *past_edges, int *past_edge_row_start);
+void compareAdjacencyListIndices(Node *nodes, int *future_edges, int *future_edge_row_start, int *past_edges, int *past_edge_row_start);
 
 //Printing
-void printValues(Node *values, unsigned int num_vals, char *filename);
-void printSpatialDistances(Node *nodes, Manifold manifold, unsigned int N_tar, unsigned int dim);
+void printValues(Node *values, int num_vals, char *filename);
+void printSpatialDistances(Node *nodes, Manifold manifold, int N_tar, int dim);
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Network *network)
+bool createNetwork(Network *network, CausetPerformance *cp)
 {
-	//Implement subnet_size later
-	//Chanage sizeof(Node) to reflect number of dimensions necessary
-	//	so that for 1+1 phi and chi are not allocated
+	assert (network->network_properties.N_tar > 0);
+	assert (network->network_properties.k_tar > 0.0);
+	assert (network->network_properties.core_edge_fraction >= 0.0 && network->network_properties.core_edge_fraction <= 1.0);
+
+	stopwatchStart(&cp->sCreateNetwork);
+
 	try {
 		network->nodes = (Node*)malloc(sizeof(Node) * network->network_properties.N_tar);
-		if (network->nodes == NULL) throw std::bad_alloc();
+		if (network->nodes == NULL)
+			throw std::bad_alloc();
 		hostMemUsed += sizeof(Node) * network->network_properties.N_tar;
-		if (CAUSET_DEBUG) printMemUsed("Memory Allocated for Nodes", hostMemUsed, devMemUsed);
+		if (CAUSET_DEBUG)
+			printMemUsed("Memory Allocated for Nodes", hostMemUsed, devMemUsed);
 
-		network->past_edges = (unsigned int*)malloc(sizeof(unsigned int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer));
-		if (network->past_edges == NULL) throw std::bad_alloc();
-		hostMemUsed += sizeof(unsigned int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
+		network->past_edges = (int*)malloc(sizeof(int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer));
+		if (network->past_edges == NULL)
+			throw std::bad_alloc();
+		hostMemUsed += sizeof(int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
 
-		network->future_edges = (unsigned int*)malloc(sizeof(unsigned int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer));
-		if (network->future_edges == NULL) throw std::bad_alloc();
-		hostMemUsed += sizeof(unsigned int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
+		network->future_edges = (int*)malloc(sizeof(int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer));
+		if (network->future_edges == NULL)
+			throw std::bad_alloc();
+		hostMemUsed += sizeof(int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
 
 		network->past_edge_row_start = (int*)malloc(sizeof(int) * network->network_properties.N_tar);
-		if (network->past_edge_row_start == NULL) throw std::bad_alloc();
+		if (network->past_edge_row_start == NULL)
+			throw std::bad_alloc();
 		hostMemUsed += sizeof(int) * network->network_properties.N_tar;
 
 		network->future_edge_row_start = (int*)malloc(sizeof(int) * network->network_properties.N_tar);
-		if (network->future_edge_row_start == NULL) throw std::bad_alloc();
+		if (network->future_edge_row_start == NULL)
+			throw std::bad_alloc();
 		hostMemUsed += sizeof(int) * network->network_properties.N_tar;
 
 		network->core_edge_exists = (bool*)malloc(sizeof(bool) * powf(network->network_properties.core_edge_fraction * network->network_properties.N_tar, 2.0));
-		if (network->core_edge_exists == NULL) throw std::bad_alloc();
+		if (network->core_edge_exists == NULL)
+			throw std::bad_alloc();
 		hostMemUsed += sizeof(bool) * powf(network->network_properties.core_edge_fraction * network->network_properties.N_tar, 2.0);
 
 		//Allocate memory on GPU if necessary
@@ -60,20 +70,37 @@ bool createNetwork(Network *network)
 		}
 
 		memoryCheckpoint();
-		if (CAUSET_DEBUG) printMemUsed("Total Memory Allocated for Network", hostMemUsed, devMemUsed);
+		if (CAUSET_DEBUG)
+			printMemUsed("Total Memory Allocated for Network", hostMemUsed, devMemUsed);
 	} catch (std::bad_alloc) {
-		fprintf(stderr, "Memory allocation failure!\n");
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
 
-	printf("\tMemory Successfully Allocated.\n");
+	stopwatchStop(&cp->sCreateNetwork);
+
+	if (!BENCH)
+		printf("\tMemory Successfully Allocated.\n");
+	if (CAUSET_DEBUG)
+		printf("\t\tExecution Time: %5.6f sec\n", cp->sCreateNetwork.elapsedTime);
 	return true;
 }
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Network *network, bool &use_gpu)
+bool generateNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 {
+
+	assert (network->network_properties.N_tar > 0);
+	assert (network->network_properties.k_tar > 0.0);
+	assert (network->network_properties.a > 0.0);
+	assert (network->network_properties.dim == 1 || network->network_properties.dim == 3);
+	assert (network->network_properties.zeta > 0.0 && network->network_properties.zeta < M_PI / 2.0);	
+	assert (network->network_properties.manifold == EUCLIDEAN || network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == ANTI_DE_SITTER);
+	assert (network->nodes != NULL);
+
+	stopwatchStart(&cp->sGenerateNodes);
+
 	if (use_gpu) {
 		if (!generateNodesGPU(network))
 			return false;
@@ -82,7 +109,8 @@ bool generateNodes(Network *network, bool &use_gpu)
 		NewtonProperties np = NewtonProperties(network->network_properties.zeta, TOL, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim);
 
 		//Generate coordinates for each of N nodes
-		for (unsigned int i = 0; i < network->network_properties.N_tar; i++) {
+		int i;
+		for (i = 0; i < network->network_properties.N_tar; i++) {
 			network->nodes[i] = Node();
 
 			if (network->network_properties.manifold == EUCLIDEAN) {
@@ -94,6 +122,7 @@ bool generateNodes(Network *network, bool &use_gpu)
 				///////////////////////////////////////////////////////////
 
 				network->nodes[i].theta = 2.0 * M_PI * ran2(&network->network_properties.seed);
+				assert (network->nodes[i].theta > 0.0 && network->nodes[i].theta < 2.0 * M_PI);
 				//if (i % NPRINT == 0) printf("Theta: %5.5f\n", network->nodes[i].theta);
 			} else if (network->network_properties.manifold == ANTI_DE_SITTER) {
 				//
@@ -105,6 +134,7 @@ bool generateNodes(Network *network, bool &use_gpu)
 				} else if (network->network_properties.manifold == DE_SITTER) {
 					//CDF derived from PDF identified in (2) of [2]
 					network->nodes[i].t = etaToT(atan(ran2(&network->network_properties.seed) / tan(network->network_properties.zeta)), network->network_properties.a);
+					assert (network->nodes[i].t > 0.0);
 				} else if (network->network_properties.manifold == ANTI_DE_SITTER) {
 					//
 				}
@@ -124,6 +154,7 @@ bool generateNodes(Network *network, bool &use_gpu)
 
 					newton(&solveT, &np, &network->network_properties.seed);
 					network->nodes[i].t = np.x;
+					assert (network->nodes[i].t > 0.0);
 				
 					////////////////////////////////////////////////////
 					//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
@@ -132,17 +163,19 @@ bool generateNodes(Network *network, bool &use_gpu)
 					////////////////////////////////////////////////////
 
 					//Sample Phi from (0, pi)
-					//network->nodes[i].phi = (M_PI * ran2(&network->network_properties.seed) + asinf(ran2(&network->network_properties.seed)) + M_PI / 2.0) / 2.0;
+					//network->nodes[i].phi = 0.5 * (M_PI * ran2(&network->network_properties.seed) + acos(ran2(&network->network_properties.seed)));
 					np.rval = ran2(&network->network_properties.seed);
 					np.x = M_PI / 2.0;
-					np.max = 500;
+					np.max = 250;
 
 					newton(&solvePhi, &np, &network->network_properties.seed);
 					network->nodes[i].phi = np.x;
+					assert (network->nodes[i].phi > 0.0 && network->nodes[i].phi < M_PI);
 					//if (i % NPRINT == 0) printf("Phi: %5.5f\n", network->nodes[i].phi);
 
 					//Sample Chi from (0, pi)
 					network->nodes[i].chi = acosf(1.0 - 2.0 * ran2(&network->network_properties.seed));
+					assert (network->nodes[i].chi > 0.0 && network->nodes[i].chi < M_PI);
 					//if (i % NPRINT == 0) printf("Chi: %5.5f\n", network->nodes[i].chi);
 				} else if (network->network_properties.manifold == ANTI_DE_SITTER) {
 					//
@@ -150,33 +183,59 @@ bool generateNodes(Network *network, bool &use_gpu)
 			}
 			//if (i % NPRINT == 0) printf("T: %E\n", network->nodes[i].t);
 		}
-		//printValues(network->nodes, network->network_properties.N_tar, "t_dist.cset.dbg.dat");
+		//printValues(network->nodes, network->network_properties.N_tar, "phi_dist.cset.dbg.dat");
 	}
 
-	printf("\tNodes Successfully Generated.\n");
+	stopwatchStop(&cp->sGenerateNodes);
+
+	if (!BENCH)
+		printf("\tNodes Successfully Generated.\n");
+	if (CAUSET_DEBUG)
+		printf("\t\tExecution Time: %5.6f sec\n", cp->sGenerateNodes.elapsedTime);
 	return true;
 }
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Network *network, bool &use_gpu)
+bool linkNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 {
+	assert (network->network_properties.N_tar > 0);
+	assert (network->network_properties.a > 0.0);
+	assert (network->network_properties.core_edge_fraction > 0.0 && network->network_properties.core_edge_fraction < 1.0);
+	assert (network->network_properties.manifold == EUCLIDEAN || network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == ANTI_DE_SITTER);
+	assert (network->nodes != NULL);
+	assert (network->past_edges != NULL);
+	assert (network->future_edges != NULL);
+	assert (network->past_edge_row_start != NULL);
+	assert (network->future_edge_row_start != NULL);
+	assert (network->core_edge_exists != NULL);
+	
 	float dt, dx;
-	unsigned int core_limit = (unsigned int)(network->network_properties.core_edge_fraction * network->network_properties.N_tar);
-	unsigned int future_idx = 0;
-	unsigned int past_idx = 0;
+	int core_limit = (int)(network->network_properties.core_edge_fraction * network->network_properties.N_tar);
+	int future_idx = 0;
+	int past_idx = 0;
+	int i, j, k;
+
+	stopwatchStart(&cp->sLinkNodes);
+
+	for (i = 0; i < network->network_properties.N_tar; i++) {
+		network->nodes[i].k_in = 0;
+		network->nodes[i].k_out = 0;
+	}
 
 	//Identify future connections
-	for (unsigned int i = 0; i < network->network_properties.N_tar - 1; i++) {
-		if (i < core_limit) network->core_edge_exists[(i*core_limit)+i] = false;
+	for (i = 0; i < network->network_properties.N_tar - 1; i++) {
+		if (i < core_limit)
+			network->core_edge_exists[(i*core_limit)+i] = false;
 		network->future_edge_row_start[i] = future_idx;
 
-		for (unsigned int j = i + 1; j < network->network_properties.N_tar; j++) {
+		for (j = i + 1; j < network->network_properties.N_tar; j++) {
 			//Apply Causal Condition (Light Cone)
 			if (network->network_properties.manifold == EUCLIDEAN) {
 				//
 			} else if (network->network_properties.manifold == DE_SITTER) {
 				dt = fabs(tToEta(network->nodes[j].t, network->network_properties.a) - tToEta(network->nodes[i].t, network->network_properties.a));
+				assert (dt > 0.0 && dt < M_PI / 2.0);
 				//if (i % NPRINT == 0) printf("dt: %.5f\n", dt);
 			} else if (network->network_properties.manifold == ANTI_DE_SITTER) {
 				//
@@ -209,6 +268,8 @@ bool linkNodes(Network *network, bool &use_gpu)
 				}
 			}
 
+			assert (dx > 0.0 && dx < M_PI / 2.0);
+
 			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx);
 			//if (i % NPRINT == 0) printf("cos(dx): %.5f\n", cosf(dx));
 
@@ -224,17 +285,25 @@ bool linkNodes(Network *network, bool &use_gpu)
 			}
 						
 			//Link timelike relations
-			if (dx < dt) {
-				//if (i % NPRINT == 0) printf("\tConnected %u to %u\n", i, j);
-				network->future_edges[future_idx] = j;
-				future_idx++;
-
-				if (future_idx == (network->network_properties.N_tar * network->network_properties.k_tar / 2) + network->network_properties.edge_buffer)
-					throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer.\n");
-
-				//Record number of degrees for each node
-				network->nodes[j].k_in++;
-				network->nodes[i].k_out++;
+			try {
+				if (dx < dt) {
+					//if (i % NPRINT == 0) printf("\tConnected %d to %d\n", i, j);
+					network->future_edges[future_idx] = j;
+					future_idx++;
+	
+					if (future_idx == (network->network_properties.N_tar * network->network_properties.k_tar / 2) + network->network_properties.edge_buffer)
+						throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer.\n");
+	
+					//Record number of degrees for each node
+					network->nodes[j].k_in++;
+					network->nodes[i].k_out++;
+				}
+			} catch (CausetException c) {
+				fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+				return false;
+			} catch (std::exception e) {
+				fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+				return false;
 			}
 		}
 
@@ -242,8 +311,9 @@ bool linkNodes(Network *network, bool &use_gpu)
 		if (network->future_edge_row_start[i] == future_idx)
 			network->future_edge_row_start[i] = -1;
 	}
+
 	network->future_edge_row_start[network->network_properties.N_tar-1] = -1;
-	printf("\t\tEdges (forward): %u\n", future_idx);
+	//printf("\t\tEdges (forward): %d\n", future_idx);
 
 	//printSpatialDistances(network->nodes, network->network_properties.manifold, network->network_properties.N_tar, network->network_properties.dim);
 
@@ -256,12 +326,13 @@ bool linkNodes(Network *network, bool &use_gpu)
 
 	//Identify past connections
 	network->past_edge_row_start[0] = -1;
-	for (unsigned int i = 1; i < network->network_properties.N_tar; i++) {
+	for (i = 1; i < network->network_properties.N_tar; i++) {
 		network->past_edge_row_start[i] = past_idx;
-		for (unsigned int j = 0; j < i; j++) {
-			if (network->future_edge_row_start[j] == -1) continue;
+		for (j = 0; j < i; j++) {
+			if (network->future_edge_row_start[j] == -1)
+				continue;
 
-			for (unsigned int k = 0; k < network->nodes[j].k_out; k++) {
+			for (k = 0; k < network->nodes[j].k_out; k++) {
 				if (i == network->future_edges[network->future_edge_row_start[j]+k]) {
 					network->past_edges[past_idx] = j;
 					past_idx++;
@@ -273,11 +344,13 @@ bool linkNodes(Network *network, bool &use_gpu)
 		if (network->past_edge_row_start[i] == past_idx)
 			network->past_edge_row_start[i] = -1;
 	}
+
 	//The quantities future_idx and past_idx should be equal
-	if (CAUSET_DEBUG) printf("\t\tEdges (backward): %u\n", past_idx);
+	assert (future_idx == past_idx);
+	//printf("\t\tEdges (backward): %d\n", past_idx);
 
 	//Identify Resulting Network
-	for (unsigned int i = 0; i < network->network_properties.N_tar; i++) {
+	for (i = 0; i < network->network_properties.N_tar; i++) {
 		if (network->nodes[i].k_in > 0 || network->nodes[i].k_out > 0) {
 			network->network_properties.N_res++;
 			network->network_properties.k_res += network->nodes[i].k_in + network->nodes[i].k_out;
@@ -288,30 +361,45 @@ bool linkNodes(Network *network, bool &use_gpu)
 	}
 	network->network_properties.k_res /= network->network_properties.N_res;
 
-	//Debugging Options
-	if (CAUSET_DEBUG) {
-		compareAdjacencyLists(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
-		compareAdjacencyListIndices(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
-	}
+	assert (network->network_properties.N_res > 0);
+	assert (network->network_properties.N_deg2 > 0);
+	assert (network->network_properties.k_res > 0.0);
 
-	printf("\tCausets Successfully Connected.\n");
-	printf("\t\tResulting Network Size: %u\n", network->network_properties.N_res);
-	printf("\t\tResulting Average Degree: %f\n", network->network_properties.k_res);
+	//Debugging Options
+	//compareAdjacencyLists(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
+	//compareAdjacencyListIndices(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
+
+	stopwatchStop(&cp->sLinkNodes);
+
+	if (!BENCH) {
+		printf("\tCausets Successfully Connected.\n");
+		printf("\t\tResulting Network Size: %d\n", network->network_properties.N_res);
+		printf("\t\tResulting Average Degree: %f\n", network->network_properties.k_res);
+	}
+	if (CAUSET_DEBUG)
+		printf("\t\tExecution Time: %5.6f sec\n", cp->sLinkNodes.elapsedTime);
 	return true;
 }
 
 //Debug:  Future vs Past Edges in Adjacency List
 //O(1) Efficiency
-void compareAdjacencyLists(Node *nodes, unsigned int *future_edges, int *future_edge_row_start, unsigned int *past_edges, int *past_edge_row_start)
+void compareAdjacencyLists(Node *nodes, int *future_edges, int *future_edge_row_start, int *past_edges, int *past_edge_row_start)
 {
-	for (unsigned int i = 0; i < 20; i++) {
+	assert (nodes != NULL);
+	assert (future_edges != NULL);
+	assert (future_edge_row_start != NULL);
+	assert (past_edges != NULL);
+	assert (past_edge_row_start != NULL);
+
+	int i, j;
+	for (i = 0; i < 20; i++) {
 		printf("\nNode i: %d\n", i);
 
 		printf("Forward Connections:\n");
 		if (future_edge_row_start[i] == -1)
 			printf("\tNo future connections.\n");
 		else {
-			for (unsigned int j = 0; j < nodes[i].k_out && j < 10; j++)
+			for (j = 0; j < nodes[i].k_out && j < 10; j++)
 				printf("%d ", future_edges[future_edge_row_start[i]+j]);
 			printf("\n");
 		}
@@ -320,7 +408,7 @@ void compareAdjacencyLists(Node *nodes, unsigned int *future_edges, int *future_
 		if (past_edge_row_start[i] == -1)
 			printf("\tNo past connections.\n");
 		else {
-			for (unsigned int j = 0; j < nodes[i].k_in && j < 10; j++)
+			for (j = 0; j < nodes[i].k_in && j < 10; j++)
 				printf("%d ", past_edges[past_edge_row_start[i]+j]);
 			printf("\n");
 		}
@@ -329,24 +417,34 @@ void compareAdjacencyLists(Node *nodes, unsigned int *future_edges, int *future_
 
 //Debug:  Future and Past Adjacency List Indices
 //O(1) Effiency
-void compareAdjacencyListIndices(Node *nodes, unsigned int *future_edges, int *future_edge_row_start, unsigned int *past_edges, int *past_edge_row_start)
+void compareAdjacencyListIndices(Node *nodes, int *future_edges, int *future_edge_row_start, int *past_edges, int *past_edge_row_start)
 {
+	assert (nodes != NULL);
+	assert (future_edges != NULL);
+	assert (future_edge_row_start != NULL);
+	assert (past_edges != NULL);
+	assert (past_edge_row_start != NULL);
+
+	int max1 = 20;
+	int max2 = 100;
+	int i, j;
+
 	printf("\nFuture Edge Indices:\n");
-	for (unsigned int i = 0; i < 20; i++)
+	for (i = 0; i < max1; i++)
 		printf("%d\n", future_edge_row_start[i]);
 	printf("\nPast Edge Indices:\n");
-	for (unsigned int i = 0; i < 20; i++)
+	for (i = 0; i < max1; i++)
 		printf("%d\n", past_edge_row_start[i]);
 
-	unsigned int next_future_idx, next_past_idx;
-	for (unsigned int i = 0; i < 20; i++) {
+	int next_future_idx, next_past_idx;
+	for (i = 0; i < max1; i++) {
 		printf("\nNode i: %d\n", i);
 
-		printf("Out-Degrees: %u\n", nodes[i].k_out);
+		printf("Out-Degrees: %d\n", nodes[i].k_out);
 		if (future_edge_row_start[i] == -1)
 			printf("Pointer: 0\n");
 		else {
-			for (unsigned int j = 1; j < 100; j++) {
+			for (j = 1; j < max2; j++) {
 				if (future_edge_row_start[i+j] != -1) {
 					next_future_idx = j;
 					break;
@@ -355,11 +453,11 @@ void compareAdjacencyListIndices(Node *nodes, unsigned int *future_edges, int *f
 			printf("Pointer: %d\n", (future_edge_row_start[i+next_future_idx] - future_edge_row_start[i]));
 		}
 
-		printf("In-Degrees: %u\n", nodes[i].k_in);
+		printf("In-Degrees: %d\n", nodes[i].k_in);
 		if (past_edge_row_start[i] == -1)
 			printf("Pointer: 0\n");
 		else {
-			for (unsigned int j = 1; j < 100; j++) {
+			for (j = 1; j < max2; j++) {
 				if (past_edge_row_start[i+j] != -1) {
 					next_past_idx = j;
 					break;
@@ -372,47 +470,74 @@ void compareAdjacencyListIndices(Node *nodes, unsigned int *future_edges, int *f
 
 //Write Node Coordinates to File
 //O(num_vals) Efficiency
-void printValues(Node *values, unsigned int num_vals, char *filename)
+void printValues(Node *values, int num_vals, char *filename)
 {
-	std::ofstream outputStream;
-	outputStream.open(filename);
+	assert (values != NULL);
+	assert (num_vals > 0);
+	assert (filename != NULL);
 
-	for (unsigned int i = 0; i < num_vals; i++)
-		outputStream << values[i].t << std::endl;
+	try {
+		std::ofstream outputStream;
+		outputStream.open(filename);
+		if (!outputStream.is_open())
+			throw CausetException("Failed to open file in 'printValues' function!\n");
+
+		int i;
+		for (i = 0; i < num_vals; i++)
+			outputStream << values[i].phi << std::endl;
 	
-	outputStream.flush();
-	outputStream.close();
+		outputStream.flush();
+		outputStream.close();
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		exit(EXIT_FAILURE);
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		exit(EXIT_FAILURE);
+	}
 }
 
 //Write Spatial Distances to File
 //O(N^2) Efficiency
-void printSpatialDistances(Node *nodes, Manifold manifold, unsigned int N_tar, unsigned int dim)
+void printSpatialDistances(Node *nodes, Manifold manifold, int N_tar, int dim)
 {
 	//Only de Sitter implemented here
-	if (nodes == NULL || manifold != DE_SITTER)
-		return;
-	
-	std::ofstream dbgStream;
-	float dx;
-	dbgStream.open("distances.cset.dbg.dat");
-	for (unsigned int i = 0; i < N_tar - 1; i++) {
-		for (unsigned int j = i + 1; j < N_tar; j++) {
-			if (dim == 1) dx = M_PI - fabs(M_PI - fabs(nodes[j].theta - nodes[i].theta));
-			else if (dim == 3)
-				dx = acosf((X1(nodes[i].phi) * X1(nodes[j].phi)) +
-					   (X2(nodes[i].phi, nodes[i].chi) * X2(nodes[j].phi, nodes[j].chi)) +
-					   (X3(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X3(nodes[j].phi, nodes[j].chi, nodes[j].theta)) +
-					   (X4(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X4(nodes[j].phi, nodes[j].chi, nodes[j].theta)));
-			dbgStream << dx << std::endl;
-			if (i*N_tar+j > 500000) {
-				i = N_tar;
-				break;
+	assert (nodes != NULL);
+	assert (manifold == DE_SITTER);
+	assert (dim == 1 || dim == 3);
+
+	try {	
+		std::ofstream dbgStream;
+		float dx;
+		dbgStream.open("distances.cset.dbg.dat");
+		if (!dbgStream.is_open())
+			throw CausetException("Failed to open 'distances.cset.dbg.dat' file!\n");
+		int i, j;
+		for (i = 0; i < N_tar - 1; i++) {
+			for (j = i + 1; j < N_tar; j++) {
+				if (dim == 1) dx = M_PI - fabs(M_PI - fabs(nodes[j].theta - nodes[i].theta));
+				else if (dim == 3)
+					dx = acosf((X1(nodes[i].phi) * X1(nodes[j].phi)) +
+						   (X2(nodes[i].phi, nodes[i].chi) * X2(nodes[j].phi, nodes[j].chi)) +
+						   (X3(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X3(nodes[j].phi, nodes[j].chi, nodes[j].theta)) +
+						   (X4(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X4(nodes[j].phi, nodes[j].chi, nodes[j].theta)));
+				dbgStream << dx << std::endl;
+				if (i*N_tar+j > 500000) {
+					i = N_tar;
+					break;
+				}
 			}
 		}
+	
+		dbgStream.flush();
+		dbgStream.close();
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		exit(EXIT_FAILURE);
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		exit(EXIT_FAILURE);
 	}
-
-	dbgStream.flush();
-	dbgStream.close();
 }
 
 #endif

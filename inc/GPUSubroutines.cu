@@ -3,14 +3,14 @@
 
 #include "Causet.h"
 
-__global__ void Generate(Node *nodes, unsigned int N_tar, long seed);
+__global__ void Generate(Node *nodes, int N_tar, long seed);
 
 bool generateNodesGPU(Network *network);
 
-__global__ void Generate(Node *nodes, unsigned int N_tar, long seed)
+__global__ void Generate(Node *nodes, int N_tar, long seed)
 {
-	//unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
-	//unsigned int j = blockDim.y * blockIdx.y + threadIdx.y;
+	//int i = blockDim.x * blockIdx.x + threadIdx.x;
+	//int j = blockDim.y * blockIdx.y + threadIdx.y;
 	//if ((j * width) + i > N_tar)
 	//	return;
 
@@ -25,7 +25,7 @@ bool generateNodesGPU(Network *network)
 	try {
 		if (CURAND_STATUS_SUCCESS != curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_DEFAULT))
 			throw CausetException("Failed to create curand generator.\n");
-		if (CURAND_STATUS_SUCCESS != curandSetPseudoRandomGeneratorSeed(prng, (unsigned int)network->network_properties.seed))
+		if (CURAND_STATUS_SUCCESS != curandSetPseudoRandomGeneratorSeed(prng, (int)network->network_properties.seed))
 			throw CausetException("Failed to set curand seed.\n");
 
 		//Need to redesign Node for GPU so memory for points is contiguous
@@ -35,9 +35,9 @@ bool generateNodesGPU(Network *network)
 
 		if (CURAND_STATUS_SUCCESS != curandDestroyGenerator(prng))
 			throw CausetException("Failed to destroy curand generator.\n");
-	} catch (CausetException e) {
-		fprintf(stderr, e.what());
-		exit(EXIT_FAILURE);
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
 	}
 
 	//Invoke Kernel
