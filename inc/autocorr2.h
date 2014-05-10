@@ -6,9 +6,9 @@
 
 class autocorr2
 {
-	private:	
+	private:
 		std::vector<double> data;
-  
+
 		double **corr;
 		double *avg;
 		int **count;
@@ -16,12 +16,12 @@ class autocorr2
 		double *ac_err;
 		double *x;
 		double *xai;
-  
+
 		int jackknife_block_size;
 		int nsample;
 		int t_max;
 		int jackknife_blocks;
-  
+
 		int havedata_flag;
 		int analyzed_flag;
 
@@ -33,7 +33,7 @@ class autocorr2
 		void accum_data(double x);
 		void analysis();
 		void fout_txt(std::ofstream &f);
-	
+
 	private:
 		void init(int blksize);
 		void setup_arrays();
@@ -44,5 +44,9 @@ class autocorr2
 		double get_corrhat(int blk, int t);
 		void do_jackknife();
 };
+
+static void avglessi(int n, double x[], double xai[]);
+static double get_mean(int n, double x[]);
+static double jackknife(int n, double xdot, double xai[]);
 
 #endif

@@ -1,12 +1,12 @@
-#ifndef AUTOCORR2_CUH_
-#define AUTOCORR2_CUH_
+#ifndef AUTOCORR2_CPP_
+#define AUTOCORR2_CPP_
 
 #include <fstream>
 #include <cmath>
 #include <iostream>
 #include <vector>
 
-#include <autocorr2.h>
+#include "autocorr2.h"
 
 static void avglessi(int n, double x[], double xai[])
 {

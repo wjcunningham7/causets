@@ -1,14 +1,7 @@
 #ifndef SUBROUTINES_CU_
 #define SUBROUTINES_CU_
 
-#include "Operations.cu"
-
-//Quicksort Algorithm
-void quicksort(Node *nodes, int low, int high);
-void swap(Node *n, Node *m);
-
-//Newton-Raphson Algorithm
-void newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *seed);
+#include "Subroutines.h"
 
 //Sort nodes temporally by tau coordinate
 //O(N*log(N)) Efficiency
@@ -44,7 +37,6 @@ void quicksort(Node *nodes, int low, int high)
 }
 
 //Exchange two nodes
-//O(1) Efficiency
 void swap(Node *n, Node *m)
 {
 	assert (n != NULL);
@@ -58,11 +50,11 @@ void swap(Node *n, Node *m)
 
 //Newton-Raphson Method
 //Solves Transcendental Equations
-//O(1) Efficiency
-void newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *seed)
+bool newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *seed)
 {
 	assert (np != NULL);
 	assert (solve != NULL);
+	assert (seed != NULL);
 
 	double x1;
 	double res = 1.0;
@@ -83,10 +75,10 @@ void newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *s
 		}
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		exit(EXIT_FAILURE);
+		return false;
 	} catch (std::exception e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-		exit(EXIT_FAILURE);
+		return false;
 	}
 
 	//printf("Newton-Raphson Results:\n");
@@ -94,6 +86,8 @@ void newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *s
 	//printf("%d of %d iterations performed.\n", iter, np->max);
 	//printf("Residual: %E\n", res);
 	//printf("Solution: %E\n", np->x);
+
+	return true;
 }
 
 #endif

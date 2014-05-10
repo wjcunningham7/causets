@@ -1,11 +1,7 @@
 #ifndef GPU_SUBROUTINES_CU_
 #define GPU_SUBROUTINES_CU_
 
-#include "Causet.h"
-
-__global__ void Generate(Node *nodes, int N_tar, long seed);
-
-bool generateNodesGPU(Network *network);
+#include "GPUSubroutines.h"
 
 __global__ void Generate(Node *nodes, int N_tar, long seed)
 {

@@ -1,11 +1,12 @@
-#include "NetworkCreator.cu"
-#include "Measurements.cu"
+#include "NetworkCreator.h"
+#include "Measurements.h"
 
 int main(int argc, char **argv)
 {
 	Network network = Network(parseArgs(argc, argv));
 	CausetPerformance cp = CausetPerformance();
 	Benchmark bm = Benchmark();
+	Resources resources = Resources();
 	
 	stopwatchStart(&cp.sCauset);
 	long init_seed = network.network_properties.seed;
@@ -14,33 +15,356 @@ int main(int argc, char **argv)
 	shrQAStart(argc, argv);
 
 	if (network.network_properties.flags.use_gpu)
-		connectToGPU(argc, argv);
+		connectToGPU(&resources, argc, argv);
 	
-	if (network.network_properties.graphID == 0 && !initializeNetwork(&network, &cp, &bm)) goto CausetExit;
-	else if (network.network_properties.graphID != 0 && !loadNetwork(&network, &cp)) goto CausetExit;
+	if (network.network_properties.graphID == 0 && !initializeNetwork(&network, &cp, &bm, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
+	else if (network.network_properties.graphID != 0 && !loadNetwork(&network, &cp, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
 
-	measureNetworkObservables(&network, &cp, &bm);
+	measureNetworkObservables(&network, &cp, &bm, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed);
 
 	stopwatchStop(&cp.sCauset);
 
-	if (BENCH && !printBenchmark(bm, network.network_properties.flags)) goto CausetExit;
+	if (network.network_properties.flags.bench && !printBenchmark(bm, network.network_properties.flags)) goto CausetExit;
 	if (network.network_properties.flags.disp_network && !displayNetwork(network.nodes, network.future_edges, argc, argv)) goto CausetExit;
-	if (!BENCH) printMemUsed(NULL, maxHostMemUsed, maxDevMemUsed);
-	if (network.network_properties.flags.print_network && !printNetwork(network, cp, init_seed)) goto CausetExit;
+	if (!network.network_properties.flags.bench) printMemUsed(NULL, resources.maxHostMemUsed, resources.maxDevMemUsed);
+	if (network.network_properties.flags.print_network && !printNetwork(network, cp, init_seed, resources.gpuID)) goto CausetExit;
 	
-	destroyNetwork(&network);
-	if (network.network_properties.flags.use_gpu) cuCtxDetach(cuContext);
+	destroyNetwork(&network, resources.hostMemUsed, resources.devMemUsed);
+	if (network.network_properties.flags.use_gpu) cuCtxDetach(resources.cuContext);
 
 	success = true;
 
 	CausetExit:
+	if (cp.sCauset.stopTime.tv_sec == 0 && cp.sCauset.stopTime.tv_usec == 0)
+		stopwatchStop(&cp.sCauset);
 	shrQAFinish(argc, (const char**)argv, success ? QA_PASSED : QA_FAILED);
 	printf("Time:  %5.6f s\n", cp.sCauset.elapsedTime);
 	printf("PROGRAM COMPLETED\n");
 }
 
+//Parse Command Line Arguments
+NetworkProperties parseArgs(int argc, char **argv)
+{
+	NetworkProperties network_properties = NetworkProperties();
+
+	//Initialize conflict array to zeros (no conflicts)
+	for (int i = 0; i < 7; i++)
+		network_properties.flags.cc.conflicts[i] = 0;
+
+	int c, longIndex;
+	//Single-character options
+	static const char *optString = ":m:n:k:d:s:a:c:g:t:A:D:o:r:l:uvCh";
+	//Multi-character options
+	static const struct option longOpts[] = {
+		{ "manifold",	required_argument,	NULL, 'm' },
+		{ "nodes", 	required_argument,	NULL, 'n' },
+		{ "degrees",	required_argument,	NULL, 'k' },
+		{ "dim",	required_argument,	NULL, 'd' },
+		{ "seed",	required_argument,	NULL, 's' },
+		{ "radius",	required_argument,	NULL, 'a' },
+		{ "core",	required_argument,	NULL, 'c' },
+		{ "clustering",	no_argument,		NULL, 'C' },
+		{ "graph",	required_argument,	NULL, 'g' },
+		{ "universe",	no_argument,		NULL, 'u' },
+		{ "age",	required_argument,	NULL, 't' },
+		{ "alpha",	required_argument,	NULL, 'A' },
+		{ "delta",	required_argument,	NULL, 'D' },
+		{ "energy",	required_argument,	NULL, 'o' },
+		{ "ratio",	required_argument,	NULL, 'r' },
+		{ "lambda",	required_argument,	NULL, 'l' },
+
+		{ "help", 	no_argument,		NULL, 'h' },
+		{ "gpu", 	no_argument, 		NULL,  0  },
+		{ "display", 	no_argument, 		NULL,  0  },
+		{ "print", 	no_argument, 		NULL,  0  },
+		{ "verbose", 	no_argument, 		NULL, 'v' },
+		{ "benchmark",	no_argument,		NULL,  0  },
+		{ "autocorr",	no_argument,		NULL,  0  },
+		{ "confliicts", no_argument,		NULL,  0  },
+		{ NULL,		0,			0,     0  }
+	};
+
+	try {
+		while ((c = getopt_long(argc, argv, optString, longOpts, &longIndex)) != -1) {
+			switch (c) {
+			case 'm':	//Manifold
+				if (strcmp(optarg, "e"))
+					network_properties.manifold = EUCLIDEAN;
+				else if (strcmp(optarg, "d"))
+					network_properties.manifold = DE_SITTER;
+				else if (strcmp(optarg, "a"))
+					network_properties.manifold = ANTI_DE_SITTER;
+				else
+					throw CausetException("Invalid argument for 'manifold' parameter!\n");
+
+				if (network_properties.manifold != DE_SITTER) {
+					printf("Only de Sitter manifold currently supported!  Reverting to default value.\n");
+					network_properties.manifold = DE_SITTER;
+				}
+
+				break;
+			case 'n':	//Number of nodes
+				network_properties.N_tar = atoi(optarg);
+				if (network_properties.N_tar <= 0)
+					throw CausetException("Invalid argument for 'nodes' parameter!\n");
+
+				network_properties.flags.cc.conflicts[4]++;
+				network_properties.flags.cc.conflicts[5]++;
+				network_properties.flags.cc.conflicts[6]++;
+
+				break;
+			case 'k':	//Average expected degrees
+				network_properties.k_tar = atof(optarg);
+				if (network_properties.k_tar <= 0.0)
+					throw CausetException("Invalid argument for 'degrees' parameter!\n");
+				break;
+			case 'd':	//Spatial dimensions
+				network_properties.dim = atoi(optarg);
+				if (!(atoi(optarg) == 1 || atoi(optarg) == 3))
+					throw CausetException("Invalid argument for 'dimension' parameter!\n");
+				break;
+			case 's':	//Random seed
+				network_properties.seed = -1.0 * atol(optarg);
+				if (network_properties.seed >= 0.0L)
+					throw CausetException("Invalid argument for 'seed' parameter!\n");
+				break;
+			case 'a':	//Pseudoradius
+				network_properties.a = atof(optarg);
+				
+				if (network_properties.a <= 0.0)
+					throw CausetException("Invalid argument for 'a' parameter!\n");
+
+				network_properties.lambda = 3.0 / powf(network_properties.a, 2.0);
+
+				network_properties.flags.cc.conflicts[0]++;
+
+				break;
+			case 'c':	//Core edge fraction (used for adjacency matrix)
+				network_properties.core_edge_fraction = atof(optarg);
+				if (network_properties.core_edge_fraction <= 0.0 || network_properties.core_edge_fraction >= 1.0)
+					throw CausetException("Invalid argument for 'c' parameter!\n");
+				break;
+			case 'C':	//Flag for calculating clustering
+				network_properties.flags.calc_clustering = true;
+				break;
+			case 'g':	//Graph ID
+				network_properties.graphID = atoi(optarg);
+				if (network_properties.graphID <= 0)
+					throw CausetException("Invalid argument for 'Graph ID' parameter!\n");
+				break;
+			case 'u':	//Flag for creating universe causet
+				network_properties.flags.universe = true;
+				break;
+			case 't':	//Age of universe
+				network_properties.tau0 = atof(optarg);
+
+				if (network_properties.tau0 <= 0.0)
+					throw CausetException("Invalid argument for 'age' parameter!\n");
+
+				network_properties.ratio = powf(sinh(1.5 * network_properties.tau0), 2.0);
+				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
+				network_properties.omegaL = 1.0 - network_properties.omegaM;
+
+				network_properties.flags.cc.conflicts[2]++;
+				network_properties.flags.cc.conflicts[3]++;
+				network_properties.flags.cc.conflicts[6]++;
+
+				break;
+			case 'A':	//Rescaled ratio of dark energy density to matter density
+				network_properties.alpha = atof(optarg);
+
+				if (network_properties.alpha <= 0.0)
+					throw CausetException("Invalid argument for 'alpha' parameter!\n");
+
+				network_properties.flags.cc.conflicts[4]++;
+				network_properties.flags.cc.conflicts[5]++;
+				network_properties.flags.cc.conflicts[6]++;
+
+				break;
+			case 'D':	//Density of nodes
+				network_properties.delta = atof(optarg);
+
+				if (network_properties.delta <= 0.0)
+					throw CausetException("Invalid argument for 'delta' parameter!\n");
+
+				network_properties.flags.cc.conflicts[4]++;
+				network_properties.flags.cc.conflicts[5]++;
+				network_properties.flags.cc.conflicts[6]++;
+
+				break;
+			case 'o':	//Density of dark energy
+				network_properties.omegaL = atof(optarg);
+
+				if (network_properties.omegaL <= 0.0 || network_properties.omegaL >= 1.0)
+					throw CausetException("Invalid input for 'energy' parameter!\n");
+
+				network_properties.omegaM = 1.0 - network_properties.omegaL;
+				network_properties.ratio = network_properties.omegaL / network_properties.omegaM;
+				network_properties.tau0 = (2.0 / 3.0) * asinh(sqrt(network_properties.ratio));
+					
+				network_properties.flags.cc.conflicts[1]++;
+				network_properties.flags.cc.conflicts[2]++;
+				network_properties.flags.cc.conflicts[5]++;
+
+				break;
+			case 'r':	//Ratio of dark energy density to matter density
+				network_properties.ratio = atof(optarg);
+
+				if (network_properties.ratio <= 0.0)
+					throw CausetException("Invalid argument for 'ratio' parameter!\n");
+
+				network_properties.tau0 = (2.0 / 3.0) * asinh(sqrt(network_properties.ratio));
+				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
+				network_properties.omegaL = 1.0 - network_properties.omegaM;
+				
+				network_properties.flags.cc.conflicts[1]++;
+				network_properties.flags.cc.conflicts[3]++;
+				network_properties.flags.cc.conflicts[4]++;
+
+				break;
+			case 'l':	//Cosmological constant
+				network_properties.lambda = atof(optarg);
+
+				if (network_properties.lambda <= 0.0)
+					throw CausetException("Invalid argument for 'lambda' parameter!\n");
+
+				network_properties.a = sqrt(3.0 / network_properties.lambda);
+
+				network_properties.flags.cc.conflicts[0]++;
+
+				break;
+			case 'v':	//Verbose output
+				network_properties.flags.verbose = true;
+				break;
+			case 0:
+				if (strcmp("gpu", longOpts[longIndex].name) == 0)
+					//Flag to use GPU accelerated routines
+					network_properties.flags.use_gpu = true;
+				else if (strcmp("display", longOpts[longIndex].name) == 0)
+					//Flag to use OpenGL to display network
+					//network_properties.flags.disp_network = true;
+					printf("Display not supported:  Ignoring Flag.\n");
+				else if (strcmp("print", longOpts[longIndex].name) == 0)
+					//Flag to print results to file in 'dat' folder
+					network_properties.flags.print_network = true;
+				else if (strcmp("benchmark", longOpts[longIndex].name) == 0)
+					//Flag to benchmark selected routines
+					network_properties.flags.bench = true;
+				else if (strcmp("autocorr", longOpts[longIndex].name) == 0)
+					//Flag to calculate autocorrelation of selected variables
+					network_properties.flags.calc_autocorr = true;
+				else if (strcmp("conflicts", longOpts[longIndex].name) == 0) {
+					//Print conflicting parameters
+					printf("\nParameter Conflicts:\n");
+					printf("--------------------\n");
+					printf(" > a, lambda\n");
+					printf(" > energy, ratio\n");
+					printf(" > energy, age\n");
+					printf(" > age, ratio\n");
+					printf(" > n, delta, alpha, ratio\n");
+					printf(" > n, delta, alpha, energy\n");
+					printf(" > n, delta, alpha, age\n\n");
+					printf("Specifying any of these combinations will over-constrain the system!\n\n");
+					exit(EXIT_SUCCESS);
+				} else {
+					//Unrecognized options
+					fprintf(stderr, "Option --%s is not recognized.\n", longOpts[longIndex].name);
+					exit(EXIT_FAILURE);
+				}
+				break;
+			case 'h':
+				//Print help menu
+				printf("\nUsage  :  CausalSet [options]\n\n");
+				printf("CausalSet Options...................\n");
+				printf("====================================\n");
+				printf("Flag:\t\t\tVariable:\t\t\tSuggested Values:\n");
+				printf("  -A, --alpha\t\tUnphysical Parameter\t\t2.0\n");
+				printf("  -a, --radius\t\tPseudoradius\t\t\t1.0\n");
+				printf("  -C, --clustering\tCalculate Clustering\n");
+				printf("  -c, --core\t\tCore Edge Ratio\t\t\t0.01\n");
+				printf("  -D, --delta\t\tNode Density\t\t\t10000\n");
+				printf("  -d, --dim\t\tSpatial Dimensions\t\t1 or 3\n");
+				printf("  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
+				printf("  -h, --help\t\tDisplay this menu\n");
+				printf("  -k, --degrees\t\tExpected Average Degrees\t10-100\n");
+				printf("  -l, --lambda\t\tCosmological Constant\t\t3.0\n");
+				printf("  -m, --manifold\tManifold\t\t\tEUCLIDEAN, DE_SITTER, ANTI_DE_SITTER\n");
+				printf("  -n, --nodes\t\tNumber of Nodes\t\t\t100-100000\n");
+				printf("  -o, --energy\t\tDark Energy Density\t\t0.73\n");
+				printf("  -r, --ratio\t\tEnergy to Matter Ratio\t\t2.7\n");
+				printf("  -s, --seed\t\tRNG Seed\t\t\t18100L\n");
+				printf("  -t, --age\t\tRescaled Age of Universe\t0.85\n");
+				printf("  -u, --universe\tUniverse Causet\n");
+				printf("  -v, --verbose\t\tVerbose Output\n");
+				printf("\n");
+
+				printf("Flag:\t\t\tPurpose:\n");
+				printf("  --autocorr\t\tCalculate Autocorrelations\n");
+				printf("  --benchmark\t\tBenchmark Algorithms\n");
+				printf("  --conflicts\t\tShow Parameter Conflicts\n");
+				printf("  --display\t\tDisplay Graph\n");
+				printf("  --gpu\t\t\tUse GPU\n");
+				printf("  --print\t\tPrint Results\n");
+				printf("\n");
+				exit(EXIT_SUCCESS);
+			case ':':
+				//Single-character flag needs an argument
+				fprintf(stderr, "%s: option '-%c' requires an argument\n", argv[0], optopt);
+				exit(EXIT_FAILURE);
+			case '?':	//Unrecognized flag
+			default:	//Default case
+				fprintf(stderr, "%s:option -%c' is not recognized.\n", argv[0], optopt);
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		//Make sure necessary parameters have been specified
+		if (!network_properties.flags.universe) {
+			if (network_properties.N_tar == 0)
+				throw CausetException("Flag '-n', number of nodes, must be specified!\n");
+			else if (network_properties.k_tar == 0.0)
+				throw CausetException("Flag '-k', expected average degrees, must be specified!\n");
+		}
+
+		//Prepare to benchmark algorithms
+		if (network_properties.flags.bench) {
+			network_properties.flags.verbose = false;
+			network_properties.graphID = 0;
+			network_properties.flags.disp_network = false;
+			network_properties.flags.print_network = false;
+		}
+
+		//If no seed specified, choose random one
+		if (network_properties.seed == -12345L) {
+			srand(time(NULL));
+			network_properties.seed = -1.0 * (long)time(NULL);
+		}
+
+		//If graph ID specified, prepare to read graph properties
+		if (network_properties.graphID != 0) {
+			if (network_properties.flags.verbose) {
+				printf("You have chosen to load a graph from memory.  Some parameters may be ignored as a result.  Continue [y/N]? ", network_properties.graphID);
+				char response = getchar();
+				if (response != 'y')
+					exit(EXIT_FAILURE);
+			}
+
+			//Not currently supported for 1+1 causet
+			network_properties.dim = 3;
+		}
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		exit(EXIT_FAILURE);
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		exit(EXIT_FAILURE);
+	}
+
+	return network_properties;
+}
+
 //Handles all network generation and initialization procedures
-bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm)
+bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	assert (network != NULL);
 	assert (cp != NULL);
@@ -69,14 +393,17 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm)
 		if (network->network_properties.flags.cc.conflicts[1] == 0 && network->network_properties.flags.cc.conflicts[2] == 0 && network->network_properties.flags.cc.conflicts[3] == 0) {
 			//Solve for tau0, ratio, omegaM, and omegaL
 			double guess = 0.5;
-			assert (network->network_properties.N_tar > 0 && network->network_properties.alpha > 0.0 && network->network_properties.delta > 0.0);
+			assert (network->network_properties.N_tar > 0);
+			assert (network->network_properties.alpha > 0.0);
+			assert (network->network_properties.delta > 0.0);
 			NewtonProperties np = NewtonProperties(guess, TOL, 10000, network->network_properties.N_tar, network->network_properties.alpha, network->network_properties.delta);
-			newton(&solveTau0, &np, &network->network_properties.seed);
+			if (!newton(&solveTau0, &np, &network->network_properties.seed))
+				return false;
 			network->network_properties.tau0 = np.x;
 			assert (network->network_properties.tau0 > 0.0);
 			
 			network->network_properties.ratio = powf(sinh(1.5 * network->network_properties.tau0), 2.0);
-			assert(network->network_properties.ratio > 0.0 && network->network_properties.ratio < 1.0);
+			assert(network->network_properties.ratio > 0.0);
 			network->network_properties.omegaM = 1.0 / (network->network_properties.ratio + 1.0);
 			network->network_properties.omegaL = 1.0 - network->network_properties.omegaM;
 		} else if (network->network_properties.flags.cc.conflicts[1] == 0 || network->network_properties.flags.cc.conflicts[2] == 0 || network->network_properties.flags.cc.conflicts[3] == 0) {
@@ -97,25 +424,45 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm)
 			}
 		}
 		//Finally, solve for R0
-		assert (network->network_properties.alpha > 0.0 && network->network_properties.ratio > 0.0 && network->network_properties.ratio < 1.0);
+		assert (network->network_properties.alpha > 0.0);
+		assert (network->network_properties.ratio > 0.0);
 		network->network_properties.R0 = network->network_properties.alpha * powf(network->network_properties.ratio, (1.0 / 3.0));
 		assert (network->network_properties.R0 > 0.0);
+
+		//Guess at k_tar (find exact expression later)
+		network->network_properties.k_tar = 8.0;
+
+		printf("\n");
+		printf("\tParameters Constraining Universe Causal Set:\n");
+		printf("\t--------------------------------------------\n");
+		printf("\t > Number of Nodes:\t\t%d\n", network->network_properties.N_tar);
+		printf("\t > Expected Degrees:\t\t%.6f\n", network->network_properties.k_tar);
+		printf("\t > Pseudoradius:\t\t%.6f\n", network->network_properties.a);
+		printf("\t > Cosmological Constant:\t%.6f\n", network->network_properties.lambda);
+		printf("\t > Rescaled Age:\t\t%.6f\n", network->network_properties.tau0);
+		printf("\t > Dark Energy Density:\t\t%.6f\n", network->network_properties.omegaL);
+		printf("\t > Matter Density:\t\t%.6f\n", network->network_properties.omegaM);
+		printf("\t > Ratio:\t\t\t%.6f\n", network->network_properties.ratio);
+		printf("\t > Node Density:\t\t%.6f\n", network->network_properties.delta);
+		printf("\t > Alpha:\t\t\t%.6f\n", network->network_properties.alpha);
+		printf("\t > Scaling Factor:\t\t%.6f\n", network->network_properties.R0);
+		printf("\n");
 	}
 
 	bool tmp = false;
 	int i;
 
 	//Allocate memory needed by pointers
-	if (BENCH) {
+	if (network->network_properties.flags.bench) {
 		tmp = network->network_properties.flags.calc_clustering;
 		network->network_properties.flags.calc_clustering = false;
 
 		for (i = 0; i < NBENCH; i++) {
-			if (!createNetwork(network, cp))
+			if (!createNetwork(network, cp, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
 				return false;
 				
 			bm->bCreateNetwork += cp->sCreateNetwork.elapsedTime;
-			destroyNetwork(network);
+			destroyNetwork(network, hostMemUsed, devMemUsed);
 			stopwatchReset(&cp->sCreateNetwork);
 		}
 		bm->bCreateNetwork /= NBENCH;
@@ -124,37 +471,39 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm)
 			network->network_properties.flags.calc_clustering = true;
 	}
 
-	tmp = BENCH;
+	tmp = network->network_properties.flags.bench;
 	if (tmp)
-		BENCH = false;
-	if (!createNetwork(network, cp))
+		network->network_properties.flags.bench = false;
+	if (!createNetwork(network, cp, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
 		return false;
 	if (tmp)
-		BENCH = true;
+		network->network_properties.flags.bench = true;
 
-	//Solve for eta0 using Newton-Raphson Method
-	double guess = 0.08;
-	assert (network->network_properties.N_tar > 0 && network->network_properties.k_tar > 0.0 && (network->network_properties.dim == 1 || network->network_properties.dim == 3));
-	NewtonProperties np = NewtonProperties(guess, TOL, 10000, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim);
-	if (network->network_properties.dim == 1)
-		np.x = (M_PI / 2.0) - 0.0001;
+	if (!network->network_properties.flags.universe) {
+		//Solve for eta0 using Newton-Raphson Method
+		double guess = 0.08;
+		assert (network->network_properties.N_tar > 0 && network->network_properties.k_tar > 0.0 && (network->network_properties.dim == 1 || network->network_properties.dim == 3));
+		NewtonProperties np = NewtonProperties(guess, TOL, 10000, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim);
+		if (network->network_properties.dim == 1)
+			np.x = HALF_PI - 0.0001;
 
-	newton(&solveZeta, &np, &network->network_properties.seed);
-	network->network_properties.zeta = np.x;
-	if (network->network_properties.dim == 1)
-		network->network_properties.zeta = (M_PI / 2.0) - np.x;
-	assert (network->network_properties.zeta > 0 && network->network_properties.zeta < M_PI / 2.0);
+		if (!newton(&solveZeta, &np, &network->network_properties.seed))
+			return false;
+		network->network_properties.zeta = np.x;
+		if (network->network_properties.dim == 1)
+			network->network_properties.zeta = HALF_PI - np.x;
+		assert (network->network_properties.zeta > 0 && network->network_properties.zeta < HALF_PI);
 
-	printf("\tTranscendental Equation Solved:\n");
-	//printf("\t\tZeta: %5.8f\n", network->network_properties.zeta);
-	printf("\t\tMaximum Conformal Time: %5.8f\n", (M_PI / 2.0) - network->network_properties.zeta);
-	printf("\t\tMaximum Rescaled Time:  %5.8f\n", etaToT((M_PI / 2.0) - network->network_properties.zeta, network->network_properties.a));
+		printf("\tTranscendental Equation Solved:\n");
+		//printf("\t\tZeta: %5.8f\n", network->network_properties.zeta);
+		printf("\t\tMaximum Conformal Time: %5.8f\n", HALF_PI - network->network_properties.zeta);
+		printf("\t\tMaximum Rescaled Time:  %5.8f\n", etaToT(HALF_PI - network->network_properties.zeta, network->network_properties.a));
+	}
 
-	//Generate coordinates of nodes in 1+1 or 3+1 de Sitter spacetime
-	//and then order nodes temporally using quicksort
+	//Generate coordinates of spacetime nodes and then order nodes temporally using quicksort
 	int low = 0;
 	int high = network->network_properties.N_tar - 1;
-	if (BENCH) {
+	if (network->network_properties.flags.bench) {
 		for (i = 0; i < NBENCH; i++) {
 			if (!generateNodes(network, cp, network->network_properties.flags.use_gpu))
 				return false;
@@ -166,21 +515,23 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm)
 
 			bm->bGenerateNodes += cp->sGenerateNodes.elapsedTime;
 			bm->bQuicksort += cp->sQuicksort.elapsedTime;
-			
+		
 			stopwatchReset(&cp->sGenerateNodes);
 			stopwatchReset(&cp->sQuicksort);
 		}
 		
 		bm->bGenerateNodes /= NBENCH;
 		bm->bQuicksort /= NBENCH;
-	}	
+	}
 
 	if (tmp)
-		BENCH = false;
+		network->network_properties.flags.bench = false;
 	if (!generateNodes(network, cp, network->network_properties.flags.use_gpu))
 		return false;
 	if (tmp)
-		BENCH = true;
+		network->network_properties.flags.bench = true;
+
+	exit(EXIT_SUCCESS);
 
 	//Quicksort
 	stopwatchStart(&cp->sQuicksort);
@@ -188,11 +539,11 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm)
 	stopwatchStop(&cp->sQuicksort);
 			
 	printf("\tQuick Sort Successfully Performed.\n");
-	if (CAUSET_DEBUG)
+	if (network->network_properties.flags.verbose)
 		printf("\t\tExecution Time: %5.6f sec\n", cp->sQuicksort.elapsedTime);
 
 	//Identify edges as points connected by timelike intervals
-	if (BENCH) {
+	if (network->network_properties.flags.bench) {
 		for (i = 0; i < NBENCH; i++) {
 			if (!linkNodes(network, cp, network->network_properties.flags.use_gpu))
 				return false;
@@ -204,17 +555,17 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm)
 	}
 
 	if (tmp)
-		BENCH = false;
+		network->network_properties.flags.bench = false;
 	if (!linkNodes(network, cp, network->network_properties.flags.use_gpu))
 		return false;
 	if (tmp)
-		BENCH = true;
+		network->network_properties.flags.bench = true;
 
 	printf("Task Completed.\n");
 	return true;
 }
 
-void measureNetworkObservables(Network *network, CausetPerformance *cp, Benchmark *bm)
+void measureNetworkObservables(Network *network, CausetPerformance *cp, Benchmark *bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	assert (network != NULL);
 	assert (cp != NULL);
@@ -223,22 +574,22 @@ void measureNetworkObservables(Network *network, CausetPerformance *cp, Benchmar
 	printf("\nCalculating Network Observables...\n");
 
 	if (network->network_properties.flags.calc_clustering) {
-		if (BENCH) {
+		if (network->network_properties.flags.bench) {
 			int i;
 			for (i = 0; i < NBENCH; i++) {
-				measureClustering(network, cp);
+				measureClustering(network, cp, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 				bm->bMeasureClustering += cp->sMeasureClustering.elapsedTime;
 				stopwatchReset(&cp->sMeasureClustering);
 			}
 			bm->bMeasureClustering /= NBENCH;
 		}
 		
-		bool tmp = BENCH;
+		bool tmp = network->network_properties.flags.bench;
 		if (tmp)
-			BENCH = false;
-		measureClustering(network, cp);
+			network->network_properties.flags.bench = false;
+		measureClustering(network, cp, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 		if (tmp)
-			BENCH = true;
+			network->network_properties.flags.bench = true;
 	}
 
 	printf("Task Completed.\n");
@@ -283,12 +634,15 @@ void display()
 //	-Primary simulation output file (./dat/*.cset.out)
 //	-Node position data		(./dat/pos/*.cset.pos.dat)
 //	-Edge data			(./dat/edg/*.cset.edg.dat)
-bool loadNetwork(Network *network, CausetPerformance *cp)
+bool loadNetwork(Network *network, CausetPerformance *cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	assert (network != NULL);
 	assert (cp != NULL);
 	assert (network->network_properties.graphID != 0);
-	assert (!BENCH);
+	assert (!network->network_properties.flags.bench);
+
+	//Not currently supported (will be implemented later)
+	assert (!network->network_properties.flags.universe);
 
 	printf("Loading Graph from File.....\n");
 
@@ -360,16 +714,16 @@ bool loadNetwork(Network *network, CausetPerformance *cp)
 			pch = strtok((char*)line.c_str(), " \t");
 			for (i = 0; i < 4; i++)
 				pch = strtok(NULL, " \t");
-			network->network_properties.zeta = (M_PI / 2.0) - atof(pch);
-			if (network->network_properties.zeta <= 0.0 || network->network_properties.zeta >= M_PI / 2.0)
+			network->network_properties.zeta = HALF_PI - atof(pch);
+			if (network->network_properties.zeta <= 0.0 || network->network_properties.zeta >= HALF_PI)
 				throw CausetException("Invalid value for eta0!\n");
-			printf("\t\teta0:\t%f\n", (M_PI / 2.0) - network->network_properties.zeta);
+			printf("\t\teta0:\t%f\n", HALF_PI - network->network_properties.zeta);
 
 			dataStream.close();
 		} else
 			throw CausetException("Failed to open simulation parameters file!\n");
 
-		if (!createNetwork(network, cp))
+		if (!createNetwork(network, cp, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
 			return false;
 
 		//Read node positions
@@ -388,7 +742,7 @@ bool loadNetwork(Network *network, CausetPerformance *cp)
 				
 				if (network->nodes[i].t <= 0.0)
 					throw CausetException("Invalid value parsed for t in node position file!\n");
-				if (network->nodes[i].theta <= 0.0 || network->nodes[i].theta >= 2 * M_PI)
+				if (network->nodes[i].theta <= 0.0 || network->nodes[i].theta >= TWO_PI)
 					throw CausetException("Invalid value parsed for theta in node position file!\n");
 				if (network->nodes[i].phi <= 0.0 || network->nodes[i].phi >= M_PI)
 					throw CausetException("Invalid value parsed for phi in node position file!\n");
@@ -517,7 +871,7 @@ bool loadNetwork(Network *network, CausetPerformance *cp)
 }
 
 //Print to File
-bool printNetwork(Network network, CausetPerformance cp, long init_seed)
+bool printNetwork(Network network, CausetPerformance cp, long init_seed, int gpuID)
 {
 	if (!network.network_properties.flags.print_network)
 		return false;
@@ -533,10 +887,18 @@ bool printNetwork(Network network, CausetPerformance cp, long init_seed)
 			sstm << "Dev" << gpuID << "_";
 		else
 			sstm << "CPU_";
-		sstm << network.network_properties.N_tar << "_";
-		sstm << network.network_properties.k_tar << "_";
-		sstm << network.network_properties.a << "_";
-		sstm << network.network_properties.dim << "_";
+		if (network.network_properties.flags.universe) {
+			sstm << "U_";
+			sstm << network.network_properties.tau0 << "_";
+			sstm << network.network_properties.alpha << "_";
+			sstm << network.network_properties.a << "_";
+			sstm << network.network_properties.delta << "_";
+		} else {
+			sstm << network.network_properties.N_tar << "_";
+			sstm << network.network_properties.k_tar << "_";
+			sstm << network.network_properties.a << "_";
+			sstm << network.network_properties.dim << "_";
+		}
 		sstm << init_seed;
 		std::string filename = sstm.str();
 
@@ -563,18 +925,39 @@ bool printNetwork(Network network, CausetPerformance cp, long init_seed)
 			throw CausetException("Function 'strftime' failed to execute!\n");
 		outputStream << buffer << std::endl;
 
-		outputStream << "\nCauset Input Parameters:" << std::endl;
-		outputStream << "------------------------" << std::endl;
-		outputStream << "Target Nodes (N_tar)\t\t\t" << network.network_properties.N_tar << std::endl;
-		outputStream << "Target Expected Average Degrees (k_tar)\t" << network.network_properties.k_tar << std::endl;
-		outputStream << "Pseudoradius (a)\t\t\t" << network.network_properties.a << std::endl;
+		if (network.network_properties.flags.universe) {
+			outputStream << "\nCauset Initial Parameters:" << std::endl;
+			outputStream << "--------------------------" << std::endl;
+			outputStream << "Target Nodes (N_tar)\t\t\t" << network.network_properties.N_tar << std::endl;
+			outputStream << "Target Degrees (k_tar)\t\t\t" << network.network_properties.k_tar << std::endl;
+			outputStream << "Pseudoradius (a)\t\t\t" << network.network_properties.a << std::endl;
+			outputStream << "Cosmological Constant (lambda)\t" << network.network_properties.lambda << std::endl;
+			outputStream << "Rescaled Age (tau0)\t\t\t" << network.network_properties.tau0 << std::endl;
+			outputStream << "Dark Energy Density (omegaL)\t" << network.network_properties.omegaL << std::endl;
+			outputStream << "Matter Density (omegaM)\t\t" << network.network_properties.omegaM << std::endl;
+			outputStream << "Ratio (ratio)\t\t\t" << network.network_properties.ratio << std::endl;
+			outputStream << "Node Density (delta)\t\t" << network.network_properties.delta << std::endl;
+			outputStream << "Alpha (alpha)\t\t\t" << network.network_properties.alpha << std::endl;
+			outputStream << "Scaling Factor (R0)\t\t" << network.network_properties.R0 << std::endl;
 
-		outputStream << "\nCauset Calculated Values:" << std::endl;
-		outputStream << "--------------------------" << std::endl;
-		outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_properties.N_res << std::endl;
-		outputStream << "Resulting Average Degrees (k_res)\t" << network.network_properties.k_res << std::endl;
-		outputStream << "Maximum Conformal Time (eta_0)\t\t" << ((M_PI / 2.0) - network.network_properties.zeta) << std::endl;
-		outputStream << "Maximum Rescaled Time (t_0)  \t\t" << etaToT((M_PI / 2.0) - network.network_properties.zeta, network.network_properties.a) << std::endl;
+			outputStream << "\nCauset Resulting Parameters:" << std::endl;
+			outputStream << "----------------------------" << std::endl;
+			outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_properties.N_res << std::endl;
+			outputStream << "Resulting Average Degrees (k_res)\t" << network.network_properties.k_res << std::endl;
+		} else {
+			outputStream << "\nCauset Input Parameters:" << std::endl;
+			outputStream << "------------------------" << std::endl;
+			outputStream << "Target Nodes (N_tar)\t\t\t" << network.network_properties.N_tar << std::endl;
+			outputStream << "Target Expected Average Degrees (k_tar)\t" << network.network_properties.k_tar << std::endl;
+			outputStream << "Pseudoradius (a)\t\t\t" << network.network_properties.a << std::endl;
+
+			outputStream << "\nCauset Calculated Values:" << std::endl;
+			outputStream << "--------------------------" << std::endl;
+			outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_properties.N_res << std::endl;
+			outputStream << "Resulting Average Degrees (k_res)\t" << network.network_properties.k_res << std::endl;
+			outputStream << "Maximum Conformal Time (eta_0)\t\t" << (HALF_PI - network.network_properties.zeta) << std::endl;
+			outputStream << "Maximum Rescaled Time (t_0)  \t\t" << etaToT(HALF_PI - network.network_properties.zeta, network.network_properties.a) << std::endl;
+		}
 
 		if (network.network_properties.flags.calc_clustering)
 			outputStream << "Average Clustering\t\t\t" << network.network_observables.average_clustering << std::endl;
@@ -793,7 +1176,7 @@ bool printBenchmark(Benchmark bm, CausetFlags cf)
 }
 
 //Free Memory
-void destroyNetwork(Network *network)
+void destroyNetwork(Network *network, size_t &hostMemUsed, size_t &devMemUsed)
 {
 	free(network->nodes);
 	network->nodes = NULL;

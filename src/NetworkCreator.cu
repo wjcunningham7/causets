@@ -1,29 +1,36 @@
-#ifndef NETWORK_CREATOR_CU
-#define NETWORK_CREATOR_CU
+#ifndef NETWORK_CREATOR_CU_
+#define NETWORK_CREATOR_CU_
 
-#include "Subroutines.cu"
-#include "GPUSubroutines.cu"
-
-//Primary Causet Subroutines
-bool createNetwork(Network *network, CausetPerformance *cp);
-bool generateNodes(Network *network, CausetPerformance *cp, bool &use_gpu);
-bool linkNodes(Network *network, CausetPerformance *cp, bool &use_gpu);
-
-//Debugging
-void compareAdjacencyLists(Node *nodes, int *future_edges, int *future_edge_row_start, int *past_edges, int *past_edge_row_start);
-void compareAdjacencyListIndices(Node *nodes, int *future_edges, int *future_edge_row_start, int *past_edges, int *past_edge_row_start);
-
-//Printing
-void printValues(Node *values, int num_vals, char *filename);
-void printSpatialDistances(Node *nodes, Manifold manifold, int N_tar, int dim);
+#include "NetworkCreator.h"
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Network *network, CausetPerformance *cp)
+bool createNetwork(Network *network, CausetPerformance *cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	assert (network->network_properties.N_tar > 0);
 	assert (network->network_properties.k_tar > 0.0);
 	assert (network->network_properties.core_edge_fraction >= 0.0 && network->network_properties.core_edge_fraction <= 1.0);
+
+	if (network->network_properties.flags.verbose) {
+		//Estimate memory usage before allocating
+		size_t mem = 0;
+		mem += sizeof(Node) * network->network_properties.N_tar;
+		mem += sizeof(int) * 2 * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
+		mem += sizeof(int) * 2 * network->network_properties.N_tar;
+		mem += sizeof(bool) * powf(network->network_properties.core_edge_fraction * network->network_properties.N_tar, 2.0);
+
+		size_t dmem = 0;
+		if (network->network_properties.flags.use_gpu) {
+			dmem += sizeof(Node) * network->network_properties.N_tar;
+			dmem += sizeof(Node) * network->network_properties.N_tar * network->network_properties.k_tar / 2;
+		}
+
+		printMemUsed("for Network (Estimation)", mem, dmem);
+		printf("\nContinue [y/N]?");
+		char response = getchar();
+		if (response != 'y')
+			return false;
+	}
 
 	stopwatchStart(&cp->sCreateNetwork);
 
@@ -32,7 +39,7 @@ bool createNetwork(Network *network, CausetPerformance *cp)
 		if (network->nodes == NULL)
 			throw std::bad_alloc();
 		hostMemUsed += sizeof(Node) * network->network_properties.N_tar;
-		if (CAUSET_DEBUG)
+		if (network->network_properties.flags.verbose)
 			printMemUsed("Memory Allocated for Nodes", hostMemUsed, devMemUsed);
 
 		network->past_edges = (int*)malloc(sizeof(int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer));
@@ -69,8 +76,8 @@ bool createNetwork(Network *network, CausetPerformance *cp)
 			devMemUsed += sizeof(Node) * network->network_properties.N_tar * network->network_properties.k_tar / 2;
 		}
 
-		memoryCheckpoint();
-		if (CAUSET_DEBUG)
+		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+		if (network->network_properties.flags.verbose)
 			printMemUsed("Total Memory Allocated for Network", hostMemUsed, devMemUsed);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
@@ -79,9 +86,9 @@ bool createNetwork(Network *network, CausetPerformance *cp)
 
 	stopwatchStop(&cp->sCreateNetwork);
 
-	if (!BENCH)
+	if (!network->network_properties.flags.bench)
 		printf("\tMemory Successfully Allocated.\n");
-	if (CAUSET_DEBUG)
+	if (network->network_properties.flags.verbose)
 		printf("\t\tExecution Time: %5.6f sec\n", cp->sCreateNetwork.elapsedTime);
 	return true;
 }
@@ -95,7 +102,10 @@ bool generateNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 	assert (network->network_properties.k_tar > 0.0);
 	assert (network->network_properties.a > 0.0);
 	assert (network->network_properties.dim == 1 || network->network_properties.dim == 3);
-	assert (network->network_properties.zeta > 0.0 && network->network_properties.zeta < M_PI / 2.0);	
+	if (network->network_properties.flags.universe)
+		assert (network->network_properties.dim == 3);
+	else
+		assert (network->network_properties.zeta > 0.0 && network->network_properties.zeta < HALF_PI);	
 	assert (network->network_properties.manifold == EUCLIDEAN || network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == ANTI_DE_SITTER);
 	assert (network->nodes != NULL);
 
@@ -105,7 +115,7 @@ bool generateNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 		if (!generateNodesGPU(network))
 			return false;
 	} else {
-		//Initialize Newton-Raphson Parameters
+		//Initialize Newton-Raphson Struct
 		NewtonProperties np = NewtonProperties(network->network_properties.zeta, TOL, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim);
 
 		//Generate coordinates for each of N nodes
@@ -121,8 +131,8 @@ bool generateNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 				//Sample Theta from (0, 2pi), as described on p. 2 of [1]//
 				///////////////////////////////////////////////////////////
 
-				network->nodes[i].theta = 2.0 * M_PI * ran2(&network->network_properties.seed);
-				assert (network->nodes[i].theta > 0.0 && network->nodes[i].theta < 2.0 * M_PI);
+				network->nodes[i].theta = TWO_PI * ran2(&network->network_properties.seed);
+				assert (network->nodes[i].theta > 0.0 && network->nodes[i].theta < TWO_PI);
 				//if (i % NPRINT == 0) printf("Theta: %5.5f\n", network->nodes[i].theta);
 			} else if (network->network_properties.manifold == ANTI_DE_SITTER) {
 				//
@@ -142,17 +152,25 @@ bool generateNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 				if (network->network_properties.manifold == EUCLIDEAN) {
 					//
 				} else if (network->network_properties.manifold == DE_SITTER) {
-					/////////////////////////////////////////////////
-					//~~~~~~~~~~~~~~~~~~~~~~T~~~~~~~~~~~~~~~~~~~~~~//
-					//CDF derived from PDF identified in (6) of [2]//
-					/////////////////////////////////////////////////
+					/////////////////////////////////////////////////////////
+					//~~~~~~~~~~~~~~~~~~~~~~~~~~~~T~~~~~~~~~~~~~~~~~~~~~~~~//
+					//CDF derived from PDF identified in (6) of [2] for 3+1//
+					//and from PDF identified in (12) of [2] for universe  //
+					/////////////////////////////////////////////////////////
 
 					np.rval = ran2(&network->network_properties.seed);
-					np.x = etaToT((M_PI / 2.0) - np.zeta, network->network_properties.a);
-					np.a = network->network_properties.a;	//Scaling from 'tau' to 't'
-					np.max = 1000;	//Max number of Netwon-Raphson iterations
-
-					newton(&solveT, &np, &network->network_properties.seed);
+					np.max = 1000;
+					if (network->network_properties.flags.universe) {
+						np.x = 0.5;
+						np.tau0 = network->network_properties.tau0;
+						if (!newton(&solveTau, &np, &network->network_properties.seed))
+							return false;
+					} else {
+						np.x = etaToT(HALF_PI - np.zeta, network->network_properties.a);
+						np.a = network->network_properties.a;
+						if (!newton(&solveT, &np, &network->network_properties.seed))
+							return false;
+					}
 					network->nodes[i].t = np.x;
 					assert (network->nodes[i].t > 0.0);
 				
@@ -163,12 +181,14 @@ bool generateNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 					////////////////////////////////////////////////////
 
 					//Sample Phi from (0, pi)
+					//For some reason the technique in [3] has not been producing the correct distribution...
 					//network->nodes[i].phi = 0.5 * (M_PI * ran2(&network->network_properties.seed) + acos(ran2(&network->network_properties.seed)));
 					np.rval = ran2(&network->network_properties.seed);
-					np.x = M_PI / 2.0;
+					np.x = HALF_PI;
 					np.max = 250;
 
-					newton(&solvePhi, &np, &network->network_properties.seed);
+					if (!newton(&solvePhi, &np, &network->network_properties.seed))
+						return false;
 					network->nodes[i].phi = np.x;
 					assert (network->nodes[i].phi > 0.0 && network->nodes[i].phi < M_PI);
 					//if (i % NPRINT == 0) printf("Phi: %5.5f\n", network->nodes[i].phi);
@@ -183,14 +203,19 @@ bool generateNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 			}
 			//if (i % NPRINT == 0) printf("T: %E\n", network->nodes[i].t);
 		}
-		//printValues(network->nodes, network->network_properties.N_tar, "phi_dist.cset.dbg.dat");
+
+		//Debugging statements used to check coordinate distributions
+		//printValues(network->nodes, network->network_properties.N_tar, "t_dist.cset.dbg.dat", "t");
+		//printValues(network->nodes, network->network_properties.N_tar, "theta_dist.cset.dbg.dat", "theta");
+		//printValues(network->nodes, network->network_properties.N_tar, "chi_dist.cset.dbg.dat", "chi");
+		//printValues(network->nodes, network->network_properties.N_tar, "phi_dist.cset.dbg.dat", "phi");
 	}
 
 	stopwatchStop(&cp->sGenerateNodes);
 
-	if (!BENCH)
+	if (!network->network_properties.flags.bench)
 		printf("\tNodes Successfully Generated.\n");
-	if (CAUSET_DEBUG)
+	if (network->network_properties.flags.verbose)
 		printf("\t\tExecution Time: %5.6f sec\n", cp->sGenerateNodes.elapsedTime);
 	return true;
 }
@@ -223,6 +248,10 @@ bool linkNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 		network->nodes[i].k_out = 0;
 	}
 
+	//DEBUG
+	if (network->network_properties.flags.universe)
+		return false;
+
 	//Identify future connections
 	for (i = 0; i < network->network_properties.N_tar - 1; i++) {
 		if (i < core_limit)
@@ -235,7 +264,7 @@ bool linkNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 				//
 			} else if (network->network_properties.manifold == DE_SITTER) {
 				dt = fabs(tToEta(network->nodes[j].t, network->network_properties.a) - tToEta(network->nodes[i].t, network->network_properties.a));
-				assert (dt > 0.0 && dt < M_PI / 2.0);
+				assert (dt > 0.0 && dt < HALF_PI);
 				//if (i % NPRINT == 0) printf("dt: %.5f\n", dt);
 			} else if (network->network_properties.manifold == ANTI_DE_SITTER) {
 				//
@@ -268,7 +297,7 @@ bool linkNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 				}
 			}
 
-			assert (dx > 0.0 && dx < M_PI / 2.0);
+			assert (dx > 0.0 && dx < HALF_PI);
 
 			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx);
 			//if (i % NPRINT == 0) printf("cos(dx): %.5f\n", cosf(dx));
@@ -292,7 +321,7 @@ bool linkNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 					future_idx++;
 	
 					if (future_idx == (network->network_properties.N_tar * network->network_properties.k_tar / 2) + network->network_properties.edge_buffer)
-						throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer.\n");
+						throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 	
 					//Record number of degrees for each node
 					network->nodes[j].k_in++;
@@ -365,18 +394,18 @@ bool linkNodes(Network *network, CausetPerformance *cp, bool &use_gpu)
 	assert (network->network_properties.N_deg2 > 0);
 	assert (network->network_properties.k_res > 0.0);
 
-	//Debugging Options
+	//Debugging options used to visually inspect the adjacency lists and the adjacency pointer lists
 	//compareAdjacencyLists(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
 	//compareAdjacencyListIndices(network->nodes, network->future_edges, network->future_edge_row_start, network->past_edges, network->past_edge_row_start);
 
 	stopwatchStop(&cp->sLinkNodes);
 
-	if (!BENCH) {
+	if (!network->network_properties.flags.bench) {
 		printf("\tCausets Successfully Connected.\n");
 		printf("\t\tResulting Network Size: %d\n", network->network_properties.N_res);
 		printf("\t\tResulting Average Degree: %f\n", network->network_properties.k_res);
 	}
-	if (CAUSET_DEBUG)
+	if (network->network_properties.flags.verbose)
 		printf("\t\tExecution Time: %5.6f sec\n", cp->sLinkNodes.elapsedTime);
 	return true;
 }
@@ -470,7 +499,7 @@ void compareAdjacencyListIndices(Node *nodes, int *future_edges, int *future_edg
 
 //Write Node Coordinates to File
 //O(num_vals) Efficiency
-void printValues(Node *values, int num_vals, char *filename)
+void printValues(Node *values, int num_vals, char *filename, char *coord)
 {
 	assert (values != NULL);
 	assert (num_vals > 0);
@@ -483,8 +512,18 @@ void printValues(Node *values, int num_vals, char *filename)
 			throw CausetException("Failed to open file in 'printValues' function!\n");
 
 		int i;
-		for (i = 0; i < num_vals; i++)
-			outputStream << values[i].phi << std::endl;
+		for (i = 0; i < num_vals; i++) {
+			if (strcmp(coord, "t") == 0)
+				outputStream << values[i].t << std::endl;
+			else if (strcmp(coord, "theta") == 0)
+				outputStream << values[i].theta << std::endl;
+			else if (strcmp(coord, "chi") == 0)
+				outputStream << values[i].chi << std::endl;
+			else if (strcmp(coord, "phi") == 0)
+				outputStream << values[i].phi << std::endl;
+			else
+				throw CausetException("Unrecognized value in 'coord' parameter!\n");
+		}
 	
 		outputStream.flush();
 		outputStream.close();

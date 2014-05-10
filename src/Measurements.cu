@@ -1,14 +1,11 @@
 #ifndef MEASUREMENTS_CU_
 #define MEASUREMENTS_CU_
 
-#include "autocorr2.cu"
-
-void measureClustering(Network *network, CausetPerformance *cp);
-bool nodesAreConnected(Network *network, int past_idx, int future_idx);
+#include "Measurements.h"
 
 //Calculates clustering coefficient for each node in network
 //O(N*k^3) Efficiency
-void measureClustering(Network *network, CausetPerformance *cp)
+void measureClustering(Network *network, CausetPerformance *cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	assert (network->network_properties.N_tar > 0);
 	assert (network->network_properties.N_deg2 > 0);
@@ -35,8 +32,8 @@ void measureClustering(Network *network, CausetPerformance *cp)
 		exit(EXIT_FAILURE);
 	}
 	
-	memoryCheckpoint();
-	if (CAUSET_DEBUG)
+	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	if (network->network_properties.flags.verbose)
 		printMemUsed("Memory Necessary to Measure Clustering", hostMemUsed, devMemUsed);
 
 	//i represents the node we are calculating the clustering coefficient for (node #1 in triplet)
@@ -106,7 +103,7 @@ void measureClustering(Network *network, CausetPerformance *cp)
 
 	stopwatchStop(&cp->sMeasureClustering);
 
-	if (!BENCH) {
+	if (!network->network_properties.flags.bench) {
 		printf("\tCalculated Clustering Coefficients.\n");
 		printf("\t\tAverage Clustering:\t%f\n", network->network_observables.average_clustering);
 		if (network->network_properties.flags.calc_autocorr) {
@@ -120,7 +117,7 @@ void measureClustering(Network *network, CausetPerformance *cp)
 			printf("\t\tCalculated Autocorrelation.\n");
 		}
 	}
-	if (CAUSET_DEBUG)
+	if (network->network_properties.flags.verbose)
 		printf("\t\tExecution Time: %5.9f sec\n", cp->sMeasureClustering.elapsedTime);
 }
 

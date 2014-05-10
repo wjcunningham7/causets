@@ -1,4 +1,8 @@
-for i in {1..5}
-do
-./bin/CausalSet -n 25441 -k 5.29 -a 2 --print
-done
+# Generate causal set for 1+1 de Sitter (no matter)
+#./bin/CausalSet --nodes 24586 --degrees 5.53 --dim 1 --seed 18100 --verbose
+
+# Generate causal set for 3+1 de Sitter (no matter)
+#./bin/CausalSet --nodes 25441 --degrees 5.29 --radius 2.0 --seed 18100 --verbose
+
+# Generate causal set for universe (mix of dark energy and matter)
+./bin/CausalSet --universe --age 0.8458 --alpha 2.01 --radius 1.0 --delta 10000 --seed 18100 --verbose
