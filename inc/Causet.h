@@ -20,7 +20,7 @@
 #include "ran2.h"
 #include "stopwatch.h"
 
-#define TOL (1e-28)	//Any value smaller than this is rounded to zero
+//#define TOL (1e-28)	//Any value smaller than this is rounded to zero
 #define NPRINT 10000	//Used for debugging statements in loops
 #define NBENCH 10	//Times each function is run during benchmarking
 
@@ -83,16 +83,16 @@ struct CausetFlags {
 
 	CausetConflicts cc;	//Conflicting Parameters
 
-	bool verbose;		//Verbose Output
-	bool bench;		//Benchmark Algorithms
-
 	bool use_gpu;		//Use GPU to Accelerate Select Algorithms
 	bool disp_network;	//Plot Network using OpenGL
 	bool print_network;	//Print to File
 	bool universe;		//Use Universe's Tau Distribution
-
+	
 	bool calc_clustering;	//Find Clustering Coefficients
 	bool calc_autocorr;	//Autocorrelation
+	
+	bool verbose;		//Verbose Output
+	bool bench;		//Benchmark Algorithms
 };
 
 //CUDA Kernel Execution Parameters
@@ -111,7 +111,6 @@ struct NetworkProperties {
 
 	CausetFlags flags;
 	NetworkExec network_exec;
-	Manifold manifold;		//Manifold of the Network
 
 	int N_tar;			//Target Number of Nodes
 	float k_tar;			//Target Average Degree
@@ -122,10 +121,12 @@ struct NetworkProperties {
 	int N_deg2;			//Nodes of Degree 2 or Greater
 
 	int dim;			//Spacetime Dimension (2 or 4)
+	Manifold manifold;		//Manifold of the Network
 
 	double a;			//Hyperboloid Pseudoradius
 	double lambda;			//Cosmological Constant
 	double zeta;			//Pi/2 - Eta_0
+					//Note Eta_0 is stored here for 1+1
 
 	double tau0;			//Rescaled Age of Universe
 	double alpha;			//Rescaled Ratio of Matter Density to Dark Energy Density
@@ -210,13 +211,13 @@ class CausetException : public std::exception
 
 //Function prototypes for those described in src/Causet.cu
 NetworkProperties parseArgs(int argc, char **argv);
-bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
-void measureNetworkObservables(Network *network, CausetPerformance *cp, Benchmark *bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
-bool displayNetwork(Node *nodes, int *future_edges, int argc, char **argv);
+bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+bool displayNetwork(const Node * const nodes, const int * const future_edges, int argc, char **argv);
 void display();
-bool loadNetwork(Network *network, CausetPerformance *cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
-bool printNetwork(Network network, CausetPerformance cp, long init_seed, int gpuID);
-bool printBenchmark(Benchmark bm, CausetFlags cf);
-void destroyNetwork(Network *network, size_t &hostMemUsed, size_t &devMemUsed);
+bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+bool printNetwork(Network &network, const CausetPerformance &cp, const long &init_seed, const int &gpuID);
+bool printBenchmark(const Benchmark &bm, const CausetFlags &cf);
+void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed);
 
 #endif

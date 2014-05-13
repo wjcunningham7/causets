@@ -1,6 +1,7 @@
 echo "Initializing 'Causet' directory structure..."
 mkdir src
 mkdir inc
+mkdir obj
 mkdir bin
 mkdir dat
 mkdir dat/cdk

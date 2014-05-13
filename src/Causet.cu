@@ -1,6 +1,12 @@
 #include "NetworkCreator.h"
 #include "Measurements.h"
 
+/////////////////////////////
+//(C) Will Cunningham 2014 //
+// Northeastern University //
+// Krioukov Research Group //
+/////////////////////////////
+
 int main(int argc, char **argv)
 {
 	Network network = Network(parseArgs(argc, argv));
@@ -20,7 +26,7 @@ int main(int argc, char **argv)
 	if (network.network_properties.graphID == 0 && !initializeNetwork(&network, &cp, &bm, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
 	else if (network.network_properties.graphID != 0 && !loadNetwork(&network, &cp, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
 
-	measureNetworkObservables(&network, &cp, &bm, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed);
+	if (!measureNetworkObservables(&network, &cp, &bm, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
 
 	stopwatchStop(&cp.sCauset);
 
@@ -364,8 +370,9 @@ NetworkProperties parseArgs(int argc, char **argv)
 }
 
 //Handles all network generation and initialization procedures
-bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
+bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
+	//No null pointers
 	assert (network != NULL);
 	assert (cp != NULL);
 	assert (bm != NULL);
@@ -392,14 +399,13 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm, s
 		//Solve for Constrained Parameters
 		if (network->network_properties.flags.cc.conflicts[1] == 0 && network->network_properties.flags.cc.conflicts[2] == 0 && network->network_properties.flags.cc.conflicts[3] == 0) {
 			//Solve for tau0, ratio, omegaM, and omegaL
-			double guess = 0.5;
+			double x = 0.5;
 			assert (network->network_properties.N_tar > 0);
 			assert (network->network_properties.alpha > 0.0);
 			assert (network->network_properties.delta > 0.0);
-			NewtonProperties np = NewtonProperties(guess, TOL, 10000, network->network_properties.N_tar, network->network_properties.alpha, network->network_properties.delta);
-			if (!newton(&solveTau0, &np, &network->network_properties.seed))
+			if (!newton(&solveTau0, &x, 10000, TOL, &network->network_properties.alpha, &network->network_properties.delta, NULL, NULL, &network->network_properties.N_tar, NULL))
 				return false;
-			network->network_properties.tau0 = np.x;
+			network->network_properties.tau0 = x;
 			assert (network->network_properties.tau0 > 0.0);
 			
 			network->network_properties.ratio = powf(sinh(1.5 * network->network_properties.tau0), 2.0);
@@ -458,7 +464,7 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm, s
 		network->network_properties.flags.calc_clustering = false;
 
 		for (i = 0; i < NBENCH; i++) {
-			if (!createNetwork(network, cp, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
+			if (!createNetwork(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->d_nodes, network->d_edges, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 				
 			bm->bCreateNetwork += cp->sCreateNetwork.elapsedTime;
@@ -474,30 +480,34 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm, s
 	tmp = network->network_properties.flags.bench;
 	if (tmp)
 		network->network_properties.flags.bench = false;
-	if (!createNetwork(network, cp, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
+	if (!createNetwork(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->d_nodes, network->d_edges, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 		return false;
 	if (tmp)
 		network->network_properties.flags.bench = true;
 
 	if (!network->network_properties.flags.universe) {
 		//Solve for eta0 using Newton-Raphson Method
-		double guess = 0.08;
-		assert (network->network_properties.N_tar > 0 && network->network_properties.k_tar > 0.0 && (network->network_properties.dim == 1 || network->network_properties.dim == 3));
-		NewtonProperties np = NewtonProperties(guess, TOL, 10000, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim);
-		if (network->network_properties.dim == 1)
-			np.x = HALF_PI - 0.0001;
+		assert (network->network_properties.N_tar > 0);
+		assert (network->network_properties.k_tar > 0.0);
+		assert (network->network_properties.dim == 1 || network->network_properties.dim == 3);
 
-		if (!newton(&solveZeta, &np, &network->network_properties.seed))
-			return false;
-		network->network_properties.zeta = np.x;
+		double x = 0.08;
 		if (network->network_properties.dim == 1)
-			network->network_properties.zeta = HALF_PI - np.x;
+			x = HALF_PI - 0.0001;
+
+		if (!newton(&solveZeta, &x, 10000, TOL, NULL, NULL, NULL, &network->network_properties.k_tar, &network->network_properties.N_tar, &network->network_properties.dim))
+			return false;
+		network->network_properties.zeta = x;
+		if (network->network_properties.dim == 1)
+			network->network_properties.zeta = HALF_PI - x;
 		assert (network->network_properties.zeta > 0 && network->network_properties.zeta < HALF_PI);
 
 		printf("\tTranscendental Equation Solved:\n");
 		//printf("\t\tZeta: %5.8f\n", network->network_properties.zeta);
 		printf("\t\tMaximum Conformal Time: %5.8f\n", HALF_PI - network->network_properties.zeta);
 		printf("\t\tMaximum Rescaled Time:  %5.8f\n", etaToT(HALF_PI - network->network_properties.zeta, network->network_properties.a));
+		//Debug
+		return false;
 	}
 
 	//Generate coordinates of spacetime nodes and then order nodes temporally using quicksort
@@ -505,7 +515,7 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm, s
 	int high = network->network_properties.N_tar - 1;
 	if (network->network_properties.flags.bench) {
 		for (i = 0; i < NBENCH; i++) {
-			if (!generateNodes(network, cp, network->network_properties.flags.use_gpu))
+			if (!generateNodes(network->nodes, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.seed, cp->sGenerateNodes, network->network_properties.flags.use_gpu, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 				
 			//Quicksort
@@ -526,7 +536,7 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm, s
 
 	if (tmp)
 		network->network_properties.flags.bench = false;
-	if (!generateNodes(network, cp, network->network_properties.flags.use_gpu))
+	if (!generateNodes(network->nodes, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.seed, cp->sGenerateNodes, network->network_properties.flags.use_gpu, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 		return false;
 	if (tmp)
 		network->network_properties.flags.bench = true;
@@ -545,7 +555,7 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm, s
 	//Identify edges as points connected by timelike intervals
 	if (network->network_properties.flags.bench) {
 		for (i = 0; i < NBENCH; i++) {
-			if (!linkNodes(network, cp, network->network_properties.flags.use_gpu))
+			if (!linkNodes(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 				
 			bm->bLinkNodes += cp->sLinkNodes.elapsedTime;
@@ -556,7 +566,7 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm, s
 
 	if (tmp)
 		network->network_properties.flags.bench = false;
-	if (!linkNodes(network, cp, network->network_properties.flags.use_gpu))
+	if (!linkNodes(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 		return false;
 	if (tmp)
 		network->network_properties.flags.bench = true;
@@ -565,8 +575,9 @@ bool initializeNetwork(Network *network, CausetPerformance *cp, Benchmark *bm, s
 	return true;
 }
 
-void measureNetworkObservables(Network *network, CausetPerformance *cp, Benchmark *bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
+bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
+	//No null pointers
 	assert (network != NULL);
 	assert (cp != NULL);
 	assert (bm != NULL);
@@ -577,7 +588,8 @@ void measureNetworkObservables(Network *network, CausetPerformance *cp, Benchmar
 		if (network->network_properties.flags.bench) {
 			int i;
 			for (i = 0; i < NBENCH; i++) {
-				measureClustering(network, cp, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+				if (!measureClustering(network->network_observables.clustering, network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_observables.average_clustering, network->network_properties.N_tar, network->network_properties.N_deg2, network->network_properties.core_edge_fraction, cp->sMeasureClustering, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.calc_autocorr, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+					return false;
 				bm->bMeasureClustering += cp->sMeasureClustering.elapsedTime;
 				stopwatchReset(&cp->sMeasureClustering);
 			}
@@ -587,16 +599,19 @@ void measureNetworkObservables(Network *network, CausetPerformance *cp, Benchmar
 		bool tmp = network->network_properties.flags.bench;
 		if (tmp)
 			network->network_properties.flags.bench = false;
-		measureClustering(network, cp, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+		if (!measureClustering(network->network_observables.clustering, network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_observables.average_clustering, network->network_properties.N_tar, network->network_properties.N_deg2, network->network_properties.core_edge_fraction, cp->sMeasureClustering, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.calc_autocorr, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			return false;
 		if (tmp)
 			network->network_properties.flags.bench = true;
 	}
 
 	printf("Task Completed.\n");
+
+	return true;
 }
 
 //Plot using OpenGL
-bool displayNetwork(Node *nodes, int *future_edges, int argc, char **argv)
+bool displayNetwork(const Node * const nodes, const int * const future_edges, int argc, char **argv)
 {
 	assert (nodes != NULL);
 	assert (future_edges != NULL);
@@ -634,7 +649,7 @@ void display()
 //	-Primary simulation output file (./dat/*.cset.out)
 //	-Node position data		(./dat/pos/*.cset.pos.dat)
 //	-Edge data			(./dat/edg/*.cset.edg.dat)
-bool loadNetwork(Network *network, CausetPerformance *cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
+bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	assert (network != NULL);
 	assert (cp != NULL);
@@ -643,6 +658,8 @@ bool loadNetwork(Network *network, CausetPerformance *cp, size_t &hostMemUsed, s
 
 	//Not currently supported (will be implemented later)
 	assert (!network->network_properties.flags.universe);
+	//Prevents this function from executing until it is updated
+	assert (network->network_properties.N_tar < 0);
 
 	printf("Loading Graph from File.....\n");
 
@@ -723,8 +740,8 @@ bool loadNetwork(Network *network, CausetPerformance *cp, size_t &hostMemUsed, s
 		} else
 			throw CausetException("Failed to open simulation parameters file!\n");
 
-		if (!createNetwork(network, cp, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
-			return false;
+		//if (!createNetwork(network, cp, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
+		//	return false;
 
 		//Read node positions
 		printf("\tReading Node Position Data.\n");
@@ -871,7 +888,7 @@ bool loadNetwork(Network *network, CausetPerformance *cp, size_t &hostMemUsed, s
 }
 
 //Print to File
-bool printNetwork(Network network, CausetPerformance cp, long init_seed, int gpuID)
+bool printNetwork(Network &network, const CausetPerformance &cp, const long &init_seed, const int &gpuID)
 {
 	if (!network.network_properties.flags.print_network)
 		return false;
@@ -1132,7 +1149,7 @@ bool printNetwork(Network network, CausetPerformance cp, long init_seed, int gpu
 	return true;
 }
 
-bool printBenchmark(Benchmark bm, CausetFlags cf)
+bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
 {
 	//Print to File
 	FILE *f;
@@ -1176,7 +1193,7 @@ bool printBenchmark(Benchmark bm, CausetFlags cf)
 }
 
 //Free Memory
-void destroyNetwork(Network *network, size_t &hostMemUsed, size_t &devMemUsed)
+void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed)
 {
 	free(network->nodes);
 	network->nodes = NULL;

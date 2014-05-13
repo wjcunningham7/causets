@@ -1,6 +1,3 @@
-#ifndef CU_RESOURCES_CU_
-#define CU_RESOURCES_CU_
-
 #include "CuResources.h"
 
 // This will output the proper CUDA error strings in the event that a CUDA host call returns an error
@@ -77,7 +74,7 @@ void printMemUsed(char *chkPoint, size_t hostMem, size_t devMem)
 }
 
 //Used to keep track of max memory used
-void memoryCheckpoint(size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
+void memoryCheckpoint(const size_t &hostMemUsed, size_t &maxHostMemUsed, const size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	if (hostMemUsed > maxHostMemUsed)
 		maxHostMemUsed = hostMemUsed;
@@ -88,6 +85,9 @@ void memoryCheckpoint(size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMe
 //Initialize connection to GPU
 void connectToGPU(Resources *resources, int argc, char **argv)
 {
+	//No null pointers
+	assert (resources != NULL);
+
 	//Pick CUDA Device
 	CUresult status;
 	int devCount, major = 0, minor = 0;
@@ -128,5 +128,3 @@ CUdevice findCudaDevice(int id)
 
     	return device;
 }
-
-#endif

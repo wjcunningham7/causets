@@ -1,15 +1,14 @@
-#ifndef STOPWATCH_CPP_
-#define STOPWATCH_CPP_
-
 #include "stopwatch.h"
 
 void stopwatchStart(struct Stopwatch *sw)
 {
+	assert (sw != NULL);
 	gettimeofday(&sw->startTime, NULL);
 }
 
 void stopwatchStop(struct Stopwatch *sw)
 {
+	assert (sw != NULL);
 	assert (sw->startTime.tv_sec != 0 && sw->startTime.tv_usec != 0);
 	gettimeofday(&sw->stopTime, NULL);
 	long ds = sw->stopTime.tv_sec - sw->startTime.tv_sec;
@@ -19,9 +18,8 @@ void stopwatchStop(struct Stopwatch *sw)
 
 void stopwatchReset(struct Stopwatch *sw)
 {
+	assert (sw != NULL);
 	sw->startTime = (struct timeval){0,0};
 	sw->stopTime = (struct timeval){0,0};
 	sw->elapsedTime = 0.0;
 }
-
-#endif

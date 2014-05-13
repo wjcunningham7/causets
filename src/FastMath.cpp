@@ -1,13 +1,16 @@
-#ifndef FAST_MATH_CPP_
-#define FAST_MATH_CPP_
-
 #include <boost/math/special_functions/gamma.hpp>
 
 #include "fastapprox.h"
 #include "FastMath.h"
 
+/////////////////////////////
+//(C) Will Cunningham 2014 //
+// Northeastern University //
+// Krioukov Research Group //
+/////////////////////////////
+
 //Approximation of x^2
-float POW2(float x, int m)
+float POW2(const float x, const int m)
 {
 	if (x == 0.0)
 		return x;
@@ -32,7 +35,7 @@ float POW2(float x, int m)
 }
 
 //Approximation of x^3
-float POW3(float x, int m)
+float POW3(const float x, const int m)
 {
 	if (x == 0.0)
 		return x;
@@ -57,7 +60,7 @@ float POW3(float x, int m)
 }
 
 //Approximation of x^p
-float POW(float x, float p, int m)
+float POW(const float x, const float p, const int m)
 {
 	assert (m == 0 || m == 1 || m == 2);
 
@@ -77,7 +80,7 @@ float POW(float x, float p, int m)
 }
 
 //Approximation of x^(1/2)
-float SQRT(float x, int m)
+float SQRT(const float x, const int m)
 {
 	if (x == 0.0)
 		return x;
@@ -98,7 +101,7 @@ float SQRT(float x, int m)
 }
 
 //Approximation of |x|
-float ABS(float x, int m)
+float ABS(const float x, const int m)
 {
 	if (x == 0.0)
 		return x;
@@ -118,7 +121,7 @@ float ABS(float x, int m)
 }
 
 //Approximation of ln(x)
-float LOG(float x, int m)
+float LOG(const float x, const int m)
 {
 	assert (m == 0 || m == 1 || m == 2);
 	assert (x > 0.0);
@@ -139,7 +142,7 @@ float LOG(float x, int m)
 }
 
 //Approximation of sine(x)
-float SIN(float x, int m)
+float SIN(const float x, const int m)
 {
 	if (x == 0.0)
 		return x;
@@ -163,7 +166,7 @@ float SIN(float x, int m)
 }
 
 //Approximation of cosine(x)
-float COS(float x, int m)
+float COS(const float x, const int m)
 {
 	if (x == 0.0)
 		return 1.0;
@@ -187,7 +190,7 @@ float COS(float x, int m)
 }
 
 //Approximation of tangent(x)
-float TAN(float x, int m)
+float TAN(const float x, const int m)
 {
 	if (x == 0.0)
 		return x;
@@ -211,7 +214,7 @@ float TAN(float x, int m)
 }
 
 //Approximation of arccosine(x)
-float ACOS(float x, int m, enum Precision p)
+float ACOS(const float x, const int m, const enum Precision p)
 {
 	if (x == 0.0)
 		return HALF_PI;
@@ -226,6 +229,7 @@ float ACOS(float x, int m, enum Precision p)
 		y = acosf(x);
 	else if (m == 1) {
 		//Chebyshev Approximation
+		y = x;
 	} else if (m == 2)
 		//Wolfram Series Representation (for |x| < 1)
 		y = x;	//Change this!!!
@@ -234,7 +238,7 @@ float ACOS(float x, int m, enum Precision p)
 }
 
 //Approximation of arctangent(x)
-float ATAN(float x, int m, enum Precision p)
+float ATAN(const float x, const int m, const enum Precision p)
 {
 	if (x == 0.0)
 		return x;
@@ -259,7 +263,7 @@ float ATAN(float x, int m, enum Precision p)
 }
 
 //Approximation of sinh(x)
-float SINH(float x, int m)
+float SINH(const float x, const int m)
 {
 	if (x == 0.0)
 		return x;
@@ -282,7 +286,7 @@ float SINH(float x, int m)
 }
 
 //Approximation of cosh(x)
-float COSH(float x, int m)
+float COSH(const float x, const int m)
 {
 	if (x == 0.0)
 		return 1.0;
@@ -305,7 +309,7 @@ float COSH(float x, int m)
 }
 
 //Approximation of arcsinh(x)
-float ASINH(float x, int m, enum Precision p)
+float ASINH(const float x, const int m, const enum Precision p)
 {
 	if (x == 0.0)
 		return x;
@@ -328,7 +332,7 @@ float ASINH(float x, int m, enum Precision p)
 }
 
 //Approximation of arccosh(x)
-float ACOSH(float x, int m, enum Precision p)
+float ACOSH(const float x, const int m, const enum Precision p)
 {
 	if (x == 1.0)
 		return 0.0;
@@ -351,24 +355,51 @@ float ACOSH(float x, int m, enum Precision p)
 }
 
 //Approximation of the Gamma Function
-float GAMMA(float x, int m)
+float GAMMA(const float x, const int m)
 {
-	return x;
+	if (x == 1.0 || x == 2.0)
+		return 1.0;
+
+	assert (m == 0 || m == 1);
+	//Gamma(0) is undefined
+	assert (x != 0.0);
+	assert (!(x > 0.0 && floor(x) < TOL));
+	assert (!(x < 0.0 && fabs(ceil(x)) < TOL));
+	//Gamma not defined for negative integers
+	assert (!(x < 0.0 && fabs(x - round(x)) < TOL));
+
+	float y = 0.0;
+
+	if (m == 0)
+		//Defined in <math.h>
+		y = tgamma(x);
+	else if (m == 1)
+		//Lanczos Approximation
+		//Defined in Boost library
+		//y = tgamma1pm1(x);
+		y = x;
+
+	return y;
 }
 
 //Approximation of the Pochhammer symbol (x)_j
 //The coefficient j must be a non-negative integer
-float POCHHAMMER(float x, int j)
+float POCHHAMMER(const float x, const int j)
 {
-	return x;
+	assert (j >= 0);
+
+	float y = 0.0;
+	int m = 0;
+
+	y = GAMMA(x + j, m) / GAMMA(x, m);
+
+	return y;
 }
 
 //Approximates the Gauss Hypergeometric Function sol=2F1(a,b,c,z(x))
 //The tolerance describes convergence of the series
 //The precision 'p' describes how many terms are used in the series
-bool _2F1(float (*z)(float x), float &sol, float x, float a, float b, float c, float tol, enum Precision p)
+bool _2F1(float (*z)(const float &x), float &sol, const float &x, const float a, const float b, const float c, const float tol, const enum Precision p)
 {
-	return true;
+	return false;
 }
-
-#endif

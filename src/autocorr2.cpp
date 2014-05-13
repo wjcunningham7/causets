@@ -1,6 +1,3 @@
-#ifndef AUTOCORR2_CPP_
-#define AUTOCORR2_CPP_
-
 #include <fstream>
 #include <cmath>
 #include <iostream>
@@ -266,5 +263,3 @@ void autocorr2::fout_txt(std::ofstream &f)
 	for (t = 0; t <= t_max; t++)
 			f << t << ' ' << ac[t] << ' ' << ac_err[t] << std::endl;
 }
-
-#endif

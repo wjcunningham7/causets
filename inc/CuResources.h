@@ -34,7 +34,7 @@ struct Resources {
 void __checkCudaErrors(CUresult err, const char *file, const int line);
 void __getLastCudaError( const char *errorMessage, const char *file, const int line );
 void printMemUsed(char *chkPoint, size_t hostMem, size_t devMem);
-void memoryCheckpoint(size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+void memoryCheckpoint(const size_t &hostMemUsed, size_t &maxHostMemUsed, const size_t &devMemUsed, size_t &maxDevMemUsed);
 void connectToGPU(Resources *resources, int argc, char **argv);
 CUdevice findCudaDevice(int id);
 

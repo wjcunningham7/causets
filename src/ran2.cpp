@@ -1,6 +1,3 @@
-#ifndef RAN2_CPP_
-#define RAN2_CPP_
-
 #include "ran2.h"
 
 #define IM1 2147483563
@@ -76,5 +73,3 @@ double ran2(long *idum)	//Initialize with negative number
 #undef NDIV
 #undef EPS
 #undef RNMX
-
-#endif

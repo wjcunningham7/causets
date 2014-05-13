@@ -1,13 +1,19 @@
-#ifndef SUBROUTINES_CU_
-#define SUBROUTINES_CU_
-
 #include "Subroutines.h"
+
+/////////////////////////////
+//(C) Will Cunningham 2014 //
+// Northeastern University //
+// Krioukov Research Group //
+/////////////////////////////
 
 //Sort nodes temporally by tau coordinate
 //O(N*log(N)) Efficiency
 void quicksort(Node *nodes, int low, int high)
 {
+	//No null pointers
 	assert (nodes != NULL);
+
+	//Values in correct ranges
 	assert (low >= 0);
 	assert (high >= 0);
 
@@ -39,6 +45,7 @@ void quicksort(Node *nodes, int low, int high)
 //Exchange two nodes
 void swap(Node *n, Node *m)
 {
+	//No null pointers
 	assert (n != NULL);
 	assert (m != NULL);
 
@@ -50,27 +57,25 @@ void swap(Node *n, Node *m)
 
 //Newton-Raphson Method
 //Solves Transcendental Equations
-bool newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *seed)
+bool newton(double (*solve)(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * p6), double *x, const int max_iter, const double tol, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * p6)
 {
-	assert (np != NULL);
 	assert (solve != NULL);
-	assert (seed != NULL);
 
-	double x1;
 	double res = 1.0;
-
+	double x1;
 	int iter = 0;
+
 	try {
-		while (fabs(res) > np->tol && iter < np->max) {
-			res = (*solve)(np);
+		while (fabs(res) > tol && iter < max_iter) {
+			res = (*solve)(*x, p1, p2, p3, p4, p5, p6);
 			//printf("res: %E\n", res);
 			if (res != res)
 				throw CausetException("NaN Error in Newton-Raphson\n");
 	
-			x1 = np->x + res;
+			x1 = *x + res;
 			//printf("x1: %E\n", x1);
 	
-			np->x = x1;
+			*x = x1;
 			iter++;
 		}
 	} catch (CausetException c) {
@@ -82,12 +87,10 @@ bool newton(double (*solve)(NewtonProperties *np), NewtonProperties *np, long *s
 	}
 
 	//printf("Newton-Raphson Results:\n");
-	//printf("Tolerance: %E\n", np->tol);
-	//printf("%d of %d iterations performed.\n", iter, np->max);
+	//printf("Tolerance: %E\n", tol);
+	//printf("%d of %d iterations performed.\n", iter, max);
 	//printf("Residual: %E\n", res);
-	//printf("Solution: %E\n", np->x);
+	//printf("Solution: %E\n", *x);
 
 	return true;
 }
-
-#endif

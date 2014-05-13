@@ -5,39 +5,42 @@
 #include "Subroutines.h"
 
 //Primary Newton-Raphson Functions
-double solveZeta(NewtonProperties *np);
-double solveTau0(NewtonProperties *np);
-double solveT(NewtonProperties *np);
-double solveTau(NewtonProperties *np);
-double solvePhi(NewtonProperties *np);
+double solveZeta(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
+double solveTau0(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
+double solveT(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
+double solveTau(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
+double solvePhi(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
 
 //Secondary Newton-Raphson Functions
-double eta02D(double &x, int &N_tar, float &k_tar);
-double eta0Prime2D(double &x);
+double eta02D(const double &x, const int &N_tar, const float &k_tar);
+double eta0Prime2D(const double &x);
 
-double zeta4D(double &x, int &N_tar, float &k_tar);
-double zetaPrime4D(double &x);
+double zeta4D(const double &x, const int &N_tar, const float &k_tar);
+double zetaPrime4D(const double &x);
 
-double tau0(double &x, int &N_tar, double &alpha, double &delta);
-double tau0Prime(double &x);
+double tau0(const double &x, const int &N_tar, const double &alpha, const double &delta);
+double tau0Prime(const double &x);
 
-double t4D(double &x, double &zeta, double &a, double rval);
-double tPrime4D(double &x, double &zeta, double &a);
+double t4D(const double &x, const double &zeta, const double &a, const double &rval);
+double tPrime4D(const double &x, const double &zeta, const double &a);
 
-double tau(double &x, double &tau0, double rval);
-double tauPrime(double &x, double &tau0);
+double tau(const double &x, const double &tau0, const double &rval);
+double tauPrime(const double &x, const double &tau0);
 
-double phi4D(double &x, double rval);
-double phiPrime4D(double &x);
+double phi4D(const double &x, const double &rval);
+double phiPrime4D(const double &x);
+
+//Math Function for 2F1
+double _2F1_z(const double &tau);
 
 //De Sitter Spatial Lengths
-float X1(float &phi);
-float X2(float &phi, float &chi);
-float X3(float &phi, float &chi, float &theta);
-float X4(float &phi, float &chi, float &theta);
+float X1(const float &phi);
+float X2(const float &phi, const float &chi);
+float X3(const float &phi, const float &chi, const float &theta);
+float X4(const float &phi, const float &chi, const float &theta);
 
 //Temporal Transformations
-float etaToT(float eta, double a);
-float tToEta(float t, double a);
+float etaToT(const float eta, const double a);
+float tToEta(const float t, const double a);
 
 #endif

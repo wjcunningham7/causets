@@ -5,10 +5,15 @@
 #include <math.h>
 #include <stdio.h>
 
-#define HALF_PI 1.57079632679489661923
-#define TWO_PI  6.28318530717958647692
+#define TOL (1e-28)
 
-//These are approximations of simple math subroutines
+#define HALF_PI  1.57079632679489661923
+#define TWO_PI   6.28318530717958647692
+
+//Definitions of constants used in functions
+#define ACOS_C0  HALF_PI
+#define ACOS_C1 -1.06305396909634217923
+#define ACOS_C3  0.88385729242991187525
 
 //Number of Terms in Series
 enum Precision {
@@ -22,35 +27,35 @@ enum Precision {
 // > Method m
 
 //Power Functions
-float POW2(float x, int m);
-float POW3(float x, int m);
-float POW(float x, float p, int m);
-float SQRT(float x, int m);
+float POW2(const float x, const int m);
+float POW3(const float x, const int m);
+float POW(const float x, const float p, const int m);
+float SQRT(const float x, const int m);
 
 //Absolute Value & Natural Log
-float ABS(float x, int m);
-float LOG(float x, int m);
+float ABS(const float x, const int m);
+float LOG(const float x, const int m);
 
 //Trigonometric Functions
-float SIN(float x, int m);
-float COS(float x, int m);
-float TAN(float x, int m);
+float SIN(const float x, const int m);
+float COS(const float x, const int m);
+float TAN(const float x, const int m);
 
 //Inverse Trigonometric Functions
-float ACOS(float x, int m, enum Precision p);
-float ATAN(float x, int m, enum Precision p);
+float ACOS(const float x, const int m, const enum Precision p);
+float ATAN(const float x, const int m, const enum Precision p);
 
 //Hyperbolic Functions
-float SINH(float x, int m);
-float COSH(float x, int m);
+float SINH(const float x, const int m);
+float COSH(const float x, const int m);
 
 //Inverse Hyperbolic Functions
-float ASINH(float x, int m, enum Precision p);
-float ACOSH(float x, int m, enum Precision p);
+float ASINH(const float x, const int m, const enum Precision p);
+float ACOSH(const float x, const int m, const enum Precision p);
 
 //Statistical Functions
-float GAMMA(float x, int m);
-float POCHHAMMER(float x, int j);
-bool _2F1(float (*z)(float x), float &sol, float x, float a, float b, float c, float tol, enum Precision p);
+float GAMMA(const float x, const int m);
+float POCHHAMMER(const float x, const int j);
+bool _2F1(float (*z)(const float &x), float &sol, const float &x, const float a, const float b, const float c, const float tol, const enum Precision p);
 
 #endif
