@@ -120,7 +120,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 
 				break;
 			case 'k':	//Average expected degrees
-				network_properties.k_tar = atof(optarg);
+				network_properties.k_tar = static_cast<float>(atof(optarg));
 				if (network_properties.k_tar <= 0.0)
 					throw CausetException("Invalid argument for 'degrees' parameter!\n");
 				break;
@@ -140,13 +140,13 @@ NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.a <= 0.0)
 					throw CausetException("Invalid argument for 'a' parameter!\n");
 
-				network_properties.lambda = 3.0 / powf(network_properties.a, 2.0);
+				network_properties.lambda = 3.0 / POW2(network_properties.a, 0);
 
 				network_properties.flags.cc.conflicts[0]++;
 
 				break;
 			case 'c':	//Core edge fraction (used for adjacency matrix)
-				network_properties.core_edge_fraction = atof(optarg);
+				network_properties.core_edge_fraction = static_cast<float>(atof(optarg));
 				if (network_properties.core_edge_fraction <= 0.0 || network_properties.core_edge_fraction >= 1.0)
 					throw CausetException("Invalid argument for 'c' parameter!\n");
 				break;
@@ -167,7 +167,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.tau0 <= 0.0)
 					throw CausetException("Invalid argument for 'age' parameter!\n");
 
-				network_properties.ratio = powf(sinh(1.5 * network_properties.tau0), 2.0);
+				network_properties.ratio = POW2(SINH(1.5 * network_properties.tau0, 0), 0);
 				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
 				network_properties.omegaL = 1.0 - network_properties.omegaM;
 
@@ -206,7 +206,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 
 				network_properties.omegaM = 1.0 - network_properties.omegaL;
 				network_properties.ratio = network_properties.omegaL / network_properties.omegaM;
-				network_properties.tau0 = (2.0 / 3.0) * asinh(sqrt(network_properties.ratio));
+				network_properties.tau0 = (2.0 / 3.0) * static_cast<double>(ASINH(SQRT(static_cast<float>(network_properties.ratio), 0), 0, HIGH_PRECISION));
 					
 				network_properties.flags.cc.conflicts[1]++;
 				network_properties.flags.cc.conflicts[2]++;
@@ -219,7 +219,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.ratio <= 0.0)
 					throw CausetException("Invalid argument for 'ratio' parameter!\n");
 
-				network_properties.tau0 = (2.0 / 3.0) * asinh(sqrt(network_properties.ratio));
+				network_properties.tau0 = (2.0 / 3.0) * static_cast<double>(ASINH(SQRT(static_cast<float>(network_properties.ratio), 0), 0, HIGH_PRECISION));
 				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
 				network_properties.omegaL = 1.0 - network_properties.omegaM;
 				
@@ -234,7 +234,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.lambda <= 0.0)
 					throw CausetException("Invalid argument for 'lambda' parameter!\n");
 
-				network_properties.a = sqrt(3.0 / network_properties.lambda);
+				network_properties.a = static_cast<double>(SQRT(3.0 / static_cast<float>(network_properties.lambda), 0));
 
 				network_properties.flags.cc.conflicts[0]++;
 
@@ -408,31 +408,31 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 			network->network_properties.tau0 = x;
 			assert (network->network_properties.tau0 > 0.0);
 			
-			network->network_properties.ratio = powf(sinh(1.5 * network->network_properties.tau0), 2.0);
+			network->network_properties.ratio = static_cast<double>(POW2(SINH(1.5 * static_cast<float>(network->network_properties.tau0), 0), 0));
 			assert(network->network_properties.ratio > 0.0);
 			network->network_properties.omegaM = 1.0 / (network->network_properties.ratio + 1.0);
 			network->network_properties.omegaL = 1.0 - network->network_properties.omegaM;
 		} else if (network->network_properties.flags.cc.conflicts[1] == 0 || network->network_properties.flags.cc.conflicts[2] == 0 || network->network_properties.flags.cc.conflicts[3] == 0) {
 			if (network->network_properties.N_tar > 0 && network->network_properties.alpha > 0.0) {
 				//Solve for delta
-				network->network_properties.delta = 3.0 * network->network_properties.N_tar / (M_PI * M_PI * powf(network->network_properties.alpha, 3.0) * (sinh(3.0 * network->network_properties.tau0) - 3.0 * network->network_properties.tau0));
+				network->network_properties.delta = 3.0 * static_cast<double>(network->network_properties.N_tar) / (static_cast<double>(POW2(M_PI, 0) * POW3(static_cast<float>(network->network_properties.alpha), 0)) * (static_cast<double>(SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0)) - 3.0 * network->network_properties.tau0));
 				assert (network->network_properties.delta > 0.0);
 			} else if (network->network_properties.N_tar == 0) {
 				//Solve for N_tar
 				assert (network->network_properties.alpha > 0.0);
-				network->network_properties.N_tar = M_PI * M_PI * network->network_properties.delta * powf(network->network_properties.alpha, 3.0) * (sinh(3.0 * network->network_properties.tau0) - 3.0 * network->network_properties.tau0) / 3.0;
+				network->network_properties.N_tar = static_cast<int>(POW2(M_PI, 0) * static_cast<float>(network->network_properties.delta) * POW3(static_cast<float>(network->network_properties.alpha), 0) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0) - 3.0 * static_cast<float>(network->network_properties.tau0)) / 3.0);
 				assert (network->network_properties.N_tar > 0);
 			} else {
 				//Solve for alpha
 				assert (network->network_properties.N_tar > 0);
-				network->network_properties.alpha = powf(3.0 * network->network_properties.N_tar / (M_PI * M_PI * network->network_properties.delta * (sinh(3.0 * network->network_properties.tau0) - 3.0 * network->network_properties.tau0)), (1.0 / 3.0));
+				network->network_properties.alpha = static_cast<double>(POW(3.0 * static_cast<float>(network->network_properties.N_tar) / (POW2(M_PI, 0) * static_cast<float>(network->network_properties.delta) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0) - 3.0 * static_cast<float>(network->network_properties.tau0))), (1.0 / 3.0), 0));
 				assert (network->network_properties.alpha > 0.0);
 			}
 		}
 		//Finally, solve for R0
 		assert (network->network_properties.alpha > 0.0);
 		assert (network->network_properties.ratio > 0.0);
-		network->network_properties.R0 = network->network_properties.alpha * powf(network->network_properties.ratio, (1.0 / 3.0));
+		network->network_properties.R0 = network->network_properties.alpha * static_cast<double>(POW(static_cast<float>(network->network_properties.ratio), (1.0 / 3.0), 0));
 		assert (network->network_properties.R0 > 0.0);
 
 		//Guess at k_tar (find exact expression later)
@@ -555,7 +555,7 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 	//Identify edges as points connected by timelike intervals
 	if (network->network_properties.flags.bench) {
 		for (i = 0; i < NBENCH; i++) {
-			if (!linkNodes(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!linkNodes(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 				
 			bm->bLinkNodes += cp->sLinkNodes.elapsedTime;
@@ -566,7 +566,7 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 
 	if (tmp)
 		network->network_properties.flags.bench = false;
-	if (!linkNodes(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+	if (!linkNodes(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 		return false;
 	if (tmp)
 		network->network_properties.flags.bench = true;

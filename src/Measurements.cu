@@ -60,7 +60,7 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 			continue;
 
 		c_i = 0.0;
-		c_k = (float)(nodes[i].k_in + nodes[i].k_out);
+		c_k = static_cast<float>((nodes[i].k_in + nodes[i].k_out));
 		c_max = c_k * (c_k - 1.0) / 2.0;
 
 		//(1) Consider both neighbors in the past
@@ -149,7 +149,7 @@ bool nodesAreConnected(const Node * const nodes, const int * const future_edges,
 	assert (future_idx >= 0 && future_idx < N_tar);
 	assert (past_idx < future_idx);
 
-	int core_limit = (int)(core_edge_fraction * N_tar);
+	int core_limit = static_cast<int>((core_edge_fraction * static_cast<float>(N_tar)));
 	int i;
 
 	//Check if the adjacency matrix can be used
