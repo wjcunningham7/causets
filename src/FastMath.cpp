@@ -116,7 +116,7 @@ float ABS(const float x, const int m)
 
 	if (m == 0)
 		//Defined in <math.h>
-		y = fabsf(x);
+		y = fabs(x);
 	else if (m == 1) {
 		//Bitwise operation
 		int i = *(int*) &x;
@@ -181,11 +181,11 @@ float SIN(const float x, const int m)
 		y = sinf(x);
 	else if (m == 1) {
 		//Defined in "fastapprox.h"
-		assert (x > -M_PI && x < M_PI);
+		assert (x > -1.0 * static_cast<float>(M_PI) && x < static_cast<float>(M_PI));
 		y = fastsin(x);
 	} else if (m == 2) {
 		//Defined in "fastapprox.h"
-		assert (x > -M_PI && x < M_PI);
+		assert (x > -1.0 * static_cast<float>(M_PI) && x < static_cast<float>(M_PI));
 		y = fastersin(x);
 	}
 
@@ -207,11 +207,11 @@ float COS(const float x, const int m)
 		y = cosf(x);
 	else if (m == 1) {
 		//Defined in "fastapprox.h"
-		assert (x > -M_PI && x < M_PI);
+		assert (x > -1.0 * static_cast<float>(M_PI) && x < static_cast<float>(M_PI));
 		y = fastcos(x);
 	} else if (m == 2) {
 		//Defined in "fastapprox.h"
-		assert (x > -M_PI && x < M_PI);
+		assert (x > -1.0 * static_cast<float>(M_PI) && x < static_cast<float>(M_PI));
 		y = fastercos(x);
 	}
 
@@ -234,10 +234,10 @@ float TAN(const float x, const int m)
 	else if (m == 1) {
 		//Defined in "fastapprox.h"
 		y = fasttan(x);
-		assert (x > -M_PI / 2.0 && x < M_PI / 2.0);
+		assert (x > -1.0 * static_cast<float>(M_PI) / 2.0 && x < static_cast<float>(M_PI) / 2.0);
 	} else if (m == 2) {
 		//Defined in "fastapprox.h"
-		assert (x > -M_PI / 2.0 && x < M_PI / 2.0);
+		assert (x > -1.0 * static_cast<float>(M_PI) / 2.0 && x < static_cast<float>(M_PI) / 2.0);
 		y = fastertan(x);
 	}
 
@@ -248,7 +248,7 @@ float TAN(const float x, const int m)
 float ACOS(const float x, const int m, const enum Precision p)
 {
 	if (x == 0.0)
-		return HALF_PI;
+		return static_cast<float>(HALF_PI);
 
 	assert (m == 0 || m == 1 || m == 2);
 	assert (x > -1 && x < 1);
@@ -287,7 +287,7 @@ float ATAN(const float x, const int m, const enum Precision p)
 	if (x == 0.0)
 		return x;
 	else if (x == 1.0)	//Because the Wolfram series is not valid for x = 1.0
-		return M_PI / 4.0;
+		return static_cast<float>(M_PI) / 4.0;
 
 	assert (m == 0 || m == 1 || m == 2);
 	

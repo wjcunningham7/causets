@@ -330,7 +330,8 @@ NetworkProperties parseArgs(int argc, char **argv)
 				throw CausetException("Flag '-n', number of nodes, must be specified!\n");
 			else if (network_properties.k_tar == 0.0)
 				throw CausetException("Flag '-k', expected average degrees, must be specified!\n");
-		}
+		} else if (network_properties.dim == 1)
+			throw CausetException("1+1 not supported for universe causet!\n");
 
 		//Prepare to benchmark algorithms
 		if (network_properties.flags.bench) {
@@ -348,12 +349,12 @@ NetworkProperties parseArgs(int argc, char **argv)
 
 		//If graph ID specified, prepare to read graph properties
 		if (network_properties.graphID != 0) {
-			if (network_properties.flags.verbose) {
+			/*if (network_properties.flags.verbose) {
 				printf("You have chosen to load a graph from memory.  Some parameters may be ignored as a result.  Continue [y/N]? ", network_properties.graphID);
 				char response = getchar();
 				if (response != 'y')
 					exit(EXIT_FAILURE);
-			}
+			}*/
 
 			//Not currently supported for 1+1 causet
 			network_properties.dim = 3;
@@ -415,17 +416,17 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 		} else if (network->network_properties.flags.cc.conflicts[1] == 0 || network->network_properties.flags.cc.conflicts[2] == 0 || network->network_properties.flags.cc.conflicts[3] == 0) {
 			if (network->network_properties.N_tar > 0 && network->network_properties.alpha > 0.0) {
 				//Solve for delta
-				network->network_properties.delta = 3.0 * static_cast<double>(network->network_properties.N_tar) / (static_cast<double>(POW2(M_PI, 0) * POW3(static_cast<float>(network->network_properties.alpha), 0)) * (static_cast<double>(SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0)) - 3.0 * network->network_properties.tau0));
+				network->network_properties.delta = 3.0 * static_cast<double>(network->network_properties.N_tar) / (static_cast<double>(POW2(static_cast<float>(M_PI), 0) * POW3(static_cast<float>(network->network_properties.alpha), 0)) * (static_cast<double>(SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0)) - 3.0 * network->network_properties.tau0));
 				assert (network->network_properties.delta > 0.0);
 			} else if (network->network_properties.N_tar == 0) {
 				//Solve for N_tar
 				assert (network->network_properties.alpha > 0.0);
-				network->network_properties.N_tar = static_cast<int>(POW2(M_PI, 0) * static_cast<float>(network->network_properties.delta) * POW3(static_cast<float>(network->network_properties.alpha), 0) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0) - 3.0 * static_cast<float>(network->network_properties.tau0)) / 3.0);
+				network->network_properties.N_tar = static_cast<int>(POW2(static_cast<float>(M_PI), 0) * static_cast<float>(network->network_properties.delta) * POW3(static_cast<float>(network->network_properties.alpha), 0) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0) - 3.0 * static_cast<float>(network->network_properties.tau0)) / 3.0);
 				assert (network->network_properties.N_tar > 0);
 			} else {
 				//Solve for alpha
 				assert (network->network_properties.N_tar > 0);
-				network->network_properties.alpha = static_cast<double>(POW(3.0 * static_cast<float>(network->network_properties.N_tar) / (POW2(M_PI, 0) * static_cast<float>(network->network_properties.delta) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0) - 3.0 * static_cast<float>(network->network_properties.tau0))), (1.0 / 3.0), 0));
+				network->network_properties.alpha = static_cast<double>(POW(3.0 * static_cast<float>(network->network_properties.N_tar) / (POW2(static_cast<float>(M_PI), 0) * static_cast<float>(network->network_properties.delta) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0) - 3.0 * static_cast<float>(network->network_properties.tau0))), (1.0 / 3.0), 0));
 				assert (network->network_properties.alpha > 0.0);
 			}
 		}
@@ -493,21 +494,19 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 
 		double x = 0.08;
 		if (network->network_properties.dim == 1)
-			x = HALF_PI - 0.0001;
+			x = static_cast<double>(HALF_PI) - 0.0001;
 
 		if (!newton(&solveZeta, &x, 10000, TOL, NULL, NULL, NULL, &network->network_properties.k_tar, &network->network_properties.N_tar, &network->network_properties.dim))
 			return false;
 		network->network_properties.zeta = x;
 		if (network->network_properties.dim == 1)
-			network->network_properties.zeta = HALF_PI - x;
-		assert (network->network_properties.zeta > 0 && network->network_properties.zeta < HALF_PI);
+			network->network_properties.zeta = static_cast<double>(HALF_PI) - x;
+		assert (network->network_properties.zeta > 0 && network->network_properties.zeta < static_cast<double>(HALF_PI));
 
 		printf("\tTranscendental Equation Solved:\n");
 		//printf("\t\tZeta: %5.8f\n", network->network_properties.zeta);
-		printf("\t\tMaximum Conformal Time: %5.8f\n", HALF_PI - network->network_properties.zeta);
-		printf("\t\tMaximum Rescaled Time:  %5.8f\n", etaToT(HALF_PI - network->network_properties.zeta, network->network_properties.a));
-		//Debug
-		return false;
+		printf("\t\tMaximum Conformal Time: %5.8f\n", static_cast<double>(HALF_PI) - network->network_properties.zeta);
+		printf("\t\tMaximum Rescaled Time:  %5.8f\n", etaToT(static_cast<float>(static_cast<double>(HALF_PI) - network->network_properties.zeta), network->network_properties.a));
 	}
 
 	//Generate coordinates of spacetime nodes and then order nodes temporally using quicksort
@@ -540,8 +539,6 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 		return false;
 	if (tmp)
 		network->network_properties.flags.bench = true;
-
-	exit(EXIT_SUCCESS);
 
 	//Quicksort
 	stopwatchStart(&cp->sQuicksort);
@@ -731,10 +728,10 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &
 			pch = strtok((char*)line.c_str(), " \t");
 			for (i = 0; i < 4; i++)
 				pch = strtok(NULL, " \t");
-			network->network_properties.zeta = HALF_PI - atof(pch);
-			if (network->network_properties.zeta <= 0.0 || network->network_properties.zeta >= HALF_PI)
+			network->network_properties.zeta = static_cast<double>(HALF_PI) - atof(pch);
+			if (network->network_properties.zeta <= 0.0 || network->network_properties.zeta >= static_cast<double>(HALF_PI))
 				throw CausetException("Invalid value for eta0!\n");
-			printf("\t\teta0:\t%f\n", HALF_PI - network->network_properties.zeta);
+			printf("\t\teta0:\t%f\n", static_cast<double>(HALF_PI) - network->network_properties.zeta);
 
 			dataStream.close();
 		} else
@@ -759,11 +756,11 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &
 				
 				if (network->nodes[i].t <= 0.0)
 					throw CausetException("Invalid value parsed for t in node position file!\n");
-				if (network->nodes[i].theta <= 0.0 || network->nodes[i].theta >= TWO_PI)
+				if (network->nodes[i].theta <= 0.0 || network->nodes[i].theta >= static_cast<float>(TWO_PI))
 					throw CausetException("Invalid value parsed for theta in node position file!\n");
-				if (network->nodes[i].phi <= 0.0 || network->nodes[i].phi >= M_PI)
+				if (network->nodes[i].phi <= 0.0 || network->nodes[i].phi >= static_cast<float>(M_PI))
 					throw CausetException("Invalid value parsed for phi in node position file!\n");
-				if (network->nodes[i].chi <= 0.0 || network->nodes[i].chi >= M_PI)
+				if (network->nodes[i].chi <= 0.0 || network->nodes[i].chi >= static_cast<float>(M_PI))
 					throw CausetException("Invalid value parsed for chi in node position file!\n");
 			}
 			dataStream.close();
@@ -972,8 +969,8 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 			outputStream << "--------------------------" << std::endl;
 			outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_properties.N_res << std::endl;
 			outputStream << "Resulting Average Degrees (k_res)\t" << network.network_properties.k_res << std::endl;
-			outputStream << "Maximum Conformal Time (eta_0)\t\t" << (HALF_PI - network.network_properties.zeta) << std::endl;
-			outputStream << "Maximum Rescaled Time (t_0)  \t\t" << etaToT(HALF_PI - network.network_properties.zeta, network.network_properties.a) << std::endl;
+			outputStream << "Maximum Conformal Time (eta_0)\t\t" << (static_cast<double>(HALF_PI) - network.network_properties.zeta) << std::endl;
+			outputStream << "Maximum Rescaled Time (t_0)  \t\t" << etaToT(static_cast<float>(static_cast<double>(HALF_PI) - network.network_properties.zeta), network.network_properties.a) << std::endl;
 		}
 
 		if (network.network_properties.flags.calc_clustering)

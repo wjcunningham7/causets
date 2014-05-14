@@ -4,6 +4,12 @@
 #include "Causet.h"
 #include "Subroutines.h"
 
+/////////////////////////////
+//(C) Will Cunningham 2014 //
+// Northeastern University //
+// Krioukov Research Group //
+/////////////////////////////
+
 //Primary Newton-Raphson Functions
 double solveZeta(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
 double solveTau0(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
@@ -30,7 +36,8 @@ double tauPrime(const double &x, const double &tau0);
 double phi4D(const double &x, const double &rval);
 double phiPrime4D(const double &x);
 
-//Math Function for 2F1
+//Math function for tau to eta in universe
+//which appears in 2F1
 double _2F1_z(const double &tau);
 
 //De Sitter Spatial Lengths

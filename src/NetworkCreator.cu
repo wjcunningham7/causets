@@ -16,7 +16,7 @@ bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *&
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	assert (edge_buffer >= 0);
 
-	if (verbose) {
+	/*if (verbose) {
 		//Estimate memory usage before allocating
 		size_t mem = 0;
 		mem += sizeof(Node) * N_tar;
@@ -35,7 +35,7 @@ bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *&
 		char response = getchar();
 		if (response != 'y')
 			return false;
-	}
+	}*/
 
 	stopwatchStart(&sCreateNetwork);
 
@@ -116,7 +116,7 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 		assert (dim == 3);
 		assert (tau0 > 0.0);
 	} else
-		assert (zeta > 0.0 && zeta < HALF_PI);	
+		assert (zeta > 0.0 && zeta < static_cast<double>(HALF_PI));	
 
 	stopwatchStart(&sGenerateNodes);
 
@@ -150,6 +150,7 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 				} else if (manifold == DE_SITTER) {
 					//CDF derived from PDF identified in (2) of [2]
 					nodes[i].t = etaToT(ATAN(static_cast<float>(ran2(&seed)) / TAN(static_cast<float>(zeta), 0), 0, HIGH_PRECISION), a);
+					//nodes[i].t = etaToT(atan(ran2(&seed) / tan(zeta)), a);
 					assert (nodes[i].t > 0.0);
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
@@ -186,18 +187,18 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 
 					//Sample Phi from (0, pi)
 					//For some reason the technique in [3] has not been producing the correct distribution...
-					//nodes[i].phi = static_cast<float>(0.5 * (M_PI * ran2(&seed) + ACOS(static_cast<float>(ran2(&seed)), 0)));
-					x = HALF_PI;
+					//nodes[i].phi = 0.5 * (static_cast<float>(M_PI) * static_cast<float>(ran2(&seed)) + ACOS(static_cast<float>(ran2(&seed)), 0));
+					x = static_cast<double>(HALF_PI);
 					rval = ran2(&seed);
 					if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
 						return false;
 					nodes[i].phi = static_cast<float>(x);
-					assert (nodes[i].phi > 0.0 && nodes[i].phi < M_PI);
+					assert (nodes[i].phi > 0.0 && nodes[i].phi < static_cast<float>(M_PI));
 					//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes[i].phi);
 
 					//Sample Chi from (0, pi)
 					nodes[i].chi = ACOS(1.0 - 2.0 * static_cast<float>(ran2(&seed)), 0, HIGH_PRECISION);
-					assert (nodes[i].chi > 0.0 && nodes[i].chi < M_PI);
+					assert (nodes[i].chi > 0.0 && nodes[i].chi < static_cast<float>(M_PI));
 					//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes[i].chi);
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
@@ -239,11 +240,12 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 	assert (N_tar > 0);
 	assert (k_tar > 0.0);
 	assert (dim == 1 || dim == 3);
-	if (universe)
+	if (universe) {
 		assert (dim == 3);
+		assert (alpha > 0.0);
+	}
 	assert (manifold == EUCLIDEAN || manifold == DE_SITTER || manifold == ANTI_DE_SITTER);
 	assert (a > 0.0);
-	assert (alpha > 0.0);
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	assert (edge_buffer >= 0);
 	
@@ -298,8 +300,8 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 					}
 				} else
 					dt = ABS(tToEta(nodes[j].t, a) - tToEta(nodes[i].t, a), 0);
-				assert (dt > 0.0 && dt < HALF_PI);
-				//if (i % NPRINT == 0) printf("dt: %.5f\n", dt);
+				//if (i % NPRINT == 0) printf("dt: %.9f\n", dt);
+				assert (dt >= 0.0 && dt < HALF_PI);
 			} else if (manifold == ANTI_DE_SITTER) {
 				//
 			}
@@ -313,7 +315,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 					//
 				} else if (manifold == DE_SITTER) {
 					//Formula given on p. 2 of [2]
-					dx = M_PI - ABS(M_PI - ABS(nodes[j].theta - nodes[i].theta, 0), 0);
+					dx = static_cast<float>(M_PI) - ABS(static_cast<float>(M_PI) - ABS(nodes[j].theta - nodes[i].theta, 0), 0);
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
 				}
@@ -323,18 +325,18 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 				} else if (manifold == DE_SITTER) {
 					//Spherical Law of Cosines
 					dx = ACOS(X1(nodes[i].phi) * X1(nodes[j].phi) + 
-						   X2(nodes[i].phi, nodes[i].chi) * X2(nodes[j].phi, nodes[j].chi) + 
-						   X3(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X3(nodes[j].phi, nodes[j].chi, nodes[j].theta) + 
-						   X4(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X4(nodes[j].phi, nodes[j].chi, nodes[j].theta), 0, HIGH_PRECISION);
+						  X2(nodes[i].phi, nodes[i].chi) * X2(nodes[j].phi, nodes[j].chi) + 
+						  X3(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X3(nodes[j].phi, nodes[j].chi, nodes[j].theta) + 
+						  X4(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X4(nodes[j].phi, nodes[j].chi, nodes[j].theta), 0, HIGH_PRECISION);
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
 				}
 			}
 
-			assert (dx > 0.0 && dx < HALF_PI);
-
 			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx);
 			//if (i % NPRINT == 0) printf("cos(dx): %.5f\n", cosf(dx));
+			//if (dx <= 0.0 || dx >= static_cast<float>(M_PI)) printf("%.9f %.9f\n", dt, dx);
+			assert (dx >= 0.0 && dx <= static_cast<float>(M_PI));
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {
@@ -600,7 +602,7 @@ bool printSpatialDistances(const Node * const nodes, const Manifold &manifold, c
 		int i, j;
 		for (i = 0; i < N_tar - 1; i++) {
 			for (j = i + 1; j < N_tar; j++) {
-				if (dim == 1) dx = M_PI - ABS(M_PI - ABS(nodes[j].theta - nodes[i].theta, 0), 0);
+				if (dim == 1) dx = static_cast<float>(M_PI) - ABS(static_cast<float>(M_PI) - ABS(nodes[j].theta - nodes[i].theta, 0), 0);
 				else if (dim == 3)
 					dx = ACOS((X1(nodes[i].phi) * X1(nodes[j].phi)) +
 						   (X2(nodes[i].phi, nodes[i].chi) * X2(nodes[j].phi, nodes[j].chi)) +

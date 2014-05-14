@@ -3,6 +3,12 @@
 
 #include "Causet.h"
 
+/////////////////////////////
+//(C) Will Cunningham 2014 //
+// Northeastern University //
+// Krioukov Research Group //
+/////////////////////////////
+
 //Quicksort Algorithm
 void quicksort(Node *nodes, int low, int high);
 void swap(Node *n, Node *m);

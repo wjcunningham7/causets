@@ -49,7 +49,7 @@ double solveT(const double &x, const double * const p1, const double * const p2,
 	assert (p3 != NULL);	//rval
 
 	//Variables in the correct ranges
-	assert (*p1 > 0.0 && *p1 < HALF_PI);
+	assert (*p1 > 0.0 && *p1 < static_cast<double>(HALF_PI));
 	assert (*p2 > 0.0);
 	assert (*p3 > 0.0 && *p3 < 1.0);
 
@@ -85,7 +85,7 @@ double solvePhi(const double &x, const double * const p1, const double * const p
 double eta02D(const double &x, const int &N_tar, const float &k_tar)
 {
 	double _tanx = static_cast<double>(TAN(static_cast<float>(x), 0));
-	return ((x / _tanx - static_cast<double>(LOG(COS(static_cast<float>(x), 0), 0)) - 1.0) / (_tanx * HALF_PI)) - (static_cast<double>(k_tar) / static_cast<double>(N_tar));
+	return ((x / _tanx - static_cast<double>(LOG(COS(static_cast<float>(x), 0), 0)) - 1.0) / (_tanx * static_cast<double>(HALF_PI))) - (static_cast<double>(k_tar) / static_cast<double>(N_tar));
 }
 
 double eta0Prime2D(const double &x)
@@ -94,7 +94,7 @@ double eta0Prime2D(const double &x)
 	double _cscx2 = 1.0 / static_cast<double>(POW2(SIN(static_cast<float>(x), 0), 0));
 	double _lnsecx = -1.0 * static_cast<double>(LOG(COS(static_cast<float>(x), 0), 0));
 
-	return (_cotx * (_cotx - x * _cscx2) + 1 - _cscx2 * (_lnsecx + x * _cotx - 1)) / HALF_PI;
+	return (_cotx * (_cotx - x * _cscx2) + 1 - _cscx2 * (_lnsecx + x * _cotx - 1)) / static_cast<double>(HALF_PI);
 }
 
 double zeta4D(const double &x, const int &N_tar, const float &k_tar)
@@ -103,7 +103,7 @@ double zeta4D(const double &x, const int &N_tar, const float &k_tar)
 	double _cscx2 = 1.0 / static_cast<double>(POW2(SIN(static_cast<float>(x), 0), 0));
 	double _lncscx = -1.0 * static_cast<double>(LOG(SIN(static_cast<float>(x), 0), 0));
 
-	return _tanx * (12.0 * (x * _tanx + _lncscx) + (6.0 * _lncscx - 5.0) * _cscx2 - 7.0) / (3.0 * HALF_PI * static_cast<double>(POW2(2.0 + static_cast<float>(_cscx2), 0))) - static_cast<double>(k_tar) / static_cast<double>(N_tar);
+	return _tanx * (12.0 * (x * _tanx + _lncscx) + (6.0 * _lncscx - 5.0) * _cscx2 - 7.0) / (3.0 * static_cast<double>(HALF_PI) * static_cast<double>(POW2(2.0 + static_cast<float>(_cscx2), 0))) - static_cast<double>(k_tar) / static_cast<double>(N_tar);
 }
 
 double zetaPrime4D(const double &x)
@@ -114,12 +114,12 @@ double zetaPrime4D(const double &x)
 	double _cosx3 = static_cast<double>(POW3(COS(static_cast<float>(x), 0), 0));
 	double _lncscx = -1.0 * static_cast<double>(LOG(SIN(static_cast<float>(x), 0), 0));
 
-	return (3.0 * (static_cast<double>(COS(5.0 * static_cast<float>(x), 0)) - 32.0 * (M_PI - 2.0 * x) * _sinx3) + static_cast<double>(COS(static_cast<float>(x), 0)) * (84.0 - 72.0 * _lncscx) + static_cast<double>(COS(3.0 * static_cast<float>(x), 0)) * (24.0 * _lncscx - 31.0)) / (-4.0 * M_PI * _sinx4 * _cosx3 * static_cast<double>(POW3((2.0 + static_cast<float>(_cscx2)), 0)));
+	return (3.0 * (static_cast<double>(COS(5.0 * static_cast<float>(x), 0)) - 32.0 * (static_cast<double>(M_PI) - 2.0 * x) * _sinx3) + static_cast<double>(COS(static_cast<float>(x), 0)) * (84.0 - 72.0 * _lncscx) + static_cast<double>(COS(3.0 * static_cast<float>(x), 0)) * (24.0 * _lncscx - 31.0)) / (-4.0 * static_cast<double>(M_PI) * _sinx4 * _cosx3 * static_cast<double>(POW3((2.0 + static_cast<float>(_cscx2)), 0)));
 }
 
 double tau0(const double &x, const int &N_tar, const double &alpha, const double &delta)
 {
-	return static_cast<double>(SINH(3.0 * static_cast<float>(x), 0)) - 3.0 * (x + static_cast<double>(N_tar) / (static_cast<double>(POW2(M_PI, 0)) * delta * static_cast<double>(POW3(static_cast<float>(alpha), 0))));
+	return static_cast<double>(SINH(3.0 * static_cast<float>(x), 0)) - 3.0 * (x + static_cast<double>(N_tar) / (static_cast<double>(POW2(static_cast<float>(M_PI), 0)) * delta * static_cast<double>(POW3(static_cast<float>(alpha), 0))));
 }
 
 double tau0Prime(const double &x)
@@ -132,9 +132,9 @@ double t4D(const double &x, const double &zeta, const double &a, const double &r
 	double _coshx2 = static_cast<double>(POW(COSH(static_cast<float>(x / a), 0), 4.0, 0));
 	double _sinz2 = static_cast<double>(POW2(SIN(static_cast<float>(zeta), 0), 0));
 
-	return (2.0 + _coshx2) * static_cast<double>(SINH(static_cast<float>(x / a), 0)) * static_cast<double>(TAN(static_cast<float>(zeta), 0)) * _sinz2 / (2.0 * _sinz2 + 1) - rval;
+	//return (2.0 + _coshx2) * static_cast<double>(SINH(static_cast<float>(x / a), 0)) * static_cast<double>(TAN(static_cast<float>(zeta), 0)) * _sinz2 / (2.0 * _sinz2 + 1) - rval;
 
-	//return ((((2.0 + cosh(x / a) * cosh(x / a)) * sinh(x / a)) / ((2.0 + (1.0 / (sin(zeta) * sin(zeta)))) / tan(zeta))) - rval);
+	return ((((2.0 + cosh(x / a) * cosh(x / a)) * sinh(x / a)) / ((2.0 + (1.0 / (sin(zeta) * sin(zeta)))) / tan(zeta))) - rval);
 }
 
 double tPrime4D(const double &x, const double &zeta, const double &a)
@@ -142,9 +142,9 @@ double tPrime4D(const double &x, const double &zeta, const double &a)
 	double _coshx4 = static_cast<double>(POW(COSH(static_cast<float>(x / a), 0), 4.0, 0));
 	double _sinz2 = static_cast<double>(POW2(SIN(static_cast<float>(zeta), 0), 0));
 
-	return 3.0 * _coshx4 * static_cast<double>(TAN(static_cast<float>(zeta), 0)) * _sinz2 / (2.0 * _sinz2 + 1);
+	//return 3.0 * _coshx4 * static_cast<double>(TAN(static_cast<float>(zeta), 0)) * _sinz2 / (2.0 * _sinz2 + 1);
 
-	//return ((3.0 * cosh(x / a) * cosh(x / a) * cosh(x / a) * cosh(x / a)) / ((2.0 + (1.0 / (sin(zeta) * sin(zeta)))) / tan(zeta)));
+	return ((3.0 * cosh(x / a) * cosh(x / a) * cosh(x / a) * cosh(x / a)) / ((2.0 + (1.0 / (sin(zeta) * sin(zeta)))) / tan(zeta)));
 }
 
 double tau(const double &x, const double &tau0, const double &rval)
@@ -163,14 +163,14 @@ double tauPrime(const double &x, const double &tau0)
 
 double phi4D(const double &x, const double &rval)
 {
-	return (2.0 * x	- static_cast<double>(SIN(2.0 * static_cast<float>(x), 0))) / TWO_PI - rval;
+	return (2.0 * x	- static_cast<double>(SIN(2.0 * static_cast<float>(x), 0))) / static_cast<double>(TWO_PI) - rval;
 
 	//return (((x - sin(x) * cos(x)) / M_PI) - rval);
 }
 
 double phiPrime4D(const double &x)
 {
-	return static_cast<double>(POW2(SIN(static_cast<float>(x), 0), 0)) / HALF_PI;
+	return static_cast<double>(POW2(SIN(static_cast<float>(x), 0), 0)) / static_cast<double>(HALF_PI);
 
 	//return ((2 / M_PI) * sin(x) * sin(x));
 }
@@ -214,13 +214,17 @@ float X4(const float &phi, const float &chi, const float &theta)
 //Conformal to Minkowski Time
 float etaToT(const float eta, const double a)
 {
-	return ACOSH(1.0 / COS(eta, 0), 0, HIGH_PRECISION) * static_cast<float>(a);
+	//return ACOSH(1.0 / COS(eta, 0), 0, HIGH_PRECISION) * static_cast<float>(a);
+	
+	return acoshf(1.0 / cosf(eta)) * a;
 }
 
 //Minkowski to Conformal Time
 float tToEta(const float t, const double a)
 {
-	return ACOS(1.0 / COSH(t / static_cast<float>(a), 0), 0, HIGH_PRECISION);
+	//return ACOS(1.0 / COSH(t / static_cast<float>(a), 0), 0, HIGH_PRECISION);
+
+	return acosf(1.0 / coshf(t / a));
 }
 
 //Rescaled to Conformal Time (Universe)

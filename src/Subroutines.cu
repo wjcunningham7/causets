@@ -13,10 +13,6 @@ void quicksort(Node *nodes, int low, int high)
 	//No null pointers
 	assert (nodes != NULL);
 
-	//Values in correct ranges
-	assert (low >= 0);
-	assert (high >= 0);
-
 	int i, j, k;
 	float key;
 

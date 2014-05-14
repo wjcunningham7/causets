@@ -20,19 +20,25 @@
 #include "ran2.h"
 #include "stopwatch.h"
 
+/////////////////////////////
+//(C) Will Cunningham 2014 //
+// Northeastern University //
+// Krioukov Research Group //
+/////////////////////////////
+
 //#define TOL (1e-28)	//Any value smaller than this is rounded to zero
-#define NPRINT 10000	//Used for debugging statements in loops
+#define NPRINT 100	//Used for debugging statements in loops
 #define NBENCH 10	//Times each function is run during benchmarking
 
-////////////////////////////////////////////////////////////////////////////
-//References
-//[1] Network Cosmology
-//    http://www.nature.com/srep/2012/121113/srep00793/full/srep00793.html
-//[2] Supplementary Information for Network Cosmology
-//    http://complex.ffn.ub.es/~mbogunya/archivos_cms/files/srep00793-s1.pdf
-//[3] Uniformly Distributed Random Unit Quaternions
-//    mathproofs.blogspot.com/2005/05/uniformly-distributed-random-unit.html
-////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//References								    //
+//[1] Network Cosmology							    //
+//    http://www.nature.com/srep/2012/121113/srep00793/full/srep00793.html  //
+//[2] Supplementary Information for Network Cosmology			    //
+//    http://complex.ffn.ub.es/~mbogunya/archivos_cms/files/srep00793-s1.pdf//
+//[3] Uniformly Distributed Random Unit Quaternions			    //
+//    mathproofs.blogspot.com/2005/05/uniformly-distributed-random-unit.html//
+//////////////////////////////////////////////////////////////////////////////
 
 //Manifold Types
 //Currently only DE_SITTER is supported

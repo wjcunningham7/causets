@@ -36,7 +36,7 @@ $(BINDIR): $(OBJS)
 	$(CXX) -o $(BINDIR)/CausalSet $(COBJS) $(OBJS) $(INCD) $(LIBS)
  
 clean:
-	rm -f $(OBJDIR)/*.cu_o $(OBJDIR)/*.o
+	rm -f $(OBJDIR)/*.cu_o $(OBJDIR)/*.o ./causet.log ./causet.err
 
 cleandata:
 	rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/data_keys.key
