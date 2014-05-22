@@ -8,7 +8,7 @@
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *& past_edge_row_start, int *& future_edge_row_start, bool *& core_edge_exists, CUdeviceptr &d_nodes, CUdeviceptr &d_edges, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench)
+bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *& past_edge_row_start, int *& future_edge_row_start, bool *& core_edge_exists, CUdeviceptr &d_nodes, CUdeviceptr &d_edges, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench, const bool &yes)
 {
 	//Variables in correct ranges
 	assert (N_tar > 0);
@@ -16,7 +16,7 @@ bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *&
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	assert (edge_buffer >= 0);
 
-	/*if (verbose) {
+	if (verbose && !yes) {
 		//Estimate memory usage before allocating
 		size_t mem = 0;
 		mem += sizeof(Node) * N_tar;
@@ -32,10 +32,11 @@ bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *&
 
 		printMemUsed("for Network (Estimation)", mem, dmem);
 		printf("\nContinue [y/N]?");
+		fflush(stdout);
 		char response = getchar();
 		if (response != 'y')
 			return false;
-	}*/
+	}
 
 	stopwatchStart(&sCreateNetwork);
 
@@ -91,10 +92,15 @@ bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *&
 
 	stopwatchStop(&sCreateNetwork);
 
-	if (!bench)
+	if (!bench) {
 		printf("\tMemory Successfully Allocated.\n");
-	if (verbose)
+		fflush(stdout);
+	}
+
+	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sCreateNetwork.elapsedTime);
+		fflush(stdout);
+	}
 
 	return true;
 }
@@ -125,7 +131,14 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 			return false;
 	} else {
 		//Generate coordinates for each of N nodes
+		gsl_function F;
+		F.function = tToEtaUniverse;
+		F.params = NULL;
+		double result;
+		double abserr;
+		size_t neval;
 		int i;
+
 		for (i = 0; i < N_tar; i++) {
 			nodes[i] = Node();
 
@@ -139,7 +152,7 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 
 				nodes[i].theta = TWO_PI * static_cast<float>(ran2(&seed));
 				assert (nodes[i].theta > 0.0 && nodes[i].theta < TWO_PI);
-				//if (i % NPRINT == 0) printf("Theta: %5.5f\n", nodes[i].theta);
+				//if (i % NPRINT == 0) printf("Theta: %5.5f\n", nodes[i].theta); fflush(stdout);
 			} else if (manifold == ANTI_DE_SITTER) {
 				//
 			}
@@ -150,8 +163,7 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 				} else if (manifold == DE_SITTER) {
 					//CDF derived from PDF identified in (2) of [2]
 					nodes[i].t = etaToT(ATAN(static_cast<float>(ran2(&seed)) / TAN(static_cast<float>(zeta), 0), 0, HIGH_PRECISION), a);
-					//nodes[i].t = etaToT(atan(ran2(&seed) / tan(zeta)), a);
-					assert (nodes[i].t > 0.0);
+					assert (nodes[i].t > 0.0 && HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta) - 0.00000001);
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
 				}
@@ -178,6 +190,22 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 					}
 					nodes[i].t = static_cast<float>(x);
 					assert (nodes[i].t > 0.0);
+					if (universe)
+						assert (nodes[i].t < tau0);
+					else
+						assert (HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta) - 0.00000001);
+
+					//Test GSL Integration
+					int code = gsl_integration_qng(&F, 0.001, static_cast<double>(nodes[i].t) * a, 0.0, 0.001, &result, &abserr, &neval);
+					if (code != 0) {
+						printf("GSL Error: %s\n", gsl_strerror(code));
+						fflush(stdout);
+						return false;
+					} else {
+						printf("GSL Result: %f\n", result);
+						printf("GSL Error: %f\n", abserr);
+						fflush(stdout);
+					}
 				
 					////////////////////////////////////////////////////
 					//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
@@ -194,12 +222,12 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 						return false;
 					nodes[i].phi = static_cast<float>(x);
 					assert (nodes[i].phi > 0.0 && nodes[i].phi < static_cast<float>(M_PI));
-					//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes[i].phi);
+					//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes[i].phi); fflush(stdout);
 
 					//Sample Chi from (0, pi)
 					nodes[i].chi = ACOS(1.0 - 2.0 * static_cast<float>(ran2(&seed)), 0, HIGH_PRECISION);
 					assert (nodes[i].chi > 0.0 && nodes[i].chi < static_cast<float>(M_PI));
-					//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes[i].chi);
+					//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes[i].chi); fflush(stdout);
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
 				}
@@ -216,17 +244,23 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 
 	stopwatchStop(&sGenerateNodes);
 
-	if (!bench)
+	if (!bench) {
 		printf("\tNodes Successfully Generated.\n");
-	if (verbose)
+		fflush(stdout);
+	}
+
+	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sGenerateNodes.elapsedTime);
+		fflush(stdout);
+		exit(EXIT_SUCCESS);
+	}
 
 	return true;
 }
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &verbose, const bool &bench)
+bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &verbose, const bool &bench)
 {
 	//No null pointers
 	assert (nodes != NULL);
@@ -255,7 +289,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 	int past_idx = 0;
 	int i, j, k;
 
-	float eta;
+	double eta;
 	const float diff = 0.001;
 	const float lower_bound = diff;
 	float upper_bound;
@@ -281,12 +315,12 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 				if (universe) {
 					try {
 						upper_bound = static_cast<float>(nodes[i].t * a);
-						if (!integrate(&tauToEtaUniverse, eta, lower_bound, upper_bound, diff))
+						if (!integrate(&tToEtaUniverse, eta, lower_bound, upper_bound, diff))
 							throw CausetException("Function 'integrate' failed to execute!\n");
 						t1 = static_cast<float>(eta / alpha);
 
 						upper_bound = nodes[j].t * static_cast<float>(a);
-						if (!integrate(&tauToEtaUniverse, eta, lower_bound, upper_bound, diff))
+						if (!integrate(&tToEtaUniverse, eta, lower_bound, upper_bound, diff))
 							throw CausetException("Function 'integrate' failed to execute!\n");
 						t2 = static_cast<float>(eta / alpha);
 
@@ -300,8 +334,12 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 					}
 				} else
 					dt = ABS(tToEta(nodes[j].t, a) - tToEta(nodes[i].t, a), 0);
-				//if (i % NPRINT == 0) printf("dt: %.9f\n", dt);
-				assert (dt >= 0.0 && dt < HALF_PI);
+				//if (i % NPRINT == 0) printf("dt: %.9f\n", dt); fflush(stdout);
+				assert (dt >= 0.0);
+				if (universe) {
+					//assert (dt <= tToEta(tau0 * a, a) + 0.001);
+				} else
+					assert (dt <= HALF_PI - zeta);
 			} else if (manifold == ANTI_DE_SITTER) {
 				//
 			}
@@ -333,9 +371,8 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 				}
 			}
 
-			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx);
-			//if (i % NPRINT == 0) printf("cos(dx): %.5f\n", cosf(dx));
-			//if (dx <= 0.0 || dx >= static_cast<float>(M_PI)) printf("%.9f %.9f\n", dt, dx);
+			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx); fflush(stdout);
+			//if (i % NPRINT == 0) printf("cos(dx): %.5f\n", cosf(dx)); fflush(stdout);
 			assert (dx >= 0.0 && dx <= static_cast<float>(M_PI));
 
 			//Core Edge Adjacency Matrix
@@ -352,7 +389,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 			//Link timelike relations
 			try {
 				if (dx < dt) {
-					//if (i % NPRINT == 0) printf("\tConnected %d to %d\n", i, j);
+					//if (i % NPRINT == 0) printf("\tConnected %d to %d\n", i, j); fflush(stdout);
 					future_edges[future_idx] = j;
 					future_idx++;
 	
@@ -379,6 +416,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 
 	future_edge_row_start[N_tar-1] = -1;
 	//printf("\t\tEdges (forward): %d\n", future_idx);
+	//fflush(stdout);
 
 	//if (!printSpatialDistances(nodes, manifold, N_tar, dim)) return false;
 
@@ -413,6 +451,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 	//The quantities future_idx and past_idx should be equal
 	assert (future_idx == past_idx);
 	//printf("\t\tEdges (backward): %d\n", past_idx);
+	//fflush(stdout);
 
 	//Identify Resulting Network
 	for (i = 0; i < N_tar; i++) {
@@ -441,9 +480,13 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 		printf("\tCausets Successfully Connected.\n");
 		printf("\t\tResulting Network Size: %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
+		fflush(stdout);
 	}
-	if (verbose)
+
+	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sLinkNodes.elapsedTime);
+		fflush(stdout);
+	}
 
 	return true;
 }
@@ -480,6 +523,8 @@ void compareAdjacencyLists(const Node * const nodes, const int * const past_edge
 				printf("%d ", past_edges[past_edge_row_start[i]+j]);
 			printf("\n");
 		}
+	
+		fflush(stdout);
 	}
 }
 
@@ -504,15 +549,16 @@ void compareAdjacencyListIndices(const Node * const nodes, const int * const pas
 	printf("\nPast Edge Indices:\n");
 	for (i = 0; i < max1; i++)
 		printf("%d\n", past_edge_row_start[i]);
+	fflush(stdout);
 
 	int next_future_idx, next_past_idx;
 	for (i = 0; i < max1; i++) {
 		printf("\nNode i: %d\n", i);
 
 		printf("Out-Degrees: %d\n", nodes[i].k_out);
-		if (future_edge_row_start[i] == -1)
+		if (future_edge_row_start[i] == -1) {
 			printf("Pointer: 0\n");
-		else {
+		} else {
 			for (j = 1; j < max2; j++) {
 				if (future_edge_row_start[i+j] != -1) {
 					next_future_idx = j;
@@ -534,6 +580,7 @@ void compareAdjacencyListIndices(const Node * const nodes, const int * const pas
 			}
 			printf("Pointer: %d\n", (past_edge_row_start[i+next_past_idx] - past_edge_row_start[i]));
 		}
+		fflush(stdout);
 	}
 }
 

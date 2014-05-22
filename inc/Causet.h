@@ -15,10 +15,11 @@
 #include <curand.h>
 #include <GL/freeglut.h>
 
+#include <fastmath/FastMath.h>
+#include <fastmath/ran2.h>
+#include <fastmath/stopwatch.h>
+
 #include "autocorr2.h"
-#include "FastMath.h"
-#include "ran2.h"
-#include "stopwatch.h"
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
@@ -26,7 +27,6 @@
 // Krioukov Research Group //
 /////////////////////////////
 
-//#define TOL (1e-28)	//Any value smaller than this is rounded to zero
 #define NPRINT 100	//Used for debugging statements in loops
 #define NBENCH 10	//Times each function is run during benchmarking
 
@@ -51,7 +51,6 @@ enum Manifold {
 //Minimal unique properties of a node
 struct Node {
 	Node() : t(0.0), theta(0.0), phi(0.0), chi(0.0), k_in(0), k_out(0) {}
-	Node(float _t, float _theta, float _phi, float _chi, int _k_in, int _k_out) : t(_t), theta(_theta), phi(_phi), chi(_chi), k_in(_k_in), k_out(_k_out) {}
 
 	//Temporal Coordinate
 	float t;	//Note this is 't' for 1+1 and 3+1, and 'tau' for universe
@@ -84,8 +83,7 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), use_gpu(false), disp_network(false), print_network(false), universe(false), calc_clustering(false), calc_autocorr(false) {}
-	CausetFlags(CausetConflicts _cc, bool _verbose, bool _bench, bool _use_gpu, bool _disp_network, bool _print_network, bool _universe, bool _calc_clustering, bool _calc_autocorr) : cc(_cc), verbose(_verbose), bench(_bench), use_gpu(_use_gpu), disp_network(_disp_network), print_network(_print_network), universe(_universe), calc_clustering(_calc_clustering), calc_autocorr(_calc_autocorr) {}
+	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), use_gpu(false), disp_network(false), print_network(false), universe(false), calc_clustering(false), calc_autocorr(false) {}
 
 	CausetConflicts cc;	//Conflicting Parameters
 
@@ -99,12 +97,12 @@ struct CausetFlags {
 	
 	bool verbose;		//Verbose Output
 	bool bench;		//Benchmark Algorithms
+	bool yes;		//Suppresses User Input
 };
 
 //CUDA Kernel Execution Parameters
 struct NetworkExec {
 	NetworkExec() : threads_per_block(dim3(256, 256, 1)), blocks_per_grid(dim3(256, 256, 1)) {}
-	NetworkExec(dim3 tpb, dim3 bpg) : threads_per_block(tpb), blocks_per_grid(bpg) {}
 
 	dim3 threads_per_block;
 	dim3 blocks_per_grid;
@@ -113,7 +111,6 @@ struct NetworkExec {
 //Numerical parameters constraining the network
 struct NetworkProperties {
 	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(1.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()), network_exec(NetworkExec()), manifold(DE_SITTER) {}
-	NetworkProperties(int _N_tar, float _k_tar, int _dim, double _a, double _lambda, double _zeta, double _tau0, double _alpha, double _delta, double _R0, double _omegaM, double _omegaL, double _ratio, float _core_edge_fraction, int _edge_buffer, long _seed, int _graphID, CausetFlags _flags, NetworkExec _network_exec, Manifold _manifold) : N_tar(_N_tar), k_tar(_k_tar), N_res(0), k_res(0), N_deg2(0), dim(_dim), a(_a), lambda(_lambda), zeta(_zeta), tau0(_tau0), alpha(_alpha), delta(_delta), R0(_R0), omegaM(_omegaM), omegaL(_omegaL), ratio(_ratio), core_edge_fraction(_core_edge_fraction), edge_buffer(_edge_buffer), seed(_seed), graphID(_graphID), flags(_flags), network_exec(_network_exec), manifold(_manifold) {}
 
 	CausetFlags flags;
 	NetworkExec network_exec;
@@ -152,7 +149,6 @@ struct NetworkProperties {
 //Measured values of the network
 struct NetworkObservables {
 	NetworkObservables() : clustering(NULL), average_clustering(0.0) {}
-	NetworkObservables(float *_clustering, float _average_clustering) : clustering(_clustering), average_clustering(_average_clustering) {}
 
 	float *clustering;		//Clustering Coefficients
 	float average_clustering;	//Average Clustering over All Nodes
@@ -162,7 +158,6 @@ struct NetworkObservables {
 struct Network {
 	Network() : network_properties(NetworkProperties()), network_observables(NetworkObservables()), nodes(NULL), past_edges(NULL), future_edges(NULL), past_edge_row_start(NULL), future_edge_row_start(NULL), core_edge_exists(NULL) {}
 	Network(NetworkProperties _network_properties) : network_properties(_network_properties), network_observables(NetworkObservables()), nodes(NULL), past_edges(NULL), future_edges(NULL), past_edge_row_start(NULL), future_edge_row_start(NULL), core_edge_exists(NULL) {}
-	Network(NetworkProperties _network_properties, NetworkObservables _network_observables, Node *_nodes, int *_past_edges, int *_future_edges, int *_past_edge_row_start, int *_future_edge_row_start, bool *_core_edge_exists) : network_properties(_network_properties), network_observables(_network_observables), nodes(_nodes), past_edges(_past_edges), future_edges(_future_edges), past_edge_row_start(_past_edge_row_start), future_edge_row_start(_future_edge_row_start), core_edge_exists(_core_edge_exists) {}
 
 	NetworkProperties network_properties;
 	NetworkObservables network_observables;

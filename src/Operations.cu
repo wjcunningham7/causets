@@ -214,21 +214,22 @@ float X4(const float &phi, const float &chi, const float &theta)
 //Conformal to Minkowski Time
 float etaToT(const float eta, const double a)
 {
-	//return ACOSH(1.0 / COS(eta, 0), 0, HIGH_PRECISION) * static_cast<float>(a);
+	return ACOSH(1.0 / COS(eta, 0), 0, HIGH_PRECISION) * static_cast<float>(a);
 	
-	return acoshf(1.0 / cosf(eta)) * a;
+	//return acoshf(1.0 / cosf(eta)) * a;
 }
 
 //Minkowski to Conformal Time
 float tToEta(const float t, const double a)
 {
-	//return ACOS(1.0 / COSH(t / static_cast<float>(a), 0), 0, HIGH_PRECISION);
+	return ACOS(1.0 / COSH(t / static_cast<float>(a), 0), 0, HIGH_PRECISION);
 
-	return acosf(1.0 / coshf(t / a));
+	//return acosf(1.0 / coshf(t / a));
 }
 
-//Rescaled to Conformal Time (Universe)
-float tauToEtaUniverse(const float &tau)
+//Minkowski to Conformal Time (Universe)
+//For use with GNU Scientific Library
+double tToEtaUniverse(double t, void *params)
 {
-	return POW(SINH(1.5 * tau, 0), (-2.0 / 3.0), 0);
+	return static_cast<double>(POW(SINH(1.5 * static_cast<float>(t), 0), (-2.0 / 3.0), 0));
 }

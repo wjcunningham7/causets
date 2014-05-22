@@ -6,4 +6,4 @@
 
 # Generate causal set for universe (mix of dark energy and matter)
 #./bin/CausalSet --universe --age 0.8458 --alpha 2.01 --radius 1.0 --delta 10000 --seed 18100 --verbose
-./bin/CausalSet --universe --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 --print --verbose 1> causet.log 2> causet.err &
+./bin/CausalSet --universe --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 -y --print --verbose 1> causet.log 2> causet.err &

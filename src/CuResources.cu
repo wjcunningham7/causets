@@ -29,6 +29,7 @@ void printMemUsed(char *chkPoint, size_t hostMem, size_t devMem)
 	else
 		printf("\nMax Memory Used.........\n");
 	printf("--------------------------------------------------------------\n");
+	fflush(stdout);
 	size_t bytes = 0, KBytes = 0, MBytes = 0, GBytes = 0;
 
 	if (hostMem >= pow(2.0, 30))
@@ -50,6 +51,7 @@ void printMemUsed(char *chkPoint, size_t hostMem, size_t devMem)
 		printf("%i bytes\t", bytes);
 	if (GBytes > 0 || MBytes > 0 || KBytes > 0 || bytes > 0)
 		printf(" [HOST]\n\n");
+	fflush(stdout);
 
 	bytes = 0;	KBytes = 0;	MBytes = 0;	GBytes = 0;
 	if (devMem >= pow(2.0, 30))
@@ -71,6 +73,7 @@ void printMemUsed(char *chkPoint, size_t hostMem, size_t devMem)
 		printf("%i bytes\t", bytes);
 	if (GBytes > 0 || MBytes > 0 || KBytes > 0 || bytes > 0)
 		printf("[DEVICE]\n\n");
+	fflush(stdout);
 }
 
 //Used to keep track of max memory used
@@ -106,6 +109,7 @@ void connectToGPU(Resources *resources, int argc, char **argv)
 		printf("Program requires a minimum CUDA compute capability of 1.1\n");
 		shrQAFinishExit(argc, (const char **)argv, QA_FAILED);
 	}
+	fflush(stdout);
 
 	//Create Context
 	status = cuCtxCreate(&resources->cuContext, CU_CTX_SCHED_SPIN | CU_CTX_MAP_HOST, resources->cuDevice);
@@ -114,6 +118,7 @@ void connectToGPU(Resources *resources, int argc, char **argv)
 		cuCtxDetach(resources->cuContext);
 		shrQAFinishExit(argc, (const char **)argv, QA_FAILED);
 	}
+	fflush(stdout);
 }
 
 //Find available GPUs
@@ -122,9 +127,10 @@ CUdevice findCudaDevice(int id)
     	CUdevice device;
       	char name[100];
 
-       checkCudaErrors(cuDeviceGet(&device, id));
+	checkCudaErrors(cuDeviceGet(&device, id));
 	cuDeviceGetName(name, 100, device);
-       printf("> Using CUDA Device [%d]: %s\n", id, name);
+	printf("> Using CUDA Device [%d]: %s\n", id, name);
+	fflush(stdout);
 
     	return device;
 }

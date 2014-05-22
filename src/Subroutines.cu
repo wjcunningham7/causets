@@ -73,6 +73,8 @@ bool newton(double (*solve)(const double &x, const double * const p1, const doub
 	
 			*x = x1;
 			iter++;
+
+			fflush(stdout);
 		}
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
@@ -87,13 +89,14 @@ bool newton(double (*solve)(const double &x, const double * const p1, const doub
 	//printf("%d of %d iterations performed.\n", iter, max);
 	//printf("Residual: %E\n", res);
 	//printf("Solution: %E\n", *x);
+	//fflush(stdout);
 
 	return true;
 }
 
 //Numerical Integration
 //Uses Midpoint Riemann Sum
-bool integrate(float (*solve)(const float &x), float &x, const float &lower, const float &upper, const float &dx)
+bool integrate(double (*solve)(double x, void *params), double &x, const float &lower, const float &upper, const float &dx)
 {
 	//No null pointers
 	assert (solve != NULL);
@@ -107,7 +110,7 @@ bool integrate(float (*solve)(const float &x), float &x, const float &lower, con
 
 	try {
 		for (i = lower; i < upper; i += dx) {
-			x += solve(i);
+			x += solve(i, NULL);
 			if (x != x)
 				throw CausetException("NaN Error in Integrate\n");
 		}

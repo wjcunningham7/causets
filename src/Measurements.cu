@@ -54,6 +54,7 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 		//printf("\tDegrees: %d\n", (nodes[i].k_in + nodes[i].k_out));
 		//printf("\t\tIn-Degrees: %d\n", nodes[i].k_in);
 		//printf("\t\tOut-Degrees: %d\n", nodes[i].k_out);
+		//fflush(stdout);
 
 		//Ingore nodes of degree 0 and 1
 		if (nodes[i].k_in + nodes[i].k_out < 2)
@@ -97,6 +98,7 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 		//printf("\tConnected Triplets: %f\n", (c_i * c_max));
 		//printf("\tMaximum Triplets: %f\n", c_max);
 		//printf("\tClustering Coefficient: %f\n\n", c_i);
+		//fflush(stdout);
 	}
 
 	average_clustering = c_avg / N_deg2;
@@ -114,6 +116,7 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 	if (!bench) {
 		printf("\tCalculated Clustering Coefficients.\n");
 		printf("\t\tAverage Clustering:\t%f\n", average_clustering);
+		fflush(stdout);
 		if (calc_autocorr) {
 			autocorr2 acClust(5);
 			for (i = 0; i < N_deg2; i++)
@@ -123,10 +126,13 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 			acClust.fout_txt(fout);
 			fout.close();
 			printf("\t\tCalculated Autocorrelation.\n");
+			fflush(stdout);
 		}
 	}
-	if (verbose)
+	if (verbose) {
 		printf("\t\tExecution Time: %5.9f sec\n", sMeasureClustering.elapsedTime);
+		fflush(stdout);
+	}
 
 	return true;
 }
