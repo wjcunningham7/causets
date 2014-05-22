@@ -921,6 +921,16 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 
 	int i, j, k;
 	try {
+		//Confirm directory structure exists
+		mkdir("./dat", 777);
+		mkdir("./dat/pos", 777);
+		mkdir("./dat/edg", 777);
+		mkdir("./dat/dst", 777);
+		mkdir("./dat/idd", 777);
+		mkdir("./dat/odd", 777);
+		mkdir("./dat/cls", 777);
+		mkdir("./dat/cdk", 777);
+
 		std::ofstream outputStream;
 		std::stringstream sstm;
 

@@ -5,6 +5,7 @@
 #include <exception>
 #include <fstream>
 #include <getopt.h>
+#include <sys/io.h>
 #include <iostream>
 #include <math.h>
 #include <sstream>

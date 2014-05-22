@@ -26,10 +26,15 @@ COBJS		:= $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(CSOURCES))
 CEXTOBJS	:= $(patsubst $(FASTSRC)/%.cpp, $(OBJDIR)/%.o, $(CEXTSOURCES))
 OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.cu_o, $(SOURCES))
 
-all : $(COBJS) $(CEXTOBJS) $(OBJS) bin clean
+all : $(COBJS) $(CEXTOBJS) $(OBJS) bindir bin clean
  
 $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<
+
+$(COBJS) : | $(OBJDIR)
+
+$(OBJDIR) :
+	mkdir -p $(OBJDIR)
 
 $(OBJDIR)/%.o : $(FASTSRC)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<
@@ -39,6 +44,9 @@ $(OBJDIR)/%.cu_o : $(SRCDIR)/%.cu
  
 bin : $(COBJS) $(CEXTOBJS) $(OBJS)
 	$(CXX) -o $(BINDIR)/CausalSet $(COBJS) $(CEXTOBJS) $(OBJS) $(INCD) $(LIBS)
+
+bindir : 
+	mkdir -p $(BINDIR)
 
 clean:
 	rm -f $(OBJDIR)/*.cu_o $(OBJDIR)/*.o ./causet.log ./causet.err
