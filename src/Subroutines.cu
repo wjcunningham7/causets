@@ -62,7 +62,7 @@ bool newton(double (*solve)(const double &x, const double * const p1, const doub
 	int iter = 0;
 
 	try {
-		while (ABS(res, 0) > tol && iter < max_iter) {
+		while (ABS(res, STL) > tol && iter < max_iter) {
 			res = (*solve)(*x, p1, p2, p3, p4, p5, p6);
 			//printf("res: %E\n", res);
 			if (res != res)

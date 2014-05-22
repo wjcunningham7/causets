@@ -3,6 +3,8 @@ INCDIR		:= ./inc
 SRCDIR		:= ./src
 OBJDIR		:= ./obj
 DATDIR		:= ./dat
+
+FASTSRC		:= /usr/local/src/fastmath
  
 CUDA_SDK_PATH 	?= /usr/local/cuda-5.0/samples
 CUDA_HOME 	?= /usr/local/cuda
@@ -17,23 +19,26 @@ CXXFLAGS	:= -O3 -g
 NVCCFLAGS 	:= -arch=sm_30 -O3 -G -g
 
 CSOURCES	:= $(SRCDIR)/autocorr2.cpp
-CHEADERS	:= $(INCDIR)/autocorr2.h
-COBJS		:= $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(CSOURCES))
-
+CEXTSOURCES	:= $(FASTSRC)/ran2.cpp $(FASTSRC)/stopwatch.cpp 
 SOURCES		:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Operations.cu $(SRCDIR)/GPUSubroutines.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements.cu
-HEADERS		:= $(INCDIR)/CuResources.h $(INCDIR)/Causet.h $(INCDIR)/Subroutines.h $(INCDIR)/Operations.h $(INDIR)/GPUSubroutines.h $(INCDIR)/NetworkCreator.h $(INCDIR)/Measurements.h
+
+COBJS		:= $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(CSOURCES))
+CEXTOBJS	:= $(patsubst $(FASTSRC)/%.cpp, $(OBJDIR)/%.o, $(CEXTSOURCES))
 OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.cu_o, $(SOURCES))
 
-all : $(COBJS) $(OBJS) bin clean
+all : $(COBJS) $(CEXTOBJS) $(OBJS) bin clean
  
 $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<
+
+$(OBJDIR)/%.o : $(FASTSRC)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<
 
 $(OBJDIR)/%.cu_o : $(SRCDIR)/%.cu 
 	$(NVCC) $(NVCCFLAGS) -c $(INCD) -o $@ $<
  
-bin : $(OBJS)
-	$(CXX) -o $(BINDIR)/CausalSet $(COBJS) $(OBJS) $(INCD) $(LIBS)
+bin : $(COBJS) $(CEXTOBJS) $(OBJS)
+	$(CXX) -o $(BINDIR)/CausalSet $(COBJS) $(CEXTOBJS) $(OBJS) $(INCD) $(LIBS)
 
 clean:
 	rm -f $(OBJDIR)/*.cu_o $(OBJDIR)/*.o ./causet.log ./causet.err

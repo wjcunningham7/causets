@@ -142,7 +142,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.a <= 0.0)
 					throw CausetException("Invalid argument for 'a' parameter!\n");
 
-				network_properties.lambda = 3.0 / POW2(network_properties.a, 0);
+				network_properties.lambda = 3.0 / POW2(network_properties.a, EXACT);
 
 				network_properties.flags.cc.conflicts[0]++;
 
@@ -169,7 +169,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.tau0 <= 0.0)
 					throw CausetException("Invalid argument for 'age' parameter!\n");
 
-				network_properties.ratio = static_cast<double>(POW2(SINH(1.5 * static_cast<float>(network_properties.tau0), 0), 0));
+				network_properties.ratio = static_cast<double>(POW2(SINH(1.5 * static_cast<float>(network_properties.tau0), STL), EXACT));
 				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
 				network_properties.omegaL = 1.0 - network_properties.omegaM;
 
@@ -208,7 +208,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 
 				network_properties.omegaM = 1.0 - network_properties.omegaL;
 				network_properties.ratio = network_properties.omegaL / network_properties.omegaM;
-				network_properties.tau0 = (2.0 / 3.0) * static_cast<double>(ASINH(SQRT(static_cast<float>(network_properties.ratio), 0), 0, HIGH_PRECISION));
+				network_properties.tau0 = (2.0 / 3.0) * static_cast<double>(ASINH(SQRT(static_cast<float>(network_properties.ratio), STL), STL, DEFAULT));
 					
 				network_properties.flags.cc.conflicts[1]++;
 				network_properties.flags.cc.conflicts[2]++;
@@ -221,7 +221,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.ratio <= 0.0)
 					throw CausetException("Invalid argument for 'ratio' parameter!\n");
 
-				network_properties.tau0 = (2.0 / 3.0) * static_cast<double>(ASINH(SQRT(static_cast<float>(network_properties.ratio), 0), 0, HIGH_PRECISION));
+				network_properties.tau0 = (2.0 / 3.0) * static_cast<double>(ASINH(SQRT(static_cast<float>(network_properties.ratio), STL), STL, DEFAULT));
 				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
 				network_properties.omegaL = 1.0 - network_properties.omegaM;
 				
@@ -236,7 +236,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.lambda <= 0.0)
 					throw CausetException("Invalid argument for 'lambda' parameter!\n");
 
-				network_properties.a = static_cast<double>(SQRT(3.0 / static_cast<float>(network_properties.lambda), 0));
+				network_properties.a = static_cast<double>(SQRT(3.0 / static_cast<float>(network_properties.lambda), STL));
 
 				network_properties.flags.cc.conflicts[0]++;
 
@@ -415,31 +415,31 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 			network->network_properties.tau0 = x;
 			assert (network->network_properties.tau0 > 0.0);
 			
-			network->network_properties.ratio = static_cast<double>(POW2(SINH(1.5 * static_cast<float>(network->network_properties.tau0), 0), 0));
+			network->network_properties.ratio = static_cast<double>(POW2(SINH(1.5 * static_cast<float>(network->network_properties.tau0), STL), EXACT));
 			assert(network->network_properties.ratio > 0.0);
 			network->network_properties.omegaM = 1.0 / (network->network_properties.ratio + 1.0);
 			network->network_properties.omegaL = 1.0 - network->network_properties.omegaM;
 		} else if (network->network_properties.flags.cc.conflicts[1] == 0 || network->network_properties.flags.cc.conflicts[2] == 0 || network->network_properties.flags.cc.conflicts[3] == 0) {
 			if (network->network_properties.N_tar > 0 && network->network_properties.alpha > 0.0) {
 				//Solve for delta
-				network->network_properties.delta = 3.0 * static_cast<double>(network->network_properties.N_tar) / (static_cast<double>(POW2(static_cast<float>(M_PI), 0) * POW3(static_cast<float>(network->network_properties.alpha), 0)) * (static_cast<double>(SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0)) - 3.0 * network->network_properties.tau0));
+				network->network_properties.delta = 3.0 * static_cast<double>(network->network_properties.N_tar) / (static_cast<double>(POW2(static_cast<float>(M_PI), EXACT) * POW3(static_cast<float>(network->network_properties.alpha), EXACT)) * (static_cast<double>(SINH(3.0 * static_cast<float>(network->network_properties.tau0), STL)) - 3.0 * network->network_properties.tau0));
 				assert (network->network_properties.delta > 0.0);
 			} else if (network->network_properties.N_tar == 0) {
 				//Solve for N_tar
 				assert (network->network_properties.alpha > 0.0);
-				network->network_properties.N_tar = static_cast<int>(POW2(static_cast<float>(M_PI), 0) * static_cast<float>(network->network_properties.delta) * POW3(static_cast<float>(network->network_properties.alpha), 0) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0) - 3.0 * static_cast<float>(network->network_properties.tau0)) / 3.0);
+				network->network_properties.N_tar = static_cast<int>(POW2(static_cast<float>(M_PI), EXACT) * static_cast<float>(network->network_properties.delta) * POW3(static_cast<float>(network->network_properties.alpha), EXACT) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), STL) - 3.0 * static_cast<float>(network->network_properties.tau0)) / 3.0);
 				assert (network->network_properties.N_tar > 0);
 			} else {
 				//Solve for alpha
 				assert (network->network_properties.N_tar > 0);
-				network->network_properties.alpha = static_cast<double>(POW(3.0 * static_cast<float>(network->network_properties.N_tar) / (POW2(static_cast<float>(M_PI), 0) * static_cast<float>(network->network_properties.delta) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), 0) - 3.0 * static_cast<float>(network->network_properties.tau0))), (1.0 / 3.0), 0));
+				network->network_properties.alpha = static_cast<double>(POW(3.0 * static_cast<float>(network->network_properties.N_tar) / (POW2(static_cast<float>(M_PI), EXACT) * static_cast<float>(network->network_properties.delta) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), STL) - 3.0 * static_cast<float>(network->network_properties.tau0))), (1.0 / 3.0), STL));
 				assert (network->network_properties.alpha > 0.0);
 			}
 		}
 		//Finally, solve for R0
 		assert (network->network_properties.alpha > 0.0);
 		assert (network->network_properties.ratio > 0.0);
-		network->network_properties.R0 = network->network_properties.alpha * static_cast<double>(POW(static_cast<float>(network->network_properties.ratio), (1.0 / 3.0), 0));
+		network->network_properties.R0 = network->network_properties.alpha * static_cast<double>(POW(static_cast<float>(network->network_properties.ratio), (1.0 / 3.0), STL));
 		assert (network->network_properties.R0 > 0.0);
 
 		//Guess at k_tar (find exact expression later)
