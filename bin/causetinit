@@ -12,9 +12,3 @@ mkdir dat/idd
 mkdir dat/odd
 mkdir dat/pos
 echo "Completed"
-
-echo "Retrieving remote git repository..."
-git clone $USER:/var/repos/git/causets.git
-git config --global core.editor vim
-git config --global merge.tool vimdiff
-echo "Completed"
