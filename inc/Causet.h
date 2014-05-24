@@ -5,7 +5,6 @@
 #include <exception>
 #include <fstream>
 #include <getopt.h>
-#include <sys/io.h>
 #include <iostream>
 #include <math.h>
 #include <sstream>
@@ -15,6 +14,7 @@
 #include <cuda.h>
 #include <curand.h>
 #include <GL/freeglut.h>
+#include <sys/io.h>
 
 #include <fastmath/FastMath.h>
 #include <fastmath/ran2.h>
@@ -29,7 +29,14 @@
 /////////////////////////////
 
 #define NPRINT 100	//Used for debugging statements in loops
+
 #define NBENCH 10	//Times each function is run during benchmarking
+
+#define APPROX false	//Determines whether FastMath approximations are used
+			//in computationally intensive routines
+
+#define DEBUG true	//Determines whether unit testing is in effect
+			//Should be set to false to disable asserts
 
 //////////////////////////////////////////////////////////////////////////////
 //References								    //

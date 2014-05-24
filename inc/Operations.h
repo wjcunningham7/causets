@@ -38,7 +38,7 @@ double phiPrime4D(const double &x);
 
 //Math function for tau to eta in universe
 //which appears in 2F1
-double _2F1_z(const double &tau);
+float _2F1_z(const float &tau);
 
 //De Sitter Spatial Lengths
 float X1(const float &phi);
@@ -50,5 +50,6 @@ float X4(const float &phi, const float &chi, const float &theta);
 float etaToT(const float eta, const double a);
 float tToEta(const float t, const double a);
 double tToEtaUniverse(double t, void *params);
+float tToEtaUniverseExact(const float &tau, const float &a, const float &alpha, const float F_a, const float F_b, const float F_c);
 
 #endif

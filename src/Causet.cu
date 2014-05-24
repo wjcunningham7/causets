@@ -444,7 +444,7 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 
 		//Guess at k_tar (find exact expression later)
 		//Use NINTLIB Monte Carlo algorithm to find k_tar
-		network->network_properties.k_tar = 25.0;
+		network->network_properties.k_tar = 2500.0;
 
 		printf("\n");
 		printf("\tParameters Constraining Universe Causal Set:\n");
@@ -1254,7 +1254,7 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 
 	free(network->core_edge_exists);
 	network->core_edge_exists = NULL;
-	hostMemUsed -= sizeof(bool) * powf(network->network_properties.core_edge_fraction * network->network_properties.N_tar, 2.0);
+	hostMemUsed -= sizeof(bool) * POW2(network->network_properties.core_edge_fraction * network->network_properties.N_tar, EXACT);
 
 	if (network->network_properties.flags.calc_clustering) {
 		free(network->network_observables.clustering);

@@ -1,8 +1,7 @@
 #ifndef NETWORK_CREATOR_H_
 #define NETWORK_CREATOR_H_
 
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_integration.h>
+#include <fastmath/FastNumInt.h>
 
 #include "Operations.h"
 #include "GPUSubroutines.h"
