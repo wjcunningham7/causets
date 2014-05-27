@@ -186,7 +186,8 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 					if (universe)
 						assert (nodes[i].t < tau0);
 					else
-						assert (HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta) - 0.00000001);
+						assert (HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta));
+						//assert (HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta) - 0.00000001);
 				
 					////////////////////////////////////////////////////
 					//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
@@ -196,12 +197,12 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 
 					//Sample Phi from (0, pi)
 					//For some reason the technique in [3] has not been producing the correct distribution...
-					//nodes[i].phi = 0.5 * (static_cast<float>(M_PI) * static_cast<float>(ran2(&seed)) + ACOS(static_cast<float>(ran2(&seed)), INTEGRATION, VERY_HIGH_PRECISION));
-					x = static_cast<double>(HALF_PI);
+					nodes[i].phi = 0.5 * (static_cast<float>(M_PI) * static_cast<float>(ran2(&seed)) + ACOS(static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+					/*x = static_cast<double>(HALF_PI);
 					rval = ran2(&seed);
 					if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
 						return false;
-					nodes[i].phi = static_cast<float>(x);
+					nodes[i].phi = static_cast<float>(x);*/
 					assert (nodes[i].phi > 0.0 && nodes[i].phi < static_cast<float>(M_PI));
 					//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes[i].phi); fflush(stdout);
 
@@ -217,10 +218,12 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 		}
 
 		//Debugging statements used to check coordinate distributions
-		//if (!printValues(nodes, N_tar, "t_dist.cset.dbg.dat", "t")) return false;
-		//if (!printValues(nodes, N_tar, "theta_dist.cset.dbg.dat", "theta")) return false;
-		//if (!printValues(nodes, N_tar, "chi_dist.cset.dbg.dat", "chi")) return false;
-		//if (!printValues(nodes, N_tar, "phi_dist.cset.dbg.dat", "phi")) return false;
+		if (!printValues(nodes, N_tar, "t_dist.cset.dbg.dat", "t")) return false;
+		if (!printValues(nodes, N_tar, "theta_dist.cset.dbg.dat", "theta")) return false;
+		if (!printValues(nodes, N_tar, "chi_dist.cset.dbg.dat", "chi")) return false;
+		if (!printValues(nodes, N_tar, "phi_dist.cset.dbg.dat", "phi")) return false;
+		printf("Check coordinate distributions now.\n");
+		exit(EXIT_SUCCESS);
 	}
 
 	stopwatchStop(&sGenerateNodes);
@@ -292,15 +295,18 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 			} else if (manifold == DE_SITTER) {
 				if (universe) {
 					try {
-						idata.upper = nodes[i].t * a;
+						/*idata.upper = nodes[i].t;
 						t1 = integrate1D(&tToEtaUniverse, NULL, &idata, QAGS);
 						if (t1 == 0.0)
 							throw CausetException("Numerical integration failed!\n");
 
-						idata.upper = nodes[j].t * a;
+						idata.upper = nodes[j].t;
 						t2 = integrate1D(&tToEtaUniverse, NULL, &idata, QAGS);
 						if (t2 == 0.0)
-							throw CausetException("Numerical integration failed!\n");
+							throw CausetException("Numerical integration failed!\n");*/
+
+						t1 = tauToEtaUniverseExact(nodes[i].t, a, alpha);
+						t2 = tauToEtaUniverseExact(nodes[j].t, a, alpha);
 
 						dt = ABS(t2 - t1, STL);
 					} catch (CausetException c) {
@@ -313,10 +319,11 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 				} else
 					dt = ABS(tToEta(nodes[j].t, a) - tToEta(nodes[i].t, a), STL);
 				//if (i % NPRINT == 0) printf("dt: %.9f\n", dt); fflush(stdout);
+				if (dt < 0.0) printf("dt: %.9f\n", dt);
 				assert (dt >= 0.0);
-				if (universe) {
-					//assert (dt <= tToEta(tau0 * a, a) + 0.001);
-				} else
+				if (universe)
+					assert (dt <= tauToEtaUniverseExact(tau0, a, alpha));
+				else
 					assert (dt <= HALF_PI - zeta);
 			} else if (manifold == ANTI_DE_SITTER) {
 				//

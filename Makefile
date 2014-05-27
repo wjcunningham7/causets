@@ -26,7 +26,7 @@ COBJS		:= $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(CSOURCES))
 CEXTOBJS	:= $(patsubst $(FASTSRC)/%.cpp, $(OBJDIR)/%.o, $(CEXTSOURCES))
 OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.cu_o, $(SOURCES))
 
-all : $(COBJS) $(CEXTOBJS) $(OBJS) bindir bin clean
+all : $(COBJS) $(CEXTOBJS) $(OBJS) bindir bin cleanlog
  
 $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<
@@ -48,8 +48,11 @@ bin : $(COBJS) $(CEXTOBJS) $(OBJS)
 bindir : 
 	mkdir -p $(BINDIR)
 
-clean:
-	rm -f $(OBJDIR)/*.cu_o $(OBJDIR)/*.o ./causet.log ./causet.err
+clean :
+	rm -f $(OBJDIR)/*.cu_o $(OBJDIR)/*.o
 
-cleandata:
+cleanlog :
+	rm -f ./causet.log ./causet.err
+
+cleandata :
 	rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/data_keys.key

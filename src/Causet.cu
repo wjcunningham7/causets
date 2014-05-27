@@ -444,7 +444,8 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 
 		//Guess at k_tar (find exact expression later)
 		//Use NINTLIB Monte Carlo algorithm to find k_tar
-		network->network_properties.k_tar = 2500.0;
+		if (network->network_properties.k_tar == 0.0)
+			network->network_properties.k_tar = 2500.0;
 
 		printf("\n");
 		printf("\tParameters Constraining Universe Causal Set:\n");

@@ -230,31 +230,41 @@ float tToEta(const float t, const double a)
 
 //Minkowski to Conformal Time (Universe)
 //For use with GNU Scientific Library
-double tToEtaUniverse(double t, void *params)
+double tauToEtaUniverse(double tau, void *params)
 {
-	return static_cast<double>(POW(SINH(1.5 * static_cast<float>(t), APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL));
+	return static_cast<double>(POW(SINH(1.5 * static_cast<float>(tau), APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL));
 }
 
-float tToEtaUniverseExact(const float &tau, const float &a, const float &alpha, const float F_a, const float F_b, const float F_c)
+//Revise this
+float tauToEtaUniverseExact(const float &tau, const float &a, const float &alpha)
 {
-	float g1 = GAMMA(F_c, STL) * GAMMA(F_b - F_a, STL) / (GAMMA(F_b, STL) * GAMMA(F_c - F_a, STL));
-	float g2 = GAMMA(F_c, STL) * GAMMA(F_a - F_b, STL) / (GAMMA(F_a, STL) * GAMMA(F_c - F_b, STL));
-	float g3 = GAMMA(F_c - F_a - F_b, STL) / GAMMA(F_b - F_a, STL);
-	float z = 1.0 / _2F1_z(tau);
-	float z_ab = POW(z, F_a + F_b, FAST);
-	float eta = 0.0f;
+	float g1 = SQRT(static_cast<float>(M_PI), STL) * GAMMA(1.0f / 6.0f, STL) / GAMMA(1.0f / 3.0f, STL);
+	float g2 = GAMMA(1.5f, STL) * GAMMA(1.0f / 3.0f, STL) / GAMMA(5.0f / 6.0f, STL);
 
+	float z = _2F1_z(tau);
+	float z2 = POW2(z, EXACT);
+
+	float z_4_3 = POW(z, 4.0f / 3.0f, APPROX ? FAST : STL);
+	float z_3_2 = POW(z, 1.5f, APPROX ? FAST : STL);
+	float z_5_6 = POW(z, 5.0f / 6.0f, APPROX ? FAST : STL);
+	float z_1_2 = SQRT(z, STL);
+
+	float z_trans = 1.0f / z;
+	float z_trans_8_3 = POW(z_trans, 8.0f / 3.0f, APPROX ? FAST : STL);
+
+	float eta = 0.0f;
 	float f1, f2;
 	bool success;
 
-	success = _2F1(&_2F1_z, &f1, tau, F_a, 1.0f - F_c + F_a, 1.0f - F_b + F_a, 1e-3, VERY_HIGH_PRECISION);
-	success &= _2F1(&_2F1_z, &f2, tau, F_b, 1.0f - F_c + F_b, 1.0 - F_a + F_b, 1e-3, VERY_HIGH_PRECISION);
+	success = _2F1(&_2F1_z, &f1, tau, 5.0f / 6.0f, 1.0f / 3.0f, 4.0f / 3.0f, 1e-3, VERY_HIGH_PRECISION);
+	assert (success);
+	success = _2F1(&_2F1_z, &f2, tau, 0.5f, 0.0f, 2.0f / 3.0f, 1e-3, VERY_HIGH_PRECISION);
 	assert (success);
 
-	eta = POW2(g3 * SQRT(static_cast<float>(M_PI), STL) * z_ab - 2.0f * z * (g1 * POW(z, F_b, APPROX ? FAST : STL) * COS(F_a * static_cast<float>(M_PI), APPROX ? FAST : STL) * f1 + g2 * POW(z, F_a, APPROX ? FAST : STL) * COS(F_b * static_cast<float>(M_PI), APPROX ? FAST : STL) * f2), EXACT);
-	eta += POW2(g1 * POW(z, F_b, FAST) * SIN(F_a * static_cast<float>(M_PI), APPROX ? FAST : STL) * f1 + g2 * POW(z, F_a, APPROX ? FAST : STL) * SIN(F_b * static_cast<float>(M_PI), APPROX ? FAST : STL) * f2, EXACT);
-	eta /= POW2(z_ab, EXACT);
-	eta = SQRT(eta, STL) * a / (3.0f * alpha);
+	eta += POW2(g1 * z_4_3 - (3.0f * SQRT(3.0f, STL) / 2.0f) * z_3_2 * f1, EXACT);
+	eta += 4.0f * z2 * POW2(g2 * z_5_6 * f2 - 0.75f * z_1_2 * f1, EXACT);
+	eta *= z_trans_8_3;
+	eta = a * SQRT(eta, STL) / (3.0f * alpha);
 
 	return eta;
 }

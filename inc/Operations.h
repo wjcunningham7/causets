@@ -49,7 +49,7 @@ float X4(const float &phi, const float &chi, const float &theta);
 //Temporal Transformations
 float etaToT(const float eta, const double a);
 float tToEta(const float t, const double a);
-double tToEtaUniverse(double t, void *params);
-float tToEtaUniverseExact(const float &tau, const float &a, const float &alpha, const float F_a, const float F_b, const float F_c);
+double tauToEtaUniverse(double tau, void *params);
+float tauToEtaUniverseExact(const float &tau, const float &a, const float &alpha);
 
 #endif
