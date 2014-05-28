@@ -107,7 +107,7 @@ bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *&
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &verbose, const bool &bench)
+bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &verbose, const bool &bench)
 {
 	//No null pointers
 	assert (nodes != NULL);
@@ -188,6 +188,10 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 					else
 						assert (HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta));
 						//assert (HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta) - 0.00000001);
+
+					//Save eta values
+					if (universe)
+						nodes[i].t = tauToEtaUniverseExact(nodes[i].t, a, alpha);
 				
 					////////////////////////////////////////////////////
 					//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
@@ -197,12 +201,12 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 
 					//Sample Phi from (0, pi)
 					//For some reason the technique in [3] has not been producing the correct distribution...
-					nodes[i].phi = 0.5 * (static_cast<float>(M_PI) * static_cast<float>(ran2(&seed)) + ACOS(static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-					/*x = static_cast<double>(HALF_PI);
+					//nodes[i].phi = 0.5 * (static_cast<float>(M_PI) * static_cast<float>(ran2(&seed)) + ACOS(static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+					x = static_cast<double>(HALF_PI);
 					rval = ran2(&seed);
 					if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
 						return false;
-					nodes[i].phi = static_cast<float>(x);*/
+					nodes[i].phi = static_cast<float>(x);
 					assert (nodes[i].phi > 0.0 && nodes[i].phi < static_cast<float>(M_PI));
 					//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes[i].phi); fflush(stdout);
 
@@ -305,8 +309,11 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 						if (t2 == 0.0)
 							throw CausetException("Numerical integration failed!\n");*/
 
-						t1 = tauToEtaUniverseExact(nodes[i].t, a, alpha);
-						t2 = tauToEtaUniverseExact(nodes[j].t, a, alpha);
+						//t1 = tauToEtaUniverseExact(nodes[i].t, a, alpha);
+						//t2 = tauToEtaUniverseExact(nodes[j].t, a, alpha);
+
+						t1 = nodes[i].t;
+						t2 = nodes[j].t;
 
 						dt = ABS(t2 - t1, STL);
 					} catch (CausetException c) {
@@ -319,11 +326,10 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 				} else
 					dt = ABS(tToEta(nodes[j].t, a) - tToEta(nodes[i].t, a), STL);
 				//if (i % NPRINT == 0) printf("dt: %.9f\n", dt); fflush(stdout);
-				if (dt < 0.0) printf("dt: %.9f\n", dt);
 				assert (dt >= 0.0);
-				if (universe)
-					assert (dt <= tauToEtaUniverseExact(tau0, a, alpha));
-				else
+				if (universe) {
+					//assert (dt <= tauToEtaUniverseExact(tau0, a, alpha));
+				} else
 					assert (dt <= HALF_PI - zeta);
 			} else if (manifold == ANTI_DE_SITTER) {
 				//
