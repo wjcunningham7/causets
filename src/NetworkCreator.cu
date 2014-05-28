@@ -190,8 +190,8 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 						//assert (HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta) - 0.00000001);
 
 					//Save eta values
-					if (universe)
-						nodes[i].t = tauToEtaUniverseExact(nodes[i].t, a, alpha);
+					/*if (universe)
+						nodes[i].t = tauToEtaUniverseExact(nodes[i].t, a, alpha);*/
 				
 					////////////////////////////////////////////////////
 					//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
@@ -222,12 +222,12 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 		}
 
 		//Debugging statements used to check coordinate distributions
-		if (!printValues(nodes, N_tar, "t_dist.cset.dbg.dat", "t")) return false;
+		/*if (!printValues(nodes, N_tar, "t_dist.cset.dbg.dat", "t")) return false;
 		if (!printValues(nodes, N_tar, "theta_dist.cset.dbg.dat", "theta")) return false;
 		if (!printValues(nodes, N_tar, "chi_dist.cset.dbg.dat", "chi")) return false;
 		if (!printValues(nodes, N_tar, "phi_dist.cset.dbg.dat", "phi")) return false;
 		printf("Check coordinate distributions now.\n");
-		exit(EXIT_SUCCESS);
+		exit(EXIT_SUCCESS);*/
 	}
 
 	stopwatchStop(&sGenerateNodes);

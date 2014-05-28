@@ -32,7 +32,7 @@
 
 #define NBENCH 10	//Times each function is run during benchmarking
 
-#define APPROX false	//Determines whether FastMath approximations are used
+#define APPROX true	//Determines whether FastMath approximations are used
 			//in computationally intensive routines
 
 #define DEBUG true	//Determines whether unit testing is in effect
