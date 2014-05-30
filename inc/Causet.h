@@ -35,6 +35,8 @@
 #define APPROX true	//Determines whether FastMath approximations are used
 			//in computationally intensive routines
 
+#define USE_GSL true	//Use GNU Scientific Library for numerical integration
+
 #define DEBUG true	//Determines whether unit testing is in effect
 			//Should be set to false to disable asserts
 
@@ -58,10 +60,11 @@ enum Manifold {
 
 //Minimal unique properties of a node
 struct Node {
-	Node() : t(0.0), theta(0.0), phi(0.0), chi(0.0), k_in(0), k_out(0) {}
+	Node() : tau(0.0), eta(0.0), theta(0.0), phi(0.0), chi(0.0), k_in(0), k_out(0) {}
 
 	//Temporal Coordinate
-	float t;	//Note this is 't' for 1+1 and 3+1, and 'tau' for universe
+	float tau;	//Rescaled Time
+	float eta;	//Conformal Time
 
 	//Spatial Coordinates
 	float theta;

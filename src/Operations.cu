@@ -7,6 +7,7 @@
 /////////////////////////////
 
 //Returns zeta Residual
+//Used in 1+1 and 3+1 Causets
 double solveZeta(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
 {
 	//No null pointers
@@ -25,6 +26,7 @@ double solveZeta(const double &x, const double * const p1, const double * const 
 }
 
 //Returns tau0 Residual
+//Used in Universe Causet
 double solveTau0(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
 {
 	//No null pointers
@@ -41,6 +43,7 @@ double solveTau0(const double &x, const double * const p1, const double * const 
 }
 
 //Returns t Residual
+//Used in 3+1 Causet
 double solveT(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
 {
 	//No null pointers
@@ -57,6 +60,7 @@ double solveT(const double &x, const double * const p1, const double * const p2,
 }
 
 //Returns tau Residual
+//Used in Universe Causet
 double solveTau(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
 {
 	//No null pointers
@@ -71,6 +75,7 @@ double solveTau(const double &x, const double * const p1, const double * const p
 }
 
 //Returns phi Residual
+//Used in 3+1 and Universe Causets
 double solvePhi(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
 {
 	//No null pointers
@@ -212,18 +217,18 @@ float X4(const float &phi, const float &chi, const float &theta)
 
 //Temporal Transformations
 
-//Conformal to Minkowski Time
-float etaToT(const float eta, const double a)
+//Conformal to Rescaled Time
+float etaToTau(const float eta)
 {
-	return ACOSH(1.0 / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) * static_cast<float>(a);
+	return ACOSH(1.0 / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 	
 	//return acoshf(1.0 / cosf(eta)) * a;
 }
 
-//Minkowski to Conformal Time
-float tToEta(const float t, const double a)
+//Rescaled to Conformal Time
+float tauToEta(const float tau)
 {
-	return ACOS(1.0 / COSH(t / static_cast<float>(a), APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	return ACOS(1.0 / COSH(tau, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 
 	//return acosf(1.0 / coshf(t / a));
 }

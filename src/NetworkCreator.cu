@@ -125,7 +125,8 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 		assert (zeta > 0.0 && zeta < static_cast<double>(HALF_PI));	
 
 	IntData idata = IntData();
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	if (USE_GSL && universe)
+		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 	stopwatchStart(&sGenerateNodes);
 
@@ -134,6 +135,7 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 			return false;
 	} else {
 		//Generate coordinates for each of N nodes
+		double x, rval;
 		int i;
 		for (i = 0; i < N_tar; i++) {
 			nodes[i] = Node();
@@ -158,8 +160,9 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 					//
 				} else if (manifold == DE_SITTER) {
 					//CDF derived from PDF identified in (2) of [2]
-					nodes[i].t = etaToT(ATAN(static_cast<float>(ran2(&seed)) / TAN(static_cast<float>(zeta), APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION), a);
-					assert (nodes[i].t > 0.0 && HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta) - 0.00000001);
+					nodes[i].eta = ATAN(static_cast<float>(ran2(&seed)) / TAN(static_cast<float>(zeta), APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+					nodes[i].tau = etaToTau(nodes[i].eta);
+					assert (nodes[i].eta > 0.0 && HALF_PI - nodes[i].eta > static_cast<float>(zeta));
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
 				}
@@ -173,34 +176,33 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 					//and from PDF identified in (12) of [2] for universe  //
 					/////////////////////////////////////////////////////////
 
-					double x = 0.0;
-					double rval = ran2(&seed);
+					rval = ran2(&seed);
 					if (universe) {
 						x = 0.5;
 						if (!newton(&solveTau, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
 							return false;
 					} else {
-						x = etaToT(HALF_PI - static_cast<float>(zeta), a);
+						//x = etaToT(HALF_PI - static_cast<float>(zeta), a);
+						x = tau0 * a;
 						if (!newton(&solveT, &x, 1000, TOL, &zeta, &a, &rval, NULL, NULL, NULL))
 							return false;
+						x /= a;
 					}
-					nodes[i].t = static_cast<float>(x);
-					assert (nodes[i].t > 0.0);
-					if (universe)
-						assert (nodes[i].t < tau0);
-					else
-						assert (HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta));
-						//assert (HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta) - 0.00000001);
+					nodes[i].tau = static_cast<float>(x);
+					assert (nodes[i].tau > 0.0);
+					assert (nodes[i].tau < tau0);
 
-					//Save eta values instead of tau
-					/*if (universe) {
-						//Exact Solution
-						nodes[i].t = tauToEtaUniverseExact(nodes[i].t, a, alpha);
-
-						//Numerical Integration
-						idata.upper = nodes[i].t;
-						integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS);
-					}*/
+					//Save eta values as well
+					if (universe) {
+						if (USE_GSL) {
+							//Numerical Integration
+							idata.upper = nodes[i].tau * a;
+							nodes[i].eta = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS);
+						} else
+							//Exact Solution
+							nodes[i].eta = tauToEtaUniverseExact(nodes[i].tau, a, alpha);
+					} else
+						nodes[i].eta = tauToEta(nodes[i].tau);
 				
 					////////////////////////////////////////////////////
 					//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
@@ -231,7 +233,8 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 		}
 
 		//Debugging statements used to check coordinate distributions
-		/*if (!printValues(nodes, N_tar, "t_dist.cset.dbg.dat", "t")) return false;
+		/*if (!printValues(nodes, N_tar, "tau_dist.cset.dbg.dat", "tau")) return false;
+		if (!printValues(nodes, N_tar, "eta_dist.cset.dbg.dat", "eta")) return false;
 		if (!printValues(nodes, N_tar, "theta_dist.cset.dbg.dat", "theta")) return false;
 		if (!printValues(nodes, N_tar, "chi_dist.cset.dbg.dat", "chi")) return false;
 		if (!printValues(nodes, N_tar, "phi_dist.cset.dbg.dat", "phi")) return false;
@@ -241,7 +244,8 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 
 	stopwatchStop(&sGenerateNodes);
 
-	gsl_integration_workspace_free(idata.workspace);
+	if (USE_GSL && universe)
+		gsl_integration_workspace_free(idata.workspace);
 
 	if (!bench) {
 		printf("\tNodes Successfully Generated.\n");
@@ -281,7 +285,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	assert (edge_buffer >= 0);
 
-	float t1, t2, dt, dx;
+	float dt, dx;
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
 	int future_idx = 0;
 	int past_idx = 0;
@@ -305,24 +309,10 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 			if (manifold == EUCLIDEAN) {
 				//
 			} else if (manifold == DE_SITTER) {
-				if (universe) {
-					//If tau values are stored
-					//t1 = tauToEtaUniverseExact(nodes[i].t, a, alpha);
-					//t2 = tauToEtaUniverseExact(nodes[j].t, a, alpha);
-
-					//If eta values are stored
-					t1 = nodes[i].t;
-					t2 = nodes[j].t;
-
-					dt = ABS(t2 - t1, STL);
-				} else
-					dt = ABS(tToEta(nodes[j].t, a) - tToEta(nodes[i].t, a), STL);
+				dt = ABS(nodes[i].eta - nodes[j].eta, STL);
 				//if (i % NPRINT == 0) printf("dt: %.9f\n", dt); fflush(stdout);
 				assert (dt >= 0.0);
-				if (universe) {
-					//assert (dt <= tauToEtaUniverseExact(tau0, a, alpha));
-				} else
-					assert (dt <= HALF_PI - zeta);
+				assert (dt <= HALF_PI - zeta);
 			} else if (manifold == ANTI_DE_SITTER) {
 				//
 			}
@@ -587,8 +577,10 @@ bool printValues(const Node * const nodes, const int num_vals, const char *filen
 
 		int i;
 		for (i = 0; i < num_vals; i++) {
-			if (strcmp(coord, "t") == 0)
-				outputStream << nodes[i].t << std::endl;
+			if (strcmp(coord, "tau") == 0)
+				outputStream << nodes[i].tau << std::endl;
+			else if (strcmp(coord, "eta") == 0)
+				outputStream << nodes[i].eta << std::endl;
 			else if (strcmp(coord, "theta") == 0)
 				outputStream << nodes[i].theta << std::endl;
 			else if (strcmp(coord, "chi") == 0)

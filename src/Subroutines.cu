@@ -19,14 +19,14 @@ void quicksort(Node *nodes, int low, int high)
 	if (low < high) {
 		k = (low + high) / 2;
 		swap(&nodes[low], &nodes[k]);
-		key = nodes[low].t;
+		key = nodes[low].tau;
 		i = low + 1;
 		j = high;
 
 		while (i <= j) {
-			while ((i <= high) && (nodes[i].t <= key))
+			while ((i <= high) && (nodes[i].tau <= key))
 				i++;
-			while ((j >= low) && (nodes[j].t > key))
+			while ((j >= low) && (nodes[j].tau > key))
 				j--;
 			if (i < j)
 				swap(&nodes[i], &nodes[j]);
@@ -90,38 +90,6 @@ bool newton(double (*solve)(const double &x, const double * const p1, const doub
 	//printf("Residual: %E\n", res);
 	//printf("Solution: %E\n", *x);
 	//fflush(stdout);
-
-	return true;
-}
-
-//Numerical Integration
-//Uses Midpoint Riemann Sum
-bool integrate(double (*solve)(double x, void *params), double &x, const float &lower, const float &upper, const float &dx)
-{
-	//No null pointers
-	assert (solve != NULL);
-
-	//Values in correct ranges
-	assert (lower < upper);
-	assert (dx > 0.0);
-
-	float i;
-	x = 0.0;
-
-	try {
-		for (i = lower; i < upper; i += dx) {
-			x += solve(i, NULL);
-			if (x != x)
-				throw CausetException("NaN Error in Integrate\n");
-		}
-		x *= dx;
-	} catch (CausetException c) {
-		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		return false;
-	} catch (std::exception e) {
-		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-		return false;
-	}
 
 	return true;
 }

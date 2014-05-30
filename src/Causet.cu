@@ -508,15 +508,24 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 		if (!newton(&solveZeta, &x, 10000, TOL, NULL, NULL, NULL, &network->network_properties.k_tar, &network->network_properties.N_tar, &network->network_properties.dim))
 			return false;
 		network->network_properties.zeta = x;
-		if (network->network_properties.dim == 1)
-			network->network_properties.zeta = static_cast<double>(HALF_PI) - x;
 		assert (network->network_properties.zeta > 0 && network->network_properties.zeta < static_cast<double>(HALF_PI));
+		network->network_properties.tau0 = etaToTau(static_cast<float>(static_cast<double>(HALF_PI) - network->network_properties.zeta));
 
 		printf("\tTranscendental Equation Solved:\n");
 		//printf("\t\tZeta: %5.8f\n", network->network_properties.zeta);
 		printf("\t\tMaximum Conformal Time: %5.8f\n", static_cast<double>(HALF_PI) - network->network_properties.zeta);
-		printf("\t\tMaximum Rescaled Time:  %5.8f\n", etaToT(static_cast<float>(static_cast<double>(HALF_PI) - network->network_properties.zeta), network->network_properties.a));
+		printf("\t\tMaximum Rescaled Time:  %5.8f\n", network->network_properties.tau0);
 		fflush(stdout);
+	} else {
+		if (USE_GSL) {
+			IntData idata = IntData();
+			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+			idata.upper = network->network_properties.tau0 * network->network_properties.a;
+			network->network_properties.zeta = HALF_PI - integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS);
+			gsl_integration_workspace_free(idata.workspace);
+		} else
+			//Exact Solution
+			network->network_properties.zeta = HALF_PI - tauToEtaUniverseExact(network->network_properties.tau0, network->network_properties.a, network->network_properties.alpha);
 	}
 
 	//Generate coordinates of spacetime nodes and then order nodes temporally using quicksort
@@ -771,12 +780,13 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &
 			for (i = 0; i < network->network_properties.N_tar; i++) {
 				getline(dataStream, line);
 				network->nodes[i] = Node();
-				network->nodes[i].t = etaToT(atof(strtok((char*)line.c_str(), " ")), network->network_properties.a);
+				network->nodes[i].tau = 0.0;
+				network->nodes[i].eta = 0.0;
 				network->nodes[i].theta = atof(strtok(NULL, " "));
 				network->nodes[i].phi = atof(strtok(NULL, " "));
 				network->nodes[i].chi = atof(strtok(NULL, " "));
 				
-				if (network->nodes[i].t <= 0.0)
+				if (network->nodes[i].tau <= 0.0)
 					throw CausetException("Invalid value parsed for t in node position file!\n");
 				if (network->nodes[i].theta <= 0.0 || network->nodes[i].theta >= static_cast<float>(TWO_PI))
 					throw CausetException("Invalid value parsed for theta in node position file!\n");
@@ -1008,7 +1018,7 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 			outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_properties.N_res << std::endl;
 			outputStream << "Resulting Average Degrees (k_res)\t" << network.network_properties.k_res << std::endl;
 			outputStream << "Maximum Conformal Time (eta_0)\t\t" << (static_cast<double>(HALF_PI) - network.network_properties.zeta) << std::endl;
-			outputStream << "Maximum Rescaled Time (t_0)  \t\t" << etaToT(static_cast<float>(static_cast<double>(HALF_PI) - network.network_properties.zeta), network.network_properties.a) << std::endl;
+			outputStream << "Maximum Rescaled Time (tau_0)  \t\t" << network.network_properties.tau0 << std::endl;
 		}
 
 		if (network.network_properties.flags.calc_clustering)
@@ -1058,7 +1068,11 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 		if (!dataStream.is_open())
 			throw CausetException("Failed to open node position file!\n");
 		for (i = 0; i < network.network_properties.N_tar; i++) {
-			dataStream << tToEta(network.nodes[i].t, network.network_properties.a) << " " << network.nodes[i].theta;
+			if (network.network_properties.flags.universe)
+				dataStream << network.nodes[i].tau;
+			else
+				dataStream << network.nodes[i].eta;
+			dataStream << " " << network.nodes[i].theta;
 			if (network.network_properties.dim == 3)
 				dataStream << " " << network.nodes[i].phi << " " << network.nodes[i].chi;
 			dataStream << std::endl;
