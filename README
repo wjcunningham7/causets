@@ -4,10 +4,16 @@
 // Krioukov Research Group //
 /////////////////////////////
 
-///////////////////////////////////////////////////////
-//The contents of the ./bin/CausalSet program are    //
-//organized in the following files in ./inc and ./src//
-///////////////////////////////////////////////////////
+////////////////////////
+// Executable Scripts //
+////////////////////////
+
+The binary executables are stored in the ./bin folder.  Two of them (ds3, universe) are from FORTRAN files written by Dima Krioukov and/or Marian Boguna.  The third (CausalSet) is the binary compiled from the C++ files written by Will Cunningham.  The shell executable named 'causet' in the parent directory demonstrates several ways to execute 'CausalSet' with the correct parameters needed to reproduce results from the 'Network Cosmology' paper.
+
+////////////////////////////////////////////////
+//The contents of the 'CausalSet' program are //
+//organized in the following files in ./src   //
+////////////////////////////////////////////////
 
 ===========
 |Causet.cu|
