@@ -52,7 +52,7 @@ double solveT(const double &x, const double * const p1, const double * const p2,
 	assert (p3 != NULL);	//rval
 
 	//Variables in the correct ranges
-	assert (*p1 > 0.0 && *p1 < static_cast<double>(HALF_PI));
+	assert (*p1 > 0.0 && *p1 < HALF_PI);
 	assert (*p2 > 0.0);
 	assert (*p3 > 0.0 && *p3 < 1.0);
 
@@ -89,94 +89,94 @@ double solvePhi(const double &x, const double * const p1, const double * const p
 
 double eta02D(const double &x, const int &N_tar, const float &k_tar)
 {
-	double _tanx = static_cast<double>(TAN(static_cast<float>(x), APPROX ? FAST : STL));
-	return ((x / _tanx - static_cast<double>(LOG(COS(static_cast<float>(x), APPROX ? FAST : STL), APPROX ? FAST : STL)) - 1.0) / (_tanx * static_cast<double>(HALF_PI))) - (static_cast<double>(k_tar) / static_cast<double>(N_tar));
+	double _tanx = TAN(static_cast<float>(x), APPROX ? FAST : STL);
+	return ((x / _tanx - LOG(COS(static_cast<float>(x), APPROX ? FAST : STL), APPROX ? FAST : STL) - 1.0) / (_tanx * HALF_PI)) - (k_tar / N_tar);
 }
 
 double eta0Prime2D(const double &x)
 {
-	double _cotx = 1.0 / static_cast<double>(TAN(static_cast<float>(x), APPROX ? FAST : STL));
-	double _cscx2 = 1.0 / static_cast<double>(POW2(SIN(static_cast<float>(x), APPROX ? FAST : STL), EXACT));
-	double _lnsecx = -1.0 * static_cast<double>(LOG(COS(static_cast<float>(x), APPROX ? FAST : STL), APPROX ? FAST : STL));
+	double _cotx = 1.0 / TAN(static_cast<float>(x), APPROX ? FAST : STL);
+	double _cscx2 = 1.0 / POW2(SIN(static_cast<float>(x), APPROX ? FAST : STL), EXACT);
+	double _lnsecx = -1.0 * LOG(COS(static_cast<float>(x), APPROX ? FAST : STL), APPROX ? FAST : STL);
 
-	return (_cotx * (_cotx - x * _cscx2) + 1 - _cscx2 * (_lnsecx + x * _cotx - 1)) / static_cast<double>(HALF_PI);
+	return (_cotx * (_cotx - x * _cscx2) + 1 - _cscx2 * (_lnsecx + x * _cotx - 1)) / HALF_PI;
 }
 
 double zeta4D(const double &x, const int &N_tar, const float &k_tar)
 {
-	double _tanx = static_cast<double>(TAN(static_cast<float>(x), APPROX ? FAST : STL));
-	double _cscx2 = 1.0 / static_cast<double>(POW2(SIN(static_cast<float>(x), APPROX ? FAST : STL), EXACT));
-	double _lncscx = -1.0 * static_cast<double>(LOG(SIN(static_cast<float>(x), APPROX ? FAST : STL), APPROX ? FAST : STL));
+	double _tanx = TAN(static_cast<float>(x), APPROX ? FAST : STL);
+	double _cscx2 = 1.0 / POW2(SIN(static_cast<float>(x), APPROX ? FAST : STL), EXACT);
+	double _lncscx = -1.0 * LOG(SIN(static_cast<float>(x), APPROX ? FAST : STL), APPROX ? FAST : STL);
 
-	return _tanx * (12.0 * (x * _tanx + _lncscx) + (6.0 * _lncscx - 5.0) * _cscx2 - 7.0) / (3.0 * static_cast<double>(HALF_PI) * static_cast<double>(POW2(2.0 + static_cast<float>(_cscx2), EXACT))) - static_cast<double>(k_tar) / static_cast<double>(N_tar);
+	return _tanx * (12.0 * (x * _tanx + _lncscx) + (6.0 * _lncscx - 5.0) * _cscx2 - 7.0) / (3.0 * HALF_PI * POW2(2.0 + static_cast<float>(_cscx2), EXACT)) - k_tar / N_tar;
 }
 
 double zetaPrime4D(const double &x)
 {
-	double _cscx2 = 1.0 / static_cast<double>(POW2(SIN(static_cast<float>(x), APPROX ? FAST : STL), EXACT));
-	double _sinx3 = static_cast<double>(POW3(SIN(static_cast<float>(x), APPROX ? FAST : STL), EXACT));
-	double _sinx4 = static_cast<double>(POW(SIN(static_cast<float>(x), APPROX ? FAST : STL), 4.0, APPROX ? FAST : STL));
-	double _cosx3 = static_cast<double>(POW3(COS(static_cast<float>(x), APPROX ? FAST : STL), EXACT));
-	double _lncscx = -1.0 * static_cast<double>(LOG(SIN(static_cast<float>(x), APPROX ? FAST : STL), APPROX ? FAST : STL));
+	double _cscx2 = 1.0 / POW2(SIN(static_cast<float>(x), APPROX ? FAST : STL), EXACT);
+	double _sinx3 = POW3(SIN(static_cast<float>(x), APPROX ? FAST : STL), EXACT);
+	double _sinx4 = POW(SIN(static_cast<float>(x), APPROX ? FAST : STL), 4.0, APPROX ? FAST : STL);
+	double _cosx3 = POW3(COS(static_cast<float>(x), APPROX ? FAST : STL), EXACT);
+	double _lncscx = -1.0 * LOG(SIN(static_cast<float>(x), APPROX ? FAST : STL), APPROX ? FAST : STL);
 
-	return (3.0 * (static_cast<double>(COS(5.0 * static_cast<float>(x), APPROX ? FAST : STL)) - 32.0 * (static_cast<double>(M_PI) - 2.0 * x) * _sinx3) + static_cast<double>(COS(static_cast<float>(x), APPROX ? FAST : STL)) * (84.0 - 72.0 * _lncscx) + static_cast<double>(COS(3.0 * static_cast<float>(x), APPROX ? FAST : STL)) * (24.0 * _lncscx - 31.0)) / (-4.0 * static_cast<double>(M_PI) * _sinx4 * _cosx3 * static_cast<double>(POW3((2.0 + static_cast<float>(_cscx2)), EXACT)));
+	return (3.0 * (COS(5.0 * static_cast<float>(x), APPROX ? FAST : STL) - 32.0 * (M_PI - 2.0 * x) * _sinx3) + COS(static_cast<float>(x), APPROX ? FAST : STL) * (84.0 - 72.0 * _lncscx) + COS(3.0 * static_cast<float>(x), APPROX ? FAST : STL) * (24.0 * _lncscx - 31.0)) / (-4.0 * M_PI * _sinx4 * _cosx3 * POW3((2.0 + static_cast<float>(_cscx2)), EXACT));
 }
 
 double tau0(const double &x, const int &N_tar, const double &alpha, const double &delta)
 {
-	return static_cast<double>(SINH(3.0 * static_cast<float>(x), APPROX ? FAST : STL)) - 3.0 * (x + static_cast<double>(N_tar) / (static_cast<double>(POW2(static_cast<float>(M_PI), EXACT)) * delta * static_cast<double>(POW3(static_cast<float>(alpha), EXACT))));
+	return SINH(3.0 * static_cast<float>(x), APPROX ? FAST : STL) - 3.0 * (x + static_cast<double>(N_tar) / (POW2(static_cast<float>(M_PI), EXACT) * delta * POW3(static_cast<float>(alpha), EXACT)));
 }
 
 double tau0Prime(const double &x)
 {
-	return 3.0 * (static_cast<double>(COSH(3.0 * static_cast<float>(x), APPROX ? FAST : STL)) - 1.0);
+	return 3.0 * (COSH(3.0 * static_cast<float>(x), APPROX ? FAST : STL) - 1.0);
 }
 
 double t4D(const double &x, const double &zeta, const double &a, const double &rval)
 {
-	double _coshx2 = static_cast<double>(POW(COSH(static_cast<float>(x / a), APPROX ? FAST : STL), 4.0, APPROX ? FAST : STL));
-	double _sinz2 = static_cast<double>(POW2(SIN(static_cast<float>(zeta), APPROX ? FAST : STL), EXACT));
+	double _coshx2 = POW(COSH(static_cast<float>(x / a), APPROX ? FAST : STL), 4.0, APPROX ? FAST : STL);
+	double _sinz2 = POW2(SIN(static_cast<float>(zeta), APPROX ? FAST : STL), EXACT);
 
-	return (2.0 + _coshx2) * static_cast<double>(SINH(static_cast<float>(x / a), APPROX ? FAST : STL)) * static_cast<double>(TAN(static_cast<float>(zeta), APPROX ? FAST : STL)) * _sinz2 / (2.0 * _sinz2 + 1) - rval;
+	return (2.0 + _coshx2) * SINH(static_cast<float>(x / a), APPROX ? FAST : STL) * TAN(static_cast<float>(zeta), APPROX ? FAST : STL) * _sinz2 / (2.0 * _sinz2 + 1) - rval;
 
 	//return ((((2.0 + cosh(x / a) * cosh(x / a)) * sinh(x / a)) / ((2.0 + (1.0 / (sin(zeta) * sin(zeta)))) / tan(zeta))) - rval);
 }
 
 double tPrime4D(const double &x, const double &zeta, const double &a)
 {
-	double _coshx2 = static_cast<double>(POW2(COSH(static_cast<float>(x / a), APPROX ? FAST : STL), EXACT)); 
-	double _coshx4 = static_cast<double>(POW2(static_cast<float>(_coshx2), EXACT));
-	double _sinz2 = static_cast<double>(POW2(SIN(static_cast<float>(zeta), APPROX ? FAST : STL), EXACT));
+	double _coshx2 = POW2(COSH(static_cast<float>(x / a), APPROX ? FAST : STL), EXACT); 
+	double _coshx4 = POW2(static_cast<float>(_coshx2), EXACT);
+	double _sinz2 = POW2(SIN(static_cast<float>(zeta), APPROX ? FAST : STL), EXACT);
 
-	return 3.0 * _coshx4 * static_cast<double>(TAN(static_cast<float>(zeta), APPROX ? FAST : STL)) * _sinz2 / (2.0 * _sinz2 + 1);
+	return 3.0 * _coshx4 * TAN(static_cast<float>(zeta), APPROX ? FAST : STL) * _sinz2 / (2.0 * _sinz2 + 1);
 
 	//return ((3.0 * cosh(x / a) * cosh(x / a) * cosh(x / a) * cosh(x / a)) / ((2.0 + (1.0 / (sin(zeta) * sin(zeta)))) / tan(zeta)));
 }
 
 double tau(const double &x, const double &tau0, const double &rval)
 {
-	//return (static_cast<double>(SINH(3.0 * static_cast<float>(x), APPROX ? FAST : STL)) - 3.0 * x) / (static_cast<double>(SINH(3.0 * static_cast<float>(tau0), APPROX ? FAST : STL)) - 3.0 * tau0) - rval;
+	//return (SINH(3.0f * x, APPROX ? FAST : STL) - 3.0 * x) / (SINH(3.0f * tau0, APPROX ? FAST : STL) - 3.0 * tau0) - rval;
 
 	return ((sinh(3.0 * x) - 3.0 * x) / (sinh(3.0 * tau0) - 3.0 * tau0) - rval);
 }
 
 double tauPrime(const double &x, const double &tau0)
 {
-	//return 6.0 * static_cast<double>(POW2(SINH(1.5 * static_cast<float>(x), APPROX ? FAST : STL), EXACT)) / (static_cast<double>(SINH(3.0 * static_cast<float>(tau0), APPROX ? FAST : STL)) - 3.0 * tau0);
+	//return 6.0 * POW2(SINH(1.5f * x, APPROX ? FAST : STL), EXACT) / (SINH(3.0f * tau0, APPROX ? FAST : STL) - 3.0 * tau0);
 
 	return (6.0 * sinh(1.5 * x) / (sinh(3.0 * tau0) - 3.0 * tau0));
 }
 
 double phi4D(const double &x, const double &rval)
 {
-	//return (2.0 * x - static_cast<double>(SIN(2.0 * static_cast<float>(x), APPROX ? FAST : STL))) / static_cast<double>(TWO_PI) - rval;
+	//return (2.0 * x - SIN(2.0f * x, APPROX ? FAST : STL)) / TWO_PI - rval;
 
 	return (((x - sin(x) * cos(x)) / M_PI) - rval);
 }
 
 double phiPrime4D(const double &x)
 {
-	//return static_cast<double>(POW2(SIN(static_cast<float>(x), APPROX ? FAST : STL), EXACT)) / static_cast<double>(HALF_PI);
+	//return POW2(SIN(static_cast<float>(x), APPROX ? FAST : STL), EXACT) / HALF_PI;
 
 	return ((2 / M_PI) * sin(x) * sin(x));
 }
@@ -237,13 +237,13 @@ float tauToEta(const float tau)
 //For use with GNU Scientific Library
 double tauToEtaUniverse(double tau, void *params)
 {
-	return static_cast<double>(POW(SINH(1.5 * static_cast<float>(tau), APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL));
+	return POW(SINH(1.5f * tau, APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL);
 }
 
 //Revise this (does not match numerical solution)
 float tauToEtaUniverseExact(const float &tau, const float &a, const float &alpha)
 {
-	float g1 = SQRT(static_cast<float>(M_PI), STL) * GAMMA(1.0f / 6.0f, STL) / GAMMA(1.0f / 3.0f, STL);
+	float g1 = SQRT(M_PI, STL) * GAMMA(1.0f / 6.0f, STL) / GAMMA(1.0f / 3.0f, STL);
 	float g2 = GAMMA(1.5f, STL) * GAMMA(1.0f / 3.0f, STL) / GAMMA(5.0f / 6.0f, STL);
 
 	float z = _2F1_z(tau);

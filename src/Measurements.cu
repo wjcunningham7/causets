@@ -155,7 +155,7 @@ bool nodesAreConnected(const Node * const nodes, const int * const future_edges,
 	assert (future_idx >= 0 && future_idx < N_tar);
 	assert (past_idx < future_idx);
 
-	int core_limit = static_cast<int>((core_edge_fraction * static_cast<float>(N_tar)));
+	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
 	int i;
 
 	//Check if the adjacency matrix can be used
