@@ -124,6 +124,9 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 	} else
 		assert (zeta > 0.0 && zeta < static_cast<double>(HALF_PI));	
 
+	IntData idata = IntData();
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+
 	stopwatchStart(&sGenerateNodes);
 
 	if (use_gpu) {
@@ -189,9 +192,15 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 						assert (HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta));
 						//assert (HALF_PI - tToEta(nodes[i].t, a) > static_cast<float>(zeta) - 0.00000001);
 
-					//Save eta values
-					/*if (universe)
-						nodes[i].t = tauToEtaUniverseExact(nodes[i].t, a, alpha);*/
+					//Save eta values instead of tau
+					/*if (universe) {
+						//Exact Solution
+						nodes[i].t = tauToEtaUniverseExact(nodes[i].t, a, alpha);
+
+						//Numerical Integration
+						idata.upper = nodes[i].t;
+						integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS);
+					}*/
 				
 					////////////////////////////////////////////////////
 					//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
@@ -232,6 +241,8 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 
 	stopwatchStop(&sGenerateNodes);
 
+	gsl_integration_workspace_free(idata.workspace);
+
 	if (!bench) {
 		printf("\tNodes Successfully Generated.\n");
 		fflush(stdout);
@@ -270,9 +281,6 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	assert (edge_buffer >= 0);
 
-	IntData idata = IntData();
-	idata.tol = 0.01;
-	
 	float t1, t2, dt, dx;
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
 	int future_idx = 0;
@@ -298,31 +306,15 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 				//
 			} else if (manifold == DE_SITTER) {
 				if (universe) {
-					try {
-						/*idata.upper = nodes[i].t;
-						t1 = integrate1D(&tToEtaUniverse, NULL, &idata, QAGS);
-						if (t1 == 0.0)
-							throw CausetException("Numerical integration failed!\n");
+					//If tau values are stored
+					//t1 = tauToEtaUniverseExact(nodes[i].t, a, alpha);
+					//t2 = tauToEtaUniverseExact(nodes[j].t, a, alpha);
 
-						idata.upper = nodes[j].t;
-						t2 = integrate1D(&tToEtaUniverse, NULL, &idata, QAGS);
-						if (t2 == 0.0)
-							throw CausetException("Numerical integration failed!\n");*/
+					//If eta values are stored
+					t1 = nodes[i].t;
+					t2 = nodes[j].t;
 
-						//t1 = tauToEtaUniverseExact(nodes[i].t, a, alpha);
-						//t2 = tauToEtaUniverseExact(nodes[j].t, a, alpha);
-
-						t1 = nodes[i].t;
-						t2 = nodes[j].t;
-
-						dt = ABS(t2 - t1, STL);
-					} catch (CausetException c) {
-						fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-						return false;
-					} catch (std::exception e) {
-						fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-						return false;
-					}
+					dt = ABS(t2 - t1, STL);
 				} else
 					dt = ABS(tToEta(nodes[j].t, a) - tToEta(nodes[i].t, a), STL);
 				//if (i % NPRINT == 0) printf("dt: %.9f\n", dt); fflush(stdout);

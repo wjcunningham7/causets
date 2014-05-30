@@ -235,7 +235,7 @@ double tauToEtaUniverse(double tau, void *params)
 	return static_cast<double>(POW(SINH(1.5 * static_cast<float>(tau), APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL));
 }
 
-//Revise this
+//Revise this (does not match numerical solution)
 float tauToEtaUniverseExact(const float &tau, const float &a, const float &alpha)
 {
 	float g1 = SQRT(static_cast<float>(M_PI), STL) * GAMMA(1.0f / 6.0f, STL) / GAMMA(1.0f / 3.0f, STL);
