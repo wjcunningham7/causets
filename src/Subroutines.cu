@@ -11,7 +11,7 @@
 void quicksort(Node *nodes, int low, int high)
 {
 	//No null pointers
-	assert (nodes != NULL);
+	if (DEBUG) assert (nodes != NULL);
 
 	int i, j, k;
 	float key;
@@ -41,9 +41,11 @@ void quicksort(Node *nodes, int low, int high)
 //Exchange two nodes
 void swap(Node *n, Node *m)
 {
-	//No null pointers
-	assert (n != NULL);
-	assert (m != NULL);
+	if (DEBUG) {
+		//No null pointers
+		assert (n != NULL);
+		assert (m != NULL);
+	}
 
 	Node temp;
 	temp = *n;
@@ -55,7 +57,7 @@ void swap(Node *n, Node *m)
 //Solves Transcendental Equations
 bool newton(double (*solve)(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * p6), double *x, const int max_iter, const double tol, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * p6)
 {
-	assert (solve != NULL);
+	if (DEBUG) assert (solve != NULL);
 
 	double res = 1.0;
 	double x1;

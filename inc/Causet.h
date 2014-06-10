@@ -17,6 +17,7 @@
 #include <sys/io.h>
 
 #include <fastmath/FastMath.h>
+#include <fastmath/FastNumInt.h>
 #include <fastmath/ran2.h>
 #include <fastmath/stopwatch.h>
 
@@ -28,16 +29,18 @@
 // Krioukov Research Group //
 /////////////////////////////
 
-#define NPRINT 100	//Used for debugging statements in loops
+#define NPRINT 1000	//Used for debugging statements in loops
 
 #define NBENCH 10	//Times each function is run during benchmarking
 
-#define APPROX true	//Determines whether FastMath approximations are used
+#define TOL (1e-28)	//Machine epsilon
+
+#define APPROX false	//Determines whether FastMath approximations are used
 			//in computationally intensive routines
 
 #define USE_GSL true	//Use GNU Scientific Library for numerical integration
 
-#define DEBUG true	//Determines whether unit testing is in effect
+#define DEBUG false	//Determines whether unit testing is in effect
 			//Should be set to false to disable asserts
 
 //////////////////////////////////////////////////////////////////////////////
@@ -140,7 +143,6 @@ struct NetworkProperties {
 	double a;			//Hyperboloid Pseudoradius
 	double lambda;			//Cosmological Constant
 	double zeta;			//Pi/2 - Eta_0
-					//Note Eta_0 is stored here for 1+1
 
 	double tau0;			//Rescaled Age of Universe
 	double alpha;			//Rescaled Ratio of Matter Density to Dark Energy Density

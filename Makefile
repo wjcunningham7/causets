@@ -14,7 +14,7 @@ CXX 		?= /usr/bin/g++
 GFOR		?= /usr/bin/gfortran
 NVCC 		?= $(CUDA_HOME)/bin/nvcc
 INCD 		 = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include -I $(INCDIR)
-LIBS 		 = -L /usr/lib/nvidia-current/ -lcuda -L $(LD_LIBRARY_PATH) -L $(CUDA_HOME)/lib64/ -lcudart -lcurand -L $(CUDA_SDK_PATH)/common/lib -lstdc++ -lpthread -lm -lGLU -lglut -lnint -lgsl -lgslcblas -lfastmath
+LIBS 		 = -L /usr/lib/nvidia-current/ -lcuda -L $(LD_LIBRARY_PATH) -L $(CUDA_HOME)/lib64/ -lcudart -lcurand -L $(CUDA_SDK_PATH)/common/lib -lstdc++ -lpthread -lm -lGLU -lglut -lgsl -lgslcblas -lfastmath -lnint
 
 CXXFLAGS	:= -O3 -g
 NVCCFLAGS 	:= -arch=sm_30 -O3 -G -g
@@ -29,7 +29,7 @@ COBJS		:= $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(CSOURCES))
 CEXTOBJS	:= $(patsubst $(FASTSRC)/%.cpp, $(OBJDIR)/%.o, $(CEXTSOURCES))
 OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.cu_o, $(SOURCES))
 
-all : $(COBJS) $(CEXTOBJS) $(OBJS) bindir bin fortran cleanlog
+all : $(COBJS) $(CEXTOBJS) $(OBJS) bindir bin cleanlog
 
 $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<

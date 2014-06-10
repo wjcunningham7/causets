@@ -11,6 +11,8 @@
 
 #include <fastmath/stopwatch.h>
 
+#define CU_DEBUG true
+
 #define checkCudaErrors(err) __checkCudaErrors (err, __FILE__, __LINE__)
 #define getLastCudaError(msg) __getLastCudaError (msg, __FILE__, __LINE__)
 

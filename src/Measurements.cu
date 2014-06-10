@@ -10,18 +10,20 @@
 //O(N*k^3) Efficiency
 bool measureClustering(float *& clustering, const Node * const nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const bool * const core_edge_exists, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, Stopwatch &sMeasureClustering, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &calc_autocorr, const bool &verbose, const bool &bench)
 {
-	//No null pointers
-	assert (nodes != NULL);
-	assert (past_edges != NULL);
-	assert (future_edges != NULL);
-	assert (past_edge_row_start != NULL);
-	assert (future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
+	if (DEBUG) {
+		//No null pointers
+		assert (nodes != NULL);
+		assert (past_edges != NULL);
+		assert (future_edges != NULL);
+		assert (past_edge_row_start != NULL);
+		assert (future_edge_row_start != NULL);
+		assert (core_edge_exists != NULL);
 
-	//Parameters in correct ranges
-	assert (N_tar > 0);
-	assert (N_deg2 > 0);
-	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		//Parameters in correct ranges
+		assert (N_tar > 0);
+		assert (N_deg2 > 0);
+		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+	}
 
 	float c_i, c_k, c_max;
 	float c_avg = 0.0;
@@ -88,9 +90,9 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 					if (nodesAreConnected(nodes, future_edges, future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, past_edges[past_edge_row_start[i]+k], future_edges[future_edge_row_start[i]+j]))
 						c_i += 1.0;
 
-		assert (c_max > 0.0);
+		if (DEBUG) assert (c_max > 0.0);
 		c_i = c_i / c_max;
-		assert (c_i <= 1.0);
+		if (DEBUG) assert (c_i <= 1.0);
 
 		clustering[cls_idx] = c_i;
 		c_avg += c_i;
@@ -102,7 +104,7 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 	}
 
 	average_clustering = c_avg / N_deg2;
-	assert (average_clustering >= 0.0 && average_clustering <= 1.0);
+	if (DEBUG) assert (average_clustering >= 0.0 && average_clustering <= 1.0);
 
 	//Print average clustering to file
 	/*std::ofstream cls;
@@ -143,17 +145,19 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 //O(k) Efficiency for Adjacency List
 bool nodesAreConnected(const Node * const nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, const int past_idx, const int future_idx)
 {
-	//No null pointers
-	assert (nodes != NULL);
-	assert (future_edges != NULL);
-	assert (future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
+	if (DEBUG) {
+		//No null pointers
+		assert (nodes != NULL);
+		assert (future_edges != NULL);
+		assert (future_edge_row_start != NULL);
+		assert (core_edge_exists != NULL);
 
-	//Parameters in correct ranges
-	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
-	assert (past_idx >= 0 && past_idx < N_tar);
-	assert (future_idx >= 0 && future_idx < N_tar);
-	assert (past_idx < future_idx);
+		//Parameters in correct ranges
+		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (past_idx >= 0 && past_idx < N_tar);
+		assert (future_idx >= 0 && future_idx < N_tar);
+		assert (past_idx < future_idx);
+	}
 
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
 	int i;

@@ -10,11 +10,13 @@
 //O(1) Efficiency
 bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *& past_edge_row_start, int *& future_edge_row_start, bool *& core_edge_exists, CUdeviceptr &d_nodes, CUdeviceptr &d_edges, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench, const bool &yes)
 {
-	//Variables in correct ranges
-	assert (N_tar > 0);
-	assert (k_tar > 0.0);
-	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
-	assert (edge_buffer >= 0);
+	if (DEBUG) {
+		//Variables in correct ranges
+		assert (N_tar > 0);
+		assert (k_tar > 0.0);
+		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (edge_buffer >= 0);
+	}
 
 	if (verbose && !yes) {
 		//Estimate memory usage before allocating
@@ -109,22 +111,27 @@ bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *&
 //O(N) Efficiency
 bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &verbose, const bool &bench)
 {
-	//No null pointers
-	assert (nodes != NULL);
+	if (DEBUG) {
+		//No null pointers
+		assert (nodes != NULL);
 
-	//Values are in correct ranges
-	assert (N_tar > 0);
-	assert (k_tar > 0.0);
-	assert (dim == 1 || dim == 3);
-	assert (manifold == EUCLIDEAN || manifold == DE_SITTER || manifold == ANTI_DE_SITTER);
-	assert (a > 0.0);
-	if (universe) {
-		assert (dim == 3);
-		assert (tau0 > 0.0);
-	} else
-		assert (zeta > 0.0 && zeta < HALF_PI);	
+		//Values are in correct ranges
+		assert (N_tar > 0);
+		assert (k_tar > 0.0);
+		assert (dim == 1 || dim == 3);
+		assert (manifold == EUCLIDEAN || manifold == DE_SITTER || manifold == ANTI_DE_SITTER);
+		assert (a > 0.0);
+		if (universe) {
+			assert (dim == 3);
+			assert (tau0 > 0.0);
+		} else
+			assert (zeta > 0.0 && zeta < HALF_PI);
+	}
 
 	IntData idata = IntData();
+	//Modify these two parameters to trade off between speed and accuracy
+	idata.limit = 50;
+	idata.tol = 1e-4;
 	if (USE_GSL && universe)
 		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
@@ -149,7 +156,7 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 				///////////////////////////////////////////////////////////
 
 				nodes[i].theta = TWO_PI * ran2(&seed);
-				assert (nodes[i].theta > 0.0 && nodes[i].theta < TWO_PI);
+				if (DEBUG) assert (nodes[i].theta > 0.0 && nodes[i].theta < TWO_PI);
 				//if (i % NPRINT == 0) printf("Theta: %5.5f\n", nodes[i].theta); fflush(stdout);
 			} else if (manifold == ANTI_DE_SITTER) {
 				//
@@ -160,9 +167,12 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 					//
 				} else if (manifold == DE_SITTER) {
 					//CDF derived from PDF identified in (2) of [2]
-					nodes[i].eta = ATAN(static_cast<float>(ran2(&seed)) / TAN(static_cast<float>(zeta), APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+					nodes[i].eta = ATAN(ran2(&seed) / TAN(static_cast<float>(zeta), APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 					nodes[i].tau = etaToTau(nodes[i].eta);
-					assert (nodes[i].eta > 0.0 && HALF_PI - nodes[i].eta > zeta);
+					if (DEBUG) {
+						assert (nodes[i].eta > 0.0);
+						assert (nodes[i].eta < HALF_PI - zeta + 0.0000001);
+					}
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
 				}
@@ -179,18 +189,20 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 					rval = ran2(&seed);
 					if (universe) {
 						x = 0.5;
-						if (!newton(&solveTau, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
+						if (!newton(&solveTauUniverse, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
 							return false;
 					} else {
-						//x = etaToT(HALF_PI - zeta, a);
-						x = tau0 * a;
-						if (!newton(&solveT, &x, 1000, TOL, &zeta, &a, &rval, NULL, NULL, NULL))
+						x = 3.5;
+						if (!newton(&solveTau, &x, 1000, TOL, &zeta, NULL, &rval, NULL, NULL, NULL))
 							return false;
-						x /= a;
 					}
+
 					nodes[i].tau = x;
-					assert (nodes[i].tau > 0.0);
-					assert (nodes[i].tau < tau0);
+
+					if (DEBUG) {
+						assert (nodes[i].tau > 0.0);
+						assert (nodes[i].tau < tau0);
+					}
 
 					//Save eta values as well
 					if (universe) {
@@ -218,18 +230,19 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 					if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
 						return false;
 					nodes[i].phi = x;
-					assert (nodes[i].phi > 0.0 && nodes[i].phi < M_PI);
+					if (DEBUG) assert (nodes[i].phi > 0.0 && nodes[i].phi < M_PI);
 					//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes[i].phi); fflush(stdout);
 
 					//Sample Chi from (0, pi)
 					nodes[i].chi = ACOS(1.0 - 2.0 * static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-					assert (nodes[i].chi > 0.0 && nodes[i].chi < M_PI);
+					if (DEBUG) assert (nodes[i].chi > 0.0 && nodes[i].chi < M_PI);
 					//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes[i].chi); fflush(stdout);
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
 				}
 			}
-			//if (i % NPRINT == 0) printf("T: %E\n", nodes[i].t);
+			//if (i % NPRINT == 0) printf("eta: %E\n", nodes[i].eta);
+			//if (i % NPRINT == 0) printf("tau: %E\n", nodes[i].tau);
 		}
 
 		//Debugging statements used to check coordinate distributions
@@ -264,26 +277,28 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 //O(k*N^2) Efficiency
 bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &verbose, const bool &bench)
 {
-	//No null pointers
-	assert (nodes != NULL);
-	assert (past_edges != NULL);
-	assert (future_edges != NULL);
-	assert (past_edge_row_start != NULL);
-	assert (future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
+	if (DEBUG) {
+		//No null pointers
+		assert (nodes != NULL);
+		assert (past_edges != NULL);
+		assert (future_edges != NULL);
+		assert (past_edge_row_start != NULL);
+		assert (future_edge_row_start != NULL);
+		assert (core_edge_exists != NULL);
 
-	//Variables in correct ranges
-	assert (N_tar > 0);
-	assert (k_tar > 0.0);
-	assert (dim == 1 || dim == 3);
-	if (universe) {
-		assert (dim == 3);
-		assert (alpha > 0.0);
+		//Variables in correct ranges
+		assert (N_tar > 0);
+		assert (k_tar > 0.0);
+		assert (dim == 1 || dim == 3);
+		if (universe) {
+			assert (dim == 3);
+			assert (alpha > 0.0);
+		}
+		assert (manifold == EUCLIDEAN || manifold == DE_SITTER || manifold == ANTI_DE_SITTER);
+		assert (a > 0.0);
+		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (edge_buffer >= 0);
 	}
-	assert (manifold == EUCLIDEAN || manifold == DE_SITTER || manifold == ANTI_DE_SITTER);
-	assert (a > 0.0);
-	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
-	assert (edge_buffer >= 0);
 
 	float dt, dx;
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
@@ -311,8 +326,10 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 			} else if (manifold == DE_SITTER) {
 				dt = ABS(nodes[i].eta - nodes[j].eta, STL);
 				//if (i % NPRINT == 0) printf("dt: %.9f\n", dt); fflush(stdout);
-				assert (dt >= 0.0);
-				assert (dt <= HALF_PI - zeta);
+				if (DEBUG) {
+					assert (dt >= 0.0);
+					assert (dt <= HALF_PI - zeta);
+				}
 			} else if (manifold == ANTI_DE_SITTER) {
 				//
 			}
@@ -326,7 +343,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 					//
 				} else if (manifold == DE_SITTER) {
 					//Formula given on p. 2 of [2]
-					dx = M_PI - ABS(static_cast<float>(M_PI) - ABS(nodes[j].theta - nodes[i].theta, STL), STL);
+					dx = M_PI - ABS(M_PI - ABS(nodes[j].theta - nodes[i].theta, STL), STL);
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
 				}
@@ -346,7 +363,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 
 			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx); fflush(stdout);
 			//if (i % NPRINT == 0) printf("cos(dx): %.5f\n", cosf(dx)); fflush(stdout);
-			//assert (dx >= 0.0 && dx <= M_PI);
+			if (DEBUG) assert (dx >= 0.0 && dx <= M_PI);
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {
@@ -363,6 +380,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 			try {
 				if (dx < dt) {
 					//if (i % NPRINT == 0) printf("\tConnected %d to %d\n", i, j); fflush(stdout);
+					//if (i % NPRINT == 0) printf("%d %d\n", i, j); fflush(stdout);
 					future_edges[future_idx] = j;
 					future_idx++;
 	
@@ -422,7 +440,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 	}
 
 	//The quantities future_idx and past_idx should be equal
-	assert (future_idx == past_idx);
+	if (DEBUG) assert (future_idx == past_idx);
 	//printf("\t\tEdges (backward): %d\n", past_idx);
 	//fflush(stdout);
 
@@ -437,9 +455,11 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 		} 
 	}
 
-	assert (N_res > 0);
-	assert (N_deg2 > 0);
-	assert (k_res > 0.0);
+	if (DEBUG) {
+		assert (N_res > 0);
+		assert (N_deg2 > 0);
+		assert (k_res > 0.0);
+	}
 
 	k_res /= N_res;
 
@@ -468,12 +488,14 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 //O(1) Efficiency
 void compareAdjacencyLists(const Node * const nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start)
 {
-	//No null pointers
-	assert (nodes != NULL);
-	assert (past_edges != NULL);
-	assert (future_edges != NULL);
-	assert (past_edge_row_start != NULL);
-	assert (future_edge_row_start != NULL);
+	if (DEBUG) {
+		//No null pointers
+		assert (nodes != NULL);
+		assert (past_edges != NULL);
+		assert (future_edges != NULL);
+		assert (past_edge_row_start != NULL);
+		assert (future_edge_row_start != NULL);
+	}
 
 	int i, j;
 	for (i = 0; i < 20; i++) {
@@ -505,12 +527,14 @@ void compareAdjacencyLists(const Node * const nodes, const int * const past_edge
 //O(1) Effiency
 void compareAdjacencyListIndices(const Node * const nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start)
 {
-	//No null pointers
-	assert (nodes != NULL);
-	assert (past_edges != NULL);
-	assert (future_edges != NULL);
-	assert (past_edge_row_start != NULL);
-	assert (future_edge_row_start != NULL);
+	if (DEBUG) {
+		//No null pointers
+		assert (nodes != NULL);
+		assert (past_edges != NULL);
+		assert (future_edges != NULL);
+		assert (past_edge_row_start != NULL);
+		assert (future_edge_row_start != NULL);
+	}
 
 	int max1 = 20;
 	int max2 = 100;
@@ -561,13 +585,15 @@ void compareAdjacencyListIndices(const Node * const nodes, const int * const pas
 //O(num_vals) Efficiency
 bool printValues(const Node * const nodes, const int num_vals, const char *filename, const char *coord)
 {
-	//No null pointers
-	assert (nodes != NULL);
-	assert (filename != NULL);
-	assert (coord != NULL);
+	if (DEBUG) {
+		//No null pointers
+		assert (nodes != NULL);
+		assert (filename != NULL);
+		assert (coord != NULL);
 
-	//Variables in correct range
-	assert (num_vals > 0);
+		//Variables in correct range
+		assert (num_vals > 0);
+	}
 
 	try {
 		std::ofstream outputStream;
@@ -608,12 +634,14 @@ bool printValues(const Node * const nodes, const int num_vals, const char *filen
 //O(N^2) Efficiency
 bool printSpatialDistances(const Node * const nodes, const Manifold &manifold, const int &N_tar, const int &dim)
 {
-	//No null pointers
-	assert (nodes != NULL);
+	if (DEBUG) {
+		//No null pointers
+		assert (nodes != NULL);
 
-	//Variables in correct ranges
-	assert (manifold == DE_SITTER); //Only de Sitter implemented here
-	assert (dim == 1 || dim == 3);
+		//Variables in correct ranges
+		assert (manifold == DE_SITTER); //Only de Sitter implemented here
+		assert (dim == 1 || dim == 3);
+	}
 
 	try {	
 		std::ofstream dbgStream;

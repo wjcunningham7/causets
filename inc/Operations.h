@@ -13,8 +13,8 @@
 //Primary Newton-Raphson Functions
 double solveZeta(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
 double solveTau0(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
-double solveT(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
 double solveTau(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
+double solveTauUniverse(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
 double solvePhi(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
 
 //Secondary Newton-Raphson Functions
@@ -27,18 +27,18 @@ double zetaPrime4D(const double &x);
 double tau0(const double &x, const int &N_tar, const double &alpha, const double &delta);
 double tau0Prime(const double &x);
 
-double t4D(const double &x, const double &zeta, const double &a, const double &rval);
-double tPrime4D(const double &x, const double &zeta, const double &a);
+double tau4D(const double &x, const double &zeta, const double &rval);
+double tauPrime4D(const double &x, const double &zeta);
 
-double tau(const double &x, const double &tau0, const double &rval);
-double tauPrime(const double &x, const double &tau0);
+double tauUniverse(const double &x, const double &tau0, const double &rval);
+double tauPrimeUniverse(const double &x, const double &tau0);
 
 double phi4D(const double &x, const double &rval);
 double phiPrime4D(const double &x);
 
-//Math function for tau to eta in universe
-//which appears in 2F1
-float _2F1_z(const float &tau);
+//Math functions which appears in 2F1
+float _2F1_tau(const float &tau, void * const param);
+float _2F1_r(const float &r, void * const param);
 
 //De Sitter Spatial Lengths
 float X1(const float &phi);
@@ -51,5 +51,9 @@ float etaToTau(const float eta);
 float tauToEta(const float tau);
 double tauToEtaUniverse(double tau, void *params);
 float tauToEtaUniverseExact(const float &tau, const float &a, const float &alpha);
+
+//Rescaled Average Degegree
+double rescaledDegreeUniverse(int dim, double x[]);
+double xi(double &r);
 
 #endif

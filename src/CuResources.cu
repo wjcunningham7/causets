@@ -89,7 +89,7 @@ void memoryCheckpoint(const size_t &hostMemUsed, size_t &maxHostMemUsed, const s
 void connectToGPU(Resources *resources, int argc, char **argv)
 {
 	//No null pointers
-	assert (resources != NULL);
+	if (CU_DEBUG) assert (resources != NULL);
 
 	//Pick CUDA Device
 	CUresult status;
@@ -97,7 +97,7 @@ void connectToGPU(Resources *resources, int argc, char **argv)
 
 	checkCudaErrors(cuInit(0));
 	checkCudaErrors(cuDeviceGetCount(&devCount));
-	assert(resources->gpuID > -1 && resources->gpuID < devCount);
+	if (CU_DEBUG) assert(resources->gpuID > -1 && resources->gpuID < devCount);
 	resources->cuDevice = findCudaDevice(resources->gpuID);
 
 	checkCudaErrors(cuDeviceComputeCapability(&major, &minor, resources->cuDevice));

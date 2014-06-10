@@ -130,6 +130,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				network_properties.dim = atoi(optarg);
 				if (!(atoi(optarg) == 1 || atoi(optarg) == 3))
 					throw CausetException("Invalid argument for 'dimension' parameter!\n");
+				assert (network_properties.dim != 1);	//Fix the eta distribution for 1D
 				break;
 			case 's':	//Random seed
 				network_properties.seed = -1.0 * atol(optarg);
@@ -381,10 +382,12 @@ NetworkProperties parseArgs(int argc, char **argv)
 //Handles all network generation and initialization procedures
 bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
-	//No null pointers
-	assert (network != NULL);
-	assert (cp != NULL);
-	assert (bm != NULL);
+	if (DEBUG) {
+		//No null pointers
+		assert (network != NULL);
+		assert (cp != NULL);
+		assert (bm != NULL);
+	}
 
 	//Causet of our universe
 	if (network->network_properties.flags.universe) {
@@ -407,45 +410,55 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 		if (network->network_properties.flags.cc.conflicts[1] == 0 && network->network_properties.flags.cc.conflicts[2] == 0 && network->network_properties.flags.cc.conflicts[3] == 0) {
 			//Solve for tau0, ratio, omegaM, and omegaL
 			double x = 0.5;
-			assert (network->network_properties.N_tar > 0);
-			assert (network->network_properties.alpha > 0.0);
-			assert (network->network_properties.delta > 0.0);
+			if (DEBUG) {
+				assert (network->network_properties.N_tar > 0);
+				assert (network->network_properties.alpha > 0.0);
+				assert (network->network_properties.delta > 0.0);
+			}
+
 			if (!newton(&solveTau0, &x, 10000, TOL, &network->network_properties.alpha, &network->network_properties.delta, NULL, NULL, &network->network_properties.N_tar, NULL))
 				return false;
 			network->network_properties.tau0 = x;
-			assert (network->network_properties.tau0 > 0.0);
+			if (DEBUG) assert (network->network_properties.tau0 > 0.0);
 			
 			network->network_properties.ratio = POW2(SINH(1.5 * static_cast<float>(network->network_properties.tau0), STL), EXACT);
-			assert(network->network_properties.ratio > 0.0);
+			if (DEBUG) assert(network->network_properties.ratio > 0.0);
 			network->network_properties.omegaM = 1.0 / (network->network_properties.ratio + 1.0);
 			network->network_properties.omegaL = 1.0 - network->network_properties.omegaM;
 		} else if (network->network_properties.flags.cc.conflicts[1] == 0 || network->network_properties.flags.cc.conflicts[2] == 0 || network->network_properties.flags.cc.conflicts[3] == 0) {
 			if (network->network_properties.N_tar > 0 && network->network_properties.alpha > 0.0) {
 				//Solve for delta
 				network->network_properties.delta = 3.0 * network->network_properties.N_tar / (POW2(static_cast<float>(M_PI), EXACT) * POW3(static_cast<float>(network->network_properties.alpha), EXACT) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), STL) - 3.0 * network->network_properties.tau0));
-				assert (network->network_properties.delta > 0.0);
+				if (DEBUG) assert (network->network_properties.delta > 0.0);
 			} else if (network->network_properties.N_tar == 0) {
 				//Solve for N_tar
-				assert (network->network_properties.alpha > 0.0);
+				if (DEBUG) assert (network->network_properties.alpha > 0.0);
 				network->network_properties.N_tar = static_cast<int>(POW2(static_cast<float>(M_PI), EXACT) * network->network_properties.delta * POW3(static_cast<float>(network->network_properties.alpha), EXACT) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), STL) - 3.0 * network->network_properties.tau0) / 3.0);
-				assert (network->network_properties.N_tar > 0);
+				if (DEBUG) assert (network->network_properties.N_tar > 0);
 			} else {
 				//Solve for alpha
-				assert (network->network_properties.N_tar > 0);
+				if (DEBUG) assert (network->network_properties.N_tar > 0);
 				network->network_properties.alpha = POW(3.0 * network->network_properties.N_tar / (POW2(static_cast<float>(M_PI), EXACT) * network->network_properties.delta * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), STL) - 3.0 * network->network_properties.tau0)), (1.0 / 3.0), STL);
-				assert (network->network_properties.alpha > 0.0);
+				if (DEBUG) assert (network->network_properties.alpha > 0.0);
 			}
 		}
 		//Finally, solve for R0
-		assert (network->network_properties.alpha > 0.0);
-		assert (network->network_properties.ratio > 0.0);
+		if (DEBUG) {
+			assert (network->network_properties.alpha > 0.0);
+			assert (network->network_properties.ratio > 0.0);
+		}
 		network->network_properties.R0 = network->network_properties.alpha * POW(static_cast<float>(network->network_properties.ratio), (1.0 / 3.0), STL);
-		assert (network->network_properties.R0 > 0.0);
+		if (DEBUG) assert (network->network_properties.R0 > 0.0);
 
-		//Guess at k_tar (find exact expression later)
 		//Use NINTLIB Monte Carlo algorithm to find k_tar
-		if (network->network_properties.k_tar == 0.0)
-			network->network_properties.k_tar = 2500.0;
+		if (network->network_properties.k_tar == 0.0) {
+			//network->network_properties.k_tar = 2500.0;
+			double r0 = POW(SINH(1.5f * network->network_properties.tau0, STL), 2.0f / 3.0f, STL);
+			network->network_properties.k_tar = network->network_properties.delta * POW2(POW2(static_cast<float>(network->network_properties.a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network->network_properties.seed, 0) * 8.0 * M_PI / (SINH(3.0f * network->network_properties.tau0, STL) - 3.0 * network->network_properties.tau0);
+		}
+
+		//20% Buffer
+		network->network_properties.edge_buffer = static_cast<int>(0.1 * network->network_properties.N_tar * network->network_properties.k_tar);
 
 		printf("\n");
 		printf("\tParameters Constraining Universe Causal Set:\n");
@@ -497,9 +510,11 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 
 	if (!network->network_properties.flags.universe) {
 		//Solve for eta0 using Newton-Raphson Method
-		assert (network->network_properties.N_tar > 0);
-		assert (network->network_properties.k_tar > 0.0);
-		assert (network->network_properties.dim == 1 || network->network_properties.dim == 3);
+		if (DEBUG) {
+			assert (network->network_properties.N_tar > 0);
+			assert (network->network_properties.k_tar > 0.0);
+			assert (network->network_properties.dim == 1 || network->network_properties.dim == 3);
+		}
 
 		double x = 0.08;
 		if (network->network_properties.dim == 1)
@@ -507,9 +522,17 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 
 		if (!newton(&solveZeta, &x, 10000, TOL, NULL, NULL, NULL, &network->network_properties.k_tar, &network->network_properties.N_tar, &network->network_properties.dim))
 			return false;
-		network->network_properties.zeta = x;
-		assert (network->network_properties.zeta > 0 && network->network_properties.zeta < HALF_PI);
-		network->network_properties.tau0 = etaToTau(static_cast<float>(HALF_PI - network->network_properties.zeta));
+
+		if (network->network_properties.dim == 1)
+			network->network_properties.zeta = HALF_PI - x;
+		else
+			network->network_properties.zeta = x;
+		network->network_properties.tau0 = etaToTau(HALF_PI - network->network_properties.zeta);
+
+		if (DEBUG) {
+			assert (network->network_properties.zeta > 0);
+			assert (network->network_properties.zeta < HALF_PI);
+		}
 
 		printf("\tTranscendental Equation Solved:\n");
 		//printf("\t\tZeta: %5.8f\n", network->network_properties.zeta);
@@ -595,10 +618,12 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 
 bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
-	//No null pointers
-	assert (network != NULL);
-	assert (cp != NULL);
-	assert (bm != NULL);
+	if (DEBUG) {
+		//No null pointers
+		assert (network != NULL);
+		assert (cp != NULL);
+		assert (bm != NULL);
+	}
 
 	printf("\nCalculating Network Observables...\n");
 	fflush(stdout);
@@ -633,8 +658,10 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 //Plot using OpenGL
 bool displayNetwork(const Node * const nodes, const int * const future_edges, int argc, char **argv)
 {
-	assert (nodes != NULL);
-	assert (future_edges != NULL);
+	if (DEBUG) {
+		assert (nodes != NULL);
+		assert (future_edges != NULL);
+	}
 
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE);
@@ -671,10 +698,12 @@ void display()
 //	-Edge data			(./dat/edg/*.cset.edg.dat)
 bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
-	assert (network != NULL);
-	assert (cp != NULL);
-	assert (network->network_properties.graphID != 0);
-	assert (!network->network_properties.flags.bench);
+	if (DEBUG) {
+		assert (network != NULL);
+		assert (cp != NULL);
+		assert (network->network_properties.graphID != 0);
+		assert (!network->network_properties.flags.bench);
+	}
 
 	//Not currently supported (will be implemented later)
 	assert (!network->network_properties.flags.universe);
@@ -823,6 +852,8 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &
 
 				//Check if a node is skipped (k_i = 0)
 				diff = n1 - idx1;
+
+				//This should be a CausetException
 				assert (diff >= 0);
 
 				//Multiple nodes skipped
@@ -866,7 +897,7 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &
 		}
 
 		network->nodes[i].k_in = idx3 - network->past_edge_row_start[i];
-		assert(network->nodes[i].k_in >= 0);
+		if (DEBUG) assert(network->nodes[i].k_in >= 0);
 
 		if (network->past_edge_row_start[i] == idx3)
 			network->past_edge_row_start[i] = -1;
@@ -993,14 +1024,14 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 			outputStream << "Target Nodes (N_tar)\t\t\t" << network.network_properties.N_tar << std::endl;
 			outputStream << "Target Degrees (k_tar)\t\t\t" << network.network_properties.k_tar << std::endl;
 			outputStream << "Pseudoradius (a)\t\t\t" << network.network_properties.a << std::endl;
-			outputStream << "Cosmological Constant (lambda)\t" << network.network_properties.lambda << std::endl;
+			outputStream << "Cosmological Constant (lambda)\t\t" << network.network_properties.lambda << std::endl;
 			outputStream << "Rescaled Age (tau0)\t\t\t" << network.network_properties.tau0 << std::endl;
-			outputStream << "Dark Energy Density (omegaL)\t" << network.network_properties.omegaL << std::endl;
-			outputStream << "Matter Density (omegaM)\t\t" << network.network_properties.omegaM << std::endl;
-			outputStream << "Ratio (ratio)\t\t\t" << network.network_properties.ratio << std::endl;
-			outputStream << "Node Density (delta)\t\t" << network.network_properties.delta << std::endl;
-			outputStream << "Alpha (alpha)\t\t\t" << network.network_properties.alpha << std::endl;
-			outputStream << "Scaling Factor (R0)\t\t" << network.network_properties.R0 << std::endl;
+			outputStream << "Dark Energy Density (omegaL)\t\t" << network.network_properties.omegaL << std::endl;
+			outputStream << "Matter Density (omegaM)\t\t\t" << network.network_properties.omegaM << std::endl;
+			outputStream << "Ratio (ratio)\t\t\t\t" << network.network_properties.ratio << std::endl;
+			outputStream << "Node Density (delta)\t\t\t" << network.network_properties.delta << std::endl;
+			outputStream << "Alpha (alpha)\t\t\t\t" << network.network_properties.alpha << std::endl;
+			outputStream << "Scaling Factor (R0)\t\t\t" << network.network_properties.R0 << std::endl;
 
 			outputStream << "\nCauset Resulting Parameters:" << std::endl;
 			outputStream << "----------------------------" << std::endl;
@@ -1026,11 +1057,11 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 
 		outputStream << "\nNetwork Analysis Results:" << std::endl;
 		outputStream << "-------------------------" << std::endl;
-		outputStream << "Node Position Data:\t\t" << "pos/" << network.network_properties.graphID << ".cset.pos.dat" << std::endl;
-		outputStream << "Node Edge Data:\t\t\t" << "edg/" << network.network_properties.graphID << ".cset.edg.dat" << std::endl;
-		outputStream << "Degree Distribution Data:\t" << "dst/" << network.network_properties.graphID << ".cset.dst.dat" << std::endl;
-		outputStream << "In-Degree Distribution Data:\t" << "idd/" << network.network_properties.graphID << ".cset.idd.dat" << std::endl;
-		outputStream << "Out-Degree Distribution Data:\t" << "odd/" << network.network_properties.graphID << ".cset.odd.dat" << std::endl;
+		outputStream << "Node Position Data:\t\t\t" << "pos/" << network.network_properties.graphID << ".cset.pos.dat" << std::endl;
+		outputStream << "Node Edge Data:\t\t\t\t" << "edg/" << network.network_properties.graphID << ".cset.edg.dat" << std::endl;
+		outputStream << "Degree Distribution Data:\t\t" << "dst/" << network.network_properties.graphID << ".cset.dst.dat" << std::endl;
+		outputStream << "In-Degree Distribution Data:\t\t" << "idd/" << network.network_properties.graphID << ".cset.idd.dat" << std::endl;
+		outputStream << "Out-Degree Distribution Data:\t\t" << "odd/" << network.network_properties.graphID << ".cset.odd.dat" << std::endl;
 
 		if (network.network_properties.flags.calc_clustering) {
 			outputStream << "Clustering Coefficient Data:\t" << "cls/" << network.network_properties.graphID << ".cset.cls.dat" << std::endl;
