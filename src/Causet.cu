@@ -453,8 +453,11 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 		//Use NINTLIB Monte Carlo algorithm to find k_tar
 		if (network->network_properties.k_tar == 0.0) {
 			//network->network_properties.k_tar = 2500.0;
+
+			printf("\tEstimating Expected Average Degrees.....\n");
 			double r0 = POW(SINH(1.5f * network->network_properties.tau0, STL), 2.0f / 3.0f, STL);
 			network->network_properties.k_tar = network->network_properties.delta * POW2(POW2(static_cast<float>(network->network_properties.a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network->network_properties.seed, 0) * 8.0 * M_PI / (SINH(3.0f * network->network_properties.tau0, STL) - 3.0 * network->network_properties.tau0);
+			printf("\t\tCompleted.\n");
 		}
 
 		//20% Buffer

@@ -209,7 +209,7 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 						if (USE_GSL) {
 							//Numerical Integration
 							idata.upper = nodes[i].tau * a;
-							nodes[i].eta = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS);
+							nodes[i].eta = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) / alpha;
 						} else
 							//Exact Solution
 							nodes[i].eta = tauToEtaUniverseExact(nodes[i].tau, a, alpha);

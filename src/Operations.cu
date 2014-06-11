@@ -240,41 +240,19 @@ double tauToEtaUniverse(double tau, void *params)
 	return POW(SINH(1.5f * tau, APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL);
 }
 
-//Revise this (does not match numerical solution)
 float tauToEtaUniverseExact(const float &tau, const float &a, const float &alpha)
 {
-	float g1 = SQRT(M_PI, STL) * GAMMA(1.0f / 6.0f, STL) / GAMMA(1.0f / 3.0f, STL);
-	float g2 = GAMMA(1.5f, STL) * GAMMA(1.0f / 3.0f, STL) / GAMMA(5.0f / 6.0f, STL);
-
 	float z = _2F1_tau(tau, NULL);
-	float z2 = POW2(z, EXACT);
+	float eta, f, err;
+	int nterms = 50;
 
-	float z_4_3 = POW(z, 4.0f / 3.0f, APPROX ? FAST : STL);
-	float z_3_2 = POW(z, 1.5f, APPROX ? FAST : STL);
-	float z_5_6 = POW(z, 5.0f / 6.0f, APPROX ? FAST : STL);
-	float z_1_2 = SQRT(z, STL);
-
-	float z_trans = 1.0f / z;
-	float z_trans_8_3 = POW(z_trans, 8.0f / 3.0f, APPROX ? FAST : STL);
-
-	float eta = 0.0f;
-	float f1, f2;
-	float e1, e2;
-
-	const int nterms = 50;
-
-	_2F1(&_2F1_tau, tau, NULL, 5.0f / 6.0f, 1.0f / 3.0f, 4.0f / 3.0f, &f1, &e1, nterms);
-	_2F1(&_2F1_tau, tau, NULL, 0.5f, 0.0f, 2.0f / 3.0f, &f2, &e2, nterms);
+	_2F1(&_2F1_tau, tau, NULL, 1.0f / 3.0f, 5.0f / 6.0f, 4.0f / 3.0f, &f, &err, &nterms);
 	
-	if (DEBUG) {
-		e1 += e2;
-		assert (ABS(e1, STL) < 1e-4);
-	}
+	if (DEBUG) assert (ABS(err, STL) < 1e-4);
 
-	eta += POW2(g1 * z_4_3 - (3.0f * SQRT(3.0f, STL) / 2.0f) * z_3_2 * f1, EXACT);
-	eta += 4.0f * z2 * POW2(g2 * z_5_6 * f2 - 0.75f * z_1_2 * f1, EXACT);
-	eta *= z_trans_8_3;
-	eta = a * SQRT(eta, STL) / (3.0f * alpha);
+	eta = 3.0f * GAMMA(-1.0f / 3.0f, STL) * POW(z, 1.0f / 3.0f, APPROX ? FAST : STL) * f;
+	eta += 4.0f * SQRT(3.0f, STL) * POW(M_PI, 1.5f, APPROX ? FAST : STL) / GAMMA(5.0f / 6.0f, STL);
+	eta *= a / (9.0f * alpha * GAMMA(2.0f / 3.0f, STL));
 
 	return eta;
 }
@@ -299,23 +277,25 @@ double rescaledDegreeUniverse(int dim, double x[])
 //Approximates (108) in [2]
 double xi(double &r)
 {
-	double _xi;
+	double _xi = 0.0;
+	float err = 0.0f;
 	float f;
-	float err;
-	const int nterms = 50;
+	int nterms = 10;
+
+	if (ABS(r - 1.0f, STL) < 0.05)
+		nterms = 20;
 
 	if (r < 1.0f) {
 		//Since 1/f(x) = f(1/x) we can use _r
 		double _r = 1.0f / r;
-		_2F1(&_2F1_r, _r, NULL, 1.0f / 6.0f, 0.5f, 7.0f / 6.0f, &f, &err, nterms);
+		_2F1(&_2F1_r, _r, NULL, 1.0f / 6.0f, 0.5f, 7.0f / 6.0f, &f, &err, &nterms);
+		_xi = 2.0 * SQRT(r, STL) * f;
 	} else {
-		//Things get more complicated
-		//Use transformation formula here
+		_2F1(&_2F1_r, r, NULL, 1.0f / 3.0f, 0.5f, 4.0f / 3.0f, &f, &err, &nterms);
+		_xi = SQRT(4.0f / M_PI, STL) * GAMMA(7.0f / 6.0f, STL) * GAMMA(1.0f / 3.0f, STL) - f / r;
 	}
 
 	if (DEBUG) assert (ABS(err, STL) < 1e-4);
-
-	_xi = 2.0 * SQRT(r, STL) * f;
 
 	return _xi;
 }

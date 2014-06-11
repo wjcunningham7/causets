@@ -20,7 +20,7 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-	  filenameoutput='Matter_Dark_Energy.net'                       !output filename
+	  filenameoutput='./dat/edg/Matter_Dark_Energy.net'                       !output filename
 	  open(1,file=filenameoutput,status='unknown')
 
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -33,7 +33,7 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    !model parameters
  	  xDelta=100.                                                               !density of events in space-time
       xtime=0.8458                                                              !observation time in units of a, i.e.,t/a
-      NODOS=100000
+      NODOS=10000
       xalpha=(3.*dble(NODOS)/
      +(xpi**2*xDelta*(dsinh(3.*xtime)-3.*xtime)))**(1./3.)
 
