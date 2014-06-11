@@ -21,7 +21,7 @@ NVCCFLAGS 	:= -arch=sm_30 -O3 -G -g
 
 CSOURCES	:= $(SRCDIR)/autocorr2.cpp
 CEXTSOURCES	:= $(FASTSRC)/ran2.cpp $(FASTSRC)/stopwatch.cpp 
-SOURCES		:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Operations.cu $(SRCDIR)/GPUSubroutines.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements.cu
+SOURCES		:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/GPUSubroutines.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements.cu
 FSOURCES1	:= $(SRCDIR)/ds3.F
 FSOURCES2	:= $(SRCDIR)/Matter_Dark_Energy_downscaled.f
 
