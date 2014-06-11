@@ -16,6 +16,8 @@
 #include <GL/freeglut.h>
 #include <sys/io.h>
 
+#include <omp.h>
+
 #include <fastmath/FastMath.h>
 #include <fastmath/FastNumInt.h>
 #include <fastmath/ran2.h>

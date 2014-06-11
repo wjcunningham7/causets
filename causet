@@ -7,8 +7,8 @@
 # Should find eta0 = 1.5296963, gamma = 1.75
 
 # Generate causal set for universe (mix of dark energy and matter)
-#./bin/CausalSet --universe --age 0.8458 --alpha 2.01 --delta 10000 --degrees 3000 --seed 18100 -y --print --verbose &> causet.log &
+./bin/CausalSet --universe --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 -y --print --verbose &> causet.log &
 # Should find N = 10^6, tau given by (12), in-degree given by Fig. (S3), out-degree given by Fig. (S6)
 
 # Debugging
-./bin/CausalSet --universe --age 0.8458 --nodes 10000 --delta 100 --degrees 10 --seed 22 -y --verbose --print --verbose &> causet.log &
+#./bin/CausalSet --universe --age 0.8458 --nodes 10000 --delta 100 --degrees 10 --seed 22 -y --verbose --print --verbose &> causet.log &
