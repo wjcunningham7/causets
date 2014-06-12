@@ -17,7 +17,13 @@ INCD 		 = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include -I $(INCDIR)
 LIBS 		 = -L /usr/lib/nvidia-current/ -lcuda -L $(LD_LIBRARY_PATH) -L $(CUDA_HOME)/lib64/ -lcudart -lcurand -L $(CUDA_SDK_PATH)/common/lib -lstdc++ -lpthread -lm -lGLU -lglut -lgsl -lgslcblas -lfastmath -lnint -lgomp
 
 CXXFLAGS	:= -O3 -g
-NVCCFLAGS 	:= -arch=sm_30 -O3 -G -g -Xcompiler -fopenmp
+NVCCFLAGS 	:= -arch=sm_30 -O3 -G -g
+OMPFLAGS	:= -Xcompiler -fopenmp
+USE_OMP		:= 1
+	
+ifneq ($(USE_OMP), 0)
+   	NVCCFLAGS += $(OMPFLAGS)
+endif
 
 CSOURCES	:= $(SRCDIR)/autocorr2.cpp
 CEXTSOURCES	:= $(FASTSRC)/ran2.cpp $(FASTSRC)/stopwatch.cpp 
@@ -42,7 +48,7 @@ $(OBJDIR) :
 $(OBJDIR)/%.o : $(FASTSRC)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<
 
-$(OBJDIR)/%.cu_o : $(SRCDIR)/%.cu 
+$(OBJDIR)/%.cu_o : $(SRCDIR)/%.cu
 	$(NVCC) $(NVCCFLAGS) -c $(INCD) -o $@ $<
  
 bin : $(COBJS) $(CEXTOBJS) $(OBJS)

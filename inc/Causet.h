@@ -16,7 +16,11 @@
 #include <GL/freeglut.h>
 #include <sys/io.h>
 
+#ifdef _OPENMP
 #include <omp.h>
+#else
+#define omp_get_thread_num() 0
+#endif
 
 #include <fastmath/FastMath.h>
 #include <fastmath/FastNumInt.h>

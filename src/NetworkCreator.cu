@@ -50,30 +50,40 @@ bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *&
 		if (verbose)
 			printMemUsed("Memory Allocated for Nodes", hostMemUsed, devMemUsed);
 
-		past_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
+		#pragma omp sections
+		{ { past_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
 		if (past_edges == NULL)
 			throw std::bad_alloc();
-		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
+		#pragma omp atomic
+		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer); }
 
-		future_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
+		#pragma omp section
+		{ future_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
 		if (future_edges == NULL)
 			throw std::bad_alloc();
-		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
+		#pragma omp atomic
+		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer); }
 
-		past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
+		#pragma omp section
+		{ past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
 		if (past_edge_row_start == NULL)
 			throw std::bad_alloc();
-		hostMemUsed += sizeof(int) * N_tar;
+		#pragma omp atomic
+		hostMemUsed += sizeof(int) * N_tar; }
 
-		future_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
+		#pragma omp section
+		{ future_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
 		if (future_edge_row_start == NULL)
 			throw std::bad_alloc();
-		hostMemUsed += sizeof(int) * N_tar;
+		#pragma omp atomic
+		hostMemUsed += sizeof(int) * N_tar; }
 
-		core_edge_exists = (bool*)malloc(sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT));
+		#pragma omp section
+		{ core_edge_exists = (bool*)malloc(sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT));
 		if (core_edge_exists == NULL)
 			throw std::bad_alloc();
-		hostMemUsed += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);
+		#pragma omp atomic
+		hostMemUsed += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT); } }
 
 		//Allocate memory on GPU if necessary
 		if (use_gpu) {
