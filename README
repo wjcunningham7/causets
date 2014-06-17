@@ -35,7 +35,7 @@ This contains the functions needed by the 'inializeNetwork' function described a
 |Measurements.cu|
 =================
 
-This file contains functions used to measure observables, which are called by the function 'measureNetworkObservables' described above.  Currently only the clustering coefficients and average clustering is calculated in the single function 'measureClustering'.
+This file contains functions used to measure observables, which are called by the function 'measureNetworkObservables' described above.  Currently the clustering coefficients and average clustering are calculated in the function measureClustering, and the success ratio is calculated in the function measureSuccessRatio.
 
 ================
 |Subroutines.cu|

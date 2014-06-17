@@ -8,7 +8,7 @@
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *& past_edge_row_start, int *& future_edge_row_start, bool *& core_edge_exists, CUdeviceptr &d_nodes, CUdeviceptr &d_edges, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node *& nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdeviceptr &d_past_edges, int *& future_edges, CUdeviceptr &d_future_edges, int *& past_edge_row_start, CUdeviceptr &d_past_edge_row_start, int *& future_edge_row_start, CUdeviceptr &d_future_edge_row_start, bool *& core_edge_exists, CUdeviceptr &d_k_in, CUdeviceptr &d_k_out, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench, const bool &yes)
 {
 	if (DEBUG) {
 		//Variables in correct ranges
@@ -28,8 +28,10 @@ bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *&
 
 		size_t dmem = 0;
 		if (use_gpu) {
-			dmem += sizeof(Node) * N_tar;
-			dmem += sizeof(Node) * N_tar * k_tar / 2;
+			dmem += sizeof(float4) * N_tar;
+			dmem += sizeof(int) * 2 * (N_tar * k_tar / 2 + edge_buffer);
+			dmem += sizeof(int) * 2 * N_tar;
+			dmem += sizeof(int) * 2 * N_tar;
 		}
 
 		printMemUsed("for Network (Estimation)", mem, dmem);
@@ -48,55 +50,60 @@ bool createNetwork(Node *& nodes, int *& past_edges, int *& future_edges, int *&
 			throw std::bad_alloc();
 		hostMemUsed += sizeof(Node) * N_tar;
 		if (verbose)
-			printMemUsed("Memory Allocated for Nodes", hostMemUsed, devMemUsed);
+			printMemUsed("for Nodes", hostMemUsed, devMemUsed);
 
-		#pragma omp sections
-		{ { past_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
+		past_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
 		if (past_edges == NULL)
 			throw std::bad_alloc();
-		#pragma omp atomic
-		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer); }
+		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
 
-		#pragma omp section
-		{ future_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
+		future_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
 		if (future_edges == NULL)
 			throw std::bad_alloc();
-		#pragma omp atomic
-		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer); }
+		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
 
-		#pragma omp section
-		{ past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
+		past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
 		if (past_edge_row_start == NULL)
 			throw std::bad_alloc();
-		#pragma omp atomic
-		hostMemUsed += sizeof(int) * N_tar; }
+		hostMemUsed += sizeof(int) * N_tar;
 
-		#pragma omp section
-		{ future_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
+		future_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
 		if (future_edge_row_start == NULL)
 			throw std::bad_alloc();
-		#pragma omp atomic
-		hostMemUsed += sizeof(int) * N_tar; }
+		hostMemUsed += sizeof(int) * N_tar;
 
-		#pragma omp section
-		{ core_edge_exists = (bool*)malloc(sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT));
+		core_edge_exists = (bool*)malloc(sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT));
 		if (core_edge_exists == NULL)
 			throw std::bad_alloc();
-		#pragma omp atomic
-		hostMemUsed += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT); } }
+		hostMemUsed += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);
 
 		//Allocate memory on GPU if necessary
 		if (use_gpu) {
-			checkCudaErrors(cuMemAlloc(&d_nodes, sizeof(Node) * N_tar));
-			devMemUsed += sizeof(Node) * N_tar;
+			checkCudaErrors(cuMemAlloc(&d_nodes, sizeof(float4) * N_tar));
+			devMemUsed += sizeof(float4) * N_tar;
 
-			checkCudaErrors(cuMemAlloc(&d_edges, sizeof(Node) * N_tar * k_tar / 2));
-			devMemUsed += sizeof(Node) * N_tar * k_tar / 2;
+			checkCudaErrors(cuMemAlloc(&d_past_edges, sizeof(int) * (N_tar * k_tar / 2 + edge_buffer)));
+			devMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
+
+			checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * (N_tar * k_tar / 2 + edge_buffer)));
+			devMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
+
+			checkCudaErrors(cuMemAlloc(&d_past_edge_row_start, sizeof(int) * N_tar));
+			devMemUsed += sizeof(int) * N_tar;
+
+			checkCudaErrors(cuMemAlloc(&d_future_edge_row_start, sizeof(int) * N_tar));
+			devMemUsed += sizeof(int) * N_tar;
+
+			checkCudaErrors(cuMemAlloc(&d_k_in, sizeof(int) * N_tar));
+			devMemUsed += sizeof(int) * N_tar;
+
+			checkCudaErrors(cuMemAlloc(&d_k_out, sizeof(int) * N_tar));
+			devMemUsed += sizeof(int) * N_tar;
 		}
 
 		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 		if (verbose)
-			printMemUsed("Total Memory Allocated for Network", hostMemUsed, devMemUsed);
+			printMemUsed("for Network", hostMemUsed, devMemUsed);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -147,10 +154,10 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 
 	stopwatchStart(&sGenerateNodes);
 
-	if (use_gpu) {
+	/*if (use_gpu) {
 		//if (!generateNodesGPU(network))
 			return false;
-	} else {
+	} else {*/
 		//Generate coordinates for each of N nodes
 		double x, rval;
 		int i;
@@ -263,7 +270,7 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 		if (!printValues(nodes, N_tar, "phi_dist.cset.dbg.dat", "phi")) return false;
 		printf("Check coordinate distributions now.\n");
 		exit(EXIT_SUCCESS);*/
-	}
+	//}
 
 	stopwatchStop(&sGenerateNodes);
 

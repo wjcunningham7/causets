@@ -132,7 +132,112 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 		}
 	}
 	if (verbose) {
-		printf("\t\tExecution Time: %5.9f sec\n", sMeasureClustering.elapsedTime);
+		printf("\t\tExecution Time:\t\t%5.9f sec\n", sMeasureClustering.elapsedTime);
+		fflush(stdout);
+	}
+
+	return true;
+}
+
+//Calculates the Success Ratio using N_sr Unique Pairs of Nodes
+//O(xxx) Efficiency (revise this)
+bool measureSuccessRatio(const Node * const nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const int &N_sr, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, const bool &verbose, const bool &bench)
+{
+	//Assert Statements
+
+	float dist, min_dist;
+	int loc, next;
+	int i, j, k, m;
+	int n_trav;
+
+	int stride = N_tar * (N_tar - 1) / (2 * N_sr);
+	int vec_idx, mat_idx;
+
+	bool *used;
+
+	stopwatchStart(&sMeasureSuccessRatio);
+
+	try {
+		used = (bool*)malloc(sizeof(bool) * N_tar);
+		if (used == NULL)
+			throw std::bad_alloc();
+		hostMemUsed += sizeof(bool) * N_tar;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	}
+
+	n_trav = 0;
+	for (k = 0; k < N_sr; k++) {
+		//Pick Unique Pair
+		vec_idx = k * stride;
+		mat_idx = vec2MatIdx(N_tar, vec_idx);
+
+		i = mat_idx / N_tar;
+		j = mat_idx % N_tar;
+
+		if (nodes[i].k_in + nodes[i].k_out == 0 || nodes[j].k_in + nodes[j].k_out == 0)
+			continue;
+
+		//Reset boolean array
+		memset(used, 0, sizeof(bool) * N_tar);
+
+		//Begin Traversal from i to j
+		loc = i;
+		while (loc != j) {
+			min_dist = distance(nodes[loc], nodes[j]);
+			used[loc] = true;
+			next = loc;
+
+			//Check Past Connections
+			if (past_edge_row_start[loc] != -1) {
+				for (m = 0; m < nodes[loc].k_in; m++) {
+					dist = distance(nodes[past_edges[past_edge_row_start[loc]+m]], nodes[j]);
+					if (dist < min_dist) {
+						min_dist = dist;
+						next = past_edges[past_edge_row_start[loc]+m];
+					}
+				}
+			}
+
+			//Check Future Connections
+			if (future_edge_row_start[loc] != -1) {
+				for (m = 0; m < nodes[loc].k_out; m++) {
+					dist = distance(nodes[future_edges[future_edge_row_start[loc]+m]], nodes[j]);
+					if (dist < min_dist) {
+						min_dist = dist;
+						next = future_edges[future_edge_row_start[loc]+m];
+					}
+				}
+			}
+			
+			if (!used[next])
+				loc = next;
+			else
+				break;
+		}
+
+		if (loc == j)
+			success_ratio += 1.0;
+		n_trav++;
+	}
+
+	success_ratio /= n_trav;
+
+	free(used);
+	used = NULL;
+	hostMemUsed -= sizeof(bool) * N_tar;
+
+	stopwatchStop(&sMeasureSuccessRatio);
+
+	if (!bench) {
+		printf("\tCalculated Success Ratio.\n");
+		printf("\t\tSuccess Ratio:\t%f\n", success_ratio);
+		fflush(stdout);
+	}
+
+	if (verbose) {
+		printf("\t\tExecution Time: %5.6f sec\n", sMeasureSuccessRatio.elapsedTime);
 		fflush(stdout);
 	}
 
@@ -140,7 +245,7 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 }
 
 //Returns true if two nodes are causally connected
-//Note: i past_idx must be less than future_idx
+//Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
 //O(k) Efficiency for Adjacency List
 bool nodesAreConnected(const Node * const nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, const int past_idx, const int future_idx)
@@ -175,4 +280,11 @@ bool nodesAreConnected(const Node * const nodes, const int * const future_edges,
 				return true;
 
 	return false;
+}
+
+//Returns the distance between two nodes
+//O(xxx) Efficiency (revise this)
+float distance(const Node &node0, const Node &node1)
+{
+	return 0.0;
 }

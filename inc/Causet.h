@@ -103,7 +103,7 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), use_gpu(false), disp_network(false), print_network(false), universe(false), calc_clustering(false), calc_autocorr(false) {}
+	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), use_gpu(false), disp_network(false), print_network(false), universe(false), calc_clustering(false), calc_success_ratio(false), calc_autocorr(false) {}
 
 	CausetConflicts cc;	//Conflicting Parameters
 
@@ -113,6 +113,7 @@ struct CausetFlags {
 	bool universe;		//Use Universe's Tau Distribution
 	
 	bool calc_clustering;	//Find Clustering Coefficients
+	bool calc_success_ratio;//Find Success Ratio
 	bool calc_autocorr;	//Autocorrelation
 	
 	bool verbose;		//Verbose Output
@@ -130,10 +131,10 @@ struct NetworkExec {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(1.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()), network_exec(NetworkExec()), manifold(DE_SITTER) {}
+	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_sr(0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(1.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()), /*network_exec(NetworkExec()),*/ manifold(DE_SITTER) {}
 
 	CausetFlags flags;
-	NetworkExec network_exec;
+	//NetworkExec network_exec;
 
 	int N_tar;			//Target Number of Nodes
 	float k_tar;			//Target Average Degree
@@ -142,6 +143,8 @@ struct NetworkProperties {
 	float k_res;			//Resulting Average Degree
 
 	int N_deg2;			//Nodes of Degree 2 or Greater
+
+	int N_sr;			//Number of Pairs Used in Success Ratio
 
 	int dim;			//Spacetime Dimension (2 or 4)
 	Manifold manifold;		//Manifold of the Network
@@ -167,10 +170,12 @@ struct NetworkProperties {
 
 //Measured values of the network
 struct NetworkObservables {
-	NetworkObservables() : clustering(NULL), average_clustering(0.0) {}
+	NetworkObservables() : clustering(NULL), average_clustering(0.0), success_ratio(0.0) {}
 
 	float *clustering;		//Clustering Coefficients
 	float average_clustering;	//Average Clustering over All Nodes
+
+	float success_ratio;		//Success Ratio
 };
 
 //Network object containing minimal unique information
@@ -190,30 +195,43 @@ struct Network {
 
 	//GPU Memory Pointers
 	CUdeviceptr d_nodes;
-	CUdeviceptr d_edges;
+	CUdeviceptr d_past_edges;
+	CUdeviceptr d_future_edges;
+	CUdeviceptr d_past_edge_row_start;
+	CUdeviceptr d_future_edge_row_start;
+	CUdeviceptr d_k_in;
+	CUdeviceptr d_k_out;
 };
 
 //Algorithmic Performance
 struct CausetPerformance {
-	CausetPerformance() : sCauset(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sMeasureClustering(Stopwatch()) {}
+	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureSuccessRatio(Stopwatch()) {}
 
 	Stopwatch sCauset;
+	Stopwatch sCalcDegrees;
 	Stopwatch sCreateNetwork;
 	Stopwatch sGenerateNodes;
+	Stopwatch sGenerateNodesGPU;
 	Stopwatch sQuicksort;
 	Stopwatch sLinkNodes;
+	Stopwatch sLinkNodesGPU;
 	Stopwatch sMeasureClustering;
+	Stopwatch sMeasureSuccessRatio;
 };
 
 //Benchmark Statistics
 struct Benchmark {
-	Benchmark() : bCreateNetwork(0.0), bGenerateNodes(0.0), bQuicksort(0.0), bLinkNodes(0.0), bMeasureClustering(0.0) {}
+	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureSuccessRatio(0.0) {}
 
+	double bCalcDegrees;
 	double bCreateNetwork;
 	double bGenerateNodes;
+	double bGenerateNodesGPU;
 	double bQuicksort;
 	double bLinkNodes;
+	double bLinkNodesGPU;
 	double bMeasureClustering;
+	double bMeasureSuccessRatio;
 };
 
 //Custom exception class used in this program

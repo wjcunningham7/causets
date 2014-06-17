@@ -1,0 +1,58 @@
+[CausalSet] starting...
+
+	[ *** OPENMP MODULE ACTIVE *** ]
+	Estimating Expected Average Degrees.....
+		Completed.
+
+	Parameters Constraining Universe Causal Set:
+	--------------------------------------------
+	 > Number of Nodes:		1000887
+	 > Expected Degrees:		724.295044
+	 > Pseudoradius:		1.000000
+	 > Cosmological Constant:	3.000000
+	 > Rescaled Age:		0.845800
+	 > Dark Energy Density:		0.728368
+	 > Matter Density:		0.271632
+	 > Ratio:			2.681455
+	 > Node Density:		10000.000000
+	 > Alpha:			2.010000
+	 > Scaling Factor:		2.792455
+
+
+Total Memory Used Memory Allocated for Nodes.........
+--------------------------------------------------------------
+26 MB	744 KB	4 bytes	 [HOST]
+
+
+Total Memory Used Total Memory Allocated for Network.........
+--------------------------------------------------------------
+3 GB	376 MB	409 KB	512 bytes	 [HOST]
+
+	Memory Successfully Allocated.
+		Execution Time: 0.001183 sec
+	Nodes Successfully Generated.
+		Execution Time: 177.075775 sec
+	Quick Sort Successfully Performed.
+		Execution Time: 0.102446 sec
+	Causets Successfully Connected.
+		Resulting Network Size: 1000887
+		Resulting Average Degree: 714.925842
+		Execution Time: 300660.282297 sec
+Task Completed.
+
+Calculating Network Observables...
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+3 GB	376 MB	409 KB	512 bytes	 [HOST]
+
+Printing Results to File...
+	Filename: CPU_U_0.8458_2.01_1_10000_-18100.cset.out
+Task Completed.
+
+[CausalSet] test results...
+PASSED
+
+Time:  300843.556054 s
+PROGRAM COMPLETED
