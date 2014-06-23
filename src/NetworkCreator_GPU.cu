@@ -22,8 +22,22 @@ __global__ void GenerateAdjacencyLists(float4 *nodes, int *past_edges, int *futu
 	// Identify Node Pair with Thread ID //
 	///////////////////////////////////////
 
+	int tid = threadIdx.x;
+	int i = blockIdx.y;
+	int j = blockDim.x * blockIdx.x + threadIdx.x;
+
+	__shared__ float4 node0;
+	if (!tid)
+		node0 = nodes[i];
+	__syncthreads();
+
+	if (j >= width)
+		return;
+
+	float4 node1 = nodes[j+width];
+
 	//Global Thread ID (unique among all threads)
-	uint64_t gid = (static_cast<uint64_t>(blockIdx.y) * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	/*uint64_t gid = (static_cast<uint64_t>(blockIdx.y) * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	int i = gid / width;
 	int j = gid % width;
 
@@ -36,7 +50,7 @@ __global__ void GenerateAdjacencyLists(float4 *nodes, int *past_edges, int *futu
 
 	//Read Coordinates from Global Memory
 	float4 node0 = nodes[i];
-	float4 node1 = nodes[j];
+	float4 node1 = nodes[j];*/
 	
 	//////////////////////////////////
 	// Identify Causal Relationship //
@@ -178,17 +192,20 @@ bool linkNodesGPU(Node * const &nodes, CUdeviceptr d_nodes, int * const &past_ed
 	hostMemUsed -= sizeof(float4) * N_tar;
 
 	//CUDA Grid Specifications
-	unsigned int grid_size = static_cast<unsigned int>(ceil(N_tar / (2 * sqrt(static_cast<float>(BLOCK_SIZE)))));
-	printf("Grid Size: %u\n", grid_size);
+	//unsigned int grid_size = static_cast<unsigned int>(ceil(N_tar / (2 * sqrt(static_cast<float>(BLOCK_SIZE)))));
+	unsigned int gridx = static_cast<unsigned int>(ceil((static_cast<float>(N_tar) / 2) / BLOCK_SIZE));
+	unsigned int gridy = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / 2));
+	//printf("Grid Size: %u\n", grid_size);
 	dim3 threads_per_block(BLOCK_SIZE, 1, 1);
-	dim3 blocks_per_grid(grid_size, grid_size, 1);
+	//dim3 blocks_per_grid(grid_size, grid_size, 1);
+	dim3 blocks_per_grid(gridx, gridy, 1);
 
 	//Execute Kernel for Upper Left / Lower Right Adjacency Pairs
-	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (int*)d_past_edges, (int*)d_future_edges, (int*)d_g_idx, N_tar / 2, 0);
+	/*GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (int*)d_past_edges, (int*)d_future_edges, (int*)d_g_idx, N_tar / 2, 0);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
 
 	//Synchronize
-	checkCudaErrors(cuCtxSynchronize());
+	checkCudaErrors(cuCtxSynchronize());*/
 
 	//Execute Kernel for Upper Right Adjacency Pairs
 	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (int*)d_past_edges, (int*)d_future_edges, (int*)d_g_idx, N_tar / 2, 1);
