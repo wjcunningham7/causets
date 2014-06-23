@@ -15,7 +15,7 @@
 
 __global__ void Generate(Node *nodes, int N_tar, long seed);
 
-__global__ void GenerateAdjacencyLists(float4 *nodes, int *past_edges, int *future_edges, int *g_idx, int N_tar, uint64_t N_pairs, int max);
+__global__ void GenerateAdjacencyLists(float4 *nodes, int *past_edges, int *future_edges, int *g_idx, int width, int map);
 
 __global__ void DecodeAdjacencyLists(int *past_edges, int *future_edges, int *past_edge_row_start, int *future_edge_row_start, int n_links);
 

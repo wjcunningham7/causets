@@ -16,118 +16,48 @@
 	//Implement CURAND package here for random number generation
 }*/
 
-__global__ void GenerateAdjacencyLists(float4 *nodes, int *past_edges, int *future_edges, int *g_idx, int N_tar, uint64_t N_pairs, int max)
+__global__ void GenerateAdjacencyLists(float4 *nodes, int *past_edges, int *future_edges, int *g_idx, int width, int map)
 {
 	///////////////////////////////////////
 	// Identify Node Pair with Thread ID //
 	///////////////////////////////////////
 
-	//Thread ID (unique within each block)
-	//int tid = threadIdx.x;
-
 	//Global Thread ID (unique among all threads)
 	uint64_t gid = (static_cast<uint64_t>(blockIdx.y) * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	int i = static_cast<int>(gid / N_tar);
-	int j = static_cast<int>(gid % N_tar);
-	//bool valid = gid < N_pairs;
-	bool valid = i < j;
+	int i = gid / width;
+	int j = gid % width;
 
-	if (!valid)
+	if (!(map | j) | i >= width)
 		return;
 
-	//Unique Key
-	uint64_t key;
+	int do_map = (i >= j) * !map;
+	i += do_map * (2 * (width - i) - 1);
+	j += map * width + do_map * (2 * (width - j));
 
-	//if (valid) {
-		//Identify Node Pair
-		//int i, j;
-		//uint64_t k = valid ? vec2MatIdx(N_tar, gid) : 0;
-		//__syncthreads();
-
-		//i = static_cast<int>(k / N_tar);
-		//j = static_cast<int>(k % N_tar);
-
-		//Read Coordinates from Global Memory
-		float4 node0 = valid ? nodes[i] : nodes[0];
-		float4 node1 = valid ? nodes[j] : nodes[0];
+	//Read Coordinates from Global Memory
+	float4 node0 = nodes[i];
+	float4 node1 = nodes[j];
 	
-		//////////////////////////////////
-		// Identify Causal Relationship //
-		//////////////////////////////////
+	//////////////////////////////////
+	// Identify Causal Relationship //
+	//////////////////////////////////
 
-		//Calculate dt (assumes nodes are already temporally ordered)
-		float dt = valid ? node1.w - node0.w : 0.0;
+	//Calculate dt (assumes nodes are already temporally ordered)
+	float dt = node1.w - node0.w;
 
-		//Calculate dx
-		float dx = valid ? acosf(X1_GPU(node0.y) * X1_GPU(node1.y) +
-				 X2_GPU(node0.y, node0.z) * X2_GPU(node1.y, node1.z) +
-				 X3_GPU(node0.y, node0.z, node0.x) * X3_GPU(node1.y, node1.z, node1.x) +
-				 X4_GPU(node0.y, node0.z, node0.x) * X4_GPU(node1.y, node1.z, node1.x)) : 0.0;
-		__syncthreads();
+	//Calculate dx
+	float dx = acosf(X1_GPU(node0.y) * X1_GPU(node1.y) +
+			 X2_GPU(node0.y, node0.z) * X2_GPU(node1.y, node1.z) +
+			 X3_GPU(node0.y, node0.z, node0.x) * X3_GPU(node1.y, node1.z, node1.x) +
+			 X4_GPU(node0.y, node0.z, node0.x) * X4_GPU(node1.y, node1.z, node1.x));
 
-		//Calculate Pair Key
-		key = (valid && dx < dt) ? i * static_cast<uint64_t>(N_tar) + j : 0;
-	//}
+	if (dx >= dt)
+		return;
 
-	//int idx;
-	if (valid && key) {
-		//idx = atomicAdd(g_idx, key & 0x0001);
-		//if (key & 0x0001) future_edges[idx] = key;
-		future_edges[atomicAdd(g_idx, 1)] = key;
-	}
-
-	/////////////////////////////////
-	// Operations in Shared Memory //
-	/////////////////////////////////
-
-	/*__shared__ int l_key[BLOCK_SIZE * BLOCK_SIZE];
-	__shared__ int d;
-	__shared__ int l_idx;
-
-	//Prefix Sum
-	l_key[tid] = !key;
-	__syncthreads();
-
-	int diff = 0;
-	int m;
-	for (m = 0; m < tid; m++)
-		diff += l_key[m];
-	__syncthreads();
-
-	//Reduction
-	int lstride;
-	for (lstride = 1; lstride < BLOCK_SIZE * BLOCK_SIZE; lstride <<= 1) {
-		if (!(tid % (lstride << 1)))
-			l_key[tid] += l_key[tid + lstride];
-		__syncthreads();
-	}
-
-	//Number of Disconnected Pairs
-	if (!tid)
-		d = l_key[0];
-	__syncthreads();
-
-	//Compaction
-	if (key)
-		l_key[tid - diff] = key;
-
-	////////////////////////////
-	// Write to Global Memory //
-	////////////////////////////
-
-	if (!tid)
-		l_idx = atomicAdd(g_idx, BLOCK_SIZE * BLOCK_SIZE - d);
-	__syncthreads();
-
-	if (tid < BLOCK_SIZE * BLOCK_SIZE - d) {
-		//Read Keys from Local to Register Memory
-		int f_r_key = l_key[tid];
-		int p_r_key = (f_r_key % N_tar) * N_tar + (f_r_key / N_tar);
-
-		//Write Keys from Register to Global Memory
-		future_edges[l_idx + tid] = f_r_key;
-		past_edges[l_idx + tid] = p_r_key;
-	}*/
+	//Write to Global Memory
+	int idx = atomicAdd(g_idx, 1);
+	past_edges[idx] = i;
+	future_edges[idx] = j;
 }
 
 __global__ void DecodeAdjacencyLists(int *past_edges, int *future_edges, int *past_edge_row_start, int *future_edge_row_start, int n_links)
@@ -248,15 +178,20 @@ bool linkNodesGPU(Node * const &nodes, CUdeviceptr d_nodes, int * const &past_ed
 	hostMemUsed -= sizeof(float4) * N_tar;
 
 	//CUDA Grid Specifications
-	//unsigned int grid_size = static_cast<unsigned int>(ceil(sqrt(static_cast<long double>(N_tar) * (N_tar - 1) / (2 * BLOCK_SIZE))));
-	//unsigned int grid_size = static_cast<unsigned int>(ceil(sqrt(static_cast<long double>(N_tar) * N_tar / BLOCK_SIZE)));
-	unsigned int grid_size = 884;
+	unsigned int grid_size = static_cast<unsigned int>(ceil(N_tar / (2 * sqrt(static_cast<float>(BLOCK_SIZE)))));
+	printf("Grid Size: %u\n", grid_size);
 	dim3 threads_per_block(BLOCK_SIZE, 1, 1);
 	dim3 blocks_per_grid(grid_size, grid_size, 1);
-	uint64_t N_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
 
-	//Execute Kernel
-	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (int*)d_past_edges, (int*)d_future_edges, (int*)d_g_idx, N_tar, N_pairs, max);
+	//Execute Kernel for Upper Left / Lower Right Adjacency Pairs
+	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (int*)d_past_edges, (int*)d_future_edges, (int*)d_g_idx, N_tar / 2, 0);
+	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
+
+	//Synchronize
+	checkCudaErrors(cuCtxSynchronize());
+
+	//Execute Kernel for Upper Right Adjacency Pairs
+	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (int*)d_past_edges, (int*)d_future_edges, (int*)d_g_idx, N_tar / 2, 1);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
 
 	//Synchronize
