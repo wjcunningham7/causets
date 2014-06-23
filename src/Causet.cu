@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 	if (cp.sCauset.stopTime.tv_sec == 0 && cp.sCauset.stopTime.tv_usec == 0)
 		stopwatchStop(&cp.sCauset);
 	shrQAFinish(argc, (const char**)argv, success ? QA_PASSED : QA_FAILED);
-	printf("Time:  %5.6f s\n", cp.sCauset.elapsedTime);
+	printf("Time: %5.6f sec\n", cp.sCauset.elapsedTime);
 	printf("PROGRAM COMPLETED\n");
 	fflush(stdout);
 }
@@ -163,7 +163,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				if (strcmp(optarg, "all") == 0)
 					network_properties.N_sr = -1;
 				else {
-					network_properties.N_sr = atoi(optarg);
+					network_properties.N_sr = static_cast<int64_t>(atol(optarg));
 					if (network_properties.N_sr <= 0)
 						throw CausetException("Invalid argument for 'success' parameter!\n");
 				}
@@ -354,16 +354,17 @@ NetworkProperties parseArgs(int argc, char **argv)
 
 			if (network_properties.flags.calc_success_ratio) {
 				if (network_properties.N_sr == -1)
-					network_properties.N_sr = network_properties.N_tar * (network_properties.N_tar - 1) / 2;
-				else if (network_properties.N_sr > network_properties.N_tar * (network_properties.N_tar - 1) / 2) {
+					network_properties.N_sr = static_cast<int64_t>(network_properties.N_tar) * (network_properties.N_tar - 1) / 2;
+				else if (network_properties.N_sr > static_cast<int64_t>(network_properties.N_tar) * (network_properties.N_tar - 1) / 2) {
 					if (!network_properties.flags.yes) {
-						printf("You have requested too many comparisons in success ratio algorithm.  Set to max permitted [y/N]? ");
+						printf("\nYou have requested too many comparisons in success ratio algorithm.  Set to max permitted [y/N]? ");
 						fflush(stdout);
 						char response = getchar();
+						getchar();
 						if (response != 'y')
 							exit(EXIT_FAILURE);
 					}
-					network_properties.N_sr = network_properties.N_tar * (network_properties.N_tar - 1) / 2;
+					network_properties.N_sr = static_cast<int64_t>(network_properties.N_tar) * (network_properties.N_tar - 1) / 2;
 				}
 			}
 		} else if (network_properties.dim == 1)
@@ -380,7 +381,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 		//If no seed specified, choose random one
 		if (network_properties.seed == -12345L) {
 			srand(time(NULL));
-			network_properties.seed = -1.0 * (long)time(NULL);
+			network_properties.seed = -1.0 * static_cast<long>(time(NULL));
 		}
 
 		//If graph ID specified, prepare to read graph properties
@@ -389,6 +390,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				printf("You have chosen to load a graph from memory.  Some parameters may be ignored as a result.  Continue [y/N]? ");
 				fflush(stdout);
 				char response = getchar();
+				getchar();
 				if (response != 'y')
 					exit(EXIT_FAILURE);
 			}
@@ -418,7 +420,7 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 	}
 
 	#ifdef _OPENMP
-		printf("\t[ *** OPENMP MODULE ACTIVE *** ]\n\n");
+		printf("\t[ *** OPENMP MODULE ACTIVE *** ]\n");
 	#endif
 	
 	bool tmp = false;
@@ -513,16 +515,17 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 		//Check success ratio parameters if applicable
 		if (network->network_properties.flags.calc_success_ratio) {
 			if (network->network_properties.N_sr == -1)
-				network->network_properties.N_sr = network->network_properties.N_tar * (network->network_properties.N_tar - 1) / 2;
-			else if (network->network_properties.N_sr > network->network_properties.N_tar * (network->network_properties.N_tar - 1) / 2) {
+				network->network_properties.N_sr = static_cast<int64_t>(network->network_properties.N_tar) * (network->network_properties.N_tar - 1) / 2;
+			else if (network->network_properties.N_sr > static_cast<int64_t>(network->network_properties.N_tar) * (network->network_properties.N_tar - 1) / 2) {
 				if (!network->network_properties.flags.yes) {
-					printf("You have requested too many comparisons in success ratio algorithm.  Set to max permitted [y/N]? ");
+					printf("\nYou have requested too many comparisons in success ratio algorithm.  Set to max permitted [y/N]? ");
 					fflush(stdout);
 					char response = getchar();
+					getchar();
 					if (response != 'y')
 						exit(EXIT_FAILURE);
 				}
-				network->network_properties.N_sr = network->network_properties.N_tar * (network->network_properties.N_tar - 1) / 2;
+				network->network_properties.N_sr = static_cast<int64_t>(network->network_properties.N_tar) * (network->network_properties.N_tar - 1) / 2;
 			}
 		}
 
@@ -540,10 +543,11 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 		printf("\t > Node Density:\t\t%.6f\n", network->network_properties.delta);
 		printf("\t > Alpha:\t\t\t%.6f\n", network->network_properties.alpha);
 		printf("\t > Scaling Factor:\t\t%.6f\n", network->network_properties.R0);
-		printf("\n");
 		fflush(stdout);
 	}
 
+	printf("\nInitializing Network...\n");
+	fflush(stdout);
 
 	//Allocate memory needed by pointers
 	if (network->network_properties.flags.bench) {
@@ -704,6 +708,9 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 		assert (bm != NULL);
 	}
 
+	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_success_ratio)
+		return true;
+
 	printf("\nCalculating Network Observables...\n");
 	fflush(stdout);
 
@@ -733,7 +740,7 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 	if (network->network_properties.flags.calc_success_ratio) {
 		if (network->network_properties.flags.bench) {
 			for (i = 0; i < NBENCH; i++) {
-				if (!measureSuccessRatio(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+				if (!measureSuccessRatio(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 					return false;
 				bm->bMeasureSuccessRatio += cp->sMeasureSuccessRatio.elapsedTime;
 				stopwatchReset(&cp->sMeasureSuccessRatio);
@@ -744,7 +751,7 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 		tmp = network->network_properties.flags.bench;
 		if (tmp)
 			network->network_properties.flags.bench = false;
-		if (!measureSuccessRatio(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+		if (!measureSuccessRatio(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 			return false;
 		if (tmp)
 			network->network_properties.flags.bench = true;

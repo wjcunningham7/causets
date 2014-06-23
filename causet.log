@@ -1,0 +1,68 @@
+[CausalSet] starting...
+
+> Using CUDA Device [0]: Quadro K2000
+> GPU device has SM 3.0 compute capabilities
+
+	Estimating Expected Average Degrees.....
+		Completed.
+
+	Parameters Constraining Universe Causal Set:
+	--------------------------------------------
+	 > Number of Nodes:		100000
+	 > Expected Degrees:		72.429504
+	 > Pseudoradius:		1.000000
+	 > Cosmological Constant:	3.000000
+	 > Rescaled Age:		0.845800
+	 > Dark Energy Density:		0.728368
+	 > Matter Density:		0.271632
+	 > Ratio:			2.681455
+	 > Node Density:		1000.000000
+	 > Alpha:			2.009406
+	 > Scaling Factor:		2.791630
+
+Initializing Network...
+
+Total Memory Used for Nodes.........
+--------------------------------------------------------------
+2 MB	686 KB	384 bytes	 [HOST]
+
+
+Total Memory Used for Network.........
+--------------------------------------------------------------
+37 MB	555 KB	528 bytes	 [HOST]
+
+36 MB	212 KB	336 bytes	[DEVICE]
+
+	Memory Successfully Allocated.
+		Execution Time: 0.000959 sec
+	Nodes Successfully Generated.
+		Execution Time: 17.438323 sec
+	Quick Sort Successfully Performed.
+		Execution Time: 0.008426 sec
+
+Total Memory Used for Parallel Node Linking.........
+--------------------------------------------------------------
+39 MB	851 KB	276 bytes	 [HOST]
+
+36 MB	212 KB	340 bytes	[DEVICE]
+
+links: 1210334
+	Causets Successfully Connected.
+		Execution Time: 6.996674 sec
+Task Completed.
+
+Max Memory Used.........
+--------------------------------------------------------------
+39 MB	851 KB	276 bytes	 [HOST]
+
+36 MB	212 KB	340 bytes	[DEVICE]
+
+Printing Results to File...
+	Filename: Dev0_U_0.8458_2.00941_1_1000_-18100.cset.out
+Task Completed.
+
+[CausalSet] test results...
+PASSED
+
+Time: 30.889900 sec
+PROGRAM COMPLETED

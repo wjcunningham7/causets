@@ -44,7 +44,7 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 	
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
-		printMemUsed("Memory Necessary to Measure Clustering", hostMemUsed, devMemUsed);
+		printMemUsed("to Measure Clustering", hostMemUsed, devMemUsed);
 
 	//i represents the node we are calculating the clustering coefficient for (node #1 in triplet)
 	//j represents the second node in the triplet
@@ -117,7 +117,7 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 
 	if (!bench) {
 		printf("\tCalculated Clustering Coefficients.\n");
-		printf("\t\tAverage Clustering:\t%f\n", average_clustering);
+		printf("\t\tAverage Clustering: %f\n", average_clustering);
 		fflush(stdout);
 		if (calc_autocorr) {
 			autocorr2 acClust(5);
@@ -132,7 +132,7 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 		}
 	}
 	if (verbose) {
-		printf("\t\tExecution Time:\t\t%5.9f sec\n", sMeasureClustering.elapsedTime);
+		printf("\t\tExecution Time: %5.6f sec\n", sMeasureClustering.elapsedTime);
 		fflush(stdout);
 	}
 
@@ -141,7 +141,7 @@ bool measureClustering(float *& clustering, const Node * const nodes, const int 
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node * const nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const int &N_sr, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node * const nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const int64_t &N_sr, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
 {
 	//Assert Statements
 
@@ -150,8 +150,8 @@ bool measureSuccessRatio(const Node * const nodes, const int * const past_edges,
 	int i, j, k, m;
 	int n_trav;
 
-	int stride = N_tar * (N_tar - 1) / (2 * N_sr);
-	int vec_idx, mat_idx;
+	uint64_t stride = (uint64_t)N_tar * (N_tar - 1) / (2 * N_sr);
+	uint64_t vec_idx, mat_idx;
 
 	bool *used;
 
@@ -166,6 +166,10 @@ bool measureSuccessRatio(const Node * const nodes, const int * const past_edges,
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
+	
+	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	if (verbose)
+		printMemUsed("to Measure Success Ratio", hostMemUsed, devMemUsed);
 
 	n_trav = 0;
 	for (k = 0; k < N_sr; k++) {
@@ -173,8 +177,8 @@ bool measureSuccessRatio(const Node * const nodes, const int * const past_edges,
 		vec_idx = k * stride;
 		mat_idx = vec2MatIdx(N_tar, vec_idx);
 
-		i = mat_idx / N_tar;
-		j = mat_idx % N_tar;
+		i = (int)(mat_idx / N_tar);
+		j = (int)(mat_idx % N_tar);
 
 		if (nodes[i].k_in + nodes[i].k_out == 0 || nodes[j].k_in + nodes[j].k_out == 0)
 			continue;
@@ -193,7 +197,7 @@ bool measureSuccessRatio(const Node * const nodes, const int * const past_edges,
 			if (past_edge_row_start[loc] != -1) {
 				for (m = 0; m < nodes[loc].k_in; m++) {
 					dist = distance(nodes[past_edges[past_edge_row_start[loc]+m]], nodes[j]);
-					if (dist < min_dist) {
+					if (dist <= min_dist) {
 						min_dist = dist;
 						next = past_edges[past_edge_row_start[loc]+m];
 					}
@@ -204,7 +208,7 @@ bool measureSuccessRatio(const Node * const nodes, const int * const past_edges,
 			if (future_edge_row_start[loc] != -1) {
 				for (m = 0; m < nodes[loc].k_out; m++) {
 					dist = distance(nodes[future_edges[future_edge_row_start[loc]+m]], nodes[j]);
-					if (dist < min_dist) {
+					if (dist <= min_dist) {
 						min_dist = dist;
 						next = future_edges[future_edge_row_start[loc]+m];
 					}
@@ -232,7 +236,8 @@ bool measureSuccessRatio(const Node * const nodes, const int * const past_edges,
 
 	if (!bench) {
 		printf("\tCalculated Success Ratio.\n");
-		printf("\t\tSuccess Ratio:\t%f\n", success_ratio);
+		printf("\t\tSuccess Ratio: %f\n", success_ratio);
+		printf("\t\tTraversed Pairs: %d\n", n_trav);
 		fflush(stdout);
 	}
 

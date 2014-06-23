@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <iostream>
+#include <stdint.h>
 #include <string>
 
 #include <cuda.h>

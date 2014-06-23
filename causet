@@ -1,3 +1,4 @@
+# Prevents re-compiling during a long run
 mv Makefile Makefile~
 
 # Generate causal set for 1+1 de Sitter (no matter)
@@ -10,9 +11,9 @@ mv Makefile Makefile~
 
 # Generate causal set for universe (mix of dark energy and matter)
 #./bin/CausalSet --universe --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 -y --print --verbose &> causet.log &
-# Should find N = 10^6, tau given by (12), in-degree given by Fig. (S3), out-degree given by Fig. (S6)
+# Should find N = 10^6, tau given by (12), in-degree given by Fig. (S3), out-degree given by Fig. (3a)
 
 # Debugging
-./bin/CausalSet --universe --age 0.8458 --nodes 10000 --delta 100 --degrees 10 --seed 22 -y --verbose --gpu
+./bin/CausalSet --universe --age 0.8458 --nodes 100000 --delta 1000 --seed 18100 -y --print --verbose --gpu &> causet.log &
 
 mv Makefile~ Makefile

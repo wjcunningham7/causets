@@ -17,6 +17,7 @@ void __getLastCudaError( const char *errorMessage, const char *file, const int l
 	if (cudaSuccess != err) {
     		fprintf(stderr, "%s(%i) : getLastCudaError() CUDA error : %s : (%d).\n",
         	        file, line, errorMessage, (int)err);
+		fprintf(stderr, "CUDA Error Message: %s\n", cudaGetErrorString(err));
        		exit(-1);
 	}
 }

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <math.h>
 #include <sstream>
+#include <stdint.h>
 #include <stdio.h>
 #include <string>
 
@@ -144,7 +145,7 @@ struct NetworkProperties {
 
 	int N_deg2;			//Nodes of Degree 2 or Greater
 
-	int N_sr;			//Number of Pairs Used in Success Ratio
+	int64_t N_sr;			//Number of Pairs Used in Success Ratio
 
 	int dim;			//Spacetime Dimension (2 or 4)
 	Manifold manifold;		//Manifold of the Network

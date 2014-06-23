@@ -38,6 +38,7 @@ bool createNetwork(Node *& nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdev
 		printf("\nContinue [y/N]?");
 		fflush(stdout);
 		char response = getchar();
+		getchar();
 		if (response != 'y')
 			return false;
 	}
@@ -423,8 +424,8 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 	}
 
 	future_edge_row_start[N_tar-1] = -1;
-	//printf("\t\tEdges (forward): %d\n", future_idx);
-	//fflush(stdout);
+	printf("\t\tEdges (forward): %d\n", future_idx);
+	fflush(stdout);
 
 	//if (!printSpatialDistances(nodes, manifold, N_tar, dim)) return false;
 

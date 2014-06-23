@@ -7,31 +7,21 @@
 /////////////////////////////
 
 //Input:  Index from vectorized upper diagonal matrix
-//Output: j*N+i where i,j are matrix indices
-__host__ __device__ int vec2MatIdx(const int &N, const int &vecIdx)
+//Output: i*N+j where i,j are matrix indices
+__host__ __device__ uint64_t vec2MatIdx(const int &N, const uint64_t &vecIdx)
 {
 	int i = 0, j = 0;
+	int delta = 1;
 	int k;
 	
-	if (vecIdx < N - 1) {
-		//First row in matrix
-		j = 0;
-		i = vecIdx + 1;
-	} else if (vecIdx == N * (N - 1) / 2 - 1) {
-		//Last element in matrix
-		j = N - 2;
-		i = N - 1;
-	} else {
-		for (k = 1; k < N - 2; k++) {
-			if (vecIdx < (k + 1) * N - 3 * k) {
-				j = k;
-				if (k == 1)
-					i = vecIdx - (N - 3);
-				else
-					i = vecIdx - j * (N - 4) - 2;
-			}
+	for (k = 0; k < N - 1; k++) {
+		if (vecIdx < (k + 1) * static_cast<uint64_t>(N) - delta) {
+			i = k;
+			j = static_cast<int>(vecIdx - (k * static_cast<uint64_t>(N)) + delta);
+			break;
 		}
+		delta += k + 2;
 	}
-	
-	return j * N + i;
+
+	return i * static_cast<uint64_t>(N) + j;
 }

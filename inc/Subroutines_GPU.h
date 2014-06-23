@@ -9,6 +9,6 @@
 // Krioukov Research Group //
 /////////////////////////////
 
-__host__ __device__ int vec2MatIdx(const int &N, const int &vecIdx);
+__host__ __device__ uint64_t vec2MatIdx(const int &N, const uint64_t &vecIdx);
 
 #endif
