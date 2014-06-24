@@ -17,7 +17,7 @@ INCD 		 = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include -I $(INCDIR)
 LIBS 		 = -L /usr/lib/nvidia-current/ -lcuda -L $(LD_LIBRARY_PATH) -L $(CUDA_HOME)/lib64/ -lcudart -lcurand -L $(CUDA_SDK_PATH)/common/lib -lstdc++ -lpthread -lm -lGLU -lglut -lgsl -lgslcblas -lfastmath -lnint -lgomp
 
 CXXFLAGS	:= -O3 -g -Wall
-NVCCFLAGS 	:= -arch=sm_30 -O3 -G -g
+NVCCFLAGS 	:= -arch=sm_30 -m64 -O3 -G -g
 OMPFLAGS	:= -Xcompiler -fopenmp
 USE_OMP		:= 0
 	

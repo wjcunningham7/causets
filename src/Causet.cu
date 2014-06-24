@@ -1444,34 +1444,4 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		network->network_observables.clustering = NULL;
 		hostMemUsed -= sizeof(float) * network->network_properties.N_deg2;
 	}
-
-	if (network->network_properties.flags.use_gpu) {
-		cuMemFree(network->d_nodes);
-		network->d_nodes = NULL;
-		devMemUsed -= sizeof(float4) * network->network_properties.N_tar;
-
-		cuMemFree(network->d_past_edges);
-		network->d_past_edges = NULL;
-		devMemUsed -= sizeof(int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
-
-		cuMemFree(network->d_future_edges);
-		network->d_future_edges = NULL;
-		devMemUsed -= sizeof(int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
-
-		cuMemFree(network->d_past_edge_row_start);
-		network->d_past_edge_row_start = NULL;
-		devMemUsed -= sizeof(int) * network->network_properties.N_tar;
-
-		cuMemFree(network->d_future_edge_row_start);
-		network->d_future_edge_row_start = NULL;
-		devMemUsed -= sizeof(int) * network->network_properties.N_tar;
-
-		cuMemFree(network->d_k_in);
-		network->d_k_in = NULL;
-		devMemUsed -= sizeof(int) * network->network_properties.N_tar;
-
-		cuMemFree(network->d_k_out);
-		network->d_k_out = NULL;
-		devMemUsed -= sizeof(int) * network->network_properties.N_tar;
-	}
 }

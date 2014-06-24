@@ -78,30 +78,6 @@ bool createNetwork(Node *& nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdev
 			throw std::bad_alloc();
 		hostMemUsed += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);
 
-		//Allocate memory on GPU if necessary
-		if (use_gpu) {
-			checkCudaErrors(cuMemAlloc(&d_nodes, sizeof(float4) * N_tar));
-			devMemUsed += sizeof(float4) * N_tar;
-
-			checkCudaErrors(cuMemAlloc(&d_past_edges, sizeof(int) * (N_tar * k_tar / 2 + edge_buffer)));
-			devMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
-
-			checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * (N_tar * k_tar / 2 + edge_buffer)));
-			devMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
-
-			checkCudaErrors(cuMemAlloc(&d_past_edge_row_start, sizeof(int) * N_tar));
-			devMemUsed += sizeof(int) * N_tar;
-
-			checkCudaErrors(cuMemAlloc(&d_future_edge_row_start, sizeof(int) * N_tar));
-			devMemUsed += sizeof(int) * N_tar;
-
-			checkCudaErrors(cuMemAlloc(&d_k_in, sizeof(int) * N_tar));
-			devMemUsed += sizeof(int) * N_tar;
-
-			checkCudaErrors(cuMemAlloc(&d_k_out, sizeof(int) * N_tar));
-			devMemUsed += sizeof(int) * N_tar;
-		}
-
 		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 		if (verbose)
 			printMemUsed("for Network", hostMemUsed, devMemUsed);
