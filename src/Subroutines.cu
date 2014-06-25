@@ -8,49 +8,50 @@
 
 //Sort nodes temporally by tau coordinate
 //O(N*log(N)) Efficiency
-void quicksort(Node *nodes, int low, int high)
+void quicksort(Node &nodes, int low, int high)
 {
-	//No null pointers
-	if (DEBUG) assert (nodes != NULL);
-
 	int i, j, k;
 	float key;
 
 	if (low < high) {
 		k = (low + high) / 2;
-		swap(&nodes[low], &nodes[k]);
-		key = nodes[low].tau;
+		swap(nodes, low, k);
+		key = nodes.tau[low];
 		i = low + 1;
 		j = high;
 
 		while (i <= j) {
-			while ((i <= high) && (nodes[i].tau <= key))
+			while ((i <= high) && (nodes.tau[i] <= key))
 				i++;
-			while ((j >= low) && (nodes[j].tau > key))
+			while ((j >= low) && (nodes.tau[j] > key))
 				j--;
 			if (i < j)
-				swap(&nodes[i], &nodes[j]);
+				swap(nodes, i, j);
 		}
 
-		swap(&nodes[low], &nodes[j]);
+		swap(nodes, low, j);
 		quicksort(nodes, low, j - 1);
 		quicksort(nodes, j + 1, high);
 	}
 }
 
 //Exchange two nodes
-void swap(Node *n, Node *m)
+void swap(Node &nodes, const int i, const int j)
 {
-	if (DEBUG) {
-		//No null pointers
-		assert (n != NULL);
-		assert (m != NULL);
-	}
+	float4 sc = nodes.sc[i];
+	float tau = nodes.tau[i];
+	int k_in = nodes.k_in[i];
+	int k_out = nodes.k_out[i];
+	
+	nodes.sc[i] = nodes.sc[j];
+	nodes.tau[i] = nodes.tau[j];
+	nodes.k_in[i] = nodes.k_in[j];
+	nodes.k_out[i] = nodes.k_out[j];
 
-	Node temp;
-	temp = *n;
-	*n = *m;
-	*m = temp;
+	nodes.sc[j] = sc;
+	nodes.tau[j] = tau;
+	nodes.k_in[j] = k_in;
+	nodes.k_out[j] = k_out;
 }
 
 //Newton-Raphson Method

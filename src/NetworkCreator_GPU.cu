@@ -124,35 +124,15 @@ __global__ void FindNodeDegrees(int *past_edge_row_start, int *future_edge_row_s
 	return true;
 }*/
 
-bool linkNodesGPU(Node * const &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUdeviceptr d_past_edges, int * const &future_edges, CUdeviceptr d_future_edges, int * const &past_edge_row_start, CUdeviceptr d_past_edge_row_start, int * const &future_edge_row_start, CUdeviceptr d_future_edge_row_start, bool * const &core_edge_exists, CUdeviceptr d_k_in, CUdeviceptr d_k_out, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUdeviceptr d_past_edges, int * const &future_edges, CUdeviceptr d_future_edges, int * const &past_edge_row_start, CUdeviceptr d_past_edge_row_start, int * const &future_edge_row_start, CUdeviceptr d_future_edge_row_start, bool * const &core_edge_exists, CUdeviceptr d_k_in, CUdeviceptr d_k_out, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
 {
 	//Add assert statements
-
-	float4 *coord;
-	int *k_in;
-	int *k_out;
-	int *g_idx;
-	int i;
 
 	stopwatchStart(&sLinkNodesGPU);
 
 	//Allocate Overhead on Host
+	int *g_idx;
 	try {
-		coord = (float4*)malloc(sizeof(float4) * N_tar);
-		if (coord == NULL)
-			throw std::bad_alloc();
-		hostMemUsed += sizeof(float4) * N_tar;
-
-		k_in = (int*)malloc(sizeof(int) * N_tar);
-		if (k_in == NULL)
-			throw std::bad_alloc();
-		hostMemUsed += sizeof(int) * N_tar;
-
-		k_out = (int*)malloc(sizeof(int) * N_tar);
-		if (k_out == NULL)
-			throw std::bad_alloc();
-		hostMemUsed += sizeof(int) * N_tar;
-
 		g_idx = (int*)malloc(sizeof(int));
 		if (g_idx == NULL)
 			throw std::bad_alloc();
@@ -178,30 +158,15 @@ bool linkNodesGPU(Node * const &nodes, CUdeviceptr d_nodes, int * const &past_ed
 	if (verbose)
 		printMemUsed("for Parallel Node Linking", hostMemUsed, devMemUsed);
 
-	//Copy Node Coordinates to Contiguous Memory on Host
-	for (i = 0; i < N_tar; i++) {
-		coord[i].w = nodes[i].eta;
-		coord[i].x = nodes[i].theta;
-		coord[i].y = nodes[i].phi;
-		coord[i].z = nodes[i].chi;
-	}
-
 	//Copy Memory from Host to Device
-	checkCudaErrors(cuMemcpyHtoD(d_nodes, coord, sizeof(float4) * N_tar));
+	checkCudaErrors(cuMemcpyHtoD(d_nodes, nodes.sc, sizeof(float4) * N_tar));
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_edges, 0, N_tar * k_tar + 2 * edge_buffer));
-	checkCudaErrors(cuMemsetD32(d_past_edge_row_start, 0, N_tar));
-	checkCudaErrors(cuMemsetD32(d_future_edge_row_start, 0, N_tar));
 	checkCudaErrors(cuMemsetD32(d_g_idx, 0, 1));
 
 	//Synchronize
 	checkCudaErrors(cuCtxSynchronize());
-
-	//Free Host Memory
-	free(coord);
-	coord = NULL;
-	hostMemUsed -= sizeof(float4) * N_tar;
 
 	//CUDA Grid Specifications
 	unsigned int gridx = static_cast<unsigned int>(ceil((static_cast<float>(N_tar) / 2) / BLOCK_SIZE));

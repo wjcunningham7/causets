@@ -8,7 +8,7 @@
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node *& nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdeviceptr &d_past_edges, int *& future_edges, CUdeviceptr &d_future_edges, int *& past_edge_row_start, CUdeviceptr &d_past_edge_row_start, int *& future_edge_row_start, CUdeviceptr &d_future_edge_row_start, bool *& core_edge_exists, CUdeviceptr &d_k_in, CUdeviceptr &d_k_out, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdeviceptr &d_past_edges, int *& future_edges, CUdeviceptr &d_future_edges, int *& past_edge_row_start, CUdeviceptr &d_past_edge_row_start, int *& future_edge_row_start, CUdeviceptr &d_future_edge_row_start, bool *& core_edge_exists, CUdeviceptr &d_k_in, CUdeviceptr &d_k_out, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench, const bool &yes)
 {
 	if (DEBUG) {
 		//Variables in correct ranges
@@ -21,7 +21,9 @@ bool createNetwork(Node *& nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdev
 	if (verbose && !yes) {
 		//Estimate memory usage before allocating
 		size_t mem = 0;
-		mem += sizeof(Node) * N_tar;
+		mem += sizeof(float4) * N_tar;
+		mem += sizeof(float) * N_tar;
+		mem += sizeof(int) * 2 * N_tar;
 		mem += sizeof(int) * 2 * (N_tar * k_tar / 2 + edge_buffer);
 		mem += sizeof(int) * 2 * N_tar;
 		mem += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);
@@ -46,10 +48,26 @@ bool createNetwork(Node *& nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdev
 	stopwatchStart(&sCreateNetwork);
 
 	try {
-		nodes = (Node*)malloc(sizeof(Node) * N_tar);
-		if (nodes == NULL)
+		nodes.sc = (float4*)malloc(sizeof(float4) * N_tar);
+		if (nodes.sc == NULL)
 			throw std::bad_alloc();
-		hostMemUsed += sizeof(Node) * N_tar;
+		hostMemUsed += sizeof(float4) * N_tar;
+
+		nodes.tau = (float*)malloc(sizeof(float) * N_tar);
+		if (nodes.tau == NULL)
+			throw std::bad_alloc();
+		hostMemUsed += sizeof(float) * N_tar;
+
+		nodes.k_in = (int*)malloc(sizeof(int) * N_tar);
+		if (nodes.k_in == NULL)
+			throw std::bad_alloc();
+		hostMemUsed += sizeof(int) * N_tar;
+
+		nodes.k_out = (int*)malloc(sizeof(int) * N_tar);
+		if (nodes.k_out == NULL)
+			throw std::bad_alloc();
+		hostMemUsed += sizeof(int) * N_tar;
+
 		if (verbose)
 			printMemUsed("for Nodes", hostMemUsed, devMemUsed);
 
@@ -103,12 +121,9 @@ bool createNetwork(Node *& nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdev
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
-		//No null pointers
-		assert (nodes != NULL);
-
 		//Values are in correct ranges
 		assert (N_tar > 0);
 		assert (k_tar > 0.0);
@@ -131,123 +146,116 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 
 	stopwatchStart(&sGenerateNodes);
 
-	/*if (use_gpu) {
-		//if (!generateNodesGPU(network))
-			return false;
-	} else {*/
-		//Generate coordinates for each of N nodes
-		double x, rval;
-		int i;
-		for (i = 0; i < N_tar; i++) {
-			nodes[i] = Node();
+	//Generate coordinates for each of N nodes
+	double x, rval;
+	int i;
+	for (i = 0; i < N_tar; i++) {
+		if (manifold == EUCLIDEAN) {
+			//
+		} else if (manifold == DE_SITTER) {
+			///////////////////////////////////////////////////////////
+			//~~~~~~~~~~~~~~~~~~~~~~~~~Theta~~~~~~~~~~~~~~~~~~~~~~~~~//
+			//Sample Theta from (0, 2pi), as described on p. 2 of [1]//
+			///////////////////////////////////////////////////////////
 
+			nodes.sc[i].x = TWO_PI * ran2(&seed);
+			if (DEBUG) assert (nodes.sc[i].x > 0.0 && nodes.sc[i].x < TWO_PI);
+			//if (i % NPRINT == 0) printf("Theta: %5.5f\n", nodes.sc[i].x); fflush(stdout);
+		} else if (manifold == ANTI_DE_SITTER) {
+			//
+		}
+
+		if (dim == 1) {
 			if (manifold == EUCLIDEAN) {
 				//
 			} else if (manifold == DE_SITTER) {
-				///////////////////////////////////////////////////////////
-				//~~~~~~~~~~~~~~~~~~~~~~~~~Theta~~~~~~~~~~~~~~~~~~~~~~~~~//
-				//Sample Theta from (0, 2pi), as described on p. 2 of [1]//
-				///////////////////////////////////////////////////////////
-
-				nodes[i].theta = TWO_PI * ran2(&seed);
-				if (DEBUG) assert (nodes[i].theta > 0.0 && nodes[i].theta < TWO_PI);
-				//if (i % NPRINT == 0) printf("Theta: %5.5f\n", nodes[i].theta); fflush(stdout);
+				//CDF derived from PDF identified in (2) of [2]
+				nodes.sc[i].w = ATAN(ran2(&seed) / TAN(static_cast<float>(zeta), APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+				nodes.tau[i] = etaToTau(nodes.sc[i].w);
+				if (DEBUG) {
+					assert (nodes.sc[i].w > 0.0);
+					assert (nodes.sc[i].w < HALF_PI - zeta + 0.0000001);
+				}
 			} else if (manifold == ANTI_DE_SITTER) {
 				//
 			}
+		} else if (dim == 3) {
+			if (manifold == EUCLIDEAN) {
+				//
+			} else if (manifold == DE_SITTER) {
+				/////////////////////////////////////////////////////////
+				//~~~~~~~~~~~~~~~~~~~~~~~~~~~~T~~~~~~~~~~~~~~~~~~~~~~~~//
+				//CDF derived from PDF identified in (6) of [2] for 3+1//
+				//and from PDF identified in (12) of [2] for universe  //
+				/////////////////////////////////////////////////////////
 
-			if (dim == 1) {
-				if (manifold == EUCLIDEAN) {
-					//
-				} else if (manifold == DE_SITTER) {
-					//CDF derived from PDF identified in (2) of [2]
-					nodes[i].eta = ATAN(ran2(&seed) / TAN(static_cast<float>(zeta), APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-					nodes[i].tau = etaToTau(nodes[i].eta);
-					if (DEBUG) {
-						assert (nodes[i].eta > 0.0);
-						assert (nodes[i].eta < HALF_PI - zeta + 0.0000001);
-					}
-				} else if (manifold == ANTI_DE_SITTER) {
-					//
-				}
-			} else if (dim == 3) {
-				if (manifold == EUCLIDEAN) {
-					//
-				} else if (manifold == DE_SITTER) {
-					/////////////////////////////////////////////////////////
-					//~~~~~~~~~~~~~~~~~~~~~~~~~~~~T~~~~~~~~~~~~~~~~~~~~~~~~//
-					//CDF derived from PDF identified in (6) of [2] for 3+1//
-					//and from PDF identified in (12) of [2] for universe  //
-					/////////////////////////////////////////////////////////
-
-					rval = ran2(&seed);
-					if (universe) {
-						x = 0.5;
-						if (!newton(&solveTauUniverse, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
-							return false;
-					} else {
-						x = 3.5;
-						if (!newton(&solveTau, &x, 1000, TOL, &zeta, NULL, &rval, NULL, NULL, NULL))
-							return false;
-					}
-
-					nodes[i].tau = x;
-
-					if (DEBUG) {
-						assert (nodes[i].tau > 0.0);
-						assert (nodes[i].tau < tau0);
-					}
-
-					//Save eta values as well
-					if (universe) {
-						if (USE_GSL) {
-							//Numerical Integration
-							idata.upper = nodes[i].tau * a;
-							nodes[i].eta = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) / alpha;
-						} else
-							//Exact Solution
-							nodes[i].eta = tauToEtaUniverseExact(nodes[i].tau, a, alpha);
-					} else
-						nodes[i].eta = tauToEta(nodes[i].tau);
-				
-					////////////////////////////////////////////////////
-					//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
-					//CDFs derived from PDFs identified on p. 3 of [2]//
-					//Phi given by [3]				  //
-					////////////////////////////////////////////////////
-
-					//Sample Phi from (0, pi)
-					//For some reason the technique in [3] has not been producing the correct distribution...
-					//nodes[i].phi = 0.5 * (M_PI * ran2(&seed) + ACOS(static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-					x = HALF_PI;
-					rval = ran2(&seed);
-					if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
+				rval = ran2(&seed);
+				if (universe) {
+					x = 0.5;
+					if (!newton(&solveTauUniverse, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
 						return false;
-					nodes[i].phi = x;
-					if (DEBUG) assert (nodes[i].phi > 0.0 && nodes[i].phi < M_PI);
-					//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes[i].phi); fflush(stdout);
-
-					//Sample Chi from (0, pi)
-					nodes[i].chi = ACOS(1.0 - 2.0 * static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-					if (DEBUG) assert (nodes[i].chi > 0.0 && nodes[i].chi < M_PI);
-					//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes[i].chi); fflush(stdout);
-				} else if (manifold == ANTI_DE_SITTER) {
-					//
+				} else {
+					x = 3.5;
+					if (!newton(&solveTau, &x, 1000, TOL, &zeta, NULL, &rval, NULL, NULL, NULL))
+						return false;
 				}
-			}
-			//if (i % NPRINT == 0) printf("eta: %E\n", nodes[i].eta);
-			//if (i % NPRINT == 0) printf("tau: %E\n", nodes[i].tau);
-		}
 
-		//Debugging statements used to check coordinate distributions
-		/*if (!printValues(nodes, N_tar, "tau_dist.cset.dbg.dat", "tau")) return false;
-		if (!printValues(nodes, N_tar, "eta_dist.cset.dbg.dat", "eta")) return false;
-		if (!printValues(nodes, N_tar, "theta_dist.cset.dbg.dat", "theta")) return false;
-		if (!printValues(nodes, N_tar, "chi_dist.cset.dbg.dat", "chi")) return false;
-		if (!printValues(nodes, N_tar, "phi_dist.cset.dbg.dat", "phi")) return false;
-		printf("Check coordinate distributions now.\n");
-		exit(EXIT_SUCCESS);*/
-	//}
+				nodes.tau[i] = x;
+
+				if (DEBUG) {
+					assert (nodes.tau[i] > 0.0);
+					assert (nodes.tau[i] < tau0);
+				}
+
+				//Save eta values as well
+				if (universe) {
+					if (USE_GSL) {
+						//Numerical Integration
+						idata.upper = nodes.tau[i] * a;
+						nodes.sc[i].w = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) / alpha;
+					} else
+						//Exact Solution
+						nodes.sc[i].w = tauToEtaUniverseExact(nodes.tau[i], a, alpha);
+				} else
+					nodes.sc[i].w = tauToEta(nodes.tau[i]);
+				
+				////////////////////////////////////////////////////
+				//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
+				//CDFs derived from PDFs identified on p. 3 of [2]//
+				//Phi given by [3]				  //
+				////////////////////////////////////////////////////
+
+				//Sample Phi from (0, pi)
+				//For some reason the technique in [3] has not been producing the correct distribution...
+				//nodes.sc[i].y = 0.5 * (M_PI * ran2(&seed) + ACOS(static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+				x = HALF_PI;
+				rval = ran2(&seed);
+				if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
+					return false;
+				nodes.sc[i].y = x;
+				if (DEBUG) assert (nodes.sc[i].y > 0.0 && nodes.sc[i].y < M_PI);
+				//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes.sc[i].y); fflush(stdout);
+
+				//Sample Chi from (0, pi)
+				nodes.sc[i].z = ACOS(1.0 - 2.0 * static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+				if (DEBUG) assert (nodes.sc[i].z > 0.0 && nodes.sc[i].z < M_PI);
+				//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes.sc[i].z); fflush(stdout);
+			} else if (manifold == ANTI_DE_SITTER) {
+				//
+			}
+		}
+		//if (i % NPRINT == 0) printf("eta: %E\n", nodes.sc[i].w);
+		//if (i % NPRINT == 0) printf("tau: %E\n", nodes.tau[i]);
+	}
+
+	//Debugging statements used to check coordinate distributions
+	/*if (!printValues(nodes, N_tar, "tau_dist.cset.dbg.dat", "tau")) return false;
+	if (!printValues(nodes, N_tar, "eta_dist.cset.dbg.dat", "eta")) return false;
+	if (!printValues(nodes, N_tar, "theta_dist.cset.dbg.dat", "theta")) return false;
+	if (!printValues(nodes, N_tar, "chi_dist.cset.dbg.dat", "chi")) return false;
+	if (!printValues(nodes, N_tar, "phi_dist.cset.dbg.dat", "phi")) return false;
+	printf("Check coordinate distributions now.\n");
+	exit(EXIT_SUCCESS);*/
 
 	stopwatchStop(&sGenerateNodes);
 
@@ -269,11 +277,10 @@ bool generateNodes(Node * const &nodes, const int &N_tar, const float &k_tar, co
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No null pointers
-		assert (nodes != NULL);
 		assert (past_edges != NULL);
 		assert (future_edges != NULL);
 		assert (past_edge_row_start != NULL);
@@ -303,8 +310,8 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 	stopwatchStart(&sLinkNodes);
 
 	for (i = 0; i < N_tar; i++) {
-		nodes[i].k_in = 0;
-		nodes[i].k_out = 0;
+		nodes.k_in[i] = 0;
+		nodes.k_out[i] = 0;
 	}
 
 	//Identify future connections
@@ -318,7 +325,8 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 			if (manifold == EUCLIDEAN) {
 				//
 			} else if (manifold == DE_SITTER) {
-				dt = ABS(nodes[i].eta - nodes[j].eta, STL);
+				//Assume nodes are already temporally ordered
+				dt = nodes.sc[j].w - nodes.sc[i].w;
 				//if (i % NPRINT == 0) printf("dt: %.9f\n", dt); fflush(stdout);
 				if (DEBUG) {
 					assert (dt >= 0.0);
@@ -337,7 +345,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 					//
 				} else if (manifold == DE_SITTER) {
 					//Formula given on p. 2 of [2]
-					dx = M_PI - ABS(M_PI - ABS(nodes[j].theta - nodes[i].theta, STL), STL);
+					dx = M_PI - ABS(M_PI - ABS(nodes.sc[j].x - nodes.sc[i].x, STL), STL);
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
 				}
@@ -346,10 +354,10 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 					//
 				} else if (manifold == DE_SITTER) {
 					//Spherical Law of Cosines
-					dx = ACOS(X1(nodes[i].phi) * X1(nodes[j].phi) + 
-						  X2(nodes[i].phi, nodes[i].chi) * X2(nodes[j].phi, nodes[j].chi) + 
-						  X3(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X3(nodes[j].phi, nodes[j].chi, nodes[j].theta) + 
-						  X4(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X4(nodes[j].phi, nodes[j].chi, nodes[j].theta), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+					dx = ACOS(X1(nodes.sc[i].y) * X1(nodes.sc[j].y) + 
+						  X2(nodes.sc[i].y, nodes.sc[i].z) * X2(nodes.sc[j].y, nodes.sc[j].z) + 
+						  X3(nodes.sc[i].y, nodes.sc[i].z, nodes.sc[i].x) * X3(nodes.sc[j].y, nodes.sc[j].z, nodes.sc[j].x) + 
+						  X4(nodes.sc[i].y, nodes.sc[i].z, nodes.sc[i].x) * X4(nodes.sc[j].y, nodes.sc[j].z, nodes.sc[j].x), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
 				}
@@ -373,7 +381,6 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 			//Link timelike relations
 			try {
 				if (dx < dt) {
-					//if (i % NPRINT == 0) printf("\tConnected %d to %d\n", i, j); fflush(stdout);
 					//if (i % NPRINT == 0) printf("%d %d\n", i, j); fflush(stdout);
 					future_edges[future_idx] = j;
 					future_idx++;
@@ -382,8 +389,8 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 						throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 	
 					//Record number of degrees for each node
-					nodes[j].k_in++;
-					nodes[i].k_out++;
+					nodes.k_in[j]++;
+					nodes.k_out[i]++;
 				}
 			} catch (CausetException c) {
 				fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
@@ -420,7 +427,7 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 			if (future_edge_row_start[j] == -1)
 				continue;
 
-			for (k = 0; k < nodes[j].k_out; k++) {
+			for (k = 0; k < nodes.k_out[j]; k++) {
 				if (i == future_edges[future_edge_row_start[j]+k]) {
 					past_edges[past_idx] = j;
 					past_idx++;
@@ -440,11 +447,11 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 
 	//Identify Resulting Network
 	for (i = 0; i < N_tar; i++) {
-		if (nodes[i].k_in > 0 || nodes[i].k_out > 0) {
+		if (nodes.k_in[i] > 0 || nodes.k_out[i] > 0) {
 			N_res++;
-			k_res += nodes[i].k_in + nodes[i].k_out;
+			k_res += nodes.k_in[i] + nodes.k_out[i];
 
-			if (nodes[i].k_in + nodes[i].k_out > 1)
+			if (nodes.k_in[i] + nodes.k_out[i] > 1)
 				N_deg2++;
 		} 
 	}
@@ -480,11 +487,10 @@ bool linkNodes(Node * const &nodes, int * const &past_edges, int * const &future
 
 //Debug:  Future vs Past Edges in Adjacency List
 //O(1) Efficiency
-void compareAdjacencyLists(const Node * const nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start)
+void compareAdjacencyLists(const Node &nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start)
 {
 	if (DEBUG) {
 		//No null pointers
-		assert (nodes != NULL);
 		assert (past_edges != NULL);
 		assert (future_edges != NULL);
 		assert (past_edge_row_start != NULL);
@@ -499,7 +505,7 @@ void compareAdjacencyLists(const Node * const nodes, const int * const past_edge
 		if (future_edge_row_start[i] == -1)
 			printf("\tNo future connections.\n");
 		else {
-			for (j = 0; j < nodes[i].k_out && j < 10; j++)
+			for (j = 0; j < nodes.k_out[i] && j < 10; j++)
 				printf("%d ", future_edges[future_edge_row_start[i]+j]);
 			printf("\n");
 		}
@@ -508,7 +514,7 @@ void compareAdjacencyLists(const Node * const nodes, const int * const past_edge
 		if (past_edge_row_start[i] == -1)
 			printf("\tNo past connections.\n");
 		else {
-			for (j = 0; j < nodes[i].k_in && j < 10; j++)
+			for (j = 0; j < nodes.k_in[i] && j < 10; j++)
 				printf("%d ", past_edges[past_edge_row_start[i]+j]);
 			printf("\n");
 		}
@@ -519,11 +525,10 @@ void compareAdjacencyLists(const Node * const nodes, const int * const past_edge
 
 //Debug:  Future and Past Adjacency List Indices
 //O(1) Effiency
-void compareAdjacencyListIndices(const Node * const nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start)
+void compareAdjacencyListIndices(const Node &nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start)
 {
 	if (DEBUG) {
 		//No null pointers
-		assert (nodes != NULL);
 		assert (past_edges != NULL);
 		assert (future_edges != NULL);
 		assert (past_edge_row_start != NULL);
@@ -546,7 +551,7 @@ void compareAdjacencyListIndices(const Node * const nodes, const int * const pas
 	for (i = 0; i < max1; i++) {
 		printf("\nNode i: %d\n", i);
 
-		printf("Out-Degrees: %d\n", nodes[i].k_out);
+		printf("Out-Degrees: %d\n", nodes.k_out[i]);
 		if (future_edge_row_start[i] == -1) {
 			printf("Pointer: 0\n");
 		} else {
@@ -559,7 +564,7 @@ void compareAdjacencyListIndices(const Node * const nodes, const int * const pas
 			printf("Pointer: %d\n", (future_edge_row_start[i+next_future_idx] - future_edge_row_start[i]));
 		}
 
-		printf("In-Degrees: %d\n", nodes[i].k_in);
+		printf("In-Degrees: %d\n", nodes.k_in[i]);
 		if (past_edge_row_start[i] == -1)
 			printf("Pointer: 0\n");
 		else {
@@ -577,11 +582,10 @@ void compareAdjacencyListIndices(const Node * const nodes, const int * const pas
 
 //Write Node Coordinates to File
 //O(num_vals) Efficiency
-bool printValues(const Node * const nodes, const int num_vals, const char *filename, const char *coord)
+bool printValues(const Node &nodes, const int num_vals, const char *filename, const char *coord)
 {
 	if (DEBUG) {
 		//No null pointers
-		assert (nodes != NULL);
 		assert (filename != NULL);
 		assert (coord != NULL);
 
@@ -598,70 +602,21 @@ bool printValues(const Node * const nodes, const int num_vals, const char *filen
 		int i;
 		for (i = 0; i < num_vals; i++) {
 			if (strcmp(coord, "tau") == 0)
-				outputStream << nodes[i].tau << std::endl;
+				outputStream << nodes.tau[i] << std::endl;
 			else if (strcmp(coord, "eta") == 0)
-				outputStream << nodes[i].eta << std::endl;
+				outputStream << nodes.sc[i].w << std::endl;
 			else if (strcmp(coord, "theta") == 0)
-				outputStream << nodes[i].theta << std::endl;
-			else if (strcmp(coord, "chi") == 0)
-				outputStream << nodes[i].chi << std::endl;
+				outputStream << nodes.sc[i].x << std::endl;
 			else if (strcmp(coord, "phi") == 0)
-				outputStream << nodes[i].phi << std::endl;
+				outputStream << nodes.sc[i].y << std::endl;
+			else if (strcmp(coord, "chi") == 0)
+				outputStream << nodes.sc[i].z << std::endl;
 			else
 				throw CausetException("Unrecognized value in 'coord' parameter!\n");
 		}
 	
 		outputStream.flush();
 		outputStream.close();
-	} catch (CausetException c) {
-		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		return false;
-	} catch (std::exception e) {
-		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-		return false;
-	}
-
-	return true;
-}
-
-//Write Spatial Distances to File
-//O(N^2) Efficiency
-bool printSpatialDistances(const Node * const nodes, const Manifold &manifold, const int &N_tar, const int &dim)
-{
-	if (DEBUG) {
-		//No null pointers
-		assert (nodes != NULL);
-
-		//Variables in correct ranges
-		assert (manifold == DE_SITTER); //Only de Sitter implemented here
-		assert (dim == 1 || dim == 3);
-	}
-
-	try {	
-		std::ofstream dbgStream;
-		float dx;
-		dbgStream.open("distances.cset.dbg.dat");
-		if (!dbgStream.is_open())
-			throw CausetException("Failed to open 'distances.cset.dbg.dat' file!\n");
-		int i, j;
-		for (i = 0; i < N_tar - 1; i++) {
-			for (j = i + 1; j < N_tar; j++) {
-				if (dim == 1) dx = M_PI - ABS(static_cast<float>(M_PI) - ABS(nodes[j].theta - nodes[i].theta, STL), STL);
-				else if (dim == 3)
-					dx = ACOS((X1(nodes[i].phi) * X1(nodes[j].phi)) +
-						  (X2(nodes[i].phi, nodes[i].chi) * X2(nodes[j].phi, nodes[j].chi)) +
-						  (X3(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X3(nodes[j].phi, nodes[j].chi, nodes[j].theta)) +
-						  (X4(nodes[i].phi, nodes[i].chi, nodes[i].theta) * X4(nodes[j].phi, nodes[j].chi, nodes[j].theta)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-				dbgStream << dx << std::endl;
-				if (i*N_tar+j > 500000) {
-					i = N_tar;
-					break;
-				}
-			}
-		}
-	
-		dbgStream.flush();
-		dbgStream.close();
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;

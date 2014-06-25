@@ -9,12 +9,13 @@
 
 int main(int argc, char **argv)
 {
-	Network network = Network(parseArgs(argc, argv));
 	CausetPerformance cp = CausetPerformance();
+	stopwatchStart(&cp.sCauset);
+
+	Network network = Network(parseArgs(argc, argv));
 	Benchmark bm = Benchmark();
 	Resources resources = Resources();
 	
-	stopwatchStart(&cp.sCauset);
 	long init_seed = network.network_properties.seed;
 	bool success = false;
 
@@ -28,8 +29,6 @@ int main(int argc, char **argv)
 
 	if (!measureNetworkObservables(&network, &cp, &bm, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
 
-	stopwatchStop(&cp.sCauset);
-
 	if (network.network_properties.flags.bench && !printBenchmark(bm, network.network_properties.flags)) goto CausetExit;
 	if (network.network_properties.flags.disp_network && !displayNetwork(network.nodes, network.future_edges, argc, argv)) goto CausetExit;
 	if (!network.network_properties.flags.bench) printMemUsed(NULL, resources.maxHostMemUsed, resources.maxDevMemUsed);
@@ -39,6 +38,7 @@ int main(int argc, char **argv)
 	if (network.network_properties.flags.use_gpu) cuCtxDetach(resources.cuContext);
 
 	success = true;
+	stopwatchStop(&cp.sCauset);
 
 	CausetExit:
 	if (cp.sCauset.stopTime.tv_sec == 0 && cp.sCauset.stopTime.tv_usec == 0)
@@ -523,7 +523,7 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 					char response = getchar();
 					getchar();
 					if (response != 'y')
-						exit(EXIT_FAILURE);
+						return false;
 				}
 				network->network_properties.N_sr = static_cast<int64_t>(network->network_properties.N_tar) * (network->network_properties.N_tar - 1) / 2;
 			}
@@ -764,12 +764,10 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 }
 
 //Plot using OpenGL
-bool displayNetwork(const Node * const nodes, const int * const future_edges, int argc, char **argv)
+bool displayNetwork(const Node &nodes, const int * const future_edges, int argc, char **argv)
 {
-	if (DEBUG) {
-		assert (nodes != NULL);
+	if (DEBUG)
 		assert (future_edges != NULL);
-	}
 
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE);
@@ -806,7 +804,7 @@ void display()
 //	-Edge data			(./dat/edg/*.cset.edg.dat)
 bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
-	if (DEBUG) {
+	/*if (DEBUG) {
 		assert (network != NULL);
 		assert (cp != NULL);
 		assert (network->network_properties.graphID != 0);
@@ -1057,7 +1055,9 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &
 	printf("Task Completed.\n");
 	fflush(stdout);
 
-	return true;
+	return true;*/
+
+	return false;
 }
 
 //Print to File
@@ -1219,12 +1219,12 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 			throw CausetException("Failed to open node position file!\n");
 		for (i = 0; i < network.network_properties.N_tar; i++) {
 			if (network.network_properties.flags.universe)
-				dataStream << network.nodes[i].tau;
+				dataStream << network.nodes.tau[i];
 			else
-				dataStream << network.nodes[i].eta;
-			dataStream << " " << network.nodes[i].theta;
+				dataStream << network.nodes.sc[i].w;
+			dataStream << " " << network.nodes.sc[i].x;
 			if (network.network_properties.dim == 3)
-				dataStream << " " << network.nodes[i].phi << " " << network.nodes[i].chi;
+				dataStream << " " << network.nodes.sc[i].y << " " << network.nodes.sc[i].z;
 			dataStream << std::endl;
 		}
 		dataStream.flush();
@@ -1238,9 +1238,9 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 		if (!dataStream.is_open())
 			throw CausetException("Failed to open edge list file!\n");
 		for (i = 0; i < network.network_properties.N_tar; i++) {
-			for (j = 0; j < network.nodes[i].k_out; j++)
+			for (j = 0; j < network.nodes.k_out[i]; j++)
 				dataStream << i << " " << network.future_edges[idx + j] << std::endl;
-			idx += network.nodes[i].k_out;
+			idx += network.nodes.k_out[i];
 		}
 		dataStream.flush();
 		dataStream.close();
@@ -1255,7 +1255,7 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 		for (k = 1; k <= k_max; k++) {
 			idx = 0;
 			for (i = 0; i < network.network_properties.N_tar; i++)
-				if (network.nodes[i].k_in + network.nodes[i].k_out == k)
+				if (network.nodes.k_in[i] + network.nodes.k_out[i] == k)
 					idx++;
 			if (idx > 0)
 				dataStream << k << " " << idx << std::endl;
@@ -1272,7 +1272,7 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 		for (k = 1; k <= k_max; k++) {
 			idx = 0;
 			for (i = 0; i < network.network_properties.N_tar; i++)
-				if (network.nodes[i].k_in == k)
+				if (network.nodes.k_in[i] == k)
 					idx++;
 			if (idx > 0)
 				dataStream << k << " " << idx << std::endl;
@@ -1289,7 +1289,7 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 		for (k = 1; k <= k_max; k++) {
 			idx = 0;
 			for (i = 0; i < network.network_properties.N_tar; i++)
-				if (network.nodes[i].k_out == k)
+				if (network.nodes.k_out[i] == k)
 					idx++;
 			if (idx > 0)
 				dataStream << k << " " << idx << std::endl;
@@ -1321,7 +1321,7 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 				cdk = 0.0;
 				ndk = 0;
 				for (j = 0; j < network.network_properties.N_tar; j++) {
-					if (i == (network.nodes[j].k_in + network.nodes[j].k_out)) {
+					if (i == (network.nodes.k_in[j] + network.nodes.k_out[j])) {
 						cdk += network.network_observables.clustering[j];
 						ndk++;
 					}
@@ -1415,9 +1415,21 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
 //Free Memory
 void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed)
 {
-	free(network->nodes);
-	network->nodes = NULL;
-	hostMemUsed -= sizeof(Node) * network->network_properties.N_tar;
+	free(network->nodes.sc);
+	network->nodes.sc = NULL;
+	hostMemUsed -= sizeof(float4) * network->network_properties.N_tar;
+
+	free(network->nodes.tau);
+	network->nodes.tau = NULL;
+	hostMemUsed -= sizeof(float) * network->network_properties.N_tar;
+
+	free(network->nodes.k_in);
+	network->nodes.k_in = NULL;
+	hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
+
+	free(network->nodes.k_out);
+	network->nodes.k_out = NULL;
+	hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 
 	free(network->past_edges);
 	network->past_edges = NULL;

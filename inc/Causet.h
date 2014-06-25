@@ -16,6 +16,7 @@
 #include <curand.h>
 #include <GL/freeglut.h>
 #include <sys/io.h>
+//#include <vectortypes.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -70,20 +71,24 @@ enum Manifold {
 
 //Minimal unique properties of a node
 struct Node {
-	Node() : tau(0.0), eta(0.0), theta(0.0), phi(0.0), chi(0.0), k_in(0), k_out(0) {}
+	Node() : sc(NULL), tau(NULL), k_in(NULL), k_out(NULL) {}
 
 	//Temporal Coordinate
-	float tau;	//Rescaled Time
-	float eta;	//Conformal Time
+	/*float *tau;	//Rescaled Time
+	float *eta;	//Conformal Time
 
 	//Spatial Coordinates
-	float theta;
-	float phi;
-	float chi;
+	float *theta;
+	float *phi;
+	float *chi;*/
+
+	//Spacetime Coordinates
+	float4 *sc;	//Stored as (eta, theta, phi, chi)
+	float *tau;	//Rescaled Time
 
 	//Number of Neighbors
-	int k_in;
-	int k_out;
+	int *k_in;
+	int *k_out;
 };
 
 //These are conflicts which arise due to over-constraining
@@ -122,20 +127,11 @@ struct CausetFlags {
 	bool yes;		//Suppresses User Input
 };
 
-//CUDA Kernel Execution Parameters
-struct NetworkExec {
-	NetworkExec() : threads_per_block(dim3(256, 256, 1)), blocks_per_grid(dim3(256, 256, 1)) {}
-
-	dim3 threads_per_block;
-	dim3 blocks_per_grid;
-};
-
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_sr(0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(1.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()), /*network_exec(NetworkExec()),*/ manifold(DE_SITTER) {}
+	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_sr(0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(1.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
 
 	CausetFlags flags;
-	//NetworkExec network_exec;
 
 	int N_tar;			//Target Number of Nodes
 	float k_tar;			//Target Average Degree
@@ -181,13 +177,13 @@ struct NetworkObservables {
 
 //Network object containing minimal unique information
 struct Network {
-	Network() : network_properties(NetworkProperties()), network_observables(NetworkObservables()), nodes(NULL), past_edges(NULL), future_edges(NULL), past_edge_row_start(NULL), future_edge_row_start(NULL), core_edge_exists(NULL) {}
-	Network(NetworkProperties _network_properties) : network_properties(_network_properties), network_observables(NetworkObservables()), nodes(NULL), past_edges(NULL), future_edges(NULL), past_edge_row_start(NULL), future_edge_row_start(NULL), core_edge_exists(NULL) {}
+	Network() : network_properties(NetworkProperties()), network_observables(NetworkObservables()), nodes(Node()), past_edges(NULL), future_edges(NULL), past_edge_row_start(NULL), future_edge_row_start(NULL), core_edge_exists(NULL) {}
+	Network(NetworkProperties _network_properties) : network_properties(_network_properties), network_observables(NetworkObservables()), nodes(Node()), past_edges(NULL), future_edges(NULL), past_edge_row_start(NULL), future_edge_row_start(NULL), core_edge_exists(NULL) {}
 
 	NetworkProperties network_properties;
 	NetworkObservables network_observables;
 
-	Node *nodes;
+	Node nodes;
 	int *past_edges;		//Sparse adjacency lists
 	int *future_edges;
 	int *past_edge_row_start;	//Adjacency list indices
@@ -252,7 +248,7 @@ class CausetException : public std::exception
 NetworkProperties parseArgs(int argc, char **argv);
 bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
 bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
-bool displayNetwork(const Node * const nodes, const int * const future_edges, int argc, char **argv);
+bool displayNetwork(const Node &nodes, const int * const future_edges, int argc, char **argv);
 void display();
 bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
 bool printNetwork(Network &network, const CausetPerformance &cp, const long &init_seed, const int &gpuID);
