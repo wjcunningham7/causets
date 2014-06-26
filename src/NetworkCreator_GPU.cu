@@ -181,9 +181,24 @@ __global__ void GenerateAdjacencyLists(float4 *nodes, uint64_t *edges, int *k_in
 		edges[idx] = ((uint64_t)i_c) << 32 | ((uint64_t)j_c);
 }
 
-__global__ void DecodeAdjacencyLists(int *past_edges, int *future_edges, int *past_edge_row_start, int *future_edge_row_start, int n_links)
+__global__ void BitonicSort(uint64_t *edges, int n_links, int j, int k)
 {
-	//
+	//Sorting Parameters
+	unsigned i = blockDim.x * blockIdx.x + threadIdx.x;
+	unsigned ixj = i^j;
+
+	//Threads with the lowest IDs sort the list
+	if (ixj > i) {
+		if (!(i & k))
+			//Sort Ascending
+			if (edges[i] > edges[ixj])
+				swap(edges, i, ixj);
+
+		if (i & k)
+			//Sort Descending
+			if (edges[i] < edges[ixj])
+				swap(edges, i, ixj);
+	}
 }
 
 __global__ void FindNodeDegrees(int *past_edge_row_start, int *future_edge_row_start, int *k_in, int *k_out)
@@ -291,14 +306,14 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	checkCudaErrors(cuCtxSynchronize());
 
 	//CUDA Grid Specifications
-	unsigned int gridx = static_cast<unsigned int>(ceil((static_cast<float>(N_tar) / 2) / BLOCK_SIZE));
-	unsigned int gridy = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / 2));
+	unsigned int gridx_GAL = static_cast<unsigned int>(ceil((static_cast<float>(N_tar) / 2) / BLOCK_SIZE));
+	unsigned int gridy_GAL = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / 2));
 	dim3 threads_per_block(BLOCK_SIZE, 1, 1);
-	dim3 blocks_per_grid(gridx, gridy, 1);
+	dim3 blocks_per_grid_GAL(gridx_GAL, gridy_GAL, 1);
 
 	//Execute Kernel
-	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar / 2);
-	//GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>(t_nodes, (float4*)d_nodes, (uint64_t*)d_edges, (int*)d_g_idx, N_tar / 2);
+	GenerateAdjacencyLists<<<blocks_per_grid_GAL, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar / 2);
+	//GenerateAdjacencyLists<<<blocks_per_grid_GAL, threads_per_block>>>(t_nodes, (float4*)d_nodes, (uint64_t*)d_edges, (int*)d_g_idx, N_tar / 2);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
 
 	//Synchronize
@@ -309,38 +324,44 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	checkCudaErrors(cuCtxSynchronize());
 	printf("links: %d\n", *g_idx);
 
-	//Free Host Memory
-	free(g_idx);
-	g_idx = NULL;
-	hostMemUsed -= sizeof(int);
-
-	//Free Device Memory
+	//Free Texture Object
 	//cuTexObjectDestroy(t_nodes);
 
+	//Free Device Memory
 	cuMemFree(d_nodes);
 	d_nodes = NULL;
 	devMemUsed -= sizeof(float4) * N_tar;
 
-	cuMemFree(d_edges);
-	d_edges = NULL;
-	devMemUsed -= sizeof(uint64_t) * (N_tar * k_tar / 2 + edge_buffer);
+	//Bitonic Sort
+	//Borrowed from https://gist.github.com/mre/1392067
+	unsigned int gridx_bitonic = static_cast<unsigned int>(ceil(static_cast<double>(*g_idx) / BLOCK_SIZE));
+	dim3 blocks_per_grid_bitonic(gridx_bitonic, 1, 1);
+	int j, k;
 
-	cuMemFree(d_g_idx);
-	g_idx = NULL;
-	devMemUsed -= sizeof(int);
-
-	//Execute kernel to increment in-degrees and out-degrees from adjacency list pointers
-	/*FindNodeDegrees<<<blocks_per_grid, threads_per_block>>>(d_past_edge_row_start, d_future_edge_row_start, d_k_in, d_k_out);
+	for (k = 2; k <= *g_idx; k <<= 1)
+		for (j = k >> 1; j > 0; j >>= 1)
+			BitonicSort<<<blocks_per_grid_bitonic, threads_per_block>>>((uint64_t*)d_edges, *g_idx, j, k);
+	getLastCudaError("Kernel 'NetworkCreator_GPU.BitonicSort' Failed to Execute!\n");
 
 	//Synchronize
 	checkCudaErrors(cuCtxSynchronize());
 
-	//Copy adjacency list pointers from Device to Host
-	checkCudaErrors(cuMemcpyDtoH(past_edge_row_start, d_past_edge_row_start, sizeof(int) * N_tar));
-	checkCudaErrors(cuMemcpyDtoH(future_edge_row_start, d_future_edge_row_start, sizeof(int) * N_tar));
+	//Decode 'edges' and Write to 'past_edges' and 'future_edges'
+	
+	//Free Host Memory
+	free(g_idx);
+	g_idx = NULL;
+	hostMemUsed -= sizeof(int);
+	
+	cuMemFree(d_edges);
+	d_edges = NULL;
+	devMemUsed -= sizeof(uint64_t) * (N_tar * k_tar / 2 + edge_buffer);
+	
+	cuMemFree(d_g_idx);
+	d_g_idx = NULL;
+	devMemUsed -= sizeof(int);
 
-	//Synchronize
-	checkCudaErrors(cuCtxSynchronize());*/
+	//Parallel Prefix Sum of 'k_in' and 'k_out' and Write to Edge Pointers
 
 	stopwatchStop(&sLinkNodesGPU);
 

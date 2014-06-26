@@ -26,3 +26,10 @@ __host__ __device__ uint64_t vec2MatIdx(const int &N, const uint64_t &vecIdx)
 
 	return i * static_cast<uint64_t>(N) + j;
 }
+
+__device__ void swap(uint64_t * const &edges, const unsigned int &i, const unsigned int &j)
+{
+	uint64_t temp = edges[i];
+	edges[i] = edges[j];
+	edges[j] = temp;
+}
