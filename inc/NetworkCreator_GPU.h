@@ -14,9 +14,9 @@
 
 __global__ void Generate(Node *nodes, int N_tar, long seed);
 
-__global__ void GenerateAdjacencyLists(cudaTextureObject_t t_nodes, float4 *nodes, int *edges, int *g_idx, int width);
+//__global__ void GenerateAdjacencyLists(cudaTextureObject_t t_nodes, float4 *nodes, int *edges, int *g_idx, int width);
 
-__global__ void GenerateAdjacencyLists(float4 *nodes, int *edges, int *g_idx, int width);
+__global__ void GenerateAdjacencyLists(float4 *nodes, int *edges, int *k_in, int *k_out, int *g_idx, int width);
 
 __global__ void DecodeAdjacencyLists(int *past_edges, int *future_edges, int *past_edge_row_start, int *future_edge_row_start, int n_links);
 

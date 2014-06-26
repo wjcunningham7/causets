@@ -58,14 +58,22 @@ bool createNetwork(Node &nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdevic
 			throw std::bad_alloc();
 		hostMemUsed += sizeof(float) * N_tar;
 
-		nodes.k_in = (int*)malloc(sizeof(int) * N_tar);
-		if (nodes.k_in == NULL)
-			throw std::bad_alloc();
+		if (use_gpu)
+			checkCudaErrors(cuMemHostAlloc((void**)&nodes.k_in, sizeof(int) * N_tar, CU_MEMHOSTALLOC_DEVICEMAP));
+		else {
+			nodes.k_in = (int*)malloc(sizeof(int) * N_tar);
+			if (nodes.k_in == NULL)
+				throw std::bad_alloc();
+		}
 		hostMemUsed += sizeof(int) * N_tar;
 
-		nodes.k_out = (int*)malloc(sizeof(int) * N_tar);
-		if (nodes.k_out == NULL)
-			throw std::bad_alloc();
+		if (use_gpu)
+			checkCudaErrors(cuMemHostAlloc((void**)&nodes.k_out, sizeof(int) * N_tar, CU_MEMHOSTALLOC_DEVICEMAP));
+		else {
+			nodes.k_out = (int*)malloc(sizeof(int) * N_tar);
+			if (nodes.k_out == NULL)
+				throw std::bad_alloc();
+		}
 		hostMemUsed += sizeof(int) * N_tar;
 
 		if (verbose)

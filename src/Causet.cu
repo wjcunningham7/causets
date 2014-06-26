@@ -1423,11 +1423,17 @@ static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t 
 	network->nodes.tau = NULL;
 	hostMemUsed -= sizeof(float) * network->network_properties.N_tar;
 
-	free(network->nodes.k_in);
+	if (network->network_properties.flags.use_gpu)
+		cuMemFreeHost(network->nodes.k_in);
+	else
+		free(network->nodes.k_in);
 	network->nodes.k_in = NULL;
 	hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 
-	free(network->nodes.k_out);
+	if (network->network_properties.flags.use_gpu)
+		cuMemFreeHost(network->nodes.k_out);
+	else
+		free(network->nodes.k_out);
 	network->nodes.k_out = NULL;
 	hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 

@@ -16,7 +16,7 @@
 	//Implement CURAND package here for random number generation
 }*/
 
-__global__ void GenerateAdjacencyLists(CUtexObject t_nodes, float4 *nodes, uint64_t *edges, int *g_idx, int width)
+/*__global__ void GenerateAdjacencyLists(CUtexObject t_nodes, float4 *nodes, uint64_t *edges, int *g_idx, int width)
 {
 	///////////////////////////////////////
 	// Identify Node Pair with Thread ID //
@@ -78,15 +78,18 @@ __global__ void GenerateAdjacencyLists(CUtexObject t_nodes, float4 *nodes, uint6
 		edges[idx++] = ((uint64_t)i_ab) << 32 | ((uint64_t)j_ab);
 	if (dx_c < dt_c)
 		edges[idx] = ((uint64_t)i_c) << 32 | ((uint64_t)j_c);
-}
+}*/
 
-__global__ void GenerateAdjacencyLists(float4 *nodes, uint64_t *edges, int *g_idx, int width)
+__global__ void GenerateAdjacencyLists(float4 *nodes, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width)
 {
 	///////////////////////////////////////
 	// Identify Node Pair with Thread ID //
 	///////////////////////////////////////
 
 	__shared__ float4 shr_node0_c;
+	__shared__ int n_a[BLOCK_SIZE];
+	__shared__ int n_b[BLOCK_SIZE];
+	__shared__ int n_c[BLOCK_SIZE];
 	float4 node0_ab, node0_c, node1_ab, node1_c;
 
 	int tid = threadIdx.x;
@@ -136,11 +139,45 @@ __global__ void GenerateAdjacencyLists(float4 *nodes, uint64_t *edges, int *g_id
 			     X4_GPU(node0_c.y, node0_c.z, node0_c.x) * X4_GPU(node1_c.y, node1_c.z, node1_c.x));
 	}
 
-	//Write to Global Memory
-	int idx = atomicAdd(g_idx, (dx_ab < dt_ab) + (dx_c < dt_c));
-	if (dx_ab < dt_ab)
+	//Reduction in Shared Memory
+	int edge_ab = dx_ab < dt_ab;
+	int edge_c = dx_c < dt_c;
+	n_a[tid] = edge_ab * !do_map;
+	n_b[tid] = edge_ab * do_map;
+	n_c[tid] = edge_c;
+	__syncthreads();
+
+	int stride;
+	for (stride = 1; stride < BLOCK_SIZE; stride <<= 1) {
+		if (!(tid % (stride << 1))) {
+			n_a[tid] += n_a[tid+stride];
+			n_b[tid] += n_b[tid+stride];
+			n_c[tid] += n_c[tid+stride];
+		}
+		__syncthreads();
+	}
+
+	//Write Degrees to Global Memory
+	if (edge_ab)
+		atomicAdd(&k_in[j_ab], 1);
+	if (edge_c)
+		atomicAdd(&k_in[j_c], 1);
+	if (!tid) {
+		if (n_a[0])
+			atomicAdd(&k_out[i], n_a[0]);
+		if (n_b[0])
+			atomicAdd(&k_out[i_ab], n_b[0]);
+		if (n_c[0])
+			atomicAdd(&k_out[i_c], n_c[0]);
+	}
+
+	//Write Edges to Global Memory
+	int idx = 0;
+	if (edge_ab | edge_c)
+		idx = atomicAdd(g_idx, edge_ab + edge_c);
+	if (edge_ab)
 		edges[idx++] = ((uint64_t)i_ab) << 32 | ((uint64_t)j_ab);
-	if (dx_c < dt_c)
+	if (edge_c)
 		edges[idx] = ((uint64_t)i_c) << 32 | ((uint64_t)j_c);
 }
 
@@ -213,14 +250,16 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	CUdeviceptr d_edges;
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * (N_tar * k_tar / 2 + edge_buffer)));
 	devMemUsed += sizeof(uint64_t) * (N_tar * k_tar / 2 + edge_buffer);
-
+	
 	CUdeviceptr d_g_idx;
 	checkCudaErrors(cuMemAlloc(&d_g_idx, sizeof(int)));
 	devMemUsed += sizeof(int);
 	
 	//Allocate Mapped Pinned Memory
-	checkCudaErrors(cuMemHostGetDevicePointer(&d_past_edges, (void*)past_edges, 0));
-	checkCudaErrors(cuMemHostGetDevicePointer(&d_future_edges, (void*)future_edges, 0));
+	checkCudaErrors(cuMemHostGetDevicePointer(&d_k_in, (void*)nodes.k_in, 0));
+	checkCudaErrors(cuMemHostGetDevicePointer(&d_k_out, (void*)nodes.k_out, 0));
+	//checkCudaErrors(cuMemHostGetDevicePointer(&d_past_edges, (void*)past_edges, 0));
+	//checkCudaErrors(cuMemHostGetDevicePointer(&d_future_edges, (void*)future_edges, 0));
 
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
@@ -258,7 +297,7 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	dim3 blocks_per_grid(gridx, gridy, 1);
 
 	//Execute Kernel
-	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_g_idx, N_tar / 2);
+	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar / 2);
 	//GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>(t_nodes, (float4*)d_nodes, (uint64_t*)d_edges, (int*)d_g_idx, N_tar / 2);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
 
@@ -300,18 +339,8 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	checkCudaErrors(cuMemcpyDtoH(past_edge_row_start, d_past_edge_row_start, sizeof(int) * N_tar));
 	checkCudaErrors(cuMemcpyDtoH(future_edge_row_start, d_future_edge_row_start, sizeof(int) * N_tar));
 
-	//Copy in-degree and out-degree counters from Device to Host
-	checkCudaErrors(cuMemcpyDtoH(k_in, d_k_in, sizeof(int) * N_tar));
-	checkCudaErrors(cuMemcpyDtoH(k_out, d_k_out, sizeof(int) * N_tar));
-
 	//Synchronize
-	checkCudaErrors(cuCtxSynchronize());
-
-	//Write contiguous degree counters back to 'nodes'
-	for (i = 0; i < N_tar; i++) {
-		nodes[i].k_in = k_in[i];
-		nodes[i].k_out = k_out[i];
-	}*/
+	checkCudaErrors(cuCtxSynchronize());*/
 
 	stopwatchStop(&sLinkNodesGPU);
 
