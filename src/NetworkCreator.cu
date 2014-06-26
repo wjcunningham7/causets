@@ -71,14 +71,22 @@ bool createNetwork(Node &nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdevic
 		if (verbose)
 			printMemUsed("for Nodes", hostMemUsed, devMemUsed);
 
-		past_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
-		if (past_edges == NULL)
-			throw std::bad_alloc();
+		if (use_gpu)
+			checkCudaErrors(cuMemHostAlloc((void**)&past_edges, sizeof(int) * (N_tar * k_tar / 2 + edge_buffer), CU_MEMHOSTALLOC_DEVICEMAP));
+		else {
+			past_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
+			if (past_edges == NULL)
+				throw std::bad_alloc();
+		}
 		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
 
-		future_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
-		if (future_edges == NULL)
-			throw std::bad_alloc();
+		if (use_gpu)
+			checkCudaErrors(cuMemHostAlloc((void**)&future_edges, sizeof(int) * (N_tar * k_tar / 2 + edge_buffer), CU_MEMHOSTALLOC_DEVICEMAP));
+		else {
+			future_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
+			if (future_edges == NULL)
+				throw std::bad_alloc();
+		}
 		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
 
 		past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);

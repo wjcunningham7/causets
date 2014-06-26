@@ -252,7 +252,7 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
 //O(k) Efficiency for Adjacency List
-bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, const int past_idx, const int future_idx)
+static bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, const int past_idx, const int future_idx)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -287,7 +287,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 //Returns the distance between two nodes
 //O(xxx) Efficiency (revise this)
-/*float distance(const Node &node0, const Node &node1)
+/*static float distance(const Node &node0, const Node &node1)
 {
 	return 0.0;
 }*/

@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 }
 
 //Parse Command Line Arguments
-NetworkProperties parseArgs(int argc, char **argv)
+static NetworkProperties parseArgs(int argc, char **argv)
 {
 	NetworkProperties network_properties = NetworkProperties();
 
@@ -410,7 +410,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 }
 
 //Handles all network generation and initialization procedures
-bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
+static bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -699,7 +699,7 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 	return true;
 }
 
-bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
+static bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -764,7 +764,7 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 }
 
 //Plot using OpenGL
-bool displayNetwork(const Node &nodes, const int * const future_edges, int argc, char **argv)
+static bool displayNetwork(const Node &nodes, const int * const future_edges, int argc, char **argv)
 {
 	if (DEBUG)
 		assert (future_edges != NULL);
@@ -802,7 +802,7 @@ void display()
 //	-Primary simulation output file (./dat/*.cset.out)
 //	-Node position data		(./dat/pos/*.cset.pos.dat)
 //	-Edge data			(./dat/edg/*.cset.edg.dat)
-bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
+static bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	/*if (DEBUG) {
 		assert (network != NULL);
@@ -1061,7 +1061,7 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, size_t &
 }
 
 //Print to File
-bool printNetwork(Network &network, const CausetPerformance &cp, const long &init_seed, const int &gpuID)
+static bool printNetwork(Network &network, const CausetPerformance &cp, const long &init_seed, const int &gpuID)
 {
 	if (!network.network_properties.flags.print_network)
 		return false;
@@ -1350,7 +1350,7 @@ bool printNetwork(Network &network, const CausetPerformance &cp, const long &ini
 	return true;
 }
 
-bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
+static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
 {
 	//Print to File
 	FILE *f;
@@ -1413,7 +1413,7 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
 }
 
 //Free Memory
-void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed)
+static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed)
 {
 	free(network->nodes.sc);
 	network->nodes.sc = NULL;
@@ -1431,11 +1431,17 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 	network->nodes.k_out = NULL;
 	hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 
-	free(network->past_edges);
+	if (network->network_properties.flags.use_gpu)
+		cuMemFreeHost(network->past_edges);
+	else
+		free(network->past_edges);
 	network->past_edges = NULL;
 	hostMemUsed -= sizeof(int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
 
-	free(network->future_edges);
+	if (network->network_properties.flags.use_gpu)
+		cuMemFreeHost(network->future_edges);
+	else
+		free(network->future_edges);
 	network->future_edges = NULL;
 	hostMemUsed -= sizeof(int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
 

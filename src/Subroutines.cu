@@ -36,7 +36,7 @@ void quicksort(Node &nodes, int low, int high)
 }
 
 //Exchange two nodes
-void swap(Node &nodes, const int i, const int j)
+static void swap(Node &nodes, const int i, const int j)
 {
 	float4 sc = nodes.sc[i];
 	float tau = nodes.tau[i];

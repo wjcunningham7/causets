@@ -48,7 +48,6 @@ __global__ void GenerateAdjacencyLists(CUtexObject t_nodes, float4 *nodes, uint6
 	if (j < width) {
 		node0_c = shr_node0_c;
 		node1_c = tex1Dfetch<float4>(t_nodes, j_c);
-		//node1_c = nodes[j_c];
 
 		node0_ab = do_map ? nodes[i_ab] : node0_c;
 		node1_ab = !j ? node0_ab : nodes[j_ab];
@@ -207,7 +206,7 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 		return false;
 	}
 
-	//Allocate Device Memory
+	//Allocate Global Device Memory
 	checkCudaErrors(cuMemAlloc(&d_nodes, sizeof(float4) * N_tar));
 	devMemUsed += sizeof(float4) * N_tar;
 
@@ -218,6 +217,10 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	CUdeviceptr d_g_idx;
 	checkCudaErrors(cuMemAlloc(&d_g_idx, sizeof(int)));
 	devMemUsed += sizeof(int);
+	
+	//Allocate Mapped Pinned Memory
+	checkCudaErrors(cuMemHostGetDevicePointer(&d_past_edges, (void*)past_edges, 0));
+	checkCudaErrors(cuMemHostGetDevicePointer(&d_future_edges, (void*)future_edges, 0));
 
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
@@ -227,7 +230,7 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	checkCudaErrors(cuMemcpyHtoD(d_nodes, nodes.sc, sizeof(float4) * N_tar));
 
 	//Create Texture Object
-	CUDA_RESOURCE_DESC res_desc;
+	/*CUDA_RESOURCE_DESC res_desc;
 	memset(&res_desc, 0, sizeof(res_desc));
 	res_desc.resType = CU_RESOURCE_TYPE_LINEAR;
 	res_desc.res.linear.devPtr = d_nodes;
@@ -240,10 +243,9 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	memset(&tex_desc, 0, sizeof(tex_desc));
 
 	CUtexObject t_nodes = 0;
-	checkCudaErrors(cuTexObjectCreate(&t_nodes, &res_desc, &tex_desc, NULL));
+	checkCudaErrors(cuTexObjectCreate(&t_nodes, &res_desc, &tex_desc, NULL));*/
 
 	//Initialize Memory on Device
-	checkCudaErrors(cuMemsetD32(d_edges, 0, N_tar * k_tar + 2 * edge_buffer));
 	checkCudaErrors(cuMemsetD32(d_g_idx, 0, 1));
 
 	//Synchronize
@@ -256,8 +258,8 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	dim3 blocks_per_grid(gridx, gridy, 1);
 
 	//Execute Kernel
-	//GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_g_idx, N_tar / 2);
-	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>(t_nodes, (float4*)d_nodes, (uint64_t*)d_edges, (int*)d_g_idx, N_tar / 2);
+	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_g_idx, N_tar / 2);
+	//GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>(t_nodes, (float4*)d_nodes, (uint64_t*)d_edges, (int*)d_g_idx, N_tar / 2);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
 
 	//Synchronize
@@ -274,7 +276,7 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	hostMemUsed -= sizeof(int);
 
 	//Free Device Memory
-	cuTexObjectDestroy(t_nodes);
+	//cuTexObjectDestroy(t_nodes);
 
 	cuMemFree(d_nodes);
 	d_nodes = NULL;
@@ -287,10 +289,6 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	cuMemFree(d_g_idx);
 	g_idx = NULL;
 	devMemUsed -= sizeof(int);
-
-	//Copy adjacency lists from Device to Host
-	/*checkCudaErrors(cuMemcpyDtoH(past_edges, d_past_edges, sizeof(int) * (N_tar * k_tar / 2 + edge_buffer)));
-	checkCudaErrors(cuMemcpyDtoH(future_edges, d_future_edges, sizeof(int) * (N_tar * k_tar / 2 + edge_buffer)));*/
 
 	//Execute kernel to increment in-degrees and out-degrees from adjacency list pointers
 	/*FindNodeDegrees<<<blocks_per_grid, threads_per_block>>>(d_past_edge_row_start, d_future_edge_row_start, d_k_in, d_k_out);
