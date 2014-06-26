@@ -16,6 +16,71 @@
 	//Implement CURAND package here for random number generation
 }*/
 
+__global__ void GenerateAdjacencyLists(CUtexObject t_nodes, float4 *nodes, uint64_t *edges, int *g_idx, int width)
+{
+	///////////////////////////////////////
+	// Identify Node Pair with Thread ID //
+	///////////////////////////////////////
+
+	__shared__ float4 shr_node0_c;
+	float4 node0_ab, node0_c, node1_ab, node1_c;
+
+	int tid = threadIdx.x;
+	int i = blockIdx.y;
+	int j = blockDim.x * blockIdx.x + threadIdx.x;
+	int do_map = i >= j;
+
+	// a -> upper triangle of upper left block (do_map == 0)
+	// b -> lower triangle of upper left block (do_map == 1)
+	// c -> upper right block
+
+	int i_ab = i + do_map * (2 * (width - i) - 1);
+	int j_ab = j + do_map * (2 * (width - j));
+
+	int i_c = i;
+	int j_c = j + width;
+
+	if (!tid)
+		shr_node0_c = nodes[i_c];
+	__syncthreads();
+
+	float dt_ab = 0.0f, dt_c = 0.0f, dx_ab = 0.0f, dx_c = 0.0f;
+	if (j < width) {
+		node0_c = shr_node0_c;
+		node1_c = tex1Dfetch<float4>(t_nodes, j_c);
+		//node1_c = nodes[j_c];
+
+		node0_ab = do_map ? nodes[i_ab] : node0_c;
+		node1_ab = !j ? node0_ab : nodes[j_ab];
+
+		//////////////////////////////////
+		// Identify Causal Relationship //
+		//////////////////////////////////
+
+		//Calculate dt (assumes nodes are already temporally ordered)
+		dt_ab = node1_ab.w - node0_ab.w;
+		dt_c  = node1_c.w  - node0_c.w;
+
+		//Calculate dx
+		dx_ab = acosf(X1_GPU(node0_ab.y) * X1_GPU(node1_ab.y) +
+			      X2_GPU(node0_ab.y, node0_ab.z) * X2_GPU(node1_ab.y, node1_ab.z) +
+			      X3_GPU(node0_ab.y, node0_ab.z, node0_ab.x) * X3_GPU(node1_ab.y, node1_ab.z, node1_ab.x) +
+			      X4_GPU(node0_ab.y, node0_ab.z, node0_ab.x) * X4_GPU(node1_ab.y, node1_ab.z, node1_ab.x));
+
+		dx_c = acosf(X1_GPU(node0_c.y) * X1_GPU(node1_c.y) +
+			     X2_GPU(node0_c.y, node0_c.z) * X2_GPU(node1_c.y, node1_c.z) +
+			     X3_GPU(node0_c.y, node0_c.z, node0_c.x) * X3_GPU(node1_c.y, node1_c.z, node1_c.x) +
+			     X4_GPU(node0_c.y, node0_c.z, node0_c.x) * X4_GPU(node1_c.y, node1_c.z, node1_c.x));
+	}
+
+	//Write to Global Memory
+	int idx = atomicAdd(g_idx, (dx_ab < dt_ab) + (dx_c < dt_c));
+	if (dx_ab < dt_ab)
+		edges[idx++] = ((uint64_t)i_ab) << 32 | ((uint64_t)j_ab);
+	if (dx_c < dt_c)
+		edges[idx] = ((uint64_t)i_c) << 32 | ((uint64_t)j_c);
+}
+
 __global__ void GenerateAdjacencyLists(float4 *nodes, uint64_t *edges, int *g_idx, int width)
 {
 	///////////////////////////////////////
@@ -161,6 +226,22 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	//Copy Memory from Host to Device
 	checkCudaErrors(cuMemcpyHtoD(d_nodes, nodes.sc, sizeof(float4) * N_tar));
 
+	//Create Texture Object
+	CUDA_RESOURCE_DESC res_desc;
+	memset(&res_desc, 0, sizeof(res_desc));
+	res_desc.resType = CU_RESOURCE_TYPE_LINEAR;
+	res_desc.res.linear.devPtr = d_nodes;
+	res_desc.res.linear.format = CU_AD_FORMAT_FLOAT;
+	res_desc.res.linear.numChannels = 4;
+	res_desc.res.linear.sizeInBytes = sizeof(float4) * N_tar;
+	res_desc.flags = 0;
+
+	CUDA_TEXTURE_DESC tex_desc;
+	memset(&tex_desc, 0, sizeof(tex_desc));
+
+	CUtexObject t_nodes = 0;
+	checkCudaErrors(cuTexObjectCreate(&t_nodes, &res_desc, &tex_desc, NULL));
+
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_edges, 0, N_tar * k_tar + 2 * edge_buffer));
 	checkCudaErrors(cuMemsetD32(d_g_idx, 0, 1));
@@ -175,7 +256,8 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	dim3 blocks_per_grid(gridx, gridy, 1);
 
 	//Execute Kernel
-	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_g_idx, N_tar / 2);
+	//GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_g_idx, N_tar / 2);
+	GenerateAdjacencyLists<<<blocks_per_grid, threads_per_block>>>(t_nodes, (float4*)d_nodes, (uint64_t*)d_edges, (int*)d_g_idx, N_tar / 2);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
 
 	//Synchronize
@@ -192,6 +274,8 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	hostMemUsed -= sizeof(int);
 
 	//Free Device Memory
+	cuTexObjectDestroy(t_nodes);
+
 	cuMemFree(d_nodes);
 	d_nodes = NULL;
 	devMemUsed -= sizeof(float4) * N_tar;

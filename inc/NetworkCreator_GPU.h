@@ -11,9 +11,10 @@
 /////////////////////////////
 
 #define BLOCK_SIZE 128
-//#define GRID_SIZE 3132
 
 __global__ void Generate(Node *nodes, int N_tar, long seed);
+
+__global__ void GenerateAdjacencyLists(cudaTextureObject_t t_nodes, float4 *nodes, int *edges, int *g_idx, int width);
 
 __global__ void GenerateAdjacencyLists(float4 *nodes, int *edges, int *g_idx, int width);
 
