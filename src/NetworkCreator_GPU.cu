@@ -92,20 +92,20 @@ __global__ void GenerateAdjacencyLists(float4 *nodes, uint64_t *edges, int *k_in
 	__shared__ int n_c[BLOCK_SIZE];
 	float4 node0_ab, node0_c, node1_ab, node1_c;
 
-	int tid = threadIdx.x;
-	int i = blockIdx.y;
-	int j = blockDim.x * blockIdx.x + threadIdx.x;
+	unsigned int tid = threadIdx.x;
+	unsigned int i = blockIdx.y;
+	unsigned int j = blockDim.x * blockIdx.x + threadIdx.x;
 	int do_map = i >= j;
 
 	// a -> upper triangle of upper left block (do_map == 0)
 	// b -> lower triangle of upper left block (do_map == 1)
 	// c -> upper right block
 
-	int i_ab = i + do_map * (2 * (width - i) - 1);
-	int j_ab = j + do_map * (2 * (width - j));
+	unsigned int i_ab = i + do_map * (2 * (width - i) - 1);
+	unsigned int j_ab = j + do_map * (2 * (width - j));
 
-	int i_c = i;
-	int j_c = j + width;
+	unsigned int i_c = i;
+	unsigned int j_c = j + width;
 
 	if (!tid)
 		shr_node0_c = nodes[i_c];
@@ -181,29 +181,54 @@ __global__ void GenerateAdjacencyLists(float4 *nodes, uint64_t *edges, int *k_in
 		edges[idx] = ((uint64_t)i_c) << 32 | ((uint64_t)j_c);
 }
 
+//Borrowed from https://gist.github.com/mre/1392067
 __global__ void BitonicSort(uint64_t *edges, int n_links, int j, int k)
 {
 	//Sorting Parameters
 	unsigned i = blockDim.x * blockIdx.x + threadIdx.x;
-	unsigned ixj = i^j;
+	unsigned ixj = i ^ j;
 
 	//Threads with the lowest IDs sort the list
-	if (ixj > i) {
-		if (!(i & k))
-			//Sort Ascending
-			if (edges[i] > edges[ixj])
-				swap(edges, i, ixj);
+	if (i < n_links && ixj < n_links && i < ixj) {
+		//Sort Ascending
+		if ((i & k) == 0 && edges[i] > edges[ixj])
+			swap(edges, i, ixj);
 
-		if (i & k)
-			//Sort Descending
-			if (edges[i] < edges[ixj])
-				swap(edges, i, ixj);
+		//Sort Descending
+		if ((i & k) != 0 && edges[i] < edges[ixj])
+			swap(edges, i, ixj);
 	}
 }
 
-__global__ void FindNodeDegrees(int *past_edge_row_start, int *future_edge_row_start, int *k_in, int *k_out)
+__global__ void DecodeFutureEdges(uint64_t *edges, int *future_edges, int n_links)
 {
-	//
+	unsigned int idx = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if (idx < n_links) {
+		//Decode Future Edges
+		uint64_t key = edges[idx];
+		unsigned int i = key >> 32;
+		unsigned int j = key & 0x00000000FFFFFFFF;
+
+		//Write Future Edges
+		future_edges[idx] = j;
+
+		//Encode Past Edges
+		edges[idx] = ((uint64_t)j) << 32 | ((uint64_t)i);
+	}
+}
+
+__global__ void DecodePastEdges(uint64_t *edges, int *past_edges, int n_links)
+{
+	unsigned int idx = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if (idx < n_links) {
+		//Decode Past Edges
+		uint64_t key = edges[idx];
+
+		//Write Past Edges
+		past_edges[idx] = key & 0x00000000FFFFFFFF;
+	}
 }
 
 /*bool generateNodesGPU(Node * const &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodesGPU, const bool &universe, const bool &verbose, const bool &bench)
@@ -244,7 +269,15 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 {
 	//Add assert statements
 
+	Stopwatch sGPUOverhead = Stopwatch();
+	Stopwatch sGenAdjList = Stopwatch();
+	Stopwatch sBitonic0 = Stopwatch();
+	Stopwatch sDecode0 = Stopwatch();
+	Stopwatch sBitonic1 = Stopwatch();
+	Stopwatch sDecode1 = Stopwatch();
+
 	stopwatchStart(&sLinkNodesGPU);
+	stopwatchStart(&sGPUOverhead);
 
 	//Allocate Overhead on Host
 	int *g_idx;
@@ -273,8 +306,6 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	//Allocate Mapped Pinned Memory
 	checkCudaErrors(cuMemHostGetDevicePointer(&d_k_in, (void*)nodes.k_in, 0));
 	checkCudaErrors(cuMemHostGetDevicePointer(&d_k_out, (void*)nodes.k_out, 0));
-	//checkCudaErrors(cuMemHostGetDevicePointer(&d_past_edges, (void*)past_edges, 0));
-	//checkCudaErrors(cuMemHostGetDevicePointer(&d_future_edges, (void*)future_edges, 0));
 
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
@@ -305,11 +336,15 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	//Synchronize
 	checkCudaErrors(cuCtxSynchronize());
 
+	stopwatchStop(&sGPUOverhead);
+
 	//CUDA Grid Specifications
 	unsigned int gridx_GAL = static_cast<unsigned int>(ceil((static_cast<float>(N_tar) / 2) / BLOCK_SIZE));
 	unsigned int gridy_GAL = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / 2));
 	dim3 threads_per_block(BLOCK_SIZE, 1, 1);
 	dim3 blocks_per_grid_GAL(gridx_GAL, gridy_GAL, 1);
+	
+	stopwatchStart(&sGenAdjList);
 
 	//Execute Kernel
 	GenerateAdjacencyLists<<<blocks_per_grid_GAL, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar / 2);
@@ -319,10 +354,11 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	//Synchronize
 	checkCudaErrors(cuCtxSynchronize());
 
+	stopwatchStop(&sGenAdjList);
+
 	//Check Number of Connections
 	checkCudaErrors(cuMemcpyDtoH(g_idx, d_g_idx, sizeof(int)));
 	checkCudaErrors(cuCtxSynchronize());
-	printf("links: %d\n", *g_idx);
 
 	//Free Texture Object
 	//cuTexObjectDestroy(t_nodes);
@@ -331,35 +367,74 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 	cuMemFree(d_nodes);
 	d_nodes = NULL;
 	devMemUsed -= sizeof(float4) * N_tar;
-
-	//Bitonic Sort
-	//Borrowed from https://gist.github.com/mre/1392067
-	unsigned int gridx_bitonic = static_cast<unsigned int>(ceil(static_cast<double>(*g_idx) / BLOCK_SIZE));
-	dim3 blocks_per_grid_bitonic(gridx_bitonic, 1, 1);
-	int j, k;
-
-	for (k = 2; k <= *g_idx; k <<= 1)
-		for (j = k >> 1; j > 0; j >>= 1)
-			BitonicSort<<<blocks_per_grid_bitonic, threads_per_block>>>((uint64_t*)d_edges, *g_idx, j, k);
-	getLastCudaError("Kernel 'NetworkCreator_GPU.BitonicSort' Failed to Execute!\n");
-
-	//Synchronize
-	checkCudaErrors(cuCtxSynchronize());
-
-	//Decode 'edges' and Write to 'past_edges' and 'future_edges'
-	
-	//Free Host Memory
-	free(g_idx);
-	g_idx = NULL;
-	hostMemUsed -= sizeof(int);
-	
-	cuMemFree(d_edges);
-	d_edges = NULL;
-	devMemUsed -= sizeof(uint64_t) * (N_tar * k_tar / 2 + edge_buffer);
 	
 	cuMemFree(d_g_idx);
 	d_g_idx = NULL;
 	devMemUsed -= sizeof(int);
+
+	//CUDA Grid Specifications
+	unsigned int gridx_bitonic = static_cast<unsigned int>(ceil(static_cast<double>(*g_idx) / BLOCK_SIZE));
+	dim3 blocks_per_grid_bitonic(gridx_bitonic, 1, 1);
+	int j, k;
+
+	stopwatchStart(&sBitonic0);
+
+	//Execute Kernel
+	for (k = 2; k <= *g_idx; k <<= 1) {
+		for (j = k >> 1; j > 0; j >>= 1) {
+			BitonicSort<<<blocks_per_grid_bitonic, threads_per_block>>>((uint64_t*)d_edges, *g_idx, j, k);
+			getLastCudaError("Kernel 'NetworkCreator_GPU.BitonicSort' Failed to Execute!\n");
+			checkCudaErrors(cuCtxSynchronize());
+		}
+	}
+
+	stopwatchStop(&sBitonic0);
+	
+	//Allocate Mapped Pinned Memory
+	checkCudaErrors(cuMemHostGetDevicePointer(&d_past_edges, (void*)past_edges, 0));
+	checkCudaErrors(cuMemHostGetDevicePointer(&d_future_edges, (void*)future_edges, 0));
+
+	//CUDA Grid Specifications
+	unsigned int gridx_decode = gridx_bitonic;
+	dim3 blocks_per_grid_decode(gridx_decode, 1, 1);
+
+	stopwatchStart(&sDecode0);
+
+	//Execute Kernel
+	DecodeFutureEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_future_edges, *g_idx);
+	getLastCudaError("Kernel 'NetworkCreator_GPU.DecodeFutureEdges' Failed to Execute!\n");
+
+	//Synchronize
+	checkCudaErrors(cuCtxSynchronize());
+
+	stopwatchStop(&sDecode0);
+	stopwatchStart(&sBitonic1);
+
+	//Resort Edges with New Encoding
+	for (k = 2; k <= *g_idx; k <<= 1) {
+		for (j = k >> 1; j > 0; j >>= 1) {
+			BitonicSort<<<blocks_per_grid_bitonic, threads_per_block>>>((uint64_t*)d_edges, *g_idx, j, k);
+			getLastCudaError("Kernel 'NetworkCreator_GPU.BitonicSort' Failed to Execute!\n");
+			checkCudaErrors(cuCtxSynchronize());
+		}
+	}
+
+	stopwatchStop(&sBitonic1);
+	stopwatchStart(&sDecode1);
+
+	//Execute Kernel
+	DecodePastEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_past_edges, *g_idx);
+	getLastCudaError("Kernel 'NetworkCreator_GPU.DecodePastEdges' Failed to Execute!\n");
+
+	//Synchronize
+	checkCudaErrors(cuCtxSynchronize());
+
+	stopwatchStop(&sDecode1);
+	
+	//Free Device Memory
+	cuMemFree(d_edges);
+	d_edges = NULL;
+	devMemUsed -= sizeof(uint64_t) * (N_tar * k_tar / 2 + edge_buffer);
 
 	//Parallel Prefix Sum of 'k_in' and 'k_out' and Write to Edge Pointers
 
@@ -367,11 +442,23 @@ bool linkNodesGPU(Node &nodes, CUdeviceptr d_nodes, int * const &past_edges, CUd
 
 	if (!bench) {
 		printf("\tCausets Successfully Connected.\n");
+		printf("\t\tUndirected Links: %d\n", *g_idx);
 		fflush(stdout);
 	}
+	
+	//Free Host Memory
+	free(g_idx);
+	g_idx = NULL;
+	hostMemUsed -= sizeof(int);
 
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sLinkNodesGPU.elapsedTime);
+		printf("\t\t\tGPU Overhead Time: %5.6f sec\n", sGPUOverhead.elapsedTime);
+		printf("\t\t\tAdjacency List Kernel Time: %5.6f sec\n", sGenAdjList.elapsedTime);
+		printf("\t\t\tBitonic Sort 0 Kernel Time: %5.6f sec\n", sBitonic0.elapsedTime);
+		printf("\t\t\tFuture Edge Decode Time: %5.6f sec\n", sDecode0.elapsedTime);
+		printf("\t\t\tBitonic Sort 1 Kernel Time: %5.6f sec\n", sBitonic1.elapsedTime);
+		printf("\t\t\tPast Edge Decode Time: %5.6f sec\n", sDecode1.elapsedTime);
 		fflush(stdout);
 	}
 
