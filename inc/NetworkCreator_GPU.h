@@ -18,11 +18,11 @@ __global__ void Generate(Node *nodes, int N_tar, long seed);
 
 __global__ void GenerateAdjacencyLists(float4 *nodes, int *edges, int *k_in, int *k_out, int *g_idx, int width);
 
-__global__ void BitonicSort(uint64_t *edges, int n_links, int j, int k);
+__global__ void BitonicSort(uint64_t *edges, int j, int k);
 
-__global__ void DecodeFutureEdges(uint64_t *edges, int *future_edges, int n_links);
+__global__ void DecodeFutureEdges(uint64_t *edges, int *future_edges, int offset);
 
-__global__ void DecodePastEdges(uint64_t *edges, int *past_edges, int n_links);
+__global__ void DecodePastEdges(uint64_t *edges, int *past_edges, int offset);
 
 bool generateNodesGPU(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodesGPU, const bool &universe, const bool &verbose, const bool &bench);
 

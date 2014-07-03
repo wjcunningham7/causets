@@ -111,8 +111,8 @@ inline double solveZeta(const double &x, const double * const p1, const double *
 	}
 
 	return ((*p6 == 1) ?
-		-1.0 * eta02D(x, *p5, *p4) / eta0Prime2D(x) :
-		-1.0 * zeta4D(x, *p5, *p4) / zetaPrime4D(x));
+		-1.0f * eta02D(x, *p5, *p4) / eta0Prime2D(x) :
+		-1.0f * zeta4D(x, *p5, *p4) / zetaPrime4D(x));
 }
 
 //Returns tau0 Residual
@@ -131,7 +131,7 @@ inline double solveTau0(const double &x, const double * const p1, const double *
 		assert (*p5 > 0);
 	}
 
-	return (-1.0 * tau0(x, *p5, *p1, *p2) / tau0Prime(x));
+	return (-1.0f * tau0(x, *p5, *p1, *p2) / tau0Prime(x));
 }
 
 //Returns tau Residual
@@ -148,7 +148,7 @@ inline double solveTau(const double &x, const double * const p1, const double * 
 		assert (*p3 > 0.0 && *p3 < 1.0);
 	}
 
-	return (-1.0 * tau4D(x, *p1, *p3) / tauPrime4D(x, *p1));
+	return (-1.0f * tau4D(x, *p1, *p3) / tauPrime4D(x, *p1));
 }
 
 //Returns tau Residual
@@ -165,7 +165,7 @@ inline double solveTauUniverse(const double &x, const double * const p1, const d
 		assert (*p2 > 0.0 && *p2 < 1.0);
 	}
 
-	return (-1.0 * tauUniverse(x, *p1, *p2) / tauPrimeUniverse(x, *p1));
+	return (-1.0f * tauUniverse(x, *p1, *p2) / tauPrimeUniverse(x, *p1));
 }
 
 //Returns phi Residual
@@ -180,7 +180,7 @@ inline double solvePhi(const double &x, const double * const p1, const double * 
 		assert (*p1 > 0.0 && *p1 < 1.0);
 	}
 
-	return (-1.0 * phi4D(x, *p1) / phiPrime4D(x));
+	return (-1.0f * phi4D(x, *p1) / phiPrime4D(x));
 }
 
 //Math Functions for Gauss Hypergeometric Function
@@ -230,13 +230,13 @@ inline float X4(const float &phi, const float &chi, const float &theta)
 //Conformal to Rescaled Time
 inline float etaToTau(const float eta)
 {
-	return ACOSH(1.0 / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	return ACOSH(1.0f / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 }
 
 //Rescaled to Conformal Time
 inline float tauToEta(const float tau)
 {
-	return ACOS(1.0 / COSH(tau, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	return ACOS(1.0f / COSH(tau, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 }
 
 //Minkowski to Conformal Time (Universe)
@@ -244,7 +244,7 @@ inline float tauToEta(const float tau)
 //For use with GNU Scientific Library
 inline double tauToEtaUniverse(double tau, void *params)
 {
-	return POW(SINH(1.5f * tau, APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL);
+	return POW(SINH(1.5f * tau, APPROX ? FAST : STL), (-2.0f / 3.0f), APPROX ? FAST : STL);
 }
 
 //Exact Solution (no integration)
@@ -306,6 +306,18 @@ inline double rescaledDegreeUniverse(int dim, double x[])
 	z /= (SQRT(1.0 + 1.0 / POW3(x[0], EXACT), STL) * SQRT(1.0 + POW3(x[1], EXACT), STL));
 
 	return z;
+}
+
+//Embedded Z1 Coordinate
+//Used to calculate geodesic distances in universe
+//For use with GNU Scientific Library
+inline double embeddedZ1(double x, void *params)
+{
+	GSL_EmbeddedZ1_Parameters *p = (GSL_EmbeddedZ1_Parameters*)params;
+	double a = p->a;
+	double alpha = p->alpha;
+
+	return SQRT(1.0 + POW2(static_cast<float>(a), EXACT) * x * POW2(static_cast<float>(alpha), EXACT) / (POW3(static_cast<float>(alpha), EXACT) + POW3(static_cast<float>(x), EXACT)), STL);
 }
 
 #endif

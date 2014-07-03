@@ -14,6 +14,6 @@ mv Makefile Makefile~
 # Should find N = 10^6, tau given by (12), in-degree given by Fig. (S3), out-degree given by Fig. (3a)
 
 # Debugging
-./bin/CausalSet --universe --age 0.8458 --nodes 51200 --delta 100 --seed 22 -y --verbose --gpu
+./bin/CausalSet --universe --age 0.8458 --nodes 10240 --delta 100 --seed 22 -y --verbose --gpu
 
 mv Makefile~ Makefile

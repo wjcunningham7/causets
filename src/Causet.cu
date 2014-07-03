@@ -124,8 +124,13 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				break;
 			case 'k':	//Average expected degrees
 				network_properties.k_tar = atof(optarg);
+
 				if (network_properties.k_tar <= 0.0)
 					throw CausetException("Invalid argument for 'degrees' parameter!\n");
+
+				network_properties.flags.cc.conflicts[2]++;
+				network_properties.flags.cc.conflicts[3]++;
+				network_properties.flags.cc.conflicts[6]++;
 				break;
 			case 'd':	//Spatial dimensions
 				network_properties.dim = atoi(optarg);
@@ -182,7 +187,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.tau0 <= 0.0)
 					throw CausetException("Invalid argument for 'age' parameter!\n");
 
-				network_properties.ratio = POW2(SINH(1.5 * static_cast<float>(network_properties.tau0), STL), EXACT);
+				network_properties.ratio = POW2(SINH(1.5f * network_properties.tau0, STL), EXACT);
 				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
 				network_properties.omegaL = 1.0 - network_properties.omegaM;
 
@@ -249,7 +254,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.lambda <= 0.0)
 					throw CausetException("Invalid argument for 'lambda' parameter!\n");
 
-				network_properties.a = SQRT(3.0 / static_cast<float>(network_properties.lambda), STL);
+				network_properties.a = SQRT(3.0f / network_properties.lambda, STL);
 
 				network_properties.flags.cc.conflicts[0]++;
 
@@ -463,6 +468,96 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 			network->network_properties.omegaM = 1.0 / (network->network_properties.ratio + 1.0);
 			network->network_properties.omegaL = 1.0 - network->network_properties.omegaM;
 		} else if (network->network_properties.flags.cc.conflicts[1] == 0 || network->network_properties.flags.cc.conflicts[2] == 0 || network->network_properties.flags.cc.conflicts[3] == 0) {
+			//If k_tar != 0 solve for tau0 here
+			if (network->network_properties.k_tar != 0) {
+				if (DEBUG)
+					assert (network->network_properties.delta != 0);
+
+				Stopwatch sSolveTau0 = Stopwatch();
+				stopwatchStart(&sSolveTau0);
+
+				//Solve for tau_0
+				printf("\tEstimating Age of Universe.....\n");
+				float kappa1 = network->network_properties.k_tar / network->network_properties.delta;
+				float kappa2 = kappa1 / POW2(POW2(static_cast<float>(network->network_properties.a), EXACT), EXACT);
+
+				//Read Lookup Table
+				try {
+					double *raduc_lookup;
+					long size;
+					std::ifstream lookup("./etc/raduc_table.cset.bin", std::ios::in | std::ios::binary | std::ios::ate);
+					if (lookup.is_open()) {
+						//Find size of file
+						size = lookup.tellg();
+						//Allocate Memory for Buffer
+						char *memblock = (char*)malloc(size);
+						if (memblock == NULL)
+							throw std::bad_alloc();
+						hostMemUsed += size;
+
+						//Allocate Memory for Lookup Table
+						raduc_lookup = (double*)malloc(size);
+						if (raduc_lookup == NULL)
+							throw std::bad_alloc();
+						hostMemUsed += size;
+
+						//Read File
+						lookup.seekg(0, std::ios::beg);
+						lookup.read(memblock, size);
+						memcpy(raduc_lookup, memblock, size);
+
+						//Free Memory
+						free(memblock);
+						memblock = NULL;
+						hostMemUsed -= size;
+
+						//Close Stream
+						lookup.close();
+					} else
+						throw CausetException("Failed to open 'raduc_table.cset.bin' file!\n");
+			
+					//Identify tau0
+					//Assumes values are written as (kappa, tau0)
+					int t_idx = 0;
+					for (i = 0; i < size / (2 * sizeof(double)); i += 2) {
+						if (raduc_lookup[i] > kappa2) {
+							t_idx = i;
+							break;
+						}
+					}
+
+					//Check if Table is Insufficient
+					if (t_idx == 0)
+						throw CausetException("Values from 'raduc_table.cset.bin' file do not include requested 'k_tar'.  Recreate table or change k_tar.\n");
+				
+					//Linear Interpolation
+					network->network_properties.tau0 = raduc_lookup[t_idx-1] + (raduc_lookup[t_idx+1] - raduc_lookup[t_idx-1]) * (kappa2 - raduc_lookup[t_idx-2]) / (raduc_lookup[t_idx] - raduc_lookup[t_idx-2]);
+	
+					//Free Memory
+					free(raduc_lookup);
+					raduc_lookup = NULL;
+					hostMemUsed -= size;
+
+					//Solve for ratio, omegaM, and omegaL
+					network->network_properties.ratio = POW2(SINH(1.5f * network->network_properties.tau0, STL), EXACT);
+					network->network_properties.omegaM = 1.0 / (network->network_properties.ratio + 1.0);
+					network->network_properties.omegaL = 1.0 - network->network_properties.omegaM;
+				} catch (CausetException c) {
+					fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+					return false;
+				} catch (std::bad_alloc) {
+					fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+					return false;
+				} catch (std::exception e) {
+					fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+					return false;
+				}
+
+				stopwatchStop(&sSolveTau0);
+				printf("\t\tCompleted.\n");
+				printf("\t\t\tExecution Time: %5.6f\n", sSolveTau0.elapsedTime);
+			}
+
 			if (network->network_properties.N_tar > 0 && network->network_properties.alpha > 0.0) {
 				//Solve for delta
 				network->network_properties.delta = 3.0 * network->network_properties.N_tar / (POW2(static_cast<float>(M_PI), EXACT) * POW3(static_cast<float>(network->network_properties.alpha), EXACT) * (SINH(3.0 * static_cast<float>(network->network_properties.tau0), STL) - 3.0 * network->network_properties.tau0));
@@ -487,8 +582,8 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 		network->network_properties.R0 = network->network_properties.alpha * POW(static_cast<float>(network->network_properties.ratio), 1.0f / 3.0f, STL);
 		if (DEBUG) assert (network->network_properties.R0 > 0.0);
 
-		//Use Monte Carlo integration to find k_tar
 		if (network->network_properties.k_tar == 0.0) {
+			//Use Monte Carlo integration to find k_tar
 			printf("\tEstimating Expected Average Degrees.....\n");
 			double r0 = POW(SINH(1.5f * network->network_properties.tau0, STL), 2.0f / 3.0f, STL);
 
@@ -507,6 +602,7 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 			network->network_properties.k_tar = network->network_properties.delta * POW2(POW2(static_cast<float>(network->network_properties.a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network->network_properties.seed, 0) * 8.0 * M_PI / (SINH(3.0f * network->network_properties.tau0, STL) - 3.0 * network->network_properties.tau0);
 			stopwatchStop(&cp->sCalcDegrees);
 			printf("\t\tCompleted.\n");
+			printf("\t\t\tExecution Time: %5.6f\n", cp->sCalcDegrees.elapsedTime);
 		}
 
 		//20% Buffer
@@ -740,7 +836,7 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 	if (network->network_properties.flags.calc_success_ratio) {
 		if (network->network_properties.flags.bench) {
 			for (i = 0; i < NBENCH; i++) {
-				if (!measureSuccessRatio(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+				if (!measureSuccessRatio(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 					return false;
 				bm->bMeasureSuccessRatio += cp->sMeasureSuccessRatio.elapsedTime;
 				stopwatchReset(&cp->sMeasureSuccessRatio);
@@ -751,7 +847,7 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 		tmp = network->network_properties.flags.bench;
 		if (tmp)
 			network->network_properties.flags.bench = false;
-		if (!measureSuccessRatio(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+		if (!measureSuccessRatio(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 			return false;
 		if (tmp)
 			network->network_properties.flags.bench = true;
@@ -830,7 +926,7 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, s
 		char *pch, *filename;
 		filename = NULL;
 	
-		dataStream.open("./dat/data_keys.key");
+		dataStream.open("./etc/data_keys.cset.key");
 		if (dataStream.is_open()) {
 			while (getline(dataStream, line)) {
 				pch = strtok((char*)line.c_str(), "\t");
@@ -843,7 +939,7 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, s
 			if (filename == NULL)
 				throw CausetException("Failed to locate graph file!\n");
 		} else
-			throw CausetException("Failed to open 'data_keys.key' file!\n");
+			throw CausetException("Failed to open 'data_keys.cset.key' file!\n");
 			
 		//Read Main Data File
 		printf("\tReading Simulation Parameters.\n");
@@ -1072,14 +1168,14 @@ static bool printNetwork(Network &network, const CausetPerformance &cp, const lo
 	int i, j, k;
 	try {
 		//Confirm directory structure exists
-		mkdir("./dat", 777);
-		mkdir("./dat/pos", 777);
-		mkdir("./dat/edg", 777);
-		mkdir("./dat/dst", 777);
-		mkdir("./dat/idd", 777);
-		mkdir("./dat/odd", 777);
-		mkdir("./dat/cls", 777);
-		mkdir("./dat/cdk", 777);
+		boost::filesystem::create_directory("./dat");
+		boost::filesystem::create_directory("./dat/pos");
+		boost::filesystem::create_directory("./dat/edg");
+		boost::filesystem::create_directory("./dat/dst");
+		boost::filesystem::create_directory("./dat/idd");
+		boost::filesystem::create_directory("./dat/odd");
+		boost::filesystem::create_directory("./dat/cls");
+		boost::filesystem::create_directory("./dat/cdk");
 
 		std::ofstream outputStream;
 		std::stringstream sstm;
@@ -1203,9 +1299,9 @@ static bool printNetwork(Network &network, const CausetPerformance &cp, const lo
 		outputStream.close();
 
 		std::ofstream mapStream;
-		mapStream.open("./dat/data_keys.key", std::ios::app);
+		mapStream.open("./etc/data_keys.cset.key", std::ios::app);
 		if (!mapStream.is_open())
-			throw CausetException("Failed to open 'dat/data_keys.key' file!\n");
+			throw CausetException("Failed to open 'etc/data_keys.cset.key' file!\n");
 		mapStream << network.network_properties.graphID << "\t" << filename << std::endl;
 		mapStream.close();
 

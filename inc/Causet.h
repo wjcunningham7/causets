@@ -12,11 +12,11 @@
 #include <stdio.h>
 #include <string>
 
+#include <boost/filesystem.hpp>
 #include <cuda.h>
 #include <curand.h>
 #include <GL/freeglut.h>
 #include <sys/io.h>
-//#include <vectortypes.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -73,15 +73,6 @@ enum Manifold {
 struct Node {
 	Node() : sc(NULL), tau(NULL), k_in(NULL), k_out(NULL) {}
 
-	//Temporal Coordinate
-	/*float *tau;	//Rescaled Time
-	float *eta;	//Conformal Time
-
-	//Spatial Coordinates
-	float *theta;
-	float *phi;
-	float *chi;*/
-
 	//Spacetime Coordinates
 	float4 *sc;	//Stored as (eta, theta, phi, chi)
 	float *tau;	//Rescaled Time
@@ -129,7 +120,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_sr(0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(1.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
+	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_sr(0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
 
 	CausetFlags flags;
 
@@ -229,6 +220,11 @@ struct Benchmark {
 	double bLinkNodesGPU;
 	double bMeasureClustering;
 	double bMeasureSuccessRatio;
+};
+
+struct GSL_EmbeddedZ1_Parameters {
+	double a;
+	double alpha;
 };
 
 //Custom exception class used in this program
