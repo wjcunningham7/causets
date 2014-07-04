@@ -2,8 +2,8 @@
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
-// Northeastern University //
 // Krioukov Research Group //
+// Northeastern University //
 /////////////////////////////
 
 //Sort nodes temporally by tau coordinate

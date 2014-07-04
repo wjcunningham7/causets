@@ -7,8 +7,8 @@
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
-// Northeastern University //
 // Krioukov Research Group //
+// Northeastern University //
 /////////////////////////////
 
 __device__ float X1_GPU(const float &phi);
@@ -18,5 +18,7 @@ __device__ float X2_GPU(const float &phi, const float &chi);
 __device__ float X3_GPU(const float &phi, const float &chi, const float &theta);
 
 __device__ float X4_GPU(const float &phi, const float &chi, const float &theta);
+
+__device__ float sphProduct_GPU(const float4 &sc0, const float4 &sc1);
 
 #endif

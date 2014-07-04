@@ -3,8 +3,8 @@
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
-// Northeastern University //
 // Krioukov Research Group //
+// Northeastern University //
 /////////////////////////////
 
 int main(int argc, char **argv)
@@ -651,7 +651,7 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 		network->network_properties.flags.calc_clustering = false;
 
 		for (i = 0; i < NBENCH; i++) {
-			if (!createNetwork(network->nodes, network->d_nodes, network->past_edges, network->d_past_edges, network->future_edges, network->d_future_edges, network->past_edge_row_start, network->d_past_edge_row_start, network->future_edge_row_start, network->d_future_edge_row_start, network->core_edge_exists, network->d_k_in, network->d_k_out, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
+			if (!createNetwork(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 				return false;
 				
 			bm->bCreateNetwork += cp->sCreateNetwork.elapsedTime;
@@ -667,7 +667,7 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 	tmp = network->network_properties.flags.bench;
 	if (tmp)
 		network->network_properties.flags.bench = false;
-	if (!createNetwork(network->nodes, network->d_nodes, network->past_edges, network->d_past_edges, network->future_edges, network->d_future_edges, network->past_edge_row_start, network->d_past_edge_row_start, network->future_edge_row_start, network->d_future_edge_row_start, network->core_edge_exists, network->d_k_in, network->d_k_out, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
+	if (!createNetwork(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 		return false;
 	if (tmp)
 		network->network_properties.flags.bench = true;
@@ -760,7 +760,7 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 	if (network->network_properties.flags.bench) {
 		for (i = 0; i < NBENCH; i++) {
 			if (network->network_properties.flags.use_gpu) {
-				if (!linkNodesGPU(network->nodes, network->d_nodes, network->past_edges, network->d_past_edges, network->future_edges, network->d_future_edges, network->past_edge_row_start, network->d_past_edge_row_start, network->future_edge_row_start, network->d_future_edge_row_start, network->core_edge_exists, network->d_k_in, network->d_k_out, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+				if (!linkNodesGPU(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 					return false;
 
 				bm->bLinkNodesGPU += cp->sLinkNodesGPU.elapsedTime;
@@ -783,7 +783,7 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 	if (tmp)
 		network->network_properties.flags.bench = false;
 	if (network->network_properties.flags.use_gpu) {
-		if (!linkNodesGPU(network->nodes, network->d_nodes, network->past_edges, network->d_past_edges, network->future_edges, network->d_future_edges, network->past_edge_row_start, network->d_past_edge_row_start, network->future_edge_row_start, network->d_future_edge_row_start, network->core_edge_exists, network->d_k_in, network->d_k_out, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+		if (!linkNodesGPU(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 			return false;
 	} else if (!linkNodes(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 			return false;

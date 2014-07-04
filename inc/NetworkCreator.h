@@ -8,11 +8,11 @@
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
-// Northeastern University //
 // Krioukov Research Group //
+// Northeastern University //
 /////////////////////////////
 
-bool createNetwork(Node &nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdeviceptr &d_past_edges, int *& future_edges, CUdeviceptr &d_future_edges, int *& past_edge_row_start, CUdeviceptr &d_past_edge_row_start, int *& future_edge_row_start, CUdeviceptr &d_future_edge_row_start, bool *& core_edge_exists, CUdeviceptr &d_k_in, CUdeviceptr &d_k_out, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench, const bool &yes);
+bool createNetwork(Node &nodes, int *& past_edges, int *& future_edges, int *& past_edge_row_start, int *& future_edge_row_start, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench, const bool &yes);
 
 bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &verbose, const bool &bench);
 

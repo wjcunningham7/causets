@@ -33,8 +33,8 @@
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
-// Northeastern University //
 // Krioukov Research Group //
+// Northeastern University //
 /////////////////////////////
 
 #define NPRINT 1000	//Used for debugging statements in loops
@@ -180,15 +180,6 @@ struct Network {
 	int *past_edge_row_start;	//Adjacency list indices
 	int *future_edge_row_start;
 	bool *core_edge_exists;		//Adjacency matrix
-
-	//GPU Memory Pointers
-	CUdeviceptr d_nodes;
-	CUdeviceptr d_past_edges;
-	CUdeviceptr d_future_edges;
-	CUdeviceptr d_past_edge_row_start;
-	CUdeviceptr d_future_edge_row_start;
-	CUdeviceptr d_k_in;
-	CUdeviceptr d_k_out;
 };
 
 //Algorithmic Performance

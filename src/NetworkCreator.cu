@@ -2,13 +2,13 @@
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
-// Northeastern University //
 // Krioukov Research Group //
+// Northeastern University //
 /////////////////////////////
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node &nodes, CUdeviceptr &d_nodes, int *& past_edges, CUdeviceptr &d_past_edges, int *& future_edges, CUdeviceptr &d_future_edges, int *& past_edge_row_start, CUdeviceptr &d_past_edge_row_start, int *& future_edge_row_start, CUdeviceptr &d_future_edge_row_start, bool *& core_edge_exists, CUdeviceptr &d_k_in, CUdeviceptr &d_k_out, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, int *& past_edges, int *& future_edges, int *& past_edge_row_start, int *& future_edge_row_start, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench, const bool &yes)
 {
 	if (DEBUG) {
 		//Variables in correct ranges
@@ -370,10 +370,7 @@ bool linkNodes(Node &nodes, int * const &past_edges, int * const &future_edges, 
 					//
 				} else if (manifold == DE_SITTER) {
 					//Spherical Law of Cosines
-					dx = ACOS(X1(nodes.sc[i].y) * X1(nodes.sc[j].y) + 
-						  X2(nodes.sc[i].y, nodes.sc[i].z) * X2(nodes.sc[j].y, nodes.sc[j].z) + 
-						  X3(nodes.sc[i].y, nodes.sc[i].z, nodes.sc[i].x) * X3(nodes.sc[j].y, nodes.sc[j].z, nodes.sc[j].x) + 
-						  X4(nodes.sc[i].y, nodes.sc[i].z, nodes.sc[i].x) * X4(nodes.sc[j].y, nodes.sc[j].z, nodes.sc[j].x), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+					dx = ACOS(sphProduct(nodes.sc[i], nodes.sc[j]), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 				} else if (manifold == ANTI_DE_SITTER) {
 					//
 				}

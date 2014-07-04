@@ -6,8 +6,8 @@
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
-// Northeastern University //
 // Krioukov Research Group //
+// Northeastern University //
 /////////////////////////////
 
 //Newton-Raphson Kernels
@@ -223,6 +223,15 @@ inline float X3(const float &phi, const float &chi, const float &theta)
 inline float X4(const float &phi, const float &chi, const float &theta)
 {
 	return SIN(phi, APPROX ? FAST : STL) * SIN(chi, APPROX ? FAST : STL) * SIN(theta, APPROX ? FAST : STL);
+}
+
+//Spherical Inner Product
+inline float sphProduct(const float4 &sc0, const float4 &sc1)
+{
+	return X1(sc0.y) * X1(sc1.y) +
+	       X2(sc0.y, sc0.z) * X2(sc1.y, sc1.z) +
+	       X3(sc0.y, sc0.z, sc0.x) * X3(sc1.y, sc1.z, sc1.x) +
+	       X4(sc0.y, sc0.z, sc0.x) * X4(sc1.y, sc1.z, sc1.x);
 }
 
 //Temporal Transformations

@@ -2,8 +2,8 @@
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
-// Northeastern University //
 // Krioukov Research Group //
+// Northeastern University //
 /////////////////////////////
 
 //Calculates clustering coefficient for each node in network
@@ -333,6 +333,7 @@ static float distance(const float4 &node_a, const float &tau_a, const float4 &no
 	float z0_a, z0_b;
 	float z1_a, z1_b;
 	float dt2, dx2;
+	float dist;
 	float power = 2.0f / 3.0f;
 
 	//Solve for z1 in Rotated Plane
@@ -349,21 +350,23 @@ static float distance(const float4 &node_a, const float &tau_a, const float4 &no
 	dt2 = z0_a * z0_b;
 
 	//Rotate Into z2, z3, z4 Planes
-	dx2 = z1_a * z1_b * (X1(node_a.y) * X1(node_b.y) +
-			     X2(node_a.y, node_a.z) * X2(node_b.y, node_b.y) +
-			     X3(node_a.y, node_a.z, node_a.x) * X3(node_b.y, node_b.z, node_b.x) +
-			     X4(node_a.y, node_a.z, node_a.x) * X4(node_b.y, node_b.z, node_b.x));
+	dx2 = z1_a * z1_b * sphProduct(node_a, node_b);
 
 	//If dx2 - dt2 < 0, the interval is time-like
 	//If dx2 - dt2 > 0, the interval is space-like (causal)
 
+	if (dx2 - dt2 < 0)
+		dist = ACOSH(dx2 - dt2, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	else
+		dist = ACOS(dx2 - dt2, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+
 	if (DEBUG) {
-		//This is not correct, revise this
-		if (tau_a < tau_b)
-			assert (dx2 - dt2 > 0);
+		//Check space-like vs time-like intervals
+		if (dx2 - dt2 < 0)
+			assert (ACOS(sphProduct(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) < node_b.w - node_a.w);
 		else
-			assert (dx2 - dt2 < 0);
+			assert (ACOS(sphProduct(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) > node_b.w - node_a.w);
 	}
 
-	return SQRT(dx2 - dt2, STL);
+	return dist;
 }
