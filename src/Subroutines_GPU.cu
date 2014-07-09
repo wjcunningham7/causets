@@ -39,11 +39,11 @@ __global__ void BitonicSort(uint64_t *edges, int j, int k)
         //Threads with the lowest IDs sort the list
         if (i < ixj) {
                 //Sort Ascending
-                if ((i & k) == 0 && edges[i] > edges[ixj])
+                if (!(i & k) && edges[i] > edges[ixj])
                         swap(edges, i, ixj);
 
                 //Sort Descending
-                if ((i & k) != 0 && edges[i] < edges[ixj])
+                if ((i & k) && edges[i] < edges[ixj])
                         swap(edges, i, ixj);
         }   
 }
@@ -62,7 +62,7 @@ __global__ void Scan(int *input, int *output, int *buf, int elements)
 {
 	__shared__ int s_vals[BLOCK_SIZE << 1];
 	unsigned int tid = threadIdx.x;
-	unsigned int start = 2 * blockDim.x * blockIdx.x;
+	unsigned int start = (blockDim.x * blockIdx.x) << 1;
 
 	//Read 'input' to shared memory
 	if (start + tid < elements)
@@ -79,16 +79,16 @@ __global__ void Scan(int *input, int *output, int *buf, int elements)
 	//Primary Reduction
 	int stride, index;
 	for (stride = 1; stride <= blockDim.x; stride <<= 1) {
-		index = 2 * stride * (tid + 1) - 1;
-		if (index < 2 * blockDim.x)
+		index = (stride * (tid + 1) << 1) - 1;
+		if (index < blockDim.x << 1)
 			s_vals[index] += s_vals[index - stride];
 		__syncthreads();
 	}
 
 	//Secondary Reduction
 	for (stride = blockDim.x >> 1; stride; stride >>= 1) {
-		index = 2 * stride * (tid + 1) - 1;
-		if (index + stride < 2 * blockDim.x)
+		index = (stride * (tid + 1) << 1) - 1;
+		if (index + stride < blockDim.x << 1)
 			s_vals[index + stride] += s_vals[index];
 		__syncthreads();
 	}
@@ -100,13 +100,13 @@ __global__ void Scan(int *input, int *output, int *buf, int elements)
 		output[start + blockDim.x + tid] = s_vals[blockDim.x + tid];
 
 	if (buf && tid == 0)
-		buf[blockIdx.x] = s_vals[2 * blockDim.x - 1];
+		buf[blockIdx.x] = s_vals[(blockDim.x << 1) - 1];
 }
 
 __global__ void PostScan(int *input, int *buf, int elements)
 {
 	unsigned int tid = threadIdx.x;
-	unsigned int start = 2 * blockDim.x * blockIdx.x;
+	unsigned int start = blockDim.x * blockIdx.x << 1;
 
 	if (blockIdx.x) {
 		if (start + tid < elements)

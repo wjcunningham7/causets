@@ -14,16 +14,16 @@ void quicksort(Node &nodes, int low, int high)
 	float key;
 
 	if (low < high) {
-		k = (low + high) / 2;
+		k = (low + high) >> 1;
 		swap(nodes, low, k);
-		key = nodes.tau[low];
+		key = nodes.sc[low].w;
 		i = low + 1;
 		j = high;
 
 		while (i <= j) {
-			while ((i <= high) && (nodes.tau[i] <= key))
+			while ((i <= high) && (nodes.sc[i].w <= key))
 				i++;
-			while ((j >= low) && (nodes.tau[j] > key))
+			while ((j >= low) && (nodes.sc[j].w > key))
 				j--;
 			if (i < j)
 				swap(nodes, i, j);
@@ -40,18 +40,12 @@ static void swap(Node &nodes, const int i, const int j)
 {
 	float4 sc = nodes.sc[i];
 	float tau = nodes.tau[i];
-	int k_in = nodes.k_in[i];
-	int k_out = nodes.k_out[i];
 	
 	nodes.sc[i] = nodes.sc[j];
 	nodes.tau[i] = nodes.tau[j];
-	nodes.k_in[i] = nodes.k_in[j];
-	nodes.k_out[i] = nodes.k_out[j];
 
 	nodes.sc[j] = sc;
 	nodes.tau[j] = tau;
-	nodes.k_in[j] = k_in;
-	nodes.k_out[j] = k_out;
 }
 
 //Newton-Raphson Method

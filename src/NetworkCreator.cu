@@ -23,17 +23,16 @@ bool createNetwork(Node &nodes, int *& past_edges, int *& future_edges, int *& p
 		size_t mem = 0;
 		mem += sizeof(float4) * N_tar;
 		mem += sizeof(float) * N_tar;
-		mem += sizeof(int) * 2 * N_tar;
+		mem += sizeof(int) * (N_tar << 1);
 		mem += sizeof(int) * 2 * (N_tar * k_tar / 2 + edge_buffer);
-		mem += sizeof(int) * 2 * N_tar;
+		mem += sizeof(int) * (N_tar << 1);
 		mem += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);
 
 		size_t dmem = 0;
 		if (use_gpu) {
 			dmem += sizeof(float4) * N_tar;
 			dmem += sizeof(int) * 2 * (N_tar * k_tar / 2 + edge_buffer);
-			dmem += sizeof(int) * 2 * N_tar;
-			dmem += sizeof(int) * 2 * N_tar;
+			dmem += sizeof(int) * (N_tar << 2);
 		}
 
 		printMemUsed("for Network (Estimation)", mem, dmem);
@@ -86,7 +85,7 @@ bool createNetwork(Node &nodes, int *& past_edges, int *& future_edges, int *& p
 			if (past_edges == NULL)
 				throw std::bad_alloc();
 		}
-		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
+		hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer);
 
 		if (use_gpu)
 			checkCudaErrors(cuMemHostAlloc((void**)&future_edges, sizeof(int) * (N_tar * k_tar / 2 + edge_buffer), CU_MEMHOSTALLOC_DEVICEMAP));
@@ -95,7 +94,7 @@ bool createNetwork(Node &nodes, int *& past_edges, int *& future_edges, int *& p
 			if (future_edges == NULL)
 				throw std::bad_alloc();
 		}
-		hostMemUsed += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer);
+		hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer);
 
 		past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
 		if (past_edge_row_start == NULL)
@@ -398,7 +397,7 @@ bool linkNodes(Node &nodes, int * const &past_edges, int * const &future_edges, 
 					future_edges[future_idx] = j;
 					future_idx++;
 	
-					if (future_idx == (N_tar * k_tar / 2) + edge_buffer)
+					if (future_idx == N_tar * k_tar / 2 + edge_buffer)
 						throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 	
 					//Record number of degrees for each node
@@ -460,7 +459,7 @@ bool linkNodes(Node &nodes, int * const &past_edges, int * const &future_edges, 
 
 	//Identify Resulting Network
 	for (i = 0; i < N_tar; i++) {
-		if (nodes.k_in[i] > 0 || nodes.k_out[i] > 0) {
+		if (!nodes.k_in[i] || !nodes.k_out[i]) {
 			N_res++;
 			k_res += nodes.k_in[i] + nodes.k_out[i];
 

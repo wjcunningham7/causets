@@ -152,7 +152,7 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 
 		//Parameters in Correct Ranges
 		assert (N_tar > 0);
-		assert (N_sr > 0 && N_sr <= (uint64_t)N_tar * (N_tar - 1) / 2);
+		assert (N_sr > 0 && N_sr <= ((uint64_t)N_tar * (N_tar - 1)) >> 1);
 		assert (alpha > 0);
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	}
@@ -164,7 +164,7 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 	int do_map;
 	int n_trav;
 
-	uint64_t stride = (uint64_t)N_tar * (N_tar - 1) / (2 * N_sr);
+	uint64_t stride = (uint64_t)N_tar * (N_tar - 1) / (N_sr << 1);
 	uint64_t vec_idx;
 
 	bool *used;
@@ -196,13 +196,14 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 		if (j == 0)
 			continue;
 
-		if (j < N_tar / 2) {
-			i = i + do_map * (2 * (N_tar / 2 - i) - 1);
-			j = j + do_map * (2 * (N_tar / 2 - j));
-		} else
-			j += N_tar / 2;
+		if (j < N_tar >> 1) {
+			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
+			j = j + do_map * (((N_tar >> 1) - j) << 1);
+		}
 
-		if (nodes.k_in[i] + nodes.k_out[i] == 0 || nodes.k_in[j] + nodes.k_out[j] == 0)
+		if (i == j)
+			continue;
+		if (!(nodes.k_in[i] + nodes.k_out[i]) || !(nodes.k_in[j] + nodes.k_out[j]))
 			continue;
 
 		//Reset boolean array
@@ -211,9 +212,13 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 		//Begin Traversal from i to j
 		loc = i;
 		idx_b = j;
+		printf("i %d j %d\n", i, j);
 		while (loc != j) {
+			if (k == 1)
+				printf("loc %d\n", loc);
 			idx_a = loc;
 			min_dist = distance(nodes.sc[idx_a], nodes.tau[idx_a], nodes.sc[idx_b], nodes.tau[idx_b], a, alpha);
+			printf("\tMin: %f\n", min_dist);
 			used[loc] = true;
 			next = loc;
 
@@ -234,6 +239,7 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 				for (m = 0; m < nodes.k_out[loc]; m++) {
 					idx_a = future_edges[future_edge_row_start[loc]+m];
 					dist = distance(nodes.sc[idx_a], nodes.tau[idx_a], nodes.sc[idx_b], nodes.tau[idx_b], a, alpha);
+					printf("\t\t%f\n", dist);
 					if (dist <= min_dist) {
 						min_dist = dist;
 						next = future_edges[future_edge_row_start[loc]+m];
@@ -348,9 +354,11 @@ static float distance(const float4 &node_a, const float &tau_a, const float4 &no
 	
 	//Solve for Temporal Portion of Invariant Interval
 	dt2 = z0_a * z0_b;
+	printf("\t\tdt2: %f\n", dt2);
 
 	//Rotate Into z2, z3, z4 Planes
 	dx2 = z1_a * z1_b * sphProduct(node_a, node_b);
+	printf("\t\tdx2: %f\n", dx2);
 
 	//If dx2 - dt2 < 0, the interval is time-like
 	//If dx2 - dt2 > 0, the interval is space-like (causal)

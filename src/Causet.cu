@@ -37,12 +37,12 @@ int main(int argc, char **argv)
 	destroyNetwork(&network, resources.hostMemUsed, resources.devMemUsed);
 	if (network.network_properties.flags.use_gpu) cuCtxDetach(resources.cuContext);
 
-	success = true;
-	stopwatchStop(&cp.sCauset);
+	success = !resources.hostMemUsed && !resources.devMemUsed;
+	if (!success)
+		printf("WARNING: Memory leak detected!\n");
 
 	CausetExit:
-	if (cp.sCauset.stopTime.tv_sec == 0 && cp.sCauset.stopTime.tv_usec == 0)
-		stopwatchStop(&cp.sCauset);
+	stopwatchStop(&cp.sCauset);
 	shrQAFinish(argc, (const char**)argv, success ? QA_PASSED : QA_FAILED);
 	printf("Time: %5.6f sec\n", cp.sCauset.elapsedTime);
 	printf("PROGRAM COMPLETED\n");
@@ -322,7 +322,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				printf("  -n, --nodes\t\tNumber of Nodes\t\t\t100-100000\n");
 				printf("  -o, --energy\t\tDark Energy Density\t\t0.73\n");
 				printf("  -r, --ratio\t\tEnergy to Matter Ratio\t\t2.7\n");
-				printf("  -S, --success\t\tCalculate Success Ratio\t 10000, all\n");
+				printf("  -S, --success\t\tCalculate Success Ratio\t\t10000, all\n");
 				printf("  -s, --seed\t\tRNG Seed\t\t\t18100L\n");
 				printf("  -t, --age\t\tRescaled Age of Universe\t0.85\n");
 				printf("  -u, --universe\tUniverse Causet\n");
@@ -601,8 +601,8 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 			stopwatchStart(&cp->sCalcDegrees);
 			network->network_properties.k_tar = network->network_properties.delta * POW2(POW2(static_cast<float>(network->network_properties.a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network->network_properties.seed, 0) * 8.0 * M_PI / (SINH(3.0f * network->network_properties.tau0, STL) - 3.0 * network->network_properties.tau0);
 			stopwatchStop(&cp->sCalcDegrees);
+			printf("\t\tExecution Time: %5.6f sec\n", cp->sCalcDegrees.elapsedTime);
 			printf("\t\tCompleted.\n");
-			printf("\t\t\tExecution Time: %5.6f\n", cp->sCalcDegrees.elapsedTime);
 		}
 
 		//20% Buffer
@@ -624,6 +624,10 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 				network->network_properties.N_sr = static_cast<int64_t>(network->network_properties.N_tar) * (network->network_properties.N_tar - 1) / 2;
 			}
 		}
+
+		//Adjacency matrix not implemented in GPU algorithms
+		if (network->network_properties.flags.use_gpu)
+			network->network_properties.core_edge_fraction = 0.0;
 
 		printf("\n");
 		printf("\tParameters Constraining Universe Causal Set:\n");
@@ -760,7 +764,7 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 	if (network->network_properties.flags.bench) {
 		for (i = 0; i < NBENCH; i++) {
 			if (network->network_properties.flags.use_gpu) {
-				if (!linkNodesGPU(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+				if (!linkNodesGPU(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 					return false;
 
 				bm->bLinkNodesGPU += cp->sLinkNodesGPU.elapsedTime;
@@ -783,7 +787,7 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 	if (tmp)
 		network->network_properties.flags.bench = false;
 	if (network->network_properties.flags.use_gpu) {
-		if (!linkNodesGPU(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+		if (!linkNodesGPU(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 			return false;
 	} else if (!linkNodes(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_res, network->network_properties.k_res, network->network_properties.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 			return false;
@@ -1538,14 +1542,14 @@ static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t 
 	else
 		free(network->past_edges);
 	network->past_edges = NULL;
-	hostMemUsed -= sizeof(int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
+	hostMemUsed -= sizeof(int) * static_cast<unsigned int>(network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
 
 	if (network->network_properties.flags.use_gpu)
 		cuMemFreeHost(network->future_edges);
 	else
 		free(network->future_edges);
 	network->future_edges = NULL;
-	hostMemUsed -= sizeof(int) * (network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
+	hostMemUsed -= sizeof(int) * static_cast<unsigned int>(network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
 
 	free(network->past_edge_row_start);
 	network->past_edge_row_start = NULL;

@@ -27,8 +27,8 @@ __global__ void GenerateAdjacencyLists(float4 *nodes, uint64_t *edges, int *k_in
 	// b -> lower triangle of upper left block (do_map == 1)
 	// c -> upper right block
 
-	unsigned int i_ab = i + do_map * (2 * (width - i) - 1);
-	unsigned int j_ab = j + do_map * (2 * (width - j));
+	unsigned int i_ab = i + do_map * (((width - i) << 1) - 1);
+	unsigned int j_ab = j + do_map * ((width - j) << 1);
 
 	unsigned int i_c = i;
 	unsigned int j_c = j + width;
@@ -106,7 +106,7 @@ __global__ void DecodeFutureEdges(uint64_t *edges, int *future_edges, int elemen
 
 	if (idx < elements) {
 		//Decode Future Edges
-		uint64_t key = edges[idx+offset];
+		uint64_t key = edges[idx + offset];
 		unsigned int i = key >> 32;
 		unsigned int j = key & 0x00000000FFFFFFFF;
 
@@ -124,7 +124,7 @@ __global__ void DecodePastEdges(uint64_t *edges, int *past_edges, int elements, 
 
 	if (idx < elements) {
 		//Decode Past Edges
-		uint64_t key = edges[idx+offset];
+		uint64_t key = edges[idx + offset];
 
 		//Write Past Edges
 		past_edges[idx] = key & 0x00000000FFFFFFFF;
@@ -135,13 +135,40 @@ __global__ void DecodePostScan(int *edge_row_start, int elements)
 {
 	unsigned int idx = blockDim.x * blockIdx.x + threadIdx.x;
 
-	if (idx < elements && edge_row_start[idx] == 0)
+	if (idx < elements && !edge_row_start[idx])
 		edge_row_start[idx] = -1;
 }
 
-bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+__global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, int elements)
 {
-	//Add assert statements
+	unsigned int idx = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if (idx < elements) {
+		int k = k_in[idx] + k_out[idx];
+		if (k <= 1) {
+			atomicAdd(N_deg2, 1);
+			if (k)
+				atomicAdd(N_res, 1);
+		}
+	}
+}
+
+bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+{
+	if (DEBUG) {
+		assert (past_edges != NULL);
+		assert (future_edges != NULL);
+		assert (past_edge_row_start != NULL);
+		assert (future_edge_row_start != NULL);
+		assert (core_edge_exists != NULL);
+
+		assert (N_tar > 0);
+		assert (k_tar > 0);
+		assert (a > 0.0);
+		assert (alpha > 0.0);
+		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (edge_buffer >= 0);
+	}
 
 	Stopwatch sGPUOverhead = Stopwatch();
 	Stopwatch sGenAdjList = Stopwatch();
@@ -152,6 +179,7 @@ bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edge
 	Stopwatch sScan0 = Stopwatch();
 	Stopwatch sScan1 = Stopwatch();
 	Stopwatch sDecode2 = Stopwatch();
+	Stopwatch sProps = Stopwatch();
 
 	CUdeviceptr d_nodes;
 	CUdeviceptr d_k_in, d_k_out;
@@ -159,6 +187,7 @@ bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edge
 	CUdeviceptr d_past_edges, d_future_edges;
 	CUdeviceptr d_past_edge_row_start, d_future_edge_row_start;
 	CUdeviceptr d_buf, d_buf_scanned;
+	CUdeviceptr d_N_res, d_N_deg2;
 	CUdeviceptr d_g_idx;
 	int *g_idx;
 	int j,k;
@@ -200,7 +229,7 @@ bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edge
 	checkCudaErrors(cuMemcpyHtoD(d_nodes, nodes.sc, sizeof(float4) * N_tar));
 
 	//Initialize Memory on Device
-	checkCudaErrors(cuMemsetD32(d_edges, 0, 2 * d_edges_size));
+	checkCudaErrors(cuMemsetD32(d_edges, 0, d_edges_size << 1));
 	checkCudaErrors(cuMemsetD32(d_g_idx, 0, 1));
 
 	//Synchronize
@@ -217,7 +246,7 @@ bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edge
 	stopwatchStart(&sGenAdjList);
 
 	//Execute Kernel
-	GenerateAdjacencyLists<<<blocks_per_grid_GAL, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar / 2);
+	GenerateAdjacencyLists<<<blocks_per_grid_GAL, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar >> 1);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
 
 	//Synchronize
@@ -414,12 +443,66 @@ bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edge
 	d_buf_scanned = NULL;
 	devMemUsed -= sizeof(int) * (BLOCK_SIZE << 1);
 
+	//Resulting Network Properties
+
+	//Allocate Device Memory
+	checkCudaErrors(cuMemAlloc(&d_N_res, sizeof(int)));
+	devMemUsed += sizeof(int);
+
+	checkCudaErrors(cuMemAlloc(&d_N_deg2, sizeof(int)));
+	devMemUsed += sizeof(int);
+	
+	//Initialize Memory on Device
+	checkCudaErrors(cuMemsetD32(d_N_res, 0, 1));
+	checkCudaErrors(cuMemsetD32(d_N_deg2, 0, 1));
+
+	stopwatchStop(&sGPUOverhead);
+
+	//CUDA Grid Specifications
+	unsigned int gridx_res_prop = gridx_scan_decode;
+	dim3 blocks_per_grid_res_prop(gridx_res_prop, 1, 1);
+
+	stopwatchStart(&sProps);
+
+	//Execute Kernel
+	ResultingProps<<<gridx_res_prop, threads_per_block>>>((int*)d_k_in, (int*)d_k_out, (int*)d_N_res, (int*)d_N_deg2, N_tar);
+	getLastCudaError("Kernel 'NetworkCreator_GPU.ResultingProps' Failed to Execute!\n");
+	checkCudaErrors(cuCtxSynchronize());
+
+	stopwatchStop(&sProps);
+	stopwatchStart(&sGPUOverhead);
+
+	//Copy Memory from Device to Host
+	checkCudaErrors(cuMemcpyDtoH(&N_res, d_N_res, sizeof(int)));
+	checkCudaErrors(cuMemcpyDtoH(&N_deg2, d_N_deg2, sizeof(int)));
+
+	N_res = N_tar - N_res;
+	N_deg2 = N_tar - N_deg2;
+	k_res = static_cast<float>(*g_idx << 1) / N_res;
+
+	if (DEBUG) {
+		assert (N_res > 0);
+		assert (N_deg2 > 0);
+		assert (k_res > 0.0);
+	}
+
+	//Free Device Memory
+	cuMemFree(d_N_res);
+	d_N_res = NULL;
+	devMemUsed -= sizeof(int);
+
+	cuMemFree(d_N_deg2);
+	d_N_deg2 = NULL;
+	devMemUsed -= sizeof(int);
+
 	stopwatchStop(&sGPUOverhead);
 	stopwatchStop(&sLinkNodesGPU);
 
 	if (!bench) {
 		printf("\tCausets Successfully Connected.\n");
-		printf("\t\tUndirected Links: %d\n", *g_idx);
+		//printf("\t\tUndirected Links: %d\n", *g_idx);
+		printf("\t\tResulting Network Size: %d\n", N_res);
+		printf("\t\tResulting Average Degree: %f\n", k_res);
 		fflush(stdout);
 	}
 	

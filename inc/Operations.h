@@ -265,8 +265,6 @@ inline float tauToEtaUniverseExact(const float &tau, const float &a, const float
 
 	_2F1(&_2F1_tau, tau, NULL, 1.0f / 3.0f, 5.0f / 6.0f, 4.0f / 3.0f, &f, &err, &nterms);
 
-	if (DEBUG) assert (ABS(err, STL) < 1e-4);
-
 	eta = 3.0f * GAMMA(-1.0f / 3.0f, STL) * POW(z, 1.0f / 3.0f, APPROX ? FAST : STL) * f;
 	eta += 4.0f * SQRT(3.0f, STL) * POW(M_PI, 1.5f, APPROX ? FAST : STL) / GAMMA(5.0f / 6.0f, STL);
 	eta *= a / (9.0f * alpha * GAMMA(2.0f / 3.0f, STL));
@@ -296,8 +294,6 @@ inline double xi(double &r)
 		_2F1(&_2F1_r, r, NULL, 1.0f / 3.0f, 0.5f, 4.0f / 3.0f, &f, &err, &nterms);
 		_xi = SQRT(4.0f / M_PI, STL) * GAMMA(7.0f / 6.0f, STL) * GAMMA(1.0f / 3.0f, STL) - f / r;
 	}
-
-	if (DEBUG) assert (ABS(err, STL) < 1e-4);
 
 	return _xi;
 }
