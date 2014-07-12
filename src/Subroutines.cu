@@ -90,3 +90,26 @@ bool newton(double (*solve)(const double &x, const double * const p1, const doub
 
 	return true;
 }
+
+//Breadth First Search
+void bfsearch(const Node &nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const int index, const int id, int &elements)
+{
+	int ps = past_edge_row_start[index];
+	int fs = future_edge_row_start[index];
+	int i;
+	
+	nodes.cc[index] = id;
+	elements++;
+
+	printf("Index: %d\n", index);
+	printf("ID: %d\n", id);
+	//for (i = 0; i < nodes.k_in[index]; i++)
+	//	if (!nodes.cc[past_edges[ps+i]])
+	//		bfsearch(nodes, past_edges, future_edges, past_edge_row_start, future_edge_row_start, past_edges[ps+i], id, elements);
+
+	for (i = 0; i < nodes.k_out[index]; i++)
+		if (!nodes.cc[future_edges[fs+i]])
+			printf("CC Loc: %d\n", future_edges[ps+i]);
+			//bfsearch(nodes, past_edges, future_edges, past_edge_row_start, future_edge_row_start, future_edges[fs+i], id, elements);
+	
+}

@@ -60,7 +60,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":m:n:k:d:s:a:c:g:t:A:D:o:r:l:uvyCSh";
+	static const char *optString = ":m:n:k:d:s:a:c:g:t:A:D:o:r:l:uvyCSGh";
 	//Multi-character options
 	static const struct option longOpts[] = {
 		{ "manifold",	required_argument,	NULL, 'm' },
@@ -72,6 +72,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 		{ "core",	required_argument,	NULL, 'c' },
 		{ "clustering",	no_argument,		NULL, 'C' },
 		{ "success",	required_argument,	NULL, 'S' },
+		{ "components", no_argument,		NULL, 'G' },
 		{ "graph",	required_argument,	NULL, 'g' },
 		{ "universe",	no_argument,		NULL, 'u' },
 		{ "age",	required_argument,	NULL, 't' },
@@ -164,14 +165,13 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				break;
 			case 'S':	//Flag for calculating success ratio
 				network_properties.flags.calc_success_ratio = true;
-
-				if (strcmp(optarg, "all") == 0)
-					network_properties.N_sr = -1;
-				else {
-					network_properties.N_sr = static_cast<int64_t>(atol(optarg));
-					if (network_properties.N_sr <= 0)
-						throw CausetException("Invalid argument for 'success' parameter!\n");
-				}
+				network_properties.flags.calc_components = true;
+				network_properties.N_sr = atof(optarg);
+				if (network_properties.N_sr < 0.0 && network_properties.N_sr > 1.0)
+					throw CausetException("Invalid argument for 'success' parameter!\n");
+				break;
+			case 'G':	//Flag for Finding (Giant) Connected Component
+				network_properties.flags.calc_components = true;
 				break;
 			case 'g':	//Graph ID
 				network_properties.graphID = atoi(optarg);
@@ -314,6 +314,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				printf("  -c, --core\t\tCore Edge Ratio\t\t\t0.01\n");
 				printf("  -D, --delta\t\tNode Density\t\t\t10000\n");
 				printf("  -d, --dim\t\tSpatial Dimensions\t\t1 or 3\n");
+				printf("  -G, --components\tIdentify Giant Component\n");
 				printf("  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
 				printf("  -h, --help\t\tDisplay this menu\n");
 				printf("  -k, --degrees\t\tExpected Average Degrees\t10-100\n");
@@ -322,7 +323,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				printf("  -n, --nodes\t\tNumber of Nodes\t\t\t100-100000\n");
 				printf("  -o, --energy\t\tDark Energy Density\t\t0.73\n");
 				printf("  -r, --ratio\t\tEnergy to Matter Ratio\t\t2.7\n");
-				printf("  -S, --success\t\tCalculate Success Ratio\t\t10000, all\n");
+				printf("  -S, --success\t\tCalculate Success Ratio\t\t0.5\n");
 				printf("  -s, --seed\t\tRNG Seed\t\t\t18100L\n");
 				printf("  -t, --age\t\tRescaled Age of Universe\t0.85\n");
 				printf("  -u, --universe\tUniverse Causet\n");
@@ -357,21 +358,8 @@ static NetworkProperties parseArgs(int argc, char **argv)
 			else if (network_properties.k_tar == 0.0)
 				throw CausetException("Flag '-k', expected average degrees, must be specified!\n");
 
-			if (network_properties.flags.calc_success_ratio) {
-				if (network_properties.N_sr == -1)
-					network_properties.N_sr = static_cast<int64_t>(network_properties.N_tar) * (network_properties.N_tar - 1) / 2;
-				else if (network_properties.N_sr > static_cast<int64_t>(network_properties.N_tar) * (network_properties.N_tar - 1) / 2) {
-					if (!network_properties.flags.yes) {
-						printf("\nYou have requested too many comparisons in success ratio algorithm.  Set to max permitted [y/N]? ");
-						fflush(stdout);
-						char response = getchar();
-						getchar();
-						if (response != 'y')
-							exit(EXIT_FAILURE);
-					}
-					network_properties.N_sr = static_cast<int64_t>(network_properties.N_tar) * (network_properties.N_tar - 1) / 2;
-				}
-			}
+			if (network_properties.flags.calc_success_ratio) 
+				network_properties.N_sr *= static_cast<int64_t>(network_properties.N_tar) * (network_properties.N_tar - 1) / 2;
 		} else if (network_properties.dim == 1)
 			throw CausetException("1+1 not supported for universe causet!\n");
 
@@ -609,21 +597,8 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 		network->network_properties.edge_buffer = static_cast<int>(0.1 * network->network_properties.N_tar * network->network_properties.k_tar);
 
 		//Check success ratio parameters if applicable
-		if (network->network_properties.flags.calc_success_ratio) {
-			if (network->network_properties.N_sr == -1)
-				network->network_properties.N_sr = static_cast<int64_t>(network->network_properties.N_tar) * (network->network_properties.N_tar - 1) / 2;
-			else if (network->network_properties.N_sr > static_cast<int64_t>(network->network_properties.N_tar) * (network->network_properties.N_tar - 1) / 2) {
-				if (!network->network_properties.flags.yes) {
-					printf("\nYou have requested too many comparisons in success ratio algorithm.  Set to max permitted [y/N]? ");
-					fflush(stdout);
-					char response = getchar();
-					getchar();
-					if (response != 'y')
-						return false;
-				}
-				network->network_properties.N_sr = static_cast<int64_t>(network->network_properties.N_tar) * (network->network_properties.N_tar - 1) / 2;
-			}
-		}
+		if (network->network_properties.flags.calc_success_ratio)
+			network->network_properties.N_sr *= static_cast<int64_t>(network->network_properties.N_tar) * (network->network_properties.N_tar - 1) / 2;
 
 		//Adjacency matrix not implemented in GPU algorithms
 		if (network->network_properties.flags.use_gpu)
@@ -808,7 +783,7 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 		assert (bm != NULL);
 	}
 
-	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_success_ratio)
+	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.calc_success_ratio)
 		return true;
 
 	printf("\nCalculating Network Observables...\n");
@@ -832,6 +807,26 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 		if (tmp)
 			network->network_properties.flags.bench = false;
 		if (!measureClustering(network->network_observables.clustering, network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->core_edge_exists, network->network_observables.average_clustering, network->network_properties.N_tar, network->network_properties.N_deg2, network->network_properties.core_edge_fraction, cp->sMeasureClustering, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.calc_autocorr, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			return false;
+		if (tmp)
+			network->network_properties.flags.bench = true;
+	}
+
+	if (network->network_properties.flags.calc_components) {
+		if (network->network_properties.flags.bench) {
+			for (i = 0; i < NBENCH; i++) {
+				if (!measureConnectedComponents(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->network_properties.N_tar, network->network_properties.N_cc, network->network_properties.N_gcc, cp->sMeasureConnectedComponents, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+					return false;
+				bm->bMeasureConnectedComponents += cp->sMeasureConnectedComponents.elapsedTime;
+				stopwatchReset(&cp->sMeasureConnectedComponents);
+			}
+			bm->bMeasureConnectedComponents /= NBENCH;
+		}
+
+		tmp = network->network_properties.flags.bench;
+		if (tmp)
+			network->network_properties.flags.bench = false;
+		if (!measureConnectedComponents(network->nodes, network->past_edges, network->future_edges, network->past_edge_row_start, network->future_edge_row_start, network->network_properties.N_tar, network->network_properties.N_cc, network->network_properties.N_gcc, cp->sMeasureConnectedComponents, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 			return false;
 		if (tmp)
 			network->network_properties.flags.bench = true;
@@ -1262,6 +1257,10 @@ static bool printNetwork(Network &network, const CausetPerformance &cp, const lo
 
 		if (network.network_properties.flags.calc_clustering)
 			outputStream << "Average Clustering\t\t\t" << network.network_observables.average_clustering << std::endl;
+		if (network.network_properties.flags.calc_components) {
+			outputStream << "Number of Connected Components\t" << network.network_properties.N_cc << std::endl;
+			outputStream << "Size of Giant Connected Component\t" << network.network_properties.N_gcc << std::endl;
+		}
 		if (network.network_properties.flags.calc_success_ratio)
 			outputStream << "Success Ratio\t\t\t\t" << network.network_observables.success_ratio << std::endl;
 
@@ -1294,6 +1293,8 @@ static bool printNetwork(Network &network, const CausetPerformance &cp, const lo
 
 		if (network.network_properties.flags.calc_clustering)
 			outputStream << "measureClustering:   " << cp.sMeasureClustering.elapsedTime << " sec" << std::endl;
+		if (network.network_properties.flags.calc_components)
+			outputStream << "measureComponents:   " << cp.sMeasureConnectedComponents.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_success_ratio)
 			outputStream << "measureSuccessRatio: " << cp.sMeasureSuccessRatio.elapsedTime << " sec" << std::endl;
 
@@ -1475,6 +1476,8 @@ static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
 			fprintf(f, "\tlinkNodes:\t\t%5.6f sec\n", bm.bLinkNodes);
 		if (cf.calc_clustering)
 			fprintf(f, "\tmeasureClustering:\t%5.6f sec\n", bm.bMeasureClustering);
+		if (cf.calc_components)
+			fprintf(f, "\tmeasureComponents:\t%5.6f sec\n", bm.bMeasureConnectedComponents);
 		if (cf.calc_success_ratio)
 			fprintf(f, "\tmeasureSuccessRatio:\t%5.6f sec\n", bm.bMeasureSuccessRatio);
 
@@ -1504,6 +1507,8 @@ static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
 		printf("\tlinkNodes:\t\t%5.6f sec\n", bm.bLinkNodes);
 	if (cf.calc_clustering)
 		printf("\tmeasureClustering:\t%5.6f sec\n", bm.bMeasureClustering);
+	if (cf.calc_components)
+		printf("\tmeasureConnectedComponents:\t%5.6f sec\n", bm.bMeasureConnectedComponents);
 	if (cf.calc_success_ratio)
 		printf("\tmeasureSuccessRatio:\t%5.6f sec\n", bm.bMeasureSuccessRatio);
 	printf("\n");
@@ -1567,5 +1572,11 @@ static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t 
 		free(network->network_observables.clustering);
 		network->network_observables.clustering = NULL;
 		hostMemUsed -= sizeof(float) * network->network_properties.N_deg2;
+	}
+
+	if (network->network_properties.flags.calc_components) {
+		free(network->nodes.cc);
+		network->nodes.cc = NULL;
+		hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 	}
 }

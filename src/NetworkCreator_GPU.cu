@@ -131,14 +131,6 @@ __global__ void DecodePastEdges(uint64_t *edges, int *past_edges, int elements, 
 	}
 }
 
-__global__ void DecodePostScan(int *edge_row_start, int elements)
-{
-	unsigned int idx = blockDim.x * blockIdx.x + threadIdx.x;
-
-	if (idx < elements && !edge_row_start[idx])
-		edge_row_start[idx] = -1;
-}
-
 __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, int elements)
 {
 	unsigned int idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -147,13 +139,13 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 		int k = k_in[idx] + k_out[idx];
 		if (k <= 1) {
 			atomicAdd(N_deg2, 1);
-			if (k)
+			if (!k)
 				atomicAdd(N_res, 1);
 		}
 	}
 }
 
-bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+bool linkNodesGPU(const Node &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (past_edges != NULL);
@@ -190,7 +182,7 @@ bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edge
 	CUdeviceptr d_N_res, d_N_deg2;
 	CUdeviceptr d_g_idx;
 	int *g_idx;
-	int j,k;
+	int i, j, k;
 
 	stopwatchStart(&sLinkNodesGPU);
 	stopwatchStart(&sGPUOverhead);
@@ -216,6 +208,10 @@ bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edge
 	
 	checkCudaErrors(cuMemAlloc(&d_g_idx, sizeof(int)));
 	devMemUsed += sizeof(int);
+
+	//Initialize Memory on Host
+	memset(nodes.k_in, 0, sizeof(int) * N_tar);
+	memset(nodes.k_out, 0, sizeof(int) * N_tar);
 	
 	//Allocate Mapped Pinned Memory
 	checkCudaErrors(cuMemHostGetDevicePointer(&d_k_in, (void*)nodes.k_in, 0));
@@ -400,23 +396,6 @@ bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edge
 	checkCudaErrors(cuCtxSynchronize());
 
 	stopwatchStop(&sScan1);
-
-	//CUDA Grid Specifications
-	unsigned int gridx_scan_decode = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / BLOCK_SIZE));
-	dim3 blocks_per_grid_scan_decode(gridx_scan_decode, 1, 1);
-
-	stopwatchStart(&sDecode2);
-
-	//Execute Kernel
-	DecodePostScan<<<gridx_scan_decode, threads_per_block>>>((int*)d_past_edge_row_start, N_tar);
-	getLastCudaError("Kernel 'NetworkCreator_GPU.DecodePostScan' Failed to Execute!\n");
-	checkCudaErrors(cuCtxSynchronize());
-
-	DecodePostScan<<<gridx_scan_decode, threads_per_block>>>((int*)d_future_edge_row_start, N_tar);
-	getLastCudaError("Kernel 'NetworkCreator_GPU.DecodePostScan' Failed to Execute!\n");
-	checkCudaErrors(cuCtxSynchronize());
-
-	stopwatchStop(&sDecode2);
 	stopwatchStart(&sGPUOverhead);
 
 	//Copy Memory from Device to Host
@@ -425,6 +404,36 @@ bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edge
 
 	//Synchronize
 	checkCudaErrors(cuCtxSynchronize());
+
+	stopwatchStop(&sGPUOverhead);
+
+	//Formatting
+	for (i = N_tar - 1; i > 0; i--) {
+		past_edge_row_start[i] = past_edge_row_start[i-1];
+		future_edge_row_start[i] = future_edge_row_start[i-1];
+	}
+
+	past_edge_row_start[0] = -1;
+	future_edge_row_start[0] = 0;
+
+	int pv = past_edge_row_start[N_tar-1];
+	int fv = future_edge_row_start[N_tar-1];
+
+	for (i = N_tar-2; i >= 0; i--) {
+		if (pv == past_edge_row_start[i])
+			past_edge_row_start[i] = -1;
+		else
+			pv = past_edge_row_start[i];
+
+		if (fv == future_edge_row_start[i])
+			future_edge_row_start[i] = -1;
+		else
+			fv = future_edge_row_start[i];
+	}
+
+	future_edge_row_start[N_tar-1] = -1;
+	
+	stopwatchStart(&sGPUOverhead);
 
 	//Free Device Memory
 	cuMemFree(d_past_edge_row_start);
@@ -459,7 +468,7 @@ bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edge
 	stopwatchStop(&sGPUOverhead);
 
 	//CUDA Grid Specifications
-	unsigned int gridx_res_prop = gridx_scan_decode;
+	unsigned int gridx_res_prop = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / BLOCK_SIZE));
 	dim3 blocks_per_grid_res_prop(gridx_res_prop, 1, 1);
 
 	stopwatchStart(&sProps);
@@ -475,6 +484,9 @@ bool linkNodesGPU(Node &nodes, int * const &past_edges, int * const &future_edge
 	//Copy Memory from Device to Host
 	checkCudaErrors(cuMemcpyDtoH(&N_res, d_N_res, sizeof(int)));
 	checkCudaErrors(cuMemcpyDtoH(&N_deg2, d_N_deg2, sizeof(int)));
+
+	//Synchronize
+	checkCudaErrors(cuCtxSynchronize());
 
 	N_res = N_tar - N_res;
 	N_deg2 = N_tar - N_deg2;

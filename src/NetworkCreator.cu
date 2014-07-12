@@ -136,7 +136,7 @@ bool createNetwork(Node &nodes, int *& past_edges, int *& future_edges, int *& p
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &verbose, const bool &bench)
+bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//Values are in correct ranges
@@ -292,7 +292,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &verbose, const bool &bench)
+bool linkNodes(const Node &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -324,11 +324,9 @@ bool linkNodes(Node &nodes, int * const &past_edges, int * const &future_edges, 
 
 	stopwatchStart(&sLinkNodes);
 
-	for (i = 0; i < N_tar; i++) {
-		nodes.k_in[i] = 0;
-		nodes.k_out[i] = 0;
-	}
-
+	memset(nodes.k_in, 0, sizeof(int) * N_tar);
+	memset(nodes.k_out, 0, sizeof(int) * N_tar);
+	
 	//Identify future connections
 	for (i = 0; i < N_tar - 1; i++) {
 		if (i < core_limit)
@@ -459,7 +457,7 @@ bool linkNodes(Node &nodes, int * const &past_edges, int * const &future_edges, 
 
 	//Identify Resulting Network
 	for (i = 0; i < N_tar; i++) {
-		if (!nodes.k_in[i] || !nodes.k_out[i]) {
+		if (nodes.k_in[i] + nodes.k_out[i] > 0) {
 			N_res++;
 			k_res += nodes.k_in[i] + nodes.k_out[i];
 

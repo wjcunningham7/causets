@@ -71,7 +71,7 @@ enum Manifold {
 
 //Minimal unique properties of a node
 struct Node {
-	Node() : sc(NULL), tau(NULL), k_in(NULL), k_out(NULL) {}
+	Node() : sc(NULL), tau(NULL), k_in(NULL), k_out(NULL), cc(NULL) {}
 
 	//Spacetime Coordinates
 	float4 *sc;	//Stored as (eta, theta, phi, chi)
@@ -80,6 +80,9 @@ struct Node {
 	//Number of Neighbors
 	int *k_in;
 	int *k_out;
+
+	//Connected Component ID
+	int *cc;
 };
 
 //These are conflicts which arise due to over-constraining
@@ -100,7 +103,7 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), use_gpu(false), disp_network(false), print_network(false), universe(false), calc_clustering(false), calc_success_ratio(false), calc_autocorr(false) {}
+	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), use_gpu(false), disp_network(false), print_network(false), universe(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false) {}
 
 	CausetConflicts cc;	//Conflicting Parameters
 
@@ -110,6 +113,7 @@ struct CausetFlags {
 	bool universe;		//Use Universe's Tau Distribution
 	
 	bool calc_clustering;	//Find Clustering Coefficients
+	bool calc_components;	//Find Connected Components
 	bool calc_success_ratio;//Find Success Ratio
 	bool calc_autocorr;	//Autocorrelation
 	
@@ -120,7 +124,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_sr(0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
+	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_cc(0), N_gcc(0), N_sr(0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
 
 	CausetFlags flags;
 
@@ -131,6 +135,9 @@ struct NetworkProperties {
 	float k_res;			//Resulting Average Degree
 
 	int N_deg2;			//Nodes of Degree 2 or Greater
+
+	int N_cc;			//Number of Connected Components
+	int N_gcc;			//Size of Giant Connected Component
 
 	int64_t N_sr;			//Number of Pairs Used in Success Ratio
 
@@ -184,7 +191,7 @@ struct Network {
 
 //Algorithmic Performance
 struct CausetPerformance {
-	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureSuccessRatio(Stopwatch()) {}
+	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sMeasureSuccessRatio(Stopwatch()) {}
 
 	Stopwatch sCauset;
 	Stopwatch sCalcDegrees;
@@ -195,12 +202,13 @@ struct CausetPerformance {
 	Stopwatch sLinkNodes;
 	Stopwatch sLinkNodesGPU;
 	Stopwatch sMeasureClustering;
+	Stopwatch sMeasureConnectedComponents;
 	Stopwatch sMeasureSuccessRatio;
 };
 
 //Benchmark Statistics
 struct Benchmark {
-	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureSuccessRatio(0.0) {}
+	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0) {}
 
 	double bCalcDegrees;
 	double bCreateNetwork;
@@ -210,6 +218,7 @@ struct Benchmark {
 	double bLinkNodes;
 	double bLinkNodesGPU;
 	double bMeasureClustering;
+	double bMeasureConnectedComponents;
 	double bMeasureSuccessRatio;
 };
 

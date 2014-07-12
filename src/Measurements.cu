@@ -130,8 +130,79 @@ bool measureClustering(float *& clustering, const Node &nodes, const int * const
 			fflush(stdout);
 		}
 	}
+
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sMeasureClustering.elapsedTime);
+		fflush(stdout);
+	}
+
+	return true;
+}
+
+//Calculates the number of connected components in the graph
+//as well as the size of the giant connected component
+//Efficiency: O(xxx)
+bool measureConnectedComponents(Node &nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const int &N_tar, int &N_cc, int &N_gcc, Stopwatch &sMeasureConnectedComponents, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+{
+	if (DEBUG) {
+		//No Null Pointers
+		assert (past_edges != NULL);
+		assert (future_edges != NULL);
+		assert (past_edge_row_start != NULL);
+		assert (future_edge_row_start != NULL);
+
+		//Parameters in Correct Ranges
+		assert (N_tar > 0);
+	}
+
+	int elements;
+	int i;
+
+	stopwatchStart(&sMeasureConnectedComponents);
+
+	try {
+		nodes.cc = (int*)malloc(sizeof(int) * N_tar);
+		if (nodes.cc == NULL)
+			throw std::bad_alloc();
+		hostMemUsed += sizeof(int) * N_tar;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d\n", __FILE__, __LINE__);
+		return false;
+	}
+	
+	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	if (verbose)
+		printMemUsed("to Measure Components", hostMemUsed, devMemUsed);
+
+	memset(nodes.cc, 0, sizeof(int) * N_tar);
+	N_cc = 0;
+	N_gcc = 0;
+
+	//for (i = 0; i < N_tar; i++) {
+	for (i = 0; i < N_tar; i++) {
+		elements = 0;
+		if (!nodes.cc[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0)
+			bfsearch(nodes, past_edges, future_edges, past_edge_row_start, future_edge_row_start, i, N_cc++, elements);
+		if (elements > N_gcc)
+			N_gcc = elements;
+	}
+
+	stopwatchStop(&sMeasureConnectedComponents);
+
+	if (DEBUG) {
+		assert (N_cc > 0);
+		assert (N_gcc > 1);
+	}
+
+	if (!bench) {
+		printf("\tCalculated Number of Connected Components.\n");
+		printf("\t\tIdentified %d Components.\n", N_cc);
+		printf("\t\tSize of Giant Component: %d\n", N_gcc);
+		fflush(stdout);
+	}
+
+	if (verbose) {
+		printf("\t\tExecution Time: %5.6f sec\n", sMeasureConnectedComponents.elapsedTime);
 		fflush(stdout);
 	}
 
@@ -206,22 +277,23 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 		if (!(nodes.k_in[i] + nodes.k_out[i]) || !(nodes.k_in[j] + nodes.k_out[j]))
 			continue;
 
+		//printf("%d %d\n", i, j);
+
 		//Reset boolean array
 		memset(used, 0, sizeof(bool) * N_tar);
 
 		//Begin Traversal from i to j
 		loc = i;
 		idx_b = j;
-		printf("i %d j %d\n", i, j);
 		while (loc != j) {
-			if (k == 1)
-				printf("loc %d\n", loc);
 			idx_a = loc;
+			//printf("One\n");
 			min_dist = distance(nodes.sc[idx_a], nodes.tau[idx_a], nodes.sc[idx_b], nodes.tau[idx_b], a, alpha);
-			printf("\tMin: %f\n", min_dist);
+			//printf("min: %f\n", min_dist);
 			used[loc] = true;
 			next = loc;
 
+			//printf("Two\n");
 			//Check Past Connections
 			if (past_edge_row_start[loc] != -1) {
 				for (m = 0; m < nodes.k_in[loc]; m++) {
@@ -234,23 +306,36 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 				}
 			}
 
+			//printf("Three\n");
 			//Check Future Connections
 			if (future_edge_row_start[loc] != -1) {
+				//printf("3.1\n");
 				for (m = 0; m < nodes.k_out[loc]; m++) {
+					//printf("3.2\n");
+					//printf("\nloc %d\n", loc);
+					//printf("root_idx %d\n", future_edge_row_start[loc]);
+					//printf("max_idx %d\n", future_edge_row_start[loc] + nodes.k_out[loc] - 1);
 					idx_a = future_edges[future_edge_row_start[loc]+m];
+					//printf("3.3\n");
+					//printf("a %d b %d\n", idx_a, idx_b);
 					dist = distance(nodes.sc[idx_a], nodes.tau[idx_a], nodes.sc[idx_b], nodes.tau[idx_b], a, alpha);
-					printf("\t\t%f\n", dist);
+					//printf("dist: %f\n", dist);
+					//printf("3.4\n");
 					if (dist <= min_dist) {
 						min_dist = dist;
+						//printf("3.5\n");
 						next = future_edges[future_edge_row_start[loc]+m];
 					}
+					//printf("3.6\n");
 				}
 			}
-			
+		
+			//printf("Four\n");	
 			if (!used[next])
 				loc = next;
 			else
 				break;
+			//printf("Five\n");
 		}
 
 		if (loc == j)
@@ -324,10 +409,13 @@ static float distance(const float4 &node_a, const float &tau_a, const float4 &no
 {
 	if (DEBUG) {
 		//Parameters in Correct Ranges
+		//assert (node_a != node_b);
 		assert (tau_a != tau_b);
 		assert (a > 0.0);
 		assert (alpha > 0.0);
 	}
+
+	//printf("3.3.1\n");
 	
 	IntData idata = IntData();
 	idata.tol = 1e-5;
@@ -342,31 +430,45 @@ static float distance(const float4 &node_a, const float &tau_a, const float4 &no
 	float dist;
 	float power = 2.0f / 3.0f;
 
+	//printf("3.3.2\n");
+
 	//Solve for z1 in Rotated Plane
 	z1_a = alpha * POW(SINH(1.5f * tau_a, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
 	z1_b = alpha * POW(SINH(1.5f * tau_b, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
+
+	//printf("z1_a: %f\n", z1_a);
+	//printf("z1_b: %f\n", z1_b);
 
 	//Use Numerical Integration for z0
 	idata.upper = z1_a;
 	z0_a = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
 	idata.upper = z1_b;
 	z0_b = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
+
+	//printf("z0_a: %f\n", z0_a);
+	//printf("z0_b: %f\n", z0_b);
+
+	//printf("3.3.3\n");
 	
 	//Solve for Temporal Portion of Invariant Interval
 	dt2 = z0_a * z0_b;
-	printf("\t\tdt2: %f\n", dt2);
+	//printf("dt2: %f\n", dt2);
 
 	//Rotate Into z2, z3, z4 Planes
 	dx2 = z1_a * z1_b * sphProduct(node_a, node_b);
-	printf("\t\tdx2: %f\n", dx2);
+	//printf("dx2: %f\n", dx2);
 
 	//If dx2 - dt2 < 0, the interval is time-like
 	//If dx2 - dt2 > 0, the interval is space-like (causal)
 
-	if (dx2 - dt2 < 0)
-		dist = ACOSH(dx2 - dt2, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	//if (dx2 - dt2 < 0)
+	if (ABS(dx2 - dt2, STL) > 1.0f)
+		dist = ACOSH(ABS(dx2 - dt2, STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 	else
 		dist = ACOS(dx2 - dt2, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	//printf("dist: %f\n", dist);
+
+	//printf("3.3.4\n");
 
 	if (DEBUG) {
 		//Check space-like vs time-like intervals
