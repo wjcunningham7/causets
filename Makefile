@@ -36,7 +36,7 @@ CEXTOBJS	:= $(patsubst $(FASTSRC)/%.cpp, $(OBJDIR)/%.o, $(CEXTSOURCES))
 OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%_cu.o, $(SOURCES))
 LOBJS		:= $(patsubst $(OBJDIR)/%_cu.o, $(OBJDIR)/%.o, $(OBJS))
 
-all : $(COBJS) $(CEXTOBJS) $(OBJS) link bindir bin cleanlog
+all : $(COBJS) $(CEXTOBJS) $(OBJS) link bindir bin cleanobj cleanlog
 
 $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<
@@ -69,14 +69,16 @@ fortran1 : $(FSOURCES1)
 fortran2 : $(FSOURCES2)
 	$(GFOR) $(FSOURCES2) -o $(BINDIR)/universe
 
-clean : cleanbin
-	rm -f $(OBJDIR)/*.o
+clean : cleanbin cleanobj cleanlog
 
 cleanbin :
 	rm -f $(BINDIR)/*
 
+cleanobj :
+	rm -f $(OBJDIR)/*
+
 cleanlog :
-	rm -f ./causet.log ./causet.err
+	rm -f *.log
 
 #cleandata :
 #	rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/data_keys.key

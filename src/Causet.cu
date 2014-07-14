@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 	if (network.network_properties.flags.disp_network && !displayNetwork(network.nodes, network.future_edges, argc, argv)) goto CausetExit;
 	if (!network.network_properties.flags.bench) printMemUsed(NULL, resources.maxHostMemUsed, resources.maxDevMemUsed);
 	if (network.network_properties.flags.print_network && !printNetwork(network, cp, init_seed, resources.gpuID)) goto CausetExit;
-	
+
 	destroyNetwork(&network, resources.hostMemUsed, resources.devMemUsed);
 	if (network.network_properties.flags.use_gpu) cuCtxDetach(resources.cuContext);
 
@@ -832,6 +832,7 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 			network->network_properties.flags.bench = true;
 	}
 
+
 	if (network->network_properties.flags.calc_success_ratio) {
 		if (network->network_properties.flags.bench) {
 			for (i = 0; i < NBENCH; i++) {
@@ -1566,7 +1567,7 @@ static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t 
 
 	free(network->core_edge_exists);
 	network->core_edge_exists = NULL;
-	hostMemUsed -= sizeof(bool) * POW2(network->network_properties.core_edge_fraction * network->network_properties.N_tar, EXACT);
+	hostMemUsed -= sizeof(bool) * static_cast<unsigned int>(POW2(network->network_properties.core_edge_fraction * network->network_properties.N_tar, EXACT));
 
 	if (network->network_properties.flags.calc_clustering) {
 		free(network->network_observables.clustering);

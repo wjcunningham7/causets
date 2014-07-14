@@ -178,11 +178,10 @@ bool measureConnectedComponents(Node &nodes, const int * const past_edges, const
 	N_cc = 0;
 	N_gcc = 0;
 
-	//for (i = 0; i < N_tar; i++) {
 	for (i = 0; i < N_tar; i++) {
 		elements = 0;
 		if (!nodes.cc[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0)
-			bfsearch(nodes, past_edges, future_edges, past_edge_row_start, future_edge_row_start, i, N_cc++, elements);
+			bfsearch(nodes, past_edges, future_edges, past_edge_row_start, future_edge_row_start, i, ++N_cc, elements);
 		if (elements > N_gcc)
 			N_gcc = elements;
 	}

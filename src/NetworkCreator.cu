@@ -109,7 +109,7 @@ bool createNetwork(Node &nodes, int *& past_edges, int *& future_edges, int *& p
 		core_edge_exists = (bool*)malloc(sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT));
 		if (core_edge_exists == NULL)
 			throw std::bad_alloc();
-		hostMemUsed += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);
+		hostMemUsed += sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT));
 
 		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 		if (verbose)

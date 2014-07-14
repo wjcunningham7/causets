@@ -300,7 +300,7 @@ bool linkNodesGPU(const Node &nodes, int * const &past_edges, int * const &futur
 	stopwatchStart(&sDecode0);
 
 	//Execute Kernel
-	DecodeFutureEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_future_edges, *g_idx, d_edges_size - *g_idx + 1);
+	DecodeFutureEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_future_edges, *g_idx, d_edges_size - *g_idx);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.DecodeFutureEdges' Failed to Execute!\n");
 
 	//Synchronize
@@ -322,7 +322,7 @@ bool linkNodesGPU(const Node &nodes, int * const &past_edges, int * const &futur
 	stopwatchStart(&sDecode1);
 
 	//Execute Kernel
-	DecodePastEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_past_edges, *g_idx, d_edges_size - *g_idx + 1);
+	DecodePastEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_past_edges, *g_idx, d_edges_size - *g_idx);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.DecodePastEdges' Failed to Execute!\n");
 
 	//Synchronize
