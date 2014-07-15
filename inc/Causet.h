@@ -29,6 +29,8 @@
 #include <fastmath/ran2.h>
 #include <fastmath/stopwatch.h>
 
+#include <printcolor/printcolor.h>
+
 #include "autocorr2.h"
 
 /////////////////////////////
@@ -42,6 +44,8 @@
 #define NBENCH 10	//Times each function is run during benchmarking
 
 #define TOL (1e-28)	//Machine epsilon
+
+#define INF (1e20)	//Machine infinity
 
 #define APPROX false	//Determines whether FastMath approximations are used
 			//in computationally intensive routines
@@ -124,7 +128,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_cc(0), N_gcc(0), N_sr(0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
+	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_cc(0), N_gcc(0), N_sr(0.0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
 
 	CausetFlags flags;
 
@@ -139,7 +143,7 @@ struct NetworkProperties {
 	int N_cc;			//Number of Connected Components
 	int N_gcc;			//Size of Giant Connected Component
 
-	int64_t N_sr;			//Number of Pairs Used in Success Ratio
+	double N_sr;			//Number of Pairs Used in Success Ratio
 
 	int dim;			//Spacetime Dimension (2 or 4)
 	Manifold manifold;		//Manifold of the Network

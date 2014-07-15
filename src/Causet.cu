@@ -167,7 +167,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				network_properties.flags.calc_success_ratio = true;
 				network_properties.flags.calc_components = true;
 				network_properties.N_sr = atof(optarg);
-				if (network_properties.N_sr < 0.0 && network_properties.N_sr > 1.0)
+				if (network_properties.N_sr <= 0.0 && network_properties.N_sr > 1.0)
 					throw CausetException("Invalid argument for 'success' parameter!\n");
 				break;
 			case 'G':	//Flag for Finding (Giant) Connected Component
@@ -607,6 +607,7 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 		printf("\n");
 		printf("\tParameters Constraining Universe Causal Set:\n");
 		printf("\t--------------------------------------------\n");
+		printf_cyan();
 		printf("\t > Number of Nodes:\t\t%d\n", network->network_properties.N_tar);
 		printf("\t > Expected Degrees:\t\t%.6f\n", network->network_properties.k_tar);
 		printf("\t > Pseudoradius:\t\t%.6f\n", network->network_properties.a);
@@ -618,6 +619,7 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 		printf("\t > Node Density:\t\t%.6f\n", network->network_properties.delta);
 		printf("\t > Alpha:\t\t\t%.6f\n", network->network_properties.alpha);
 		printf("\t > Scaling Factor:\t\t%.6f\n", network->network_properties.R0);
+		printf_std();
 		fflush(stdout);
 	}
 

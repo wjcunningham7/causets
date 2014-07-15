@@ -14,7 +14,7 @@ CXX 		?= /usr/bin/g++
 GFOR		?= /usr/bin/gfortran
 NVCC 		?= $(CUDA_HOME)/bin/nvcc
 INCD 		 = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include -I $(INCDIR)
-LIBS 		 = -L /usr/lib/nvidia-current/ -lcuda -L $(LD_LIBRARY_PATH) -L $(CUDA_HOME)/lib64/ -lcudadevrt -lcudart -lcurand -L $(CUDA_SDK_PATH)/common/lib -lstdc++ -lpthread -lm -lGLU -lglut -lgsl -lgslcblas -lfastmath -lnint -lgomp -lboost_filesystem
+LIBS 		 = -L /usr/lib/nvidia-current/ -lcuda -L $(LD_LIBRARY_PATH) -L $(CUDA_HOME)/lib64/ -lcudadevrt -lcudart -lcurand -L $(CUDA_SDK_PATH)/common/lib -lstdc++ -lpthread -lm -lGLU -lglut -lgsl -lgslcblas -lfastmath -lnint -lgomp -lboost_filesystem -lprintcolor
 
 CXXFLAGS	:= -O3 -g -Wall
 NVCCFLAGS 	:= -arch=sm_30 -m64 -O3 -G -g --use_fast_math

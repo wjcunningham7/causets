@@ -116,7 +116,9 @@ bool measureClustering(float *& clustering, const Node &nodes, const int * const
 
 	if (!bench) {
 		printf("\tCalculated Clustering Coefficients.\n");
+		printf_cyan();
 		printf("\t\tAverage Clustering: %f\n", average_clustering);
+		printf_std();
 		fflush(stdout);
 		if (calc_autocorr) {
 			autocorr2 acClust(5);
@@ -195,8 +197,10 @@ bool measureConnectedComponents(Node &nodes, const int * const past_edges, const
 
 	if (!bench) {
 		printf("\tCalculated Number of Connected Components.\n");
+		printf_cyan();
 		printf("\t\tIdentified %d Components.\n", N_cc);
 		printf("\t\tSize of Giant Component: %d\n", N_gcc);
+		printf_std();
 		fflush(stdout);
 	}
 
@@ -210,7 +214,7 @@ bool measureConnectedComponents(Node &nodes, const int * const past_edges, const
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const int64_t &N_sr, const double &a, const double &alpha, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const double &N_sr, const double &a, const double &alpha, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No Null Pointers
@@ -233,8 +237,9 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 	int i, j, k, m;
 	int do_map;
 	int n_trav;
+	int n_err, n_tot;
 
-	uint64_t stride = (uint64_t)N_tar * (N_tar - 1) / (N_sr << 1);
+	uint64_t stride = (uint64_t)N_tar * (N_tar - 1) / (static_cast<uint64_t>(N_sr) << 1);
 	uint64_t vec_idx;
 
 	bool *used;
@@ -255,8 +260,10 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 	if (verbose)
 		printMemUsed("to Measure Success Ratio", hostMemUsed, devMemUsed);
 
+	n_err = 0, n_tot = 0;
 	n_trav = 0;
-	for (k = 0; k < N_sr; k++) {
+
+	for (k = 0; k < static_cast<uint64_t>(N_sr); k++) {
 		//Pick Unique Pair
 		vec_idx = k * stride;
 		i = (int)(vec_idx / N_tar);
@@ -275,6 +282,8 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 			continue;
 		if (!(nodes.k_in[i] + nodes.k_out[i]) || !(nodes.k_in[j] + nodes.k_out[j]))
 			continue;
+		if (nodes.cc[i] != nodes.cc[j])
+			continue;
 
 		//printf("%d %d\n", i, j);
 
@@ -286,18 +295,16 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 		idx_b = j;
 		while (loc != j) {
 			idx_a = loc;
-			//printf("One\n");
-			min_dist = distance(nodes.sc[idx_a], nodes.tau[idx_a], nodes.sc[idx_b], nodes.tau[idx_b], a, alpha);
-			//printf("min: %f\n", min_dist);
+			min_dist = INF;
 			used[loc] = true;
 			next = loc;
 
-			//printf("Two\n");
 			//Check Past Connections
 			if (past_edge_row_start[loc] != -1) {
 				for (m = 0; m < nodes.k_in[loc]; m++) {
 					idx_a = past_edges[past_edge_row_start[loc]+m];
-					dist = distance(nodes.sc[idx_a], nodes.tau[idx_a], nodes.sc[idx_b], nodes.tau[idx_b], a, alpha);
+					dist = distance(nodes.sc[idx_a], nodes.tau[idx_a], nodes.sc[idx_b], nodes.tau[idx_b], a, alpha, n_err);
+					n_tot++;
 					if (dist <= min_dist) {
 						min_dist = dist;
 						next = past_edges[past_edge_row_start[loc]+m];
@@ -305,36 +312,23 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 				}
 			}
 
-			//printf("Three\n");
 			//Check Future Connections
 			if (future_edge_row_start[loc] != -1) {
-				//printf("3.1\n");
 				for (m = 0; m < nodes.k_out[loc]; m++) {
-					//printf("3.2\n");
-					//printf("\nloc %d\n", loc);
-					//printf("root_idx %d\n", future_edge_row_start[loc]);
-					//printf("max_idx %d\n", future_edge_row_start[loc] + nodes.k_out[loc] - 1);
 					idx_a = future_edges[future_edge_row_start[loc]+m];
-					//printf("3.3\n");
-					//printf("a %d b %d\n", idx_a, idx_b);
-					dist = distance(nodes.sc[idx_a], nodes.tau[idx_a], nodes.sc[idx_b], nodes.tau[idx_b], a, alpha);
-					//printf("dist: %f\n", dist);
-					//printf("3.4\n");
+					dist = distance(nodes.sc[idx_a], nodes.tau[idx_a], nodes.sc[idx_b], nodes.tau[idx_b], a, alpha, n_err);
+					n_tot++;
 					if (dist <= min_dist) {
 						min_dist = dist;
-						//printf("3.5\n");
 						next = future_edges[future_edge_row_start[loc]+m];
 					}
-					//printf("3.6\n");
 				}
 			}
 		
-			//printf("Four\n");	
 			if (!used[next])
 				loc = next;
 			else
 				break;
-			//printf("Five\n");
 		}
 
 		if (loc == j)
@@ -352,8 +346,13 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 
 	if (!bench) {
 		printf("\tCalculated Success Ratio.\n");
+		printf_cyan();
 		printf("\t\tSuccess Ratio: %f\n", success_ratio);
 		printf("\t\tTraversed Pairs: %d\n", n_trav);
+		printf_red();
+		printf("\t\tPercent Errors: %f\n", static_cast<float>(n_err) / n_tot);
+		printf_std();
+		//printf("\t\t\x1b[31mPercent Errors: %f\x1b[0m\n", static_cast<float>(n_err) / n_tot);
 		fflush(stdout);
 	}
 
@@ -404,18 +403,18 @@ static bool nodesAreConnected(const Node &nodes, const int * const future_edges,
 
 //Returns the distance between two nodes
 //O(xxx) Efficiency (revise this)
-static float distance(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const double &a, const double &alpha)
+static float distance(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const double &a, const double &alpha, int &n_err)
 {
 	if (DEBUG) {
 		//Parameters in Correct Ranges
-		//assert (node_a != node_b);
-		assert (tau_a != tau_b);
 		assert (a > 0.0);
 		assert (alpha > 0.0);
 	}
 
-	//printf("3.3.1\n");
-	
+	//Check if they are the same node
+	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
+		return 0.0f;
+
 	IntData idata = IntData();
 	idata.tol = 1e-5;
 
@@ -425,13 +424,13 @@ static float distance(const float4 &node_a, const float &tau_a, const float4 &no
 
 	float z0_a, z0_b;
 	float z1_a, z1_b;
-	float dt2, dx2;
-	float dist;
-	float power = 2.0f / 3.0f;
-
-	//printf("3.3.2\n");
+	float power;
+	float signature;
+	float inner_product;
+	float distance;
 
 	//Solve for z1 in Rotated Plane
+	power = 2.0f / 3.0f;
 	z1_a = alpha * POW(SINH(1.5f * tau_a, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
 	z1_b = alpha * POW(SINH(1.5f * tau_b, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
 
@@ -447,35 +446,37 @@ static float distance(const float4 &node_a, const float &tau_a, const float4 &no
 	//printf("z0_a: %f\n", z0_a);
 	//printf("z0_b: %f\n", z0_b);
 
-	//printf("3.3.3\n");
-	
-	//Solve for Temporal Portion of Invariant Interval
-	dt2 = z0_a * z0_b;
-	//printf("dt2: %f\n", dt2);
+	signature = SGN(POW2(z1_b * X1(node_b.y) - z1_a * X1(node_a.y), EXACT) +
+			POW2(z1_b * X2(node_b.y, node_b.z) - z1_a * X2(node_a.y, node_a.z), EXACT) +
+			POW2(z1_b * X3(node_b.y, node_b.z, node_b.x) - z1_a * X3(node_a.y, node_a.z, node_a.x), EXACT) +
+			POW2(z1_b * X4(node_b.y, node_b.z, node_b.x) - z1_a * X4(node_a.y, node_a.z, node_a.x), EXACT) -
+			POW2(z0_b - z0_a, EXACT), DEF);
 
-	//Rotate Into z2, z3, z4 Planes
-	dx2 = z1_a * z1_b * sphProduct(node_a, node_b);
-	//printf("dx2: %f\n", dx2);
+	inner_product = z1_a * z1_b * sphProduct(node_a, node_b) - z0_a * z0_b;
 
-	//If dx2 - dt2 < 0, the interval is time-like
-	//If dx2 - dt2 > 0, the interval is space-like (causal)
+	//printf("signature:     %f\n", signature);
+	//printf("inner product: %f\n", inner_product);
 
-	//if (dx2 - dt2 < 0)
-	if (ABS(dx2 - dt2, STL) > 1.0f)
-		dist = ACOSH(ABS(dx2 - dt2, STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	if (signature < 0.0f)
+		//Timelike
+		distance = ACOSH(inner_product, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	else if (signature == 0.0f)
+		//Lightlike
+		distance = 0.0f;
+	else if (inner_product <= -1.0f)
+		//Disconnected Regions
+		distance = INF;
 	else
-		dist = ACOS(dx2 - dt2, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-	//printf("dist: %f\n", dist);
+		//Spacelike
+		distance = ACOS(inner_product, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 
-	//printf("3.3.4\n");
+	//printf("distance: %f\n", distance);
 
-	if (DEBUG) {
-		//Check space-like vs time-like intervals
-		if (dx2 - dt2 < 0)
-			assert (ACOS(sphProduct(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) < node_b.w - node_a.w);
-		else
-			assert (ACOS(sphProduct(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) > node_b.w - node_a.w);
-	}
+	//Check light cone condition for 4D vs 5D
+	if (signature < 0.0f && ACOS(sphProduct(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) > ABS(node_b.w - node_a.w, STL))
+		n_err++;
+	else if (signature > 0.0f && inner_product > -1.0f && ACOS(sphProduct(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) < ABS(node_b.w - node_a.w, STL))
+		n_err++;
 
-	return dist;
+	return distance;
 }
