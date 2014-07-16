@@ -15,6 +15,12 @@ mv Makefile Makefile~
 #./bin/CausalSet --universe --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 -y --print --verbose &> causet.log &
 # Should find N = 10^6, tau given by (12), in-degree given by Fig. (S3), out-degree given by Fig. (3a)
 
+# Read hyperbolic graph data and measure greedy routing
+# Requires the position data file stored as ./dat/hyperbolic.cset.pos.dat and edge list as ./dat/hyperbolic.cset.edg.dat
+# Also requires the entry '54321 hyperbolic' in the file ./dat/data_keys.key
+#./bin/CausalSet --dim 1 --seed 18100 --graph 54321 -y --verbose --success 0.01
+# Should find a success ratio of 1.0 and a single connected component
+
 # Debugging
 ./bin/CausalSet --universe --age 0.8458 --nodes 10240 --delta 100 --seed 22  -y --verbose --gpu --success 0.1
 

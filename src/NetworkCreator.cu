@@ -6,30 +6,248 @@
 // Northeastern University //
 /////////////////////////////
 
-bool initVars(NetworkProperties * const network_properties)
+bool initVars(NetworkProperties * const network_properties, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
-	if (network_properties->seed == -12345L) {
+	if (DEBUG)
+		assert (network_properties != NULL);
 
+	//If no seed specified, choose random one
+	if (network_properties->seed == -12345L) {
+		srand(time(NULL));
+		network_properties->seed = -1.0 * static_cast<long>(time(NULL));
 	}
 	
+	//Benchmarking
 	if (network_properties->flags.bench) {
-
+		network_properties->flags.verbose = false;
+		network_properties->graphID = 0;
+		network_properties->flags.disp_network = false;
+		network_properties->flags.print_network = false;
 	}
 
-	if (network_properties->graphID) {
-
+	//If graph ID specified, prepare to read graph properties
+	if (network_properties->graphID && network_properties->flags.verbose && !network_properties->flags.yes) {
+		printf("You have chosen to load a graph from memory.  Some parameters may be ignored as a result.  Continue [y/N]? ");
+		fflush(stdout);
+		char response = getchar();
+		getchar();
+		if (response != 'y')
+			return false;
 	}
 
-	if (network_properties->flags.universe) {
-		try {
+	try {
+		if (network_properties->flags.universe) {
+			int i;
 
-		} catch (CausetException c) {
+			//Check for conflicting topologies
+			if (network_properties->dim == 1 || network_properties->manifold != DE_SITTER)
+				throw CausetException("Universe causet must be 3+1 DS topology!\n");
+				
+			//Check for too many parameters
+			if (network_properties->flags.cc.conflicts[0] > 1 || network_properties->flags.cc.conflicts[1] > 1 || network_properties->flags.cc.conflicts[2] > 1 || network_properties->flags.cc.conflicts[3] > 1 || network_properties->flags.cc.conflicts[4] > 3 || network_properties->flags.cc.conflicts[5] > 3 || network_properties->flags.cc.conflicts[6] > 3)
+				throw CausetException("Causet model has been over-constrained!  Use flag --conflicts to find your error.\n");
+			//Check for too few parameters
+			else if (network_properties->N_tar == 0 && network_properties->alpha == 0.0)
+				throw CausetException("Causet model has been under-constrained!  Specify at least '-n', number of nodes, or '-A', alpha, to proceed.\n");
+				
+			//Solve for constrained parameters
+			if (network_properties->flags.cc.conflicts[1] == 0 && network_properties->flags.cc.conflicts[2] == 0 && network_properties->flags.cc.conflicts[3] == 0) {
+				//Solve for tau0, ratio, omegaM, and omegaL
+				double x = 0.5;
+				if (DEBUG) {
+					assert (network_properties->N_tar > 0);
+					assert (network_properties->alpha > 0.0);
+					assert (network_properties->delta > 0.0);
+				}
 
-		} catch (std::exception e) {
+				if (!newton(&solveTau0, &x, 10000, TOL, &network_properties->alpha, &network_properties->delta, NULL, NULL, &network_properties->N_tar, NULL))
+					return false;
+				network_properties->tau0 = x;
+				if (DEBUG) assert (network_properties->tau0 > 0.0);
 
+				network_properties->ratio = POW2(SINH(1.5 * static_cast<float>(network_properties->tau0), STL), EXACT);
+				if (DEBUG) assert(network_properties->ratio > 0.0);
+				network_properties->omegaM = 1.0 / (network_properties->ratio + 1.0);
+				network_properties->omegaL = 1.0 - network_properties->omegaM;
+			} else if (network_properties->flags.cc.conflicts[1] == 0 || network_properties->flags.cc.conflicts[2] == 0 || network_properties->flags.cc.conflicts[3] == 0) {
+				//If k_tar != 0 solve for tau0 here
+				if (network_properties->k_tar != 0) {
+					if (DEBUG)
+						assert (network_properties->delta != 0);
+
+					Stopwatch sSolveTau0 = Stopwatch();
+					stopwatchStart(&sSolveTau0);
+
+					//Solve for tau_0
+					printf("\tEstimating Age of Universe.....\n");
+					float kappa1 = network_properties->k_tar / network_properties->delta;
+					float kappa2 = kappa1 / POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT);
+
+					//Read Lookup Table
+					double *raduc_lookup;
+					long size;
+					std::ifstream lookup("./etc/raduc_table.cset.bin", std::ios::in | std::ios::binary | std::ios::ate);
+					if (lookup.is_open()) {
+						//Find size of file
+						size = lookup.tellg();
+						//Allocate Memory for Buffer
+						char *memblock = (char*)malloc(size);
+						if (memblock == NULL)
+							throw std::bad_alloc();
+						hostMemUsed += size;
+
+						//Allocate Memory for Lookup Table
+						raduc_lookup = (double*)malloc(size);
+						if (raduc_lookup == NULL)
+							throw std::bad_alloc();
+						hostMemUsed += size;
+
+						//Read File
+						lookup.seekg(0, std::ios::beg);
+						lookup.read(memblock, size);
+						memcpy(raduc_lookup, memblock, size);
+
+						//Free Memory
+						free(memblock);
+						memblock = NULL;
+						hostMemUsed -= size;
+
+						//Close Stream
+						lookup.close();
+					} else
+						throw CausetException("Failed to open 'raduc_table.cset.bin' file!\n");
+
+					//Identify tau0
+					//Assumes values are written as (kappa, tau0)
+					int t_idx = 0;
+					for (i = 0; i < size / (2 * sizeof(double)); i += 2) {
+						if (raduc_lookup[i] > kappa2) {
+							t_idx = i;
+							break;
+						}
+					}
+
+					//Check if Table is Insufficient
+					if (t_idx == 0)
+						throw CausetException("Values from 'raduc_table.cset.bin' file do not include requested 'k_tar'.  Recreate table or change k_tar.\n");
+
+					//Linear Interpolation
+					network_properties->tau0 = raduc_lookup[t_idx-1] + (raduc_lookup[t_idx+1] - raduc_lookup[t_idx-1]) * (kappa2 - raduc_lookup[t_idx-2]) / (raduc_lookup[t_idx] - raduc_lookup[t_idx-2]);
+
+					//Free Memory
+					free(raduc_lookup);
+					raduc_lookup = NULL;
+					hostMemUsed -= size;
+
+					//Solve for ratio, omegaM, and omegaL
+					network_properties->ratio = POW2(SINH(1.5f * network_properties->tau0, STL), EXACT);
+					network_properties->omegaM = 1.0 / (network_properties->ratio + 1.0);
+					network_properties->omegaL = 1.0 - network_properties->omegaM;
+
+					stopwatchStop(&sSolveTau0);
+					printf("\t\tCompleted.\n");
+					printf("\t\t\tExecution Time: %5.6f\n", sSolveTau0.elapsedTime);
+				}
+				
+				if (network_properties->N_tar > 0 && network_properties->alpha > 0.0) {
+					//Solve for delta
+					network_properties->delta = 3.0 * network_properties->N_tar / (POW2(static_cast<float>(M_PI), EXACT) * POW3(static_cast<float>(network_properties->alpha), EXACT) * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0));
+					if (DEBUG) assert (network_properties->delta > 0.0);
+				} else if (network_properties->N_tar == 0) {
+					//Solve for N_tar
+					if (DEBUG) assert (network_properties->alpha > 0.0);
+					network_properties->N_tar = static_cast<int>(POW2(static_cast<float>(M_PI), EXACT) * network_properties->delta * POW3(static_cast<float>(network_properties->alpha), EXACT) * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0) / 3.0);
+					if (DEBUG) assert (network_properties->N_tar > 0);
+				} else {
+					//Solve for alpha
+					if (DEBUG) assert (network_properties->N_tar > 0);
+					network_properties->alpha = POW(3.0 * network_properties->N_tar / (POW2(static_cast<float>(M_PI), EXACT) * network_properties->delta * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0)), (1.0 / 3.0), STL);
+					if (DEBUG) assert (network_properties->alpha > 0.0);
+				}
+			}
+			
+			//Finally, solve for R0
+			if (DEBUG) {
+				assert (network_properties->alpha > 0.0);
+				assert (network_properties->ratio > 0.0);
+			}
+			network_properties->R0 = network_properties->alpha * POW(static_cast<float>(network_properties->ratio), 1.0f / 3.0f, STL);
+			if (DEBUG) assert (network_properties->R0 > 0.0);
+			
+			if (network_properties->k_tar == 0.0) {
+				//Use Monte Carlo integration to find k_tar
+				printf("\tEstimating Expected Average Degrees.....\n");
+				double r0 = POW(SINH(1.5f * network_properties->tau0, STL), 2.0f / 3.0f, STL);
+
+				if (network_properties->flags.bench) {
+					for (i = 0; i < NBENCH; i++) {
+						stopwatchStart(&cp->sCalcDegrees);
+						integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network_properties->seed, 0);
+						stopwatchStop(&cp->sCalcDegrees);
+						bm->bCalcDegrees += cp->sCalcDegrees.elapsedTime;
+						stopwatchReset(&cp->sCalcDegrees);
+					}
+					bm->bCalcDegrees /= NBENCH;
+				}
+
+				stopwatchStart(&cp->sCalcDegrees);
+				network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network_properties->seed, 0) * 8.0 * M_PI / (SINH(3.0f * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
+				stopwatchStop(&cp->sCalcDegrees);
+				printf("\t\tExecution Time: %5.6f sec\n", cp->sCalcDegrees.elapsedTime);
+				printf("\t\tCompleted.\n");
+			}
+			
+			//20% Buffer
+			network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
+
+			//Check success ratio parameters if applicable
+			if (network_properties->flags.calc_success_ratio)
+				network_properties->N_sr *= static_cast<int64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
+
+			//Adjacency matrix not implemented in GPU algorithms
+			if (network_properties->flags.use_gpu)
+				network_properties->core_edge_fraction = 0.0;
+				
+			printf("\n");
+			printf("\tParameters Constraining Universe Causal Set:\n");
+			printf("\t--------------------------------------------\n");
+			printf_cyan();
+			printf("\t > Number of Nodes:\t\t%d\n", network_properties->N_tar);
+			printf("\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
+			printf("\t > Pseudoradius:\t\t%.6f\n", network_properties->a);
+			printf("\t > Cosmological Constant:\t%.6f\n", network_properties->lambda);
+			printf("\t > Rescaled Age:\t\t%.6f\n", network_properties->tau0);
+			printf("\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
+			printf("\t > Matter Density:\t\t%.6f\n", network_properties->omegaM);
+			printf("\t > Ratio:\t\t\t%.6f\n", network_properties->ratio);
+			printf("\t > Node Density:\t\t%.6f\n", network_properties->delta);
+			printf("\t > Alpha:\t\t\t%.6f\n", network_properties->alpha);
+			printf("\t > Scaling Factor:\t\t%.6f\n", network_properties->R0);
+			printf_std();
+			fflush(stdout);
+		} else {
+			if (network_properties->N_tar == 0)
+				throw CausetException("Flag '-n', number of nodes, must be specified!\n");
+			else if (network_properties->k_tar == 0.0)
+				throw CausetException("Flag '-k', expected average degrees, must be specified!\n");
+				
+			if (network_properties->dim == 1 && network_properties->manifold == DE_SITTER) {
+				network_properties->zeta = HALF_PI - network_properties->tau0;
+				network_properties->tau0 = etaToTau(HALF_PI - network_properties->zeta);
+			}
+			
+			if (network_properties->flags.calc_success_ratio) 
+				network_properties->N_sr *= static_cast<int64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
 		}
-	} else {
-
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__,  e.what(), __LINE__);
+		return false;
 	}
 
 	return true;
@@ -181,6 +399,61 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 
 bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const double &a, double &zeta, double &tau0, const double &alpha, const bool &universe)
 {
+	if (universe) {
+		if (DEBUG) {
+			assert (a > 0.0);
+			assert (tau0 > 0.0);
+			assert (alpha > 0.0);
+		}
+	
+		if (USE_GSL) {
+			IntData idata = IntData();
+			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+			idata.upper = tau0 * a;
+			zeta = HALF_PI - integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS);
+			gsl_integration_workspace_free(idata.workspace);
+		} else
+			//Exact Solution
+			zeta = HALF_PI - tauToEtaUniverseExact(tau0, a, alpha);
+			
+		if (DEBUG) {
+			assert (zeta > 0.0);
+			assert (zeta < HALF_PI);
+		}
+	} else {
+		//Solve for eta0 using Newton-Raphson Method
+		if (DEBUG) {
+			assert (N_tar > 0);
+			assert (k_tar > 0.0);
+			assert (dim == 1 || dim == 3);
+		}
+
+		double x = 0.08;
+		if (dim == 1)
+			x = HALF_PI - 0.0001;
+
+		if (!newton(&solveZeta, &x, 10000, TOL, NULL, NULL, NULL, &k_tar, &N_tar, &dim))
+			return false;
+
+		if (dim == 1)
+			zeta = HALF_PI - x;
+		else if (dim == 3)
+			zeta = x;
+		tau0 = etaToTau(HALF_PI - zeta);
+
+		if (DEBUG) {
+			assert (zeta > 0.0);
+			assert (zeta < HALF_PI);
+			assert (tau0 > 0.0);
+		}
+
+		printf("\tTranscendental Equation Solved:\n");
+		//printf("\t\tZeta: %5.8f\n", zeta);
+		printf("\t\tMaximum Conformal Time: %5.8f\n", HALF_PI - zeta);
+		printf("\t\tMaximum Rescaled Time:  %5.8f\n", tau0);
+		fflush(stdout);
+	}
+
 	return true;
 }
 
