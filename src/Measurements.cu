@@ -8,14 +8,14 @@
 
 //Calculates clustering coefficient for each node in network
 //O(N*k^3) Efficiency
-bool measureClustering(float *& clustering, const Node &nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const bool * const core_edge_exists, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, Stopwatch &sMeasureClustering, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &calc_autocorr, const bool &verbose, const bool &bench)
+bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, Stopwatch &sMeasureClustering, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &calc_autocorr, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No null pointers
-		assert (past_edges != NULL);
-		assert (future_edges != NULL);
-		assert (past_edge_row_start != NULL);
-		assert (future_edge_row_start != NULL);
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
 
 		//Parameters in correct ranges
@@ -66,27 +66,27 @@ bool measureClustering(float *& clustering, const Node &nodes, const int * const
 		c_max = c_k * (c_k - 1.0) / 2.0;
 
 		//(1) Consider both neighbors in the past
-		if (past_edge_row_start[i] != -1)
+		if (edges.past_edge_row_start[i] != -1)
 			for (j = 0; j < nodes.k_in[i]; j++)
 				//3 < 2 < 1
 				for (k = 0; k < j; k++)
-					if (nodesAreConnected(nodes, future_edges, future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, past_edges[past_edge_row_start[i]+k], past_edges[past_edge_row_start[i]+j]))
+					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.past_edges[edges.past_edge_row_start[i]+k], edges.past_edges[edges.past_edge_row_start[i]+j]))
 						c_i += 1.0;
 
 		//(2) Consider both neighbors in the future
-		if (future_edge_row_start[i] != -1)
+		if (edges.future_edge_row_start[i] != -1)
 			for (j = 0; j < nodes.k_out[i]; j++)
 				//1 < 3 < 2
 				for (k = 0; k < j; k++)
-					if (nodesAreConnected(nodes, future_edges, future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, future_edges[future_edge_row_start[i]+k], future_edges[future_edge_row_start[i]+j]))
+					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.future_edges[edges.future_edge_row_start[i]+k], edges.future_edges[edges.future_edge_row_start[i]+j]))
 						c_i += 1.0;
 
 		//(3) Consider one neighbor in the past and one in the future
-		if (past_edge_row_start[i] != -1 && future_edge_row_start[i] != -1)
+		if (edges.past_edge_row_start[i] != -1 && edges.future_edge_row_start[i] != -1)
 			for (j = 0; j < nodes.k_out[i]; j++)
 				for (k = 0; k < nodes.k_in[i]; k++)
 					//3 < 1 < 2
-					if (nodesAreConnected(nodes, future_edges, future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, past_edges[past_edge_row_start[i]+k], future_edges[future_edge_row_start[i]+j]))
+					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.past_edges[edges.past_edge_row_start[i]+k], edges.future_edges[edges.future_edge_row_start[i]+j]))
 						c_i += 1.0;
 
 		if (DEBUG) assert (c_max > 0.0);
@@ -144,14 +144,14 @@ bool measureClustering(float *& clustering, const Node &nodes, const int * const
 //Calculates the number of connected components in the graph
 //as well as the size of the giant connected component
 //Efficiency: O(xxx)
-bool measureConnectedComponents(Node &nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const int &N_tar, int &N_cc, int &N_gcc, Stopwatch &sMeasureConnectedComponents, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar, int &N_cc, int &N_gcc, Stopwatch &sMeasureConnectedComponents, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No Null Pointers
-		assert (past_edges != NULL);
-		assert (future_edges != NULL);
-		assert (past_edge_row_start != NULL);
-		assert (future_edge_row_start != NULL);
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
 
 		//Parameters in Correct Ranges
 		assert (N_tar > 0);
@@ -183,7 +183,7 @@ bool measureConnectedComponents(Node &nodes, const int * const past_edges, const
 	for (i = 0; i < N_tar; i++) {
 		elements = 0;
 		if (!nodes.cc[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0)
-			bfsearch(nodes, past_edges, future_edges, past_edge_row_start, future_edge_row_start, i, ++N_cc, elements);
+			bfsearch(nodes, edges, i, ++N_cc, elements);
 		if (elements > N_gcc)
 			N_gcc = elements;
 	}
@@ -214,14 +214,14 @@ bool measureConnectedComponents(Node &nodes, const int * const past_edges, const
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const double &N_sr, const double &a, const double &alpha, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const double &N_sr, const double &a, const double &alpha, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No Null Pointers
-		assert (past_edges != NULL);
-		assert (future_edges != NULL);
-		assert (past_edge_row_start != NULL);
-		assert (future_edge_row_start != NULL);
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
 
 		//Parameters in Correct Ranges
@@ -300,27 +300,27 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 			next = loc;
 
 			//Check Past Connections
-			if (past_edge_row_start[loc] != -1) {
+			if (edges.past_edge_row_start[loc] != -1) {
 				for (m = 0; m < nodes.k_in[loc]; m++) {
-					idx_a = past_edges[past_edge_row_start[loc]+m];
+					idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
 					dist = distance(nodes.sc[idx_a], nodes.tau[idx_a], nodes.sc[idx_b], nodes.tau[idx_b], a, alpha, n_err);
 					n_tot++;
 					if (dist <= min_dist) {
 						min_dist = dist;
-						next = past_edges[past_edge_row_start[loc]+m];
+						next = edges.past_edges[edges.past_edge_row_start[loc]+m];
 					}
 				}
 			}
 
 			//Check Future Connections
-			if (future_edge_row_start[loc] != -1) {
+			if (edges.future_edge_row_start[loc] != -1) {
 				for (m = 0; m < nodes.k_out[loc]; m++) {
-					idx_a = future_edges[future_edge_row_start[loc]+m];
+					idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
 					dist = distance(nodes.sc[idx_a], nodes.tau[idx_a], nodes.sc[idx_b], nodes.tau[idx_b], a, alpha, n_err);
 					n_tot++;
 					if (dist <= min_dist) {
 						min_dist = dist;
-						next = future_edges[future_edge_row_start[loc]+m];
+						next = edges.future_edges[edges.future_edge_row_start[loc]+m];
 					}
 				}
 			}
@@ -351,6 +351,7 @@ bool measureSuccessRatio(const Node &nodes, const int * const past_edges, const 
 		printf("\t\tTraversed Pairs: %d\n", n_trav);
 		printf_red();
 		printf("\t\tPercent Errors: %f\n", static_cast<float>(n_err) / n_tot);
+		printf("\t\tTested Distances: %d\n", n_tot);
 		printf_std();
 		//printf("\t\t\x1b[31mPercent Errors: %f\x1b[0m\n", static_cast<float>(n_err) / n_tot);
 		fflush(stdout);

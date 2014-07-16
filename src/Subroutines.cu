@@ -92,20 +92,20 @@ bool newton(double (*solve)(const double &x, const double * const p1, const doub
 }
 
 //Breadth First Search
-void bfsearch(const Node &nodes, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, const int index, const int id, int &elements)
+void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements)
 {
-	int ps = past_edge_row_start[index];
-	int fs = future_edge_row_start[index];
+	int ps = edges.past_edge_row_start[index];
+	int fs = edges.future_edge_row_start[index];
 	int i;
 
 	nodes.cc[index] = id;
 	elements++;
 
 	for (i = 0; i < nodes.k_in[index]; i++)
-		if (!nodes.cc[past_edges[ps+i]])
-			bfsearch(nodes, past_edges, future_edges, past_edge_row_start, future_edge_row_start, past_edges[ps+i], id, elements);
+		if (!nodes.cc[edges.past_edges[ps+i]])
+			bfsearch(nodes, edges, edges.past_edges[ps+i], id, elements);
 
 	for (i = 0; i < nodes.k_out[index]; i++)
-		if (!nodes.cc[future_edges[fs+i]])
-			bfsearch(nodes, past_edges, future_edges, past_edge_row_start, future_edge_row_start, future_edges[fs+i], id, elements);
+		if (!nodes.cc[edges.future_edges[fs+i]])
+			bfsearch(nodes, edges, edges.future_edges[fs+i], id, elements);
 }

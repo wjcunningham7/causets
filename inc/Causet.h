@@ -66,20 +66,22 @@
 //////////////////////////////////////////////////////////////////////////////
 
 //Manifold Types
-//Currently only DE_SITTER is supported
 enum Manifold {
-	EUCLIDEAN,
 	DE_SITTER,
-	ANTI_DE_SITTER
+	HYPERBOLIC
 };
 
 //Minimal unique properties of a node
 struct Node {
 	Node() : sc(NULL), tau(NULL), k_in(NULL), k_out(NULL), cc(NULL) {}
 
-	//Spacetime Coordinates
-	float4 *sc;	//Stored as (eta, theta, phi, chi)
-	float *tau;	//Rescaled Time
+	union {
+		//Spacetime Coordinates
+		float4 *sc;	//Stored as (eta, theta, phi, chi) for DS
+		float *theta;	//Spatial Coordinate for 1+1 DS and HYPERBOLIC
+	};
+
+	float *tau;	//Rescaled Time for 3+1 DS, Conformal Time for 1+1 DS, and Radius for HYPERBOLIC
 
 	//Number of Neighbors
 	int *k_in;
@@ -87,6 +89,16 @@ struct Node {
 
 	//Connected Component ID
 	int *cc;
+};
+
+//Sparse edge list vectors
+struct Edge {
+	Edge() : past_edges(NULL), future_edges(NULL), past_edge_row_start(NULL), future_edge_row_start(NULL) {}
+
+	int *past_edges;		//Sparse adjacency lists
+	int *future_edges;
+	int *past_edge_row_start;	//Adjacency list indices
+	int *future_edge_row_start;
 };
 
 //These are conflicts which arise due to over-constraining
@@ -143,6 +155,7 @@ struct NetworkProperties {
 	int N_cc;			//Number of Connected Components
 	int N_gcc;			//Size of Giant Connected Component
 
+	//Move this to NetworkObservables
 	double N_sr;			//Number of Pairs Used in Success Ratio
 
 	int dim;			//Spacetime Dimension (2 or 4)
@@ -179,17 +192,14 @@ struct NetworkObservables {
 
 //Network object containing minimal unique information
 struct Network {
-	Network() : network_properties(NetworkProperties()), network_observables(NetworkObservables()), nodes(Node()), past_edges(NULL), future_edges(NULL), past_edge_row_start(NULL), future_edge_row_start(NULL), core_edge_exists(NULL) {}
-	Network(NetworkProperties _network_properties) : network_properties(_network_properties), network_observables(NetworkObservables()), nodes(Node()), past_edges(NULL), future_edges(NULL), past_edge_row_start(NULL), future_edge_row_start(NULL), core_edge_exists(NULL) {}
+	Network() : network_properties(NetworkProperties()), network_observables(NetworkObservables()), nodes(Node()), edges(Edge()), core_edge_exists(NULL) {}
+	Network(NetworkProperties _network_properties) : network_properties(_network_properties), network_observables(NetworkObservables()), nodes(Node()), edges(Edge()), core_edge_exists(NULL) {}
 
 	NetworkProperties network_properties;
 	NetworkObservables network_observables;
 
 	Node nodes;
-	int *past_edges;		//Sparse adjacency lists
-	int *future_edges;
-	int *past_edge_row_start;	//Adjacency list indices
-	int *future_edge_row_start;
+	Edge edges;
 	bool *core_edge_exists;		//Adjacency matrix
 };
 

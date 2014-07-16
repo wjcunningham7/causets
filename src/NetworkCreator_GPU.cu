@@ -145,13 +145,13 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU(const Node &nodes, int * const &past_edges, int * const &future_edges, int * const &past_edge_row_start, int * const &future_edge_row_start, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
-		assert (past_edges != NULL);
-		assert (future_edges != NULL);
-		assert (past_edge_row_start != NULL);
-		assert (future_edge_row_start != NULL);
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
 
 		assert (N_tar > 0);
@@ -287,8 +287,8 @@ bool linkNodesGPU(const Node &nodes, int * const &past_edges, int * const &futur
 	stopwatchStart(&sGPUOverhead);
 
 	//Allocate Mapped Pinned Memory
-	checkCudaErrors(cuMemHostGetDevicePointer(&d_past_edges, (void*)past_edges, 0));
-	checkCudaErrors(cuMemHostGetDevicePointer(&d_future_edges, (void*)future_edges, 0));
+	checkCudaErrors(cuMemHostGetDevicePointer(&d_past_edges, (void*)edges.past_edges, 0));
+	checkCudaErrors(cuMemHostGetDevicePointer(&d_future_edges, (void*)edges.future_edges, 0));
 
 	stopwatchStop(&sGPUOverhead);
 
@@ -399,8 +399,8 @@ bool linkNodesGPU(const Node &nodes, int * const &past_edges, int * const &futur
 	stopwatchStart(&sGPUOverhead);
 
 	//Copy Memory from Device to Host
-	checkCudaErrors(cuMemcpyDtoH(past_edge_row_start, d_past_edge_row_start, sizeof(int) * N_tar));
-	checkCudaErrors(cuMemcpyDtoH(future_edge_row_start, d_future_edge_row_start, sizeof(int) * N_tar));
+	checkCudaErrors(cuMemcpyDtoH(edges.past_edge_row_start, d_past_edge_row_start, sizeof(int) * N_tar));
+	checkCudaErrors(cuMemcpyDtoH(edges.future_edge_row_start, d_future_edge_row_start, sizeof(int) * N_tar));
 
 	//Synchronize
 	checkCudaErrors(cuCtxSynchronize());
@@ -409,29 +409,29 @@ bool linkNodesGPU(const Node &nodes, int * const &past_edges, int * const &futur
 
 	//Formatting
 	for (i = N_tar - 1; i > 0; i--) {
-		past_edge_row_start[i] = past_edge_row_start[i-1];
-		future_edge_row_start[i] = future_edge_row_start[i-1];
+		edges.past_edge_row_start[i] = edges.past_edge_row_start[i-1];
+		edges.future_edge_row_start[i] = edges.future_edge_row_start[i-1];
 	}
 
-	past_edge_row_start[0] = -1;
-	future_edge_row_start[0] = 0;
+	edges.past_edge_row_start[0] = -1;
+	edges.future_edge_row_start[0] = 0;
 
-	int pv = past_edge_row_start[N_tar-1];
-	int fv = future_edge_row_start[N_tar-1];
+	int pv = edges.past_edge_row_start[N_tar-1];
+	int fv = edges.future_edge_row_start[N_tar-1];
 
 	for (i = N_tar-2; i >= 0; i--) {
-		if (pv == past_edge_row_start[i])
-			past_edge_row_start[i] = -1;
+		if (pv == edges.past_edge_row_start[i])
+			edges.past_edge_row_start[i] = -1;
 		else
-			pv = past_edge_row_start[i];
+			pv = edges.past_edge_row_start[i];
 
-		if (fv == future_edge_row_start[i])
-			future_edge_row_start[i] = -1;
+		if (fv == edges.future_edge_row_start[i])
+			edges.future_edge_row_start[i] = -1;
 		else
-			fv = future_edge_row_start[i];
+			fv = edges.future_edge_row_start[i];
 	}
 
-	future_edge_row_start[N_tar-1] = -1;
+	edges.future_edge_row_start[N_tar-1] = -1;
 	
 	stopwatchStart(&sGPUOverhead);
 
