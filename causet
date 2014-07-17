@@ -22,6 +22,6 @@ mv Makefile Makefile~
 # Should find a success ratio of 1.0 and a single connected component
 
 # Debugging
-./bin/CausalSet --universe --age 0.8458 --nodes 10240 --delta 100 --seed 22  -y --verbose --gpu --success 0.1
+./bin/CausalSet --universe --age 0.8458 --nodes 10240 --delta 100 --seed 22  -y --verbose --gpu --success 0.0001
 
 mv Makefile~ Makefile

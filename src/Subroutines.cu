@@ -8,44 +8,72 @@
 
 //Sort nodes temporally by tau coordinate
 //O(N*log(N)) Efficiency
-void quicksort(Node &nodes, int low, int high)
+void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, int high)
 {
+	if (DEBUG) {
+		assert (dim == 1 || dim == 3);
+		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+		if (manifold == HYPERBOLIC)
+			assert (dim == 1);
+	}
+
 	int i, j, k;
 	float key;
 
 	if (low < high) {
 		k = (low + high) >> 1;
-		swap(nodes, low, k);
-		key = nodes.sc[low].w;
+		swap(nodes, dim, manifold, low, k);
+		if (dim == 1)
+			key = nodes.c.hc[low].x;
+		else if (dim == 3)
+			key = nodes.c.sc[low].w;
 		i = low + 1;
 		j = high;
 
 		while (i <= j) {
-			while ((i <= high) && (nodes.sc[i].w <= key))
+			while ((i <= high) && ((dim == 3 ? nodes.c.sc[i].w : nodes.c.hc[i].x) <= key))
 				i++;
-			while ((j >= low) && (nodes.sc[j].w > key))
+			while ((j >= low) && ((dim == 3 ? nodes.c.sc[j].w : nodes.c.hc[i].x) > key))
 				j--;
 			if (i < j)
-				swap(nodes, i, j);
+				swap(nodes, dim, manifold, i, j);
 		}
 
-		swap(nodes, low, j);
-		quicksort(nodes, low, j - 1);
-		quicksort(nodes, j + 1, high);
+		swap(nodes, dim, manifold, low, j);
+		quicksort(nodes, dim, manifold, low, j - 1);
+		quicksort(nodes, dim, manifold, j + 1, high);
 	}
 }
 
 //Exchange two nodes
-static void swap(Node &nodes, const int i, const int j)
+static void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, const int j)
 {
-	float4 sc = nodes.sc[i];
-	float tau = nodes.tau[i];
-	
-	nodes.sc[i] = nodes.sc[j];
-	nodes.tau[i] = nodes.tau[j];
+	if (DEBUG) {
+		assert (dim == 1 || dim == 3);
+		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+		if (manifold == HYPERBOLIC)
+			assert (dim == 1);
+	}
 
-	nodes.sc[j] = sc;
-	nodes.tau[j] = tau;
+	if (dim == 1) {
+		float2 hc = nodes.c.hc[i];
+		nodes.c.hc[i] = nodes.c.hc[j];
+		nodes.c.hc[j] = hc;
+	} else if (dim == 3) {
+		float4 sc = nodes.c.sc[i];
+		nodes.c.sc[i] = nodes.c.sc[j];
+		nodes.c.sc[j] = sc;
+	}
+
+	if (manifold == DE_SITTER) {
+		float tau = nodes.id.tau[i];
+		nodes.id.tau[i] = nodes.id.tau[j];
+		nodes.id.tau[j] = tau;
+	} else if (manifold == HYPERBOLIC) {
+		int AS = nodes.id.AS[i];
+		nodes.id.AS[i] = nodes.id.AS[j];
+		nodes.id.AS[j] = AS;
+	}
 }
 
 //Newton-Raphson Method
@@ -98,14 +126,14 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 	int fs = edges.future_edge_row_start[index];
 	int i;
 
-	nodes.cc[index] = id;
+	nodes.cc_id[index] = id;
 	elements++;
 
 	for (i = 0; i < nodes.k_in[index]; i++)
-		if (!nodes.cc[edges.past_edges[ps+i]])
+		if (!nodes.cc_id[edges.past_edges[ps+i]])
 			bfsearch(nodes, edges, edges.past_edges[ps+i], id, elements);
 
 	for (i = 0; i < nodes.k_out[index]; i++)
-		if (!nodes.cc[edges.future_edges[fs+i]])
+		if (!nodes.cc_id[edges.future_edges[fs+i]])
 			bfsearch(nodes, edges, edges.future_edges[fs+i], id, elements);
 }

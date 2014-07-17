@@ -222,7 +222,7 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 		printMemUsed("for Parallel Node Linking", hostMemUsed, devMemUsed);
 
 	//Copy Memory from Host to Device
-	checkCudaErrors(cuMemcpyHtoD(d_nodes, nodes.sc, sizeof(float4) * N_tar));
+	checkCudaErrors(cuMemcpyHtoD(d_nodes, nodes.c.sc, sizeof(float4) * N_tar));
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_edges, 0, d_edges_size << 1));

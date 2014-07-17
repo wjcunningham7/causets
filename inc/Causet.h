@@ -71,24 +71,37 @@ enum Manifold {
 	HYPERBOLIC
 };
 
+//Node Coordinates
+union Coord {
+	Coord() { memset(this, 0, sizeof(Coord)); }
+
+	float4 *sc;	//Stored as (eta, theta, phi, chi) for DS
+
+	float2 *hc;	//Stored as (r, theta) for HYPERBOLIC
+			//Stored as (eta, theta) for 1+1 DS
+};
+
+//Node ID
+union ID {
+	ID() { memset(this, 0, sizeof(ID)); }
+
+	float *tau;	//Rescaled Time for DS
+	int *AS;	//Autonomous System (AS) ID number for HYPERBOLIC
+};
+
 //Minimal unique properties of a node
 struct Node {
-	Node() : sc(NULL), tau(NULL), k_in(NULL), k_out(NULL), cc(NULL) {}
+	Node() : id(ID()), c(Coord()), k_in(NULL), k_out(NULL), cc_id(NULL) {}
 
-	union {
-		//Spacetime Coordinates
-		float4 *sc;	//Stored as (eta, theta, phi, chi) for DS
-		float *theta;	//Spatial Coordinate for 1+1 DS and HYPERBOLIC
-	};
-
-	float *tau;	//Rescaled Time for 3+1 DS, Conformal Time for 1+1 DS, and Radius for HYPERBOLIC
+	ID id;
+	Coord c;
 
 	//Number of Neighbors
 	int *k_in;
 	int *k_out;
 
 	//Connected Component ID
-	int *cc;
+	int *cc_id;
 };
 
 //Sparse edge list vectors
@@ -140,7 +153,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_cc(0), N_gcc(0), N_sr(0.0), dim(3), a(1.0), lambda(3.0), zeta(0.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
+	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_cc(0), N_gcc(0), N_sr(0.0), dim(3), a(1.0), lambda(3.0), zeta(1.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
 
 	CausetFlags flags;
 
