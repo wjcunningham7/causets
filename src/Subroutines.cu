@@ -33,7 +33,7 @@ void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, i
 		while (i <= j) {
 			while ((i <= high) && ((dim == 3 ? nodes.c.sc[i].w : nodes.c.hc[i].x) <= key))
 				i++;
-			while ((j >= low) && ((dim == 3 ? nodes.c.sc[j].w : nodes.c.hc[i].x) > key))
+			while ((j >= low) && ((dim == 3 ? nodes.c.sc[j].w : nodes.c.hc[j].x) > key))
 				j--;
 			if (i < j)
 				swap(nodes, dim, manifold, i, j);
@@ -42,6 +42,37 @@ void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, i
 		swap(nodes, dim, manifold, low, j);
 		quicksort(nodes, dim, manifold, low, j - 1);
 		quicksort(nodes, dim, manifold, j + 1, high);
+	}
+}
+
+//Sort edge list
+void quicksort(uint64_t *edges, int low, int high)
+{
+	if (DEBUG)
+		assert (edges != NULL);
+
+	int i, j, k;
+	uint64_t key;
+
+	if (low < high) {
+		k = (low + high) >> 1;
+		swap(edges, low, k);
+		key = edges[low];
+		i = low + 1;
+		j = high;
+
+		while (i <= j) {
+			while ((i <= high) && (edges[i] <= key))
+				i++;
+			while ((j >= low) && (edges[j] > key))
+				j--;
+			if (i < j)
+				swap(edges, i, j);
+		}
+
+		swap(edges, low, j);
+		quicksort(edges, low, j - 1);
+		quicksort(edges, j + 1, high);
 	}
 }
 
@@ -74,6 +105,14 @@ static void swap(Node &nodes, const int &dim, const Manifold &manifold, const in
 		nodes.id.AS[i] = nodes.id.AS[j];
 		nodes.id.AS[j] = AS;
 	}
+}
+
+//Exchange two edges
+static void swap(uint64_t *edges, const int i, const int j)
+{
+	uint64_t tmp = edges[i];
+	edges[i] = edges[j];
+	edges[j] = tmp;
 }
 
 //Newton-Raphson Method
@@ -122,6 +161,7 @@ bool newton(double (*solve)(const double &x, const double * const p1, const doub
 //Breadth First Search
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements)
 {
+	//printf("index: %d\n", index);
 	int ps = edges.past_edge_row_start[index];
 	int fs = edges.future_edge_row_start[index];
 	int i;
@@ -129,9 +169,13 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 	nodes.cc_id[index] = id;
 	elements++;
 
-	for (i = 0; i < nodes.k_in[index]; i++)
-		if (!nodes.cc_id[edges.past_edges[ps+i]])
+	for (i = 0; i < nodes.k_in[index]; i++) {
+		//printf("ps: %d i: %d\n", ps, i);
+		//printf("next node index: %d\n", edges.past_edges[ps+i]);
+		if (!nodes.cc_id[edges.past_edges[ps+i]]) {
 			bfsearch(nodes, edges, edges.past_edges[ps+i], id, elements);
+		}
+	}
 
 	for (i = 0; i < nodes.k_out[index]; i++)
 		if (!nodes.cc_id[edges.future_edges[fs+i]])

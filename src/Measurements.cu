@@ -214,7 +214,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No Null Pointers
@@ -228,20 +228,22 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 		assert (N_tar > 0);
 		assert (N_sr > 0 && N_sr <= ((uint64_t)N_tar * (N_tar - 1)) >> 1);
 		assert (!(dim == 1 && manifold == DE_SITTER));
-		assert (alpha > 0);
+		if (manifold == DE_SITTER && universe)
+			assert (alpha > 0);
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	}
 
 	float dist, min_dist;
 	int loc, next;
 	int idx_a, idx_b;
-	int i, j, k, m;
+	int i, j, m;
 	int do_map;
 	int n_trav;
 	int n_err, n_tot;
 
 	uint64_t stride = (uint64_t)N_tar * (N_tar - 1) / (static_cast<uint64_t>(N_sr) << 1);
 	uint64_t vec_idx;
+	uint64_t k;
 
 	bool *used;
 
@@ -265,14 +267,12 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 	n_trav = 0;
 
 	for (k = 0; k < static_cast<uint64_t>(N_sr); k++) {
+	//for (k = 0; k < 1; k++) {
 		//Pick Unique Pair
-		vec_idx = k * stride;
-		i = (int)(vec_idx / N_tar);
-		j = (int)(vec_idx % N_tar);
+		vec_idx = k * stride + 1;
+		i = static_cast<int>(vec_idx / (N_tar - 1));
+		j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
 		do_map = i >= j;
-
-		if (j == 0)
-			continue;
 
 		if (j < N_tar >> 1) {
 			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
@@ -286,7 +286,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 		if (nodes.cc_id[i] != nodes.cc_id[j])
 			continue;
 
-		//printf("%d %d\n", i, j);
+		//printf("%d -> %d:\n", nodes.id.AS[i], nodes.id.AS[j]);
+		//printf("---------\n");
+
+		//printf("%d -> ", nodes.id.AS[i]);
 
 		//Reset boolean array
 		memset(used, 0, sizeof(bool) * N_tar);
@@ -304,10 +307,16 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 			if (edges.past_edge_row_start[loc] != -1) {
 				for (m = 0; m < nodes.k_in[loc]; m++) {
 					idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
+					//printf("\tPast Candidate: %d\n", nodes.id.AS[idx_a]);
+					if (idx_a == idx_b) {
+						loc = idx_b;
+						goto PathSuccess;
+					}
 					if (manifold == DE_SITTER)
-						dist = distanceDS(nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], a, alpha, n_err);
+						dist = distanceDS(nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], a, alpha, n_err, universe);
 					else if (manifold == HYPERBOLIC)
 						dist = distanceH(nodes.c.hc[idx_a], nodes.c.hc[idx_b], zeta);
+					//printf("\t\tDistance: %f\n", dist);
 					n_tot++;
 					if (dist <= min_dist) {
 						min_dist = dist;
@@ -320,10 +329,16 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 			if (edges.future_edge_row_start[loc] != -1) {
 				for (m = 0; m < nodes.k_out[loc]; m++) {
 					idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
+					//printf("\tFuture Candidate: %d\n", nodes.id.AS[idx_a]);
+					if (idx_a == idx_b) {
+						loc = idx_b;
+						goto PathSuccess;
+					}
 					if (manifold == DE_SITTER)
-						dist = distanceDS(nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], a, alpha, n_err);
+						dist = distanceDS(nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], a, alpha, n_err, universe);
 					else if (manifold == HYPERBOLIC)
 						dist = distanceH(nodes.c.hc[idx_a], nodes.c.hc[idx_b], zeta);
+					//printf("\t\tDistance: %f\n", dist);
 					n_tot++;
 					if (dist <= min_dist) {
 						min_dist = dist;
@@ -331,19 +346,29 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 					}
 				}
 			}
+
+			//printf("Moving To: %d\n", nodes.id.AS[next]);
 		
 			if (!used[next])
 				loc = next;
 			else
 				break;
+
+			//printf("%d -> ", nodes.id.AS[next]);
 		}
 
-		if (loc == j)
+		PathSuccess:
+		if (loc == j) //{
 			success_ratio += 1.0;
+			//printf("%d (S)\n", nodes.id.AS[loc]);
+		//} else
+		//	printf("(F)\n");
+		//printf("\n");
 		n_trav++;
 	}
 
-	success_ratio /= n_trav;
+	if (n_trav)
+		success_ratio /= n_trav;
 
 	free(used);
 	used = NULL;
@@ -356,12 +381,13 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 		printf_cyan();
 		printf("\t\tSuccess Ratio: %f\n", success_ratio);
 		printf("\t\tTraversed Pairs: %d\n", n_trav);
-		if (manifold == DE_SITTER && n_err > 0) {
+		if (manifold == DE_SITTER && n_err) {
 			printf_red();
 			printf("\t\tPercent Errors: %f\n", static_cast<float>(n_err) / n_tot);
 			printf("\t\tTested Distances: %d\n", n_tot);
 			printf_std();
 		}
+		printf_std();
 		fflush(stdout);
 	}
 
@@ -412,12 +438,16 @@ static bool nodesAreConnected(const Node &nodes, const int * const future_edges,
 
 //Returns the de Sitter distance between two nodes
 //O(xxx) Efficiency (revise this)
-static float distanceDS(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const double &a, const double &alpha, int &n_err)
+static float distanceDS(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const double &a, const double &alpha, int &n_err, const bool &universe)
 {
 	if (DEBUG) {
 		//Parameters in Correct Ranges
 		assert (a > 0.0);
-		assert (alpha > 0.0);
+		if (universe)
+			assert (alpha > 0.0);
+
+		//3+1 DS not currently implemented
+		assert (universe);
 	}
 
 	//Check if they are the same node
@@ -498,7 +528,7 @@ static float distanceH(const float2 &hc_a, const float2 &hc_b, const double &zet
 		assert (zeta != 0.0);
 
 	float dtheta = M_PI - ABS(M_PI - ABS(hc_a.y - hc_b.y, STL), STL);
-	float distance = ACOSH(COSH(zeta * hc_a.x, APPROX ? FAST : STL) * COSH(zeta * hc_b.x, APPROX ? FAST : STL) - SINH(zeta * hc_a.x, APPROX ? FAST : STL) * SINH(zeta * hc_b.x, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) / zeta;
+	float distance = ACOSH(COSH(zeta * hc_a.x, APPROX ? FAST : STL) * COSH(zeta * hc_b.x, APPROX ? FAST : STL) - SINH(zeta * hc_a.x, APPROX ? FAST : STL) * SINH(zeta * hc_b.x, APPROX ? FAST : STL) * COS(dtheta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) / zeta;
 
 	return distance;
 }

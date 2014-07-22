@@ -82,6 +82,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					printf("\tEstimating Age of Universe.....\n");
 					float kappa1 = network_properties->k_tar / network_properties->delta;
 					float kappa2 = kappa1 / POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT);
+					printf("kappa2: %f\n", kappa2);
 
 					//Read Lookup Table
 					double *raduc_lookup;
@@ -145,8 +146,8 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					network_properties->omegaL = 1.0 - network_properties->omegaM;
 
 					stopwatchStop(&sSolveTau0);
-					printf("\t\tCompleted.\n");
-					printf("\t\t\tExecution Time: %5.6f\n", sSolveTau0.elapsedTime);
+					printf("\t\tExecution Time: %5.6f\n", sSolveTau0.elapsedTime);
+					printf("\tCompleted.\n");
 				}
 				
 				if (network_properties->N_tar > 0 && network_properties->alpha > 0.0) {
@@ -200,10 +201,6 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			//20% Buffer
 			network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
 
-			//Check success ratio parameters if applicable
-			if (network_properties->flags.calc_success_ratio)
-				network_properties->N_sr *= static_cast<int64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
-
 			//Adjacency matrix not implemented in GPU algorithms
 			if (network_properties->flags.use_gpu)
 				network_properties->core_edge_fraction = 0.0;
@@ -225,20 +222,21 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			printf("\t > Scaling Factor:\t\t%.6f\n", network_properties->R0);
 			printf_std();
 			fflush(stdout);
-		} else {
+		} else if (network_properties->manifold == DE_SITTER) {
 			if (network_properties->N_tar == 0)
 				throw CausetException("Flag '-n', number of nodes, must be specified!\n");
 			else if (network_properties->k_tar == 0.0)
 				throw CausetException("Flag '-k', expected average degrees, must be specified!\n");
 				
-			if (network_properties->dim == 1 && network_properties->manifold == DE_SITTER) {
+			if (network_properties->dim == 1) {
 				network_properties->zeta = HALF_PI - network_properties->tau0;
 				network_properties->tau0 = etaToTau(HALF_PI - network_properties->zeta);
 			}
-			
-			if (network_properties->flags.calc_success_ratio) 
-				network_properties->N_sr *= static_cast<int64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
 		}
+			
+		//Check success ratio parameters if applicable
+		if (network_properties->flags.calc_success_ratio)
+			network_properties->N_sr *= static_cast<int64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
@@ -418,6 +416,8 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 
 		if (USE_GSL) {
 			IntData idata = IntData();
+			idata.limit = 50;
+			idata.tol = 1e-4;
 			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 			idata.upper = tau0 * a;
 			zeta = HALF_PI - integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS);
@@ -425,11 +425,6 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 		} else
 			//Exact Solution
 			zeta = HALF_PI - tauToEtaUniverseExact(tau0, a, alpha);
-
-		if (DEBUG) {
-			assert (zeta > 0.0);
-			assert (zeta < HALF_PI);
-		}
 	} else {
 		//Solve for eta0 using Newton-Raphson Method
 		if (DEBUG) {
@@ -458,9 +453,11 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 		}
 
 		printf("\tTranscendental Equation Solved:\n");
+		printf_cyan();
 		//printf("\t\tZeta: %5.8f\n", zeta);
 		printf("\t\tMaximum Conformal Time: %5.8f\n", HALF_PI - zeta);
 		printf("\t\tMaximum Rescaled Time:  %5.8f\n", tau0);
+		printf_std();
 		fflush(stdout);
 	}
 

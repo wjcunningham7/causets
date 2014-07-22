@@ -36,7 +36,7 @@ CEXTOBJS	:= $(patsubst $(FASTSRC)/%.cpp, $(OBJDIR)/%.o, $(CEXTSOURCES))
 OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%_cu.o, $(SOURCES))
 LOBJS		:= $(patsubst $(OBJDIR)/%_cu.o, $(OBJDIR)/%.o, $(OBJS))
 
-all : $(COBJS) $(CEXTOBJS) $(OBJS) link bindir bin cleanobj cleanlog
+all : $(COBJS) $(CEXTOBJS) $(OBJS) link bindir bin cleanlog
 
 $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<

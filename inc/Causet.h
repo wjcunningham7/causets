@@ -1,6 +1,7 @@
 #ifndef CAUSET_H_
 #define CAUSET_H_
 
+//Standard System Files
 #include <cstring>
 #include <exception>
 #include <fstream>
@@ -12,25 +13,27 @@
 #include <stdio.h>
 #include <string>
 
+//Non-Standard System Files
 #include <boost/filesystem.hpp>
+#include <boost/unordered_map.hpp>
 #include <cuda.h>
 #include <curand.h>
 #include <GL/freeglut.h>
+#ifdef _OPENMP
+  #include <omp.h>
+#else
+  #define omp_get_thread_num() 0
+#endif
 #include <sys/io.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#else
-#define omp_get_thread_num() 0
-#endif
-
+//Custom System Files
 #include <fastmath/FastMath.h>
 #include <fastmath/FastNumInt.h>
 #include <fastmath/ran2.h>
 #include <fastmath/stopwatch.h>
-
 #include <printcolor/printcolor.h>
 
+//Local Files
 #include "autocorr2.h"
 
 /////////////////////////////
@@ -93,8 +96,12 @@ union ID {
 struct Node {
 	Node() : id(ID()), c(Coord()), k_in(NULL), k_out(NULL), cc_id(NULL) {}
 
+	//Node Identifiers
 	ID id;
 	Coord c;
+
+	//HashMap for HYPERBOLIC
+	boost::unordered_map<int, int> AS_idx;
 
 	//Number of Neighbors
 	int *k_in;

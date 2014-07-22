@@ -98,18 +98,12 @@ static NetworkProperties parseArgs(int argc, char **argv)
 		while ((c = getopt_long(argc, argv, optString, longOpts, &longIndex)) != -1) {
 			switch (c) {
 			case 'm':	//Manifold
-				if (strcmp(optarg, "d"))
+				if (!strcmp(optarg, "d"))
 					network_properties.manifold = DE_SITTER;
-				else if (strcmp(optarg, "h"))
+				else if (!strcmp(optarg, "h"))
 					network_properties.manifold = HYPERBOLIC;
 				else
 					throw CausetException("Invalid argument for 'manifold' parameter!\n");
-
-				if (network_properties.manifold != DE_SITTER) {
-					printf("Only de Sitter manifold currently supported!  Reverting to default value.\n");
-					fflush(stdout);
-					network_properties.manifold = DE_SITTER;
-				}
 
 				break;
 			case 'n':	//Number of nodes
@@ -136,7 +130,6 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				network_properties.dim = atoi(optarg);
 				if (!(atoi(optarg) == 1 || atoi(optarg) == 3))
 					throw CausetException("Invalid argument for 'dimension' parameter!\n");
-				assert (network_properties.dim != 1);	//Fix the eta distribution for 1D
 				break;
 			case 's':	//Random seed
 				network_properties.seed = -1.0 * atol(optarg);
@@ -270,24 +263,24 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				network_properties.flags.yes = true;
 				break;
 			case 0:
-				if (strcmp("gpu", longOpts[longIndex].name) == 0)
+				if (!strcmp("gpu", longOpts[longIndex].name))
 					//Flag to use GPU accelerated routines
 					network_properties.flags.use_gpu = true;
-				else if (strcmp("display", longOpts[longIndex].name) == 0) {
+				else if (!strcmp("display", longOpts[longIndex].name)) {
 					//Flag to use OpenGL to display network
 					//network_properties.flags.disp_network = true;
 					printf("Display not supported:  Ignoring Flag.\n");
 					fflush(stdout);
-				} else if (strcmp("print", longOpts[longIndex].name) == 0)
+				} else if (!strcmp("print", longOpts[longIndex].name))
 					//Flag to print results to file in 'dat' folder
 					network_properties.flags.print_network = true;
-				else if (strcmp("benchmark", longOpts[longIndex].name) == 0)
+				else if (!strcmp("benchmark", longOpts[longIndex].name))
 					//Flag to benchmark selected routines
 					network_properties.flags.bench = true;
-				else if (strcmp("autocorr", longOpts[longIndex].name) == 0)
+				else if (!strcmp("autocorr", longOpts[longIndex].name))
 					//Flag to calculate autocorrelation of selected variables
 					network_properties.flags.calc_autocorr = true;
-				else if (strcmp("conflicts", longOpts[longIndex].name) == 0) {
+				else if (!strcmp("conflicts", longOpts[longIndex].name)) {
 					//Print conflicting parameters
 					printf("\nParameter Conflicts:\n");
 					printf("--------------------\n");
@@ -496,7 +489,7 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 
 	if (network->network_properties.flags.calc_success_ratio) {
 		for (i = 0; i <= nb; i++) {
-			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
 
@@ -562,79 +555,96 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 		assert (!network->network_properties.flags.bench);
 	}
 
-	if (!initVars(&network->network_properties, cp, bm, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
-		return false;
-
 	printf("Loading Graph from File.....\n");
 	fflush(stdout);
 
-	int i;
 	try {
-		//Read Data Keys
-		printf("\tReading Data Keys.\n");
-		fflush(stdout);
 		std::ifstream dataStream;
+		std::stringstream dataname;
 		std::string line;
-		char *pch, *filename;
-		filename = NULL;
-	
-		dataStream.open("./etc/data_keys.cset.key");
+
+		uint64_t *edges;
+		char *delimeters;
+
+		uint64_t key;
+		int N_edg;
+		int node_idx;
+		int i, j;
+		unsigned int e0, e1;
+		unsigned int idx0, idx1;
+		unsigned int tmp;
+
+		char d[] = " \t";
+		delimeters = &d[0];
+		N_edg = 0;
+
+		//Identify Basic Network Properties
+		dataname << "./dat/pos/" << network->network_properties.graphID << ".cset.pos.dat";
+		dataStream.open(dataname.str().c_str());
 		if (dataStream.is_open()) {
-			while (getline(dataStream, line)) {
-				pch = strtok((char*)line.c_str(), "\t");
-				if (atoi(pch) == network->network_properties.graphID) {
-					filename = strtok(NULL, "\t");
-					break;
-				}
-			}
+			while(getline(dataStream, line))
+				network->network_properties.N_tar++;
 			dataStream.close();
-			if (filename == NULL)
-				throw CausetException("Failed to locate graph file!\n");
 		} else
-			throw CausetException("Failed to open 'data_keys.cset.key' file!\n");
-		
+			throw CausetException("Failed to open node position file!\n");
+
+		dataname.str("");
+		dataname.clear();
+		dataname << "./dat/edg/" << network->network_properties.graphID << ".cset.edg.dat";
+		dataStream.open(dataname.str().c_str());
+		if (dataStream.is_open()) {
+			while(getline(dataStream, line))
+				N_edg++;
+			dataStream.close();
+		} else
+			throw CausetException("Failed to open edge list file!\n");
+		network->network_properties.k_tar = static_cast<float>(N_edg << 1) / network->network_properties.N_tar;
+		network->network_properties.edge_buffer = static_cast<unsigned int>(N_edg * 0.2f);
+		printf("\tGathered Peripheral Network Data.\n");
+		fflush(stdout);
+
+		if (!initVars(&network->network_properties, cp, bm, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
+			return false;
+
 		//Allocate Memory	
 		if (!createNetwork(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 			return false;
 
-		//Solve for eta0 and tau0
+		//Solve for eta0 and tau0 if DE_SITTER
 		if (network->network_properties.manifold == DE_SITTER && !solveMaxTime(network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.flags.universe))
 			return false;
 
-		//Read node positions
-		printf("\tReading Node Position Data.\n");
+		//Read Node Positions
+		printf("\tReading Node Position Data.....\n");
 		fflush(stdout);
-		std::stringstream dataname;
+		dataname.str("");
+		dataname.clear();
 		dataname << "./dat/pos/" << network->network_properties.graphID << ".cset.pos.dat";
 		dataStream.open(dataname.str().c_str());
 		if (dataStream.is_open()) {
-			while (getline(dataStream, line))
-				network->network_properties.N_tar++;
-			dataStream.seekg(0, dataStream.beg);
-
 			for (i = 0; i < network->network_properties.N_tar; i++) {
 				getline(dataStream, line);
 
 				if (network->network_properties.manifold == DE_SITTER) {
 					if (network->network_properties.dim == 1) {
-						network->nodes.c.hc[i].x = atof(strtok(NULL, " "));
-						network->nodes.c.hc[i].y = atof(strtok(NULL, " "));
+						network->nodes.c.hc[i].x = atof(strtok((char*)line.c_str(), delimeters));
+						network->nodes.c.hc[i].y = atof(strtok(NULL, delimeters));
 					} else if (network->network_properties.dim == 3) {
 						if (network->network_properties.flags.universe) {
-							network->nodes.id.tau[i] = atof(strtok(NULL, " "));
+							network->nodes.id.tau[i] = atof(strtok((char*)line.c_str(), delimeters));
 							//Solve for eta using numerical integration
 						} else {
-							network->nodes.c.sc[i].w = atof(strtok(NULL, " "));
+							network->nodes.c.sc[i].w = atof(strtok((char*)line.c_str(), delimeters));
 							network->nodes.id.tau[i] = etaToTau(network->nodes.c.sc[i].w);
 						}
-						network->nodes.c.sc[i].x = atof(strtok(NULL, " "));
-						network->nodes.c.sc[i].y = atof(strtok(NULL, " "));
-						network->nodes.c.sc[i].z = atof(strtok(NULL, " "));
+						network->nodes.c.sc[i].x = atof(strtok(NULL, delimeters));
+						network->nodes.c.sc[i].y = atof(strtok(NULL, delimeters));
+						network->nodes.c.sc[i].z = atof(strtok(NULL, delimeters));
 					}
 				} else if (network->network_properties.manifold == HYPERBOLIC) {
-					network->nodes.id.AS[i] = atoi(strtok(NULL, " "));
-					network->nodes.c.hc[i].y = atof(strtok(NULL, " "));
-					network->nodes.c.hc[i].x = atof(strtok(NULL, " "));
+					network->nodes.id.AS[i] = atoi(strtok((char*)line.c_str(), delimeters));
+					network->nodes.c.hc[i].y = atof(strtok(NULL, delimeters));
+					network->nodes.c.hc[i].x = atof(strtok(NULL, delimeters));
 				}
 
 				if (network->network_properties.dim == 1) {
@@ -656,14 +666,156 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 			dataStream.close();
 		} else
 			throw CausetException("Failed to open node position file!\n");
+		printf("\t\tCompleted.\n");
 
-		//Read Adjacency List
+		//Quicksort
+		quicksort(network->nodes, network->network_properties.dim, network->network_properties.manifold, 0, network->network_properties.N_tar - 1);
+
+		//Populate Hashmap
+		for (i = 0; i < network->network_properties.N_tar; i++)
+			network->nodes.AS_idx.insert(std::make_pair(network->nodes.id.AS[i], i));
+
+		//for (i = 0; i < network->network_properties.N_tar; i++)
+		//	printf("i %d AS %d key %d\n", i, network->nodes.id.AS[i], network->nodes.AS_idx.at(network->nodes.id.AS[i]));
+		
+		//Read Edges
+		printf("\tReading Edge List Data.....\n");
+		fflush(stdout);
+		dataname.str("");
+		dataname.clear();
+		dataname << "./dat/edg/" << network->network_properties.graphID << ".cset.edg.dat";
+		dataStream.open(dataname.str().c_str());
+		if (dataStream.is_open()) {
+			edges = (uint64_t*)malloc(sizeof(uint64_t) * N_edg);
+			if (edges == NULL)
+				throw std::bad_alloc();
+			hostMemUsed += sizeof(uint64_t) * N_edg;
+
+			memset(edges, 0, sizeof(uint64_t) * N_edg);
+			memset(network->nodes.k_in, 0, sizeof(int) * network->network_properties.N_tar);
+			memset(network->nodes.k_out, 0, sizeof(int) * network->network_properties.N_tar);
+		
+			for (i = 0; i < N_edg; i++) {
+				getline(dataStream, line);
+				e0 = atoi(strtok((char*)line.c_str(), delimeters));
+				e1 = atoi(strtok(NULL, delimeters));
+				//printf("%d %d\n", e0, e1);
+
+				if (network->network_properties.manifold == DE_SITTER) {
+					idx0 = e0;
+					idx1 = e1;
+				} else if (network->network_properties.manifold == HYPERBOLIC) {
+					idx0 = network->nodes.AS_idx.at(e0);
+					idx1 = network->nodes.AS_idx.at(e1);
+				}
+
+				if (idx1 < idx0) {
+					tmp = idx0;
+					idx0 = idx1;
+					idx1 = tmp;
+				}
+
+				network->nodes.k_in[idx1]++;
+				network->nodes.k_out[idx0]++;
+
+				edges[i] = ((uint64_t)idx0) << 32 | ((uint64_t)idx1);
+				//printf("%d %d\n", idx0, idx1);
+			}
+			printf("\t\tRead Raw Data.\n");
+			fflush(stdout);
+
+			//Sort Edge List
+			quicksort(edges, 0, N_edg - 1);
+			printf("\t\tFirst Quicksort Performed.\n");
+
+			//Future Edge Data
+			node_idx = -1;
+			for (i = 0; i < N_edg; i++) {
+				key = edges[i];
+				idx0 = key >> 32;
+				idx1 = key & 0x00000000FFFFFFFF;
+				network->edges.future_edges[i] = idx1;
+				edges[i] = ((uint64_t)idx1) << 32 | ((uint64_t)idx0);
+			
+				if (idx0 != node_idx) {
+					if (idx0 - node_idx > 1)
+						for(j = 0; j < idx0 - node_idx - 1; j++)
+							network->edges.future_edge_row_start[idx0-j-1] = -1;
+					network->edges.future_edge_row_start[idx0] = i;
+					node_idx = idx0;
+				}
+			}
+			for (i = idx0 + 1; i < network->network_properties.N_tar; i++)
+				network->edges.future_edge_row_start[i] = -1;
+			printf("\t\tFuture Edges Parsed.\n");
+			fflush(stdout);
+
+			//Resort Edge List
+			quicksort(edges, 0, N_edg - 1);
+			printf("\t\tSecond Quicksort Performed.\n");
+			fflush(stdout);
+
+			//Populate Past Edge List
+			node_idx = -1;
+			for (i = 0; i < N_edg; i++) {
+				key = edges[i];
+				idx0 = key >> 32;
+				idx1 = key & 0x00000000FFFFFFFF;
+				network->edges.past_edges[i] = idx1;
+
+				if (idx0 != node_idx) {
+					if (idx0 - node_idx > 1)
+						for (j = 0; j < idx0 - node_idx - 1; j++)
+							network->edges.past_edge_row_start[idx0-j-1] = -1;
+					network->edges.past_edge_row_start[idx0] = i;
+					node_idx = idx0;
+				}
+			}
+			for (i = idx0 + 1; i < network->network_properties.N_tar; i++)
+				network->edges.past_edge_row_start[i] = -1;
+			printf("\t\tPast Edges Parsed.\n");
+			fflush(stdout);
+
+			free(edges);
+			edges = NULL;
+			hostMemUsed -= sizeof(uint64_t) * N_edg;
+
+			//Identify Resulting Properties
+			for (i = 0; i < network->network_properties.N_tar; i++) {
+				if (network->nodes.k_in[i] + network->nodes.k_out[i] > 0) {
+					network->network_properties.N_res++;
+					if (network->nodes.k_in[i] + network->nodes.k_out[i] > 1)
+						network->network_properties.N_deg2++;
+				}
+			}
+			network->network_properties.k_res = static_cast<float>(N_edg << 1) / network->network_properties.N_res;
+			printf("\t\tProperties Identified.\n");
+			fflush(stdout);
+
+			dataStream.close();
+		} else
+			throw CausetException("Failed to open edge list file!\n");
+		printf("\t\tCompleted.\n");
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	} catch (std::out_of_range) {
+		fprintf(stderr, "Error using unordered map when reading edge list!\n");
 		return false;
 	} catch (std::exception e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
+	}
+
+	if (network->network_properties.flags.verbose) {
+		printf("\tGraph Properties:\n");
+		printf_cyan();
+		printf("\t\tResulting Network Size: %d\n", network->network_properties.N_res);
+		printf("\t\tExpected Average Degrees: %f\n", network->network_properties.k_res);
+		printf_std();
 	}
 
 	printf("Task Completed.\n");

@@ -157,7 +157,8 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 		assert (N_tar > 0);
 		assert (k_tar > 0);
 		assert (a > 0.0);
-		assert (alpha > 0.0);
+		if (universe)
+			assert (alpha > 0.0);
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 		assert (edge_buffer >= 0);
 	}

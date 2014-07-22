@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Prevents re-compiling during a long run
-mv Makefile Makefile~
+#mv Makefile Makefile~
 
 # Generate causal set for 1+1 de Sitter (no matter)
 #./bin/CausalSet --nodes 24586 --degrees 5.53 --dim 1 --seed 18100 --verbose
 # Should find eta0 = 1.5707577, gamma = 2
 
 # Generate causal set for 3+1 de Sitter (no matter)
-#./bin/CausalSet --nodes 25441 --degrees 5.29 --radius 2.0 --seed 18100 --verbose
+#./bin/CausalSet --nodes 25441 --degrees 5.29 --radius 2.0 --seed 18100 -y --verbose
 # Should find eta0 = 1.5296963, gamma = 1.75
 
 # Generate causal set for universe (mix of dark energy and matter)
@@ -16,12 +16,12 @@ mv Makefile Makefile~
 # Should find N = 10^6, tau given by (12), in-degree given by Fig. (S3), out-degree given by Fig. (3a)
 
 # Read hyperbolic graph data and measure greedy routing
-# Requires the position data file stored as ./dat/hyperbolic.cset.pos.dat and edge list as ./dat/hyperbolic.cset.edg.dat
-# Also requires the entry '54321 hyperbolic' in the file ./dat/data_keys.key
-#./bin/CausalSet --dim 1 --seed 18100 --graph 54321 -y --verbose --success 0.01
+#./bin/CausalSet --dim 1 --manifold h --seed 18100 --graph 322 -y --verbose --success 1
 # Should find a success ratio of 1.0 and a single connected component
 
 # Debugging
-./bin/CausalSet --universe --age 0.8458 --nodes 10240 --delta 100 --seed 22  -y --verbose --gpu --success 0.0001
+#./bin/CausalSet --nodes 20480 --degrees 5.29 --radius 2.0 --seed 18100 -y --verbose --gpu --success 0.001
+#./bin/CausalSet --universe --age 0.8458 --nodes 10240 --delta 100 --seed 22  -y --verbose --gpu --success 0.001
+./bin/CausalSet --universe --degrees 7.264480 --nodes 10240 --delta 100 --radius 0.9 --seed 22 -y --verbose --gpu --success 0.001
 
-mv Makefile~ Makefile
+#mv Makefile~ Makefile
