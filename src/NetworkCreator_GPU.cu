@@ -193,6 +193,7 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 		g_idx = (int*)malloc(sizeof(int));
 		if (g_idx == NULL)
 			throw std::bad_alloc();
+		memset(g_idx, 0, sizeof(int));
 		hostMemUsed += sizeof(int);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
@@ -211,8 +212,8 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	devMemUsed += sizeof(int);
 
 	//Initialize Memory on Host
-	memset(nodes.k_in, 0, sizeof(int) * N_tar);
-	memset(nodes.k_out, 0, sizeof(int) * N_tar);
+	//memset(nodes.k_in, 0, sizeof(int) * N_tar);
+	//memset(nodes.k_out, 0, sizeof(int) * N_tar);
 	
 	//Allocate Mapped Pinned Memory
 	checkCudaErrors(cuMemHostGetDevicePointer(&d_k_in, (void*)nodes.k_in, 0));
@@ -515,8 +516,9 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 		printf("\tCausets Successfully Connected.\n");
 		printf_cyan();
 		//printf("\t\tUndirected Links: %d\n", *g_idx);
-		printf("\t\tResulting Network Size: %d\n", N_res);
+		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
+		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);
 		printf_std();
 		fflush(stdout);
 	}

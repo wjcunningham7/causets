@@ -313,6 +313,8 @@ inline double rescaledDegreeUniverse(int dim, double x[])
 	return z;
 }
 
+//Geodesic Distances
+
 //Embedded Z1 Coordinate
 //Used to calculate geodesic distances in universe
 //For use with GNU Scientific Library
@@ -323,6 +325,119 @@ inline double embeddedZ1(double x, void *params)
 	double alpha = p->alpha;
 
 	return SQRT(1.0 + POW2(static_cast<float>(a), EXACT) * x * POW2(static_cast<float>(alpha), EXACT) / (POW3(static_cast<float>(alpha), EXACT) + POW3(static_cast<float>(x), EXACT)), STL);
+}
+
+//Returns the de Sitter distance between two nodes
+//Modify this to handle 3+1 DS without matter!
+//O(xxx) Efficiency (revise this)
+inline float distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const double &a, const double &alpha, const bool &universe)
+{
+	if (DEBUG) {
+		//Parameters in Correct Ranges
+		assert (a > 0.0);
+		if (universe)
+			assert (alpha > 0.0);
+
+		//3+1 DS not currently implemented
+		assert (universe);
+	}
+
+	//Check if they are the same node
+	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
+		return 0.0f;
+
+	IntData idata = IntData();
+	idata.tol = 1e-5;
+
+	GSL_EmbeddedZ1_Parameters p;
+	p.a = a;
+	p.alpha = alpha;
+
+	float z0_a, z0_b;
+	float z1_a, z1_b;
+	float power;
+	float signature;
+	float inner_product;
+	float distance;
+
+	//Solve for z1 in Rotated Plane
+	power = 2.0f / 3.0f;
+	z1_a = alpha * POW(SINH(1.5f * tau_a, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
+	z1_b = alpha * POW(SINH(1.5f * tau_b, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
+
+	//Use Numerical Integration for z0
+	idata.upper = z1_a;
+	z0_a = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
+	idata.upper = z1_b;
+	z0_b = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
+
+	signature = SGN(POW2(z1_b * X1(node_b.y) - z1_a * X1(node_a.y), EXACT) +
+			POW2(z1_b * X2(node_b.y, node_b.z) - z1_a * X2(node_a.y, node_a.z), EXACT) +
+			POW2(z1_b * X3(node_b.y, node_b.z, node_b.x) - z1_a * X3(node_a.y, node_a.z, node_a.x), EXACT) +
+			POW2(z1_b * X4(node_b.y, node_b.z, node_b.x) - z1_a * X4(node_a.y, node_a.z, node_a.x), EXACT) -
+			POW2(z0_b - z0_a, EXACT), DEF);
+
+	inner_product = z1_a * z1_b * sphProduct(node_a, node_b) - z0_a * z0_b;
+
+	if (signature < 0.0f)
+		//Timelike
+		distance = ACOSH(inner_product, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	else if (signature == 0.0f)
+		//Lightlike
+		distance = 0.0f;
+	else if (inner_product <= -1.0f)
+		//Disconnected Regions
+		distance = INF;
+	else
+		//Spacelike
+		distance = ACOS(inner_product, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+
+	//Check light cone condition for 4D vs 5D
+	//Null hypothesis is the nodes are not connected
+	if (evd != NULL) {
+		float d_eta = ABS(node_b.w - node_a.w, STL);
+		float d_theta = ACOS(sphProduct(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+
+		if (signature == 0.0f)
+			return distance;
+
+		if (d_theta < d_eta) {	//Actual Time-Like
+			if (signature < 0)
+				//True Positive
+				evd->confusion[0] += 1.0;
+			else {
+				//True Negative
+				evd->confusion[2] += 1.0;
+				evd->tn[++evd->tn_idx] = d_eta;
+				evd->tn[++evd->tn_idx] = d_theta;
+			}
+		} else {		//Actual Space-Like
+			if (signature > 0)
+				//False Negative
+				evd->confusion[1] += 1.0;
+			else {
+				//False Positive
+				evd->confusion[3] += 1.0;
+				evd->fp[++evd->fp_idx] = d_eta;
+				evd->tn[++evd->fp_idx] = d_theta;
+			}
+		}
+	}	
+
+	return distance;
+}
+
+//Returns the hyperbolic distance between two nodes
+//O(xxx) Efficiency (revise this)
+inline float distanceH(const float2 &hc_a, const float2 &hc_b, const double &zeta)
+{
+	if (DEBUG)
+		assert (zeta != 0.0);
+
+	float dtheta = M_PI - ABS(M_PI - ABS(hc_a.y - hc_b.y, STL), STL);
+	float distance = ACOSH(COSH(zeta * hc_a.x, APPROX ? FAST : STL) * COSH(zeta * hc_b.x, APPROX ? FAST : STL) - SINH(zeta * hc_a.x, APPROX ? FAST : STL) * SINH(zeta * hc_b.x, APPROX ? FAST : STL) * COS(dtheta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) / zeta;
+
+	return distance;
 }
 
 #endif

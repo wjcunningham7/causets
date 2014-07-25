@@ -166,6 +166,18 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					if (DEBUG) assert (network_properties->alpha > 0.0);
 				}
 			}
+
+			//Solve for Rescaled Densities
+			if (DEBUG) {
+				assert (network_properties->a > 0.0);
+				assert (network_properties->tau0 > 0.0);
+			}
+			network_properties->rhoL = 1.0 / POW2(network_properties->a, EXACT);
+			network_properties->rhoM = 1.0 / POW2(network_properties->a * SINH(1.5f * network_properties->tau0, STL), EXACT);
+			if (DEBUG) {
+				assert (network_properties->rhoL > 0.0);
+				assert (network_properties->rhoM > 0.0);
+			}
 			
 			//Finally, solve for R0
 			if (DEBUG) {
@@ -215,7 +227,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			printf("\t > Cosmological Constant:\t%.6f\n", network_properties->lambda);
 			printf("\t > Rescaled Age:\t\t%.6f\n", network_properties->tau0);
 			printf("\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
+			printf("\t > Rescaled Energy Density:\t%.6f\n", network_properties->rhoL);
 			printf("\t > Matter Density:\t\t%.6f\n", network_properties->omegaM);
+			printf("\t > Rescaled Matter Density:\t%.6f\n", network_properties->rhoM);
 			printf("\t > Ratio:\t\t\t%.6f\n", network_properties->ratio);
 			printf("\t > Node Density:\t\t%.6f\n", network_properties->delta);
 			printf("\t > Alpha:\t\t\t%.6f\n", network_properties->alpha);
@@ -234,9 +248,11 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			}
 		}
 			
-		//Check success ratio parameters if applicable
+		//Check other parameters if applicable
+		if (network_properties->flags.validate_embedding)
+			network_properties->N_emb *= static_cast<uint64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
 		if (network_properties->flags.calc_success_ratio)
-			network_properties->N_sr *= static_cast<int64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
+			network_properties->N_sr *= static_cast<uint64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
@@ -308,11 +324,13 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			nodes.id.tau = (float*)malloc(sizeof(float) * N_tar);
 			if (nodes.id.tau == NULL)
 				throw std::bad_alloc();
+			memset(nodes.id.tau, 0, sizeof(float) * N_tar);
 			hostMemUsed += sizeof(float) * N_tar;
 		} else if (manifold == HYPERBOLIC) {
 			nodes.id.AS = (int*)malloc(sizeof(int) * N_tar);
 			if (nodes.id.AS == NULL)
 				throw std::bad_alloc();
+			memset(nodes.id.AS, 0, sizeof(int) * N_tar);
 			hostMemUsed += sizeof(int) * N_tar;
 		}
 
@@ -320,11 +338,13 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			nodes.c.sc = (float4*)malloc(sizeof(float4) * N_tar);
 			if (nodes.c.sc == NULL)
 				throw std::bad_alloc();
+			memset(nodes.c.sc, 0, sizeof(float4) * N_tar);
 			hostMemUsed += sizeof(float4) * N_tar;
 		} else if (dim == 1) {
 			nodes.c.hc = (float2*)malloc(sizeof(float2) * N_tar);
 			if (nodes.c.hc == NULL)
 				throw std::bad_alloc();
+			memset(nodes.c.hc, 0, sizeof(float2) * N_tar);
 			hostMemUsed += sizeof(float2) * N_tar;
 		}
 
@@ -335,6 +355,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			if (nodes.k_in == NULL)
 				throw std::bad_alloc();
 		}
+		memset(nodes.k_in, 0, sizeof(int) * N_tar);
 		hostMemUsed += sizeof(int) * N_tar;
 
 		if (use_gpu)
@@ -344,42 +365,48 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			if (nodes.k_out == NULL)
 				throw std::bad_alloc();
 		}
+		memset(nodes.k_out, 0, sizeof(int) * N_tar);
 		hostMemUsed += sizeof(int) * N_tar;
 
 		if (verbose)
 			printMemUsed("for Nodes", hostMemUsed, devMemUsed);
 
 		if (use_gpu)
-			checkCudaErrors(cuMemHostAlloc((void**)&edges.past_edges, sizeof(int) * (N_tar * k_tar / 2 + edge_buffer), CU_MEMHOSTALLOC_DEVICEMAP));
+			checkCudaErrors(cuMemHostAlloc((void**)&edges.past_edges, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer), CU_MEMHOSTALLOC_DEVICEMAP));
 		else {
-			edges.past_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
+			edges.past_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
 			if (edges.past_edges == NULL)
 				throw std::bad_alloc();
 		}
+		memset(edges.past_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
 		hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer);
 
 		if (use_gpu)
-			checkCudaErrors(cuMemHostAlloc((void**)&edges.future_edges, sizeof(int) * (N_tar * k_tar / 2 + edge_buffer), CU_MEMHOSTALLOC_DEVICEMAP));
+			checkCudaErrors(cuMemHostAlloc((void**)&edges.future_edges, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer), CU_MEMHOSTALLOC_DEVICEMAP));
 		else {
-			edges.future_edges = (int*)malloc(sizeof(int) * (N_tar * k_tar / 2 + edge_buffer));
+			edges.future_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
 			if (edges.future_edges == NULL)
 				throw std::bad_alloc();
 		}
+		memset(edges.future_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
 		hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer);
 
 		edges.past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
 		if (edges.past_edge_row_start == NULL)
 			throw std::bad_alloc();
+		memset(edges.past_edge_row_start, 0, sizeof(int) * N_tar);
 		hostMemUsed += sizeof(int) * N_tar;
 
 		edges.future_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
 		if (edges.future_edge_row_start == NULL)
 			throw std::bad_alloc();
+		memset(edges.future_edge_row_start, 0, sizeof(int) * N_tar);
 		hostMemUsed += sizeof(int) * N_tar;
 
-		core_edge_exists = (bool*)malloc(sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT));
+		core_edge_exists = (bool*)malloc(sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT)));
 		if (core_edge_exists == NULL)
 			throw std::bad_alloc();
+		memset(core_edge_exists, 0, sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT)));
 		hostMemUsed += sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT));
 
 		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
@@ -641,8 +668,8 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 
 	stopwatchStart(&sLinkNodes);
 
-	memset(nodes.k_in, 0, sizeof(int) * N_tar);
-	memset(nodes.k_out, 0, sizeof(int) * N_tar);
+	//memset(nodes.k_in, 0, sizeof(int) * N_tar);
+	//memset(nodes.k_out, 0, sizeof(int) * N_tar);
 	
 	//Identify future connections
 	for (i = 0; i < N_tar - 1; i++) {
@@ -784,157 +811,17 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 
 	if (!bench) {
 		printf("\tCausets Successfully Connected.\n");
-		printf("\t\tResulting Network Size: %d\n", N_res);
+		printf_cyan();
+		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
+		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);
+		printf_std();
 		fflush(stdout);
 	}
 
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sLinkNodes.elapsedTime);
 		fflush(stdout);
-	}
-
-	return true;
-}
-
-//Debug:  Future vs Past Edges in Adjacency List
-//O(1) Efficiency
-void compareAdjacencyLists(const Node &nodes, const Edge &edges)
-{
-	if (DEBUG) {
-		//No null pointers
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-	}
-
-	int i, j;
-	for (i = 0; i < 20; i++) {
-		printf("\nNode i: %d\n", i);
-
-		printf("Forward Connections:\n");
-		if (edges.future_edge_row_start[i] == -1)
-			printf("\tNo future connections.\n");
-		else {
-			for (j = 0; j < nodes.k_out[i] && j < 10; j++)
-				printf("%d ", edges.future_edges[edges.future_edge_row_start[i]+j]);
-			printf("\n");
-		}
-
-		printf("Backward Connections:\n");
-		if (edges.past_edge_row_start[i] == -1)
-			printf("\tNo past connections.\n");
-		else {
-			for (j = 0; j < nodes.k_in[i] && j < 10; j++)
-				printf("%d ", edges.past_edges[edges.past_edge_row_start[i]+j]);
-			printf("\n");
-		}
-	
-		fflush(stdout);
-	}
-}
-
-//Debug:  Future and Past Adjacency List Indices
-//O(1) Effiency
-void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
-{
-	if (DEBUG) {
-		//No null pointers
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-	}
-
-	int max1 = 20;
-	int max2 = 100;
-	int i, j;
-
-	printf("\nFuture Edge Indices:\n");
-	for (i = 0; i < max1; i++)
-		printf("%d\n", edges.future_edge_row_start[i]);
-	printf("\nPast Edge Indices:\n");
-	for (i = 0; i < max1; i++)
-		printf("%d\n", edges.past_edge_row_start[i]);
-	fflush(stdout);
-
-	int next_future_idx, next_past_idx;
-	for (i = 0; i < max1; i++) {
-		printf("\nNode i: %d\n", i);
-
-		printf("Out-Degrees: %d\n", nodes.k_out[i]);
-		if (edges.future_edge_row_start[i] == -1) {
-			printf("Pointer: 0\n");
-		} else {
-			for (j = 1; j < max2; j++) {
-				if (edges.future_edge_row_start[i+j] != -1) {
-					next_future_idx = j;
-					break;
-				}
-			}
-			printf("Pointer: %d\n", (edges.future_edge_row_start[i+next_future_idx] - edges.future_edge_row_start[i]));
-		}
-
-		printf("In-Degrees: %d\n", nodes.k_in[i]);
-		if (edges.past_edge_row_start[i] == -1)
-			printf("Pointer: 0\n");
-		else {
-			for (j = 1; j < max2; j++) {
-				if (edges.past_edge_row_start[i+j] != -1) {
-					next_past_idx = j;
-					break;
-				}
-			}
-			printf("Pointer: %d\n", (edges.past_edge_row_start[i+next_past_idx] - edges.past_edge_row_start[i]));
-		}
-		fflush(stdout);
-	}
-}
-
-//Write Node Coordinates to File
-//O(num_vals) Efficiency
-bool printValues(const Node &nodes, const int num_vals, const char *filename, const char *coord)
-{
-	if (DEBUG) {
-		//No null pointers
-		assert (filename != NULL);
-		assert (coord != NULL);
-
-		//Variables in correct range
-		assert (num_vals > 0);
-	}
-
-	try {
-		std::ofstream outputStream;
-		outputStream.open(filename);
-		if (!outputStream.is_open())
-			throw CausetException("Failed to open file in 'printValues' function!\n");
-
-		int i;
-		for (i = 0; i < num_vals; i++) {
-			if (strcmp(coord, "tau") == 0)
-				outputStream << nodes.id.tau[i] << std::endl;
-			else if (strcmp(coord, "eta") == 0)
-				outputStream << nodes.c.sc[i].w << std::endl;
-			else if (strcmp(coord, "theta") == 0)
-				outputStream << nodes.c.sc[i].x << std::endl;
-			else if (strcmp(coord, "phi") == 0)
-				outputStream << nodes.c.sc[i].y << std::endl;
-			else if (strcmp(coord, "chi") == 0)
-				outputStream << nodes.c.sc[i].z << std::endl;
-			else
-				throw CausetException("Unrecognized value in 'coord' parameter!\n");
-		}
-	
-		outputStream.flush();
-		outputStream.close();
-	} catch (CausetException c) {
-		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		return false;
-	} catch (std::exception e) {
-		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-		return false;
 	}
 
 	return true;

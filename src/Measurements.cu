@@ -35,6 +35,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 		clustering = (float*)malloc(sizeof(float) * N_deg2);
 		if (clustering == NULL)
 			throw std::bad_alloc();
+		memset(clustering, 0, sizeof(float) * N_deg2);
 		hostMemUsed += sizeof(float) * N_deg2;
 	} catch (std::bad_alloc()) {
 		fprintf(stderr, "Failed to allocate memory in %s on line %d!\n", __FILE__, __LINE__);
@@ -166,6 +167,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 		nodes.cc_id = (int*)malloc(sizeof(int) * N_tar);
 		if (nodes.cc_id == NULL)
 			throw std::bad_alloc();
+		memset(nodes.cc_id, 0, sizeof(int) * N_tar);
 		hostMemUsed += sizeof(int) * N_tar;
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d\n", __FILE__, __LINE__);
@@ -176,7 +178,6 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 	if (verbose)
 		printMemUsed("to Measure Components", hostMemUsed, devMemUsed);
 
-	memset(nodes.cc_id, 0, sizeof(int) * N_tar);
 	N_cc = 0;
 	N_gcc = 0;
 
@@ -239,7 +240,6 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 	int i, j, m;
 	int do_map;
 	int n_trav;
-	int n_err, n_tot;
 
 	uint64_t stride = (uint64_t)N_tar * (N_tar - 1) / (static_cast<uint64_t>(N_sr) << 1);
 	uint64_t vec_idx;
@@ -253,6 +253,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 		used = (bool*)malloc(sizeof(bool) * N_tar);
 		if (used == NULL)
 			throw std::bad_alloc();
+		memset(used, 0, sizeof(bool) * N_tar);
 		hostMemUsed += sizeof(bool) * N_tar;
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
@@ -263,9 +264,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 	if (verbose)
 		printMemUsed("to Measure Success Ratio", hostMemUsed, devMemUsed);
 
-	n_err = 0, n_tot = 0;
 	n_trav = 0;
-
 	for (k = 0; k < static_cast<uint64_t>(N_sr); k++) {
 	//for (k = 0; k < 1; k++) {
 		//Pick Unique Pair
@@ -313,11 +312,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 						goto PathSuccess;
 					}
 					if (manifold == DE_SITTER)
-						dist = distanceDS(nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], a, alpha, n_err, universe);
+						dist = distanceDS(NULL, nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], a, alpha, universe);
 					else if (manifold == HYPERBOLIC)
 						dist = distanceH(nodes.c.hc[idx_a], nodes.c.hc[idx_b], zeta);
 					//printf("\t\tDistance: %f\n", dist);
-					n_tot++;
 					if (dist <= min_dist) {
 						min_dist = dist;
 						next = edges.past_edges[edges.past_edge_row_start[loc]+m];
@@ -335,11 +333,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 						goto PathSuccess;
 					}
 					if (manifold == DE_SITTER)
-						dist = distanceDS(nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], a, alpha, n_err, universe);
+						dist = distanceDS(NULL, nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], a, alpha, universe);
 					else if (manifold == HYPERBOLIC)
 						dist = distanceH(nodes.c.hc[idx_a], nodes.c.hc[idx_b], zeta);
 					//printf("\t\tDistance: %f\n", dist);
-					n_tot++;
 					if (dist <= min_dist) {
 						min_dist = dist;
 						next = edges.future_edges[edges.future_edge_row_start[loc]+m];
@@ -381,12 +378,6 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 		printf_cyan();
 		printf("\t\tSuccess Ratio: %f\n", success_ratio);
 		printf("\t\tTraversed Pairs: %d\n", n_trav);
-		if (manifold == DE_SITTER && n_err) {
-			printf_red();
-			printf("\t\tPercent Errors: %f\n", static_cast<float>(n_err) / n_tot);
-			printf("\t\tTested Distances: %d\n", n_tot);
-			printf_std();
-		}
 		printf_std();
 		fflush(stdout);
 	}
@@ -397,138 +388,4 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 	}
 
 	return true;
-}
-
-//Returns true if two nodes are causally connected
-//Note: past_idx must be less than future_idx
-//O(1) Efficiency for Adjacency Matrix
-//O(k) Efficiency for Adjacency List
-static bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, const int past_idx, const int future_idx)
-{
-	if (DEBUG) {
-		//No null pointers
-		assert (future_edges != NULL);
-		assert (future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
-
-		//Parameters in correct ranges
-		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
-		assert (past_idx >= 0 && past_idx < N_tar);
-		assert (future_idx >= 0 && future_idx < N_tar);
-		assert (past_idx < future_idx);
-	}
-
-	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
-	int i;
-
-	//Check if the adjacency matrix can be used
-	if (past_idx < core_limit && future_idx < core_limit)
-		return (core_edge_exists[(past_idx * core_limit) + future_idx]);
-	//Check if past node is not connected to anything
-	else if (future_edge_row_start[past_idx] == -1)
-		return false;
-	//Check adjacency list
-	else
-		for (i = 0; i < nodes.k_out[past_idx]; i++)
-			if (future_edges[future_edge_row_start[past_idx] + i] == future_idx)
-				return true;
-
-	return false;
-}
-
-//Returns the de Sitter distance between two nodes
-//O(xxx) Efficiency (revise this)
-static float distanceDS(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const double &a, const double &alpha, int &n_err, const bool &universe)
-{
-	if (DEBUG) {
-		//Parameters in Correct Ranges
-		assert (a > 0.0);
-		if (universe)
-			assert (alpha > 0.0);
-
-		//3+1 DS not currently implemented
-		assert (universe);
-	}
-
-	//Check if they are the same node
-	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
-		return 0.0f;
-
-	IntData idata = IntData();
-	idata.tol = 1e-5;
-
-	GSL_EmbeddedZ1_Parameters p;
-	p.a = a;
-	p.alpha = alpha;
-
-	float z0_a, z0_b;
-	float z1_a, z1_b;
-	float power;
-	float signature;
-	float inner_product;
-	float distance;
-
-	//Solve for z1 in Rotated Plane
-	power = 2.0f / 3.0f;
-	z1_a = alpha * POW(SINH(1.5f * tau_a, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
-	z1_b = alpha * POW(SINH(1.5f * tau_b, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
-
-	//printf("z1_a: %f\n", z1_a);
-	//printf("z1_b: %f\n", z1_b);
-
-	//Use Numerical Integration for z0
-	idata.upper = z1_a;
-	z0_a = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
-	idata.upper = z1_b;
-	z0_b = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
-
-	//printf("z0_a: %f\n", z0_a);
-	//printf("z0_b: %f\n", z0_b);
-
-	signature = SGN(POW2(z1_b * X1(node_b.y) - z1_a * X1(node_a.y), EXACT) +
-			POW2(z1_b * X2(node_b.y, node_b.z) - z1_a * X2(node_a.y, node_a.z), EXACT) +
-			POW2(z1_b * X3(node_b.y, node_b.z, node_b.x) - z1_a * X3(node_a.y, node_a.z, node_a.x), EXACT) +
-			POW2(z1_b * X4(node_b.y, node_b.z, node_b.x) - z1_a * X4(node_a.y, node_a.z, node_a.x), EXACT) -
-			POW2(z0_b - z0_a, EXACT), DEF);
-
-	inner_product = z1_a * z1_b * sphProduct(node_a, node_b) - z0_a * z0_b;
-
-	//printf("signature:     %f\n", signature);
-	//printf("inner product: %f\n", inner_product);
-
-	if (signature < 0.0f)
-		//Timelike
-		distance = ACOSH(inner_product, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-	else if (signature == 0.0f)
-		//Lightlike
-		distance = 0.0f;
-	else if (inner_product <= -1.0f)
-		//Disconnected Regions
-		distance = INF;
-	else
-		//Spacelike
-		distance = ACOS(inner_product, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-
-	//printf("distance: %f\n", distance);
-
-	//Check light cone condition for 4D vs 5D
-	if (signature < 0.0f && ACOS(sphProduct(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) > ABS(node_b.w - node_a.w, STL))
-		n_err++;
-	else if (signature > 0.0f && inner_product > -1.0f && ACOS(sphProduct(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) < ABS(node_b.w - node_a.w, STL))
-		n_err++;
-
-	return distance;
-}
-
-//Returns the hyperbolic distance between two nodes
-//O(xxx) Efficiency (revise this)
-static float distanceH(const float2 &hc_a, const float2 &hc_b, const double &zeta)
-{
-	if (DEBUG)
-		assert (zeta != 0.0);
-
-	float dtheta = M_PI - ABS(M_PI - ABS(hc_a.y - hc_b.y, STL), STL);
-	float distance = ACOSH(COSH(zeta * hc_a.x, APPROX ? FAST : STL) * COSH(zeta * hc_b.x, APPROX ? FAST : STL) - SINH(zeta * hc_a.x, APPROX ? FAST : STL) * SINH(zeta * hc_b.x, APPROX ? FAST : STL) * COS(dtheta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) / zeta;
-
-	return distance;
 }

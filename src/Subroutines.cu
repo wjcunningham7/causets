@@ -158,10 +158,46 @@ bool newton(double (*solve)(const double &x, const double * const p1, const doub
 	return true;
 }
 
+//Returns true if two nodes are causally connected
+//Note: past_idx must be less than future_idx
+//O(1) Efficiency for Adjacency Matrix
+//O(k) Efficiency for Adjacency List
+bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, const int past_idx, const int future_idx)
+{
+	if (DEBUG) {
+		//No null pointers
+		assert (future_edges != NULL);
+		assert (future_edge_row_start != NULL);
+		assert (core_edge_exists != NULL);
+
+		//Parameters in correct ranges
+		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (past_idx >= 0 && past_idx < N_tar);
+		assert (future_idx >= 0 && future_idx < N_tar);
+		assert (past_idx < future_idx);
+	}
+
+	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
+	int i;
+
+	//Check if the adjacency matrix can be used
+	if (past_idx < core_limit && future_idx < core_limit)
+		return (core_edge_exists[(past_idx * core_limit) + future_idx]);
+	//Check if past node is not connected to anything
+	else if (future_edge_row_start[past_idx] == -1)
+		return false;
+	//Check adjacency list
+	else
+		for (i = 0; i < nodes.k_out[past_idx]; i++)
+			if (future_edges[future_edge_row_start[past_idx] + i] == future_idx)
+				return true;
+
+	return false;
+}
+
 //Breadth First Search
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements)
 {
-	//printf("index: %d\n", index);
 	int ps = edges.past_edge_row_start[index];
 	int fs = edges.future_edge_row_start[index];
 	int i;
@@ -169,13 +205,9 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 	nodes.cc_id[index] = id;
 	elements++;
 
-	for (i = 0; i < nodes.k_in[index]; i++) {
-		//printf("ps: %d i: %d\n", ps, i);
-		//printf("next node index: %d\n", edges.past_edges[ps+i]);
-		if (!nodes.cc_id[edges.past_edges[ps+i]]) {
+	for (i = 0; i < nodes.k_in[index]; i++)
+		if (!nodes.cc_id[edges.past_edges[ps+i]])
 			bfsearch(nodes, edges, edges.past_edges[ps+i], id, elements);
-		}
-	}
 
 	for (i = 0; i < nodes.k_out[index]; i++)
 		if (!nodes.cc_id[edges.future_edges[fs+i]])

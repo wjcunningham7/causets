@@ -1,7 +1,7 @@
 #ifndef CAUSET_H_
 #define CAUSET_H_
 
-//Standard System Files
+//Core System Files
 #include <cstring>
 #include <exception>
 #include <fstream>
@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <string>
 
-//Non-Standard System Files
+//Other System Files
 #include <boost/filesystem.hpp>
 #include <boost/unordered_map.hpp>
 #include <cuda.h>
@@ -35,28 +35,13 @@
 
 //Local Files
 #include "autocorr2.h"
+#include "Constants.h"
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
 // Krioukov Research Group //
 // Northeastern University //
 /////////////////////////////
-
-#define NPRINT 1000	//Used for debugging statements in loops
-
-#define NBENCH 10	//Times each function is run during benchmarking
-
-#define TOL (1e-28)	//Machine epsilon
-
-#define INF (1e20)	//Machine infinity
-
-#define APPROX false	//Determines whether FastMath approximations are used
-			//in computationally intensive routines
-
-#define USE_GSL true	//Use GNU Scientific Library for numerical integration
-
-#define DEBUG false	//Determines whether unit testing is in effect
-			//Should be set to false to disable asserts
 
 //////////////////////////////////////////////////////////////////////////////
 //References								    //
@@ -78,18 +63,18 @@ enum Manifold {
 union Coord {
 	Coord() { memset(this, 0, sizeof(Coord)); }
 
-	float4 *sc;	//Stored as (eta, theta, phi, chi) for DS
+	float4 *sc;			//Stored as (eta, theta, phi, chi) for 3+1 DS
 
-	float2 *hc;	//Stored as (r, theta) for HYPERBOLIC
-			//Stored as (eta, theta) for 1+1 DS
+	float2 *hc;			//Stored as (r, theta) for HYPERBOLIC
+					//Stored as (eta, theta) for 1+1 DS
 };
 
 //Node ID
 union ID {
 	ID() { memset(this, 0, sizeof(ID)); }
 
-	float *tau;	//Rescaled Time for DS
-	int *AS;	//Autonomous System (AS) ID number for HYPERBOLIC
+	float *tau;			//Rescaled Time for DS
+	int *AS;			//Autonomous System (AS) ID number for HYPERBOLIC
 };
 
 //Minimal unique properties of a node
@@ -121,61 +106,67 @@ struct Edge {
 	int *future_edge_row_start;
 };
 
+//Embedding Validation Data
+struct EVData {
+	EVData() : confusion(NULL), tn(NULL), fp(NULL), tn_idx(0), fp_idx(0) {}
+
+	float *confusion;		//Confusion Matrix for Embedding
+	float *tn;			//True Negatives
+	float *fp;			//False Positives
+
+	uint64_t tn_idx;		//Index for emb_tn array
+	uint64_t fp_idx;		//Index for emb_fp array
+};
+
 //These are conflicts which arise due to over-constraining
 //the system with command-line arguments
 struct CausetConflicts {
 	CausetConflicts() {}
 
-	//Type 0:	a, lambda
-	//Type 1:	omegaL, ratio
-	//Type 2:	omegaL, tau0
-	//Type 3:	tau0, ratio
-	//Type 4:	N_tar, delta, alpha, ratio
-	//Type 5:	N_tar, delta, alpha, omegaL
-	//Type 6:	N_tar, delta, alpha, tau0
+	//Type 0:			a, lambda
+	//Type 1:			omegaL, ratio
+	//Type 2:			omegaL, tau0
+	//Type 3:			tau0, ratio
+	//Type 4:			N_tar, delta, alpha, ratio
+	//Type 5:			N_tar, delta, alpha, omegaL
+	//Type 6:			N_tar, delta, alpha, tau0
 
 	int conflicts[7];
 };
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), use_gpu(false), disp_network(false), print_network(false), universe(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false) {}
+	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), use_gpu(false), disp_network(false), print_network(false), universe(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), validate_embedding(false) {}
 
-	CausetConflicts cc;	//Conflicting Parameters
+	CausetConflicts cc;		//Conflicting Parameters
 
-	bool use_gpu;		//Use GPU to Accelerate Select Algorithms
-	bool disp_network;	//Plot Network using OpenGL
-	bool print_network;	//Print to File
-	bool universe;		//Use Universe's Tau Distribution
+	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
+	bool disp_network;		//Plot Network using OpenGL
+	bool print_network;		//Print to File
+	bool universe;			//Use Universe's Tau Distribution
 	
-	bool calc_clustering;	//Find Clustering Coefficients
-	bool calc_components;	//Find Connected Components
-	bool calc_success_ratio;//Find Success Ratio
-	bool calc_autocorr;	//Autocorrelation
+	bool calc_clustering;		//Find Clustering Coefficients
+	bool calc_components;		//Find Connected Components
+	bool calc_success_ratio;	//Find Success Ratio
+	bool calc_autocorr;		//Autocorrelation
+
+	bool validate_embedding;	//Find Embedding Statistics
 	
-	bool verbose;		//Verbose Output
-	bool bench;		//Benchmark Algorithms
-	bool yes;		//Suppresses User Input
+	bool verbose;			//Verbose Output
+	bool bench;			//Benchmark Algorithms
+	bool yes;			//Suppresses User Input
 };
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : N_tar(0), k_tar(0.0), N_res(0), k_res(0.0), N_deg2(0), N_cc(0), N_gcc(0), N_sr(0.0), dim(3), a(1.0), lambda(3.0), zeta(1.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
+	NetworkProperties() : N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), dim(3), a(1.0), lambda(3.0), zeta(1.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
 
 	CausetFlags flags;
 
 	int N_tar;			//Target Number of Nodes
 	float k_tar;			//Target Average Degree
 
-	int N_res;			//Resulting Number of Connected Nodes
-	float k_res;			//Resulting Average Degree
-
-	int N_deg2;			//Nodes of Degree 2 or Greater
-
-	int N_cc;			//Number of Connected Components
-	int N_gcc;			//Size of Giant Connected Component
-
-	//Move this to NetworkObservables
+	double N_emb;			//Number of Pairs Used in Embedding Validation
 	double N_sr;			//Number of Pairs Used in Success Ratio
 
 	int dim;			//Spacetime Dimension (2 or 4)
@@ -189,9 +180,13 @@ struct NetworkProperties {
 	double alpha;			//Rescaled Ratio of Matter Density to Dark Energy Density
 	double delta;			//Node Density
 	double R0;			//Scale Factor at Present Time
+
 	double omegaM;			//Matter Density
 	double omegaL;			//Dark Energy Density
 	double ratio;			//Ratio of Energy Density to Matter Density
+
+	double rhoM;			//Rescaled Matter Density
+	double rhoL;			//Rescaled Energy Density
 
 	float core_edge_fraction;	//Fraction of nodes designated as having core edges
 	int edge_buffer;		//Small memory buffer for adjacency list
@@ -202,12 +197,22 @@ struct NetworkProperties {
 
 //Measured values of the network
 struct NetworkObservables {
-	NetworkObservables() : clustering(NULL), average_clustering(0.0), success_ratio(0.0) {}
+	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), success_ratio(0.0), evd(EVData()) {}
+	
+	int N_res;			//Resulting Number of Connected Nodes
+	float k_res;			//Resulting Average Degree
+
+	int N_deg2;			//Nodes of Degree 2 or Greater
+
+	int N_cc;			//Number of Connected Components
+	int N_gcc;			//Size of Giant Connected Component
 
 	float *clustering;		//Clustering Coefficients
 	float average_clustering;	//Average Clustering over All Nodes
 
 	float success_ratio;		//Success Ratio
+
+	EVData evd;			//Embedding Verification Data
 };
 
 //Network object containing minimal unique information
@@ -225,7 +230,7 @@ struct Network {
 
 //Algorithmic Performance
 struct CausetPerformance {
-	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sMeasureSuccessRatio(Stopwatch()) {}
+	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sValidateEmbedding(Stopwatch()), sMeasureSuccessRatio(Stopwatch()) {}
 
 	Stopwatch sCauset;
 	Stopwatch sCalcDegrees;
@@ -237,6 +242,7 @@ struct CausetPerformance {
 	Stopwatch sLinkNodesGPU;
 	Stopwatch sMeasureClustering;
 	Stopwatch sMeasureConnectedComponents;
+	Stopwatch sValidateEmbedding;
 	Stopwatch sMeasureSuccessRatio;
 };
 
@@ -256,6 +262,7 @@ struct Benchmark {
 	double bMeasureSuccessRatio;
 };
 
+//Used for GSL Integration
 struct GSL_EmbeddedZ1_Parameters {
 	double a;
 	double alpha;
@@ -276,13 +283,21 @@ class CausetException : public std::exception
 
 //Function prototypes for those described in src/Causet.cu
 static NetworkProperties parseArgs(int argc, char **argv);
+
 static bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+
 static bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+
 static bool displayNetwork(const Node &nodes, const int * const future_edges, int argc, char **argv);
+
 void display();
+
 static bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+
 static bool printNetwork(Network &network, const CausetPerformance &cp, const long &init_seed, const int &gpuID);
+
 static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf);
+
 static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed);
 
 #endif
