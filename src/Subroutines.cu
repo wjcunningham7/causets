@@ -115,9 +115,65 @@ static void swap(uint64_t *edges, const int i, const int j)
 	edges[j] = tmp;
 }
 
+//Bisection Method
+//Use when Newton-Raphson fails
+bool bisection(double (*solve)(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
+{
+	if (DEBUG) assert (solve != NULL);
+
+	double res = 1.0;
+	double a = lower;
+	double b = upper;
+	int iter = 0;
+
+	try {
+		if (b <= a)
+			throw CausetException("Invalid Bounds in Bisection!\n");
+
+		*x = (b + a) / 2;
+		while (ABS(res, STL) > tol && iter < max_iter) {
+			//printf("lower: %.16e\n", a);
+			//printf("upper: %.16e\n", b);
+			res = (*solve)(*x, p1, p2, p3, p4, p5, p6);
+			//printf("res:   %.16e\n\n", res);
+			if (res != res)
+				throw CausetException("NaN Error in Bisection!\n");
+			if (increasing) {
+				if (res > 0)
+					b = *x;
+				else
+					a = *x;
+			} else {
+				if (res > 0)
+					a = *x;
+				else
+					b = *x;
+			}
+
+			*x = (b + a) / 2;
+			iter++;
+		}
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		return false;
+	}
+	
+	//printf("Bisection Results:\n");
+	//printf("Tolerance: %E\n", tol);
+	//printf("%d of %d iterations performed.\n", iter, max_iter);
+	//printf("Residual: %E\n", y - res);
+	//printf("Solution: %E\n", *x);
+	//fflush(stdout);
+
+	return true;
+}
+
 //Newton-Raphson Method
 //Solves Transcendental Equations
-bool newton(double (*solve)(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * p6), double *x, const int max_iter, const double tol, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * p6)
+bool newton(double (*solve)(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6), double *x, const int max_iter, const double tol, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
 {
 	if (DEBUG) assert (solve != NULL);
 
@@ -150,7 +206,7 @@ bool newton(double (*solve)(const double &x, const double * const p1, const doub
 
 	//printf("Newton-Raphson Results:\n");
 	//printf("Tolerance: %E\n", tol);
-	//printf("%d of %d iterations performed.\n", iter, max);
+	//printf("%d of %d iterations performed.\n", iter, max_iter);
 	//printf("Residual: %E\n", res);
 	//printf("Solution: %E\n", *x);
 	//fflush(stdout);

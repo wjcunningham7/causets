@@ -168,6 +168,21 @@ inline double solveTauUniverse(const double &x, const double * const p1, const d
 	return (-1.0f * tauUniverse(x, *p1, *p2) / tauPrimeUniverse(x, *p1));
 }
 
+//Returns tau Residual in Bisection Algorithm
+//Used in Universe Causet
+inline double solveTauUnivBisec(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
+{
+	if (DEBUG) {
+		assert (p1 != NULL);	//tau0
+		assert (p2 != NULL);	//rval
+
+		assert (*p1 > 0.0);
+		assert (*p2 > 0.0 && *p2 < 1.0);
+	}
+
+	return tauUniverse(x, *p1, *p2);
+}
+
 //Returns phi Residual
 //Used in 3+1 and Universe Causets
 inline double solvePhi(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
@@ -330,67 +345,67 @@ inline double embeddedZ1(double x, void *params)
 //Returns the de Sitter distance between two nodes
 //Modify this to handle 3+1 DS without matter!
 //O(xxx) Efficiency (revise this)
-inline float distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const double &a, const double &alpha, const bool &universe)
+inline float distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe)
 {
 	if (DEBUG) {
 		//Parameters in Correct Ranges
+		assert (dim == 3);
+		assert (manifold == DE_SITTER);
 		assert (a > 0.0);
 		if (universe)
 			assert (alpha > 0.0);
-
-		//3+1 DS not currently implemented
-		assert (universe);
 	}
 
 	//Check if they are the same node
 	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
 		return 0.0f;
 
-	IntData idata = IntData();
-	idata.tol = 1e-5;
-
-	GSL_EmbeddedZ1_Parameters p;
-	p.a = a;
-	p.alpha = alpha;
-
 	float z0_a, z0_b;
 	float z1_a, z1_b;
-	float power;
+	float inner_product_a, inner_product_b, inner_product_ab;
 	float signature;
-	float inner_product;
 	float distance;
 
-	//Solve for z1 in Rotated Plane
-	power = 2.0f / 3.0f;
-	z1_a = alpha * POW(SINH(1.5f * tau_a, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
-	z1_b = alpha * POW(SINH(1.5f * tau_b, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
+	if (universe) {
+		IntData idata = IntData();
+		idata.tol = 1e-5;
 
-	//Use Numerical Integration for z0
-	idata.upper = z1_a;
-	z0_a = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
-	idata.upper = z1_b;
-	z0_b = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
+		GSL_EmbeddedZ1_Parameters p;
+		p.a = a;
+		p.alpha = alpha;
 
-	signature = SGN(POW2(z1_b * X1(node_b.y) - z1_a * X1(node_a.y), EXACT) +
-			POW2(z1_b * X2(node_b.y, node_b.z) - z1_a * X2(node_a.y, node_a.z), EXACT) +
-			POW2(z1_b * X3(node_b.y, node_b.z, node_b.x) - z1_a * X3(node_a.y, node_a.z, node_a.x), EXACT) +
-			POW2(z1_b * X4(node_b.y, node_b.z, node_b.x) - z1_a * X4(node_a.y, node_a.z, node_a.x), EXACT) -
-			POW2(z0_b - z0_a, EXACT), DEF);
+		//Solve for z1 in Rotated Plane
+		float power = 2.0f / 3.0f;
+		z1_a = alpha * POW(SINH(1.5f * tau_a, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
+		z1_b = alpha * POW(SINH(1.5f * tau_b, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
 
-	inner_product = z1_a * z1_b * sphProduct(node_a, node_b) - z0_a * z0_b;
+		//Use Numerical Integration for z0
+		idata.upper = z1_a;
+		z0_a = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
+		idata.upper = z1_b;
+		z0_b = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
+	} else {
+		z0_a = a * SINH(tau_a, APPROX ? FAST : STL);
+		z0_b = a * SINH(tau_b, APPROX ? FAST : STL);
+
+		z1_a = a * COSH(tau_a, APPROX ? FAST : STL);
+		z1_b = a * COSH(tau_b, APPROX ? FAST : STL);
+	}
+
+	inner_product_a = POW2(z1_a, EXACT) * sphProduct(node_a, node_a) - POW2(z0_a, EXACT);
+	inner_product_b = POW2(z1_b, EXACT) * sphProduct(node_b, node_b) - POW2(z0_b, EXACT);
+	inner_product_ab = z1_a * z1_b * sphProduct(node_a, node_b) - z0_a * z0_b;
+	signature = inner_product_a + inner_product_b - 2.0f * inner_product_ab;
 
 	if (signature < 0.0f)
 		//Timelike
-		distance = ACOSH(inner_product, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-	else if (signature == 0.0f)
-		//Lightlike
-		distance = 0.0f;
-	else if (inner_product <= -1.0f)
+		distance = ACOSH(inner_product_ab, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	else if (inner_product_ab <= -1.0f)
 		//Disconnected Regions
 		distance = INF;
 	else
 		//Spacelike
-		distance = ACOS(inner_product, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+		distance = ACOS(inner_product_ab, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 
 	//Check light cone condition for 4D vs 5D
 	//Null hypothesis is the nodes are not connected
@@ -403,24 +418,23 @@ inline float distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, c
 
 		if (d_theta < d_eta) {	//Actual Time-Like
 			if (signature < 0)
-				//True Positive
-				evd->confusion[0] += 1.0;
+				//False Negative (both timelike)
+				evd->confusion[1] += 1.0;
 			else {
 				//True Negative
 				evd->confusion[2] += 1.0;
 				evd->tn[++evd->tn_idx] = d_eta;
 				evd->tn[++evd->tn_idx] = d_theta;
 			}
-		} else {		//Actual Space-Like
-			if (signature > 0)
-				//False Negative
-				evd->confusion[1] += 1.0;
-			else {
+		} else {	//Actual Space-Like
+			if (signature < 0) {
 				//False Positive
 				evd->confusion[3] += 1.0;
 				evd->fp[++evd->fp_idx] = d_eta;
 				evd->tn[++evd->fp_idx] = d_theta;
-			}
+			} else
+				//True Positive (both spacelike)
+				evd->confusion[0] += 1.0;
 		}
 	}	
 
@@ -429,10 +443,16 @@ inline float distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, c
 
 //Returns the hyperbolic distance between two nodes
 //O(xxx) Efficiency (revise this)
-inline float distanceH(const float2 &hc_a, const float2 &hc_b, const double &zeta)
+inline float distanceH(const float2 &hc_a, const float2 &hc_b, const int &dim, const Manifold &manifold, const double &zeta)
 {
-	if (DEBUG)
+	if (DEBUG) {
+		assert (dim == 1);
+		assert (manifold == HYPERBOLIC);
 		assert (zeta != 0.0);
+	}
+
+	if (hc_a.x == hc_b.x && hc_a.y == hc_b.y)
+		return 0.0f;
 
 	float dtheta = M_PI - ABS(M_PI - ABS(hc_a.y - hc_b.y, STL), STL);
 	float distance = ACOSH(COSH(zeta * hc_a.x, APPROX ? FAST : STL) * COSH(zeta * hc_b.x, APPROX ? FAST : STL) - SINH(zeta * hc_a.x, APPROX ? FAST : STL) * SINH(zeta * hc_b.x, APPROX ? FAST : STL) * COS(dtheta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) / zeta;

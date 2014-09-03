@@ -1,0 +1,33 @@
+\contentsline {title}{Causal Set Research Notes}{1}{}
+\tocdepth@munge 
+\contentsline {section}{\numberline {}Contents}{2}{}
+\tocdepth@restore 
+\contentsline {section}{\numberline {I}Introduction}{3}{}
+\contentsline {section}{\numberline {II}Motivation}{3}{}
+\contentsline {section}{\numberline {III}Numerical Methods}{7}{}
+\contentsline {subsection}{\numberline {A}Usage of the Causal Set Software}{7}{}
+\contentsline {subsection}{\numberline {B}High-Level Tasks}{9}{}
+\contentsline {subsection}{\numberline {C}Generating Graphs}{9}{}
+\contentsline {subsubsection}{\numberline {1}Low-Level Tasks}{10}{}
+\contentsline {paragraph}{\numberline {a}Constraining the System}{10}{}
+\contentsline {paragraph}{\numberline {b}Memory}{12}{}
+\contentsline {paragraph}{\numberline {c}The Maximum Time}{13}{}
+\contentsline {paragraph}{\numberline {d}Generating Nodes}{19}{}
+\contentsline {paragraph}{\numberline {e}Linking Nodes with the CPU}{19}{}
+\contentsline {paragraph}{\numberline {f}Linking Nodes with the GPU}{21}{}
+\contentsline {section}{\numberline {IV}Measurements}{24}{}
+\contentsline {subsection}{\numberline {A}Average Degrees}{24}{}
+\contentsline {subsection}{\numberline {B}Connectivity}{25}{}
+\contentsline {subsubsection}{\numberline {1}Isolated Nodes}{25}{}
+\contentsline {subsubsection}{\numberline {2}Number of Connected Components}{29}{}
+\contentsline {subsubsection}{\numberline {3}Size of Giant Component}{29}{}
+\contentsline {subsection}{\numberline {C}Degree Distribution}{31}{}
+\contentsline {subsubsection}{\numberline {1}In-Degree Distribution}{31}{}
+\contentsline {subsubsection}{\numberline {2}Out-Degree Distribution}{31}{}
+\contentsline {subsection}{\numberline {D}Navigability in the Universe}{32}{}
+\contentsline {subsubsection}{\numberline {1}Geodesic Distances in the Universe}{32}{}
+\contentsline {subsubsection}{\numberline {2}Validation Test for Manifold Embedding}{37}{}
+\contentsline {subsubsection}{\numberline {3}Limiting Cases}{38}{}
+\contentsline {subsubsection}{\numberline {4}Greedy Routing Algorithm}{39}{}
+\contentsline {subsubsection}{\numberline {5}Success Ratio}{41}{}
+\contentsline {section}{\numberline {}References}{41}{}

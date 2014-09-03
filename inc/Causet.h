@@ -110,7 +110,7 @@ struct Edge {
 struct EVData {
 	EVData() : confusion(NULL), tn(NULL), fp(NULL), tn_idx(0), fp_idx(0) {}
 
-	float *confusion;		//Confusion Matrix for Embedding
+	double *confusion;		//Confusion Matrix for Embedding
 	float *tn;			//True Negatives
 	float *fp;			//False Positives
 
@@ -136,7 +136,7 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), use_gpu(false), disp_network(false), print_network(false), universe(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), validate_embedding(false) {}
+	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), test(false), use_gpu(false), disp_network(false), print_network(false), universe(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), validate_embedding(false) {}
 
 	CausetConflicts cc;		//Conflicting Parameters
 
@@ -155,6 +155,7 @@ struct CausetFlags {
 	bool verbose;			//Verbose Output
 	bool bench;			//Benchmark Algorithms
 	bool yes;			//Suppresses User Input
+	bool test;			//Test Parameters
 };
 
 //Numerical parameters constraining the network

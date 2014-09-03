@@ -1,9 +1,17 @@
 #!/bin/bash
 
+###########################
+#(C) Will Cunningham 2014 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
 # Prevents re-compiling during a long run
 #mv Makefile Makefile~
 
-#These will reproduce known results
+######################################
+# These will reproduce known results #
+######################################
 
 # Generate causal set for 1+1 de Sitter (no matter)
 #./bin/CausalSet --nodes 24586 --degrees 5.53 --dim 1 --seed 18100 --verbose
@@ -16,18 +24,36 @@
 # Generate causal set for universe (mix of dark energy and matter)
 #./bin/CausalSet --universe --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 -y --print --verbose &> causet.log &
 # Should find N = 10^6, tau given by (12), in-degree given by Fig. (S3), out-degree given by Fig. (3a)
+# Note this takes ~ 3.5 days to run!!!
 
-# Read hyperbolic graph data and measure greedy routing
+# Read hyperbolic graph data and perform greedy routing algorithm
 #./bin/CausalSet --dim 1 --manifold h --seed 18100 --graph 321 -y --verbose --success 1
 # Should find a success ratio of 1.0 and a single connected component
 
-#These are experimental parameters
+#####################################
+# These are experimental parameters #
+#####################################
+
+# Measure properties of 1+1 de Sitter
+#for i in {1..100}
+#do
+#  echo "Beginning Trial $i of 100"
+#  ./bin/CausalSet --nodes 10240 --degrees 5.53 --dim 1 --components --print
+#done
 
 # Measure properties of 3+1 de Sitter
-#./bin/CausalSet --nodes 20480 --degrees 5.29 --radius 2.0 --seed 84450 -y --verbose --gpu --success 0.001
+#./bin/CausalSet --nodes 10240 --degrees 5.29 --radius 2.0 --seed 84450 --gpu --embedding 1
 
-#Measure properties of Universe
-#./bin/CausalSet --universe --age 3.6 --nodes 10240 --delta 1.0 --radius 0.8 --seed 84450 -y --verbose --gpu
-./bin/CausalSet --universe --age 0.8458 --nodes 10240 --delta 1000 --seed 84450 -y --verbose --gpu --components --embedding 0.01
+# Measure properties of Universe
+for i in {1..10}
+do
+  echo "Beginning Trial $i of 10"
+  ./bin/CausalSet --universe --age 4 --nodes 10240 --delta 1 --radius 1 --gpu --embedding 1 --print
+done
+
+# Compare to Dima's Fortran Code
+# Make sure to manually alter parameters in fortran code and re-compile!
+#./bin/CausalSet --universe --age 1.5 --delta 1 --radius 1 --gpu --graph 22222 --components
+#./etc/dk_stats_direct.pl 22222
 
 #mv Makefile~ Makefile

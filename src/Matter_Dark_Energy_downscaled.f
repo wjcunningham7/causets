@@ -2,7 +2,8 @@ ccccccGENERATES NETWORKS OF THE CAUSAL STRUCTURE OF THE UNIVERSE WITH SCALING FU
 cccccccccccc   R(t)=xR0*(xOmegaM/xOmegaLambda)**(1./3.)*(Sinh[3t/2])^(-2/3)
 
       implicit double precision(x,r,d)
-      character*80 filenameoutput
+      character*80 edgeoutput
+      character*80 posoutput
       parameter (NODOSMAX=10000000,NEDGESMAX=1500000)     !for larger graphs change these parameters
 
 
@@ -11,6 +12,7 @@ c%%%%%%%%%The volume element of the 3-sphere is dV=Sin^2(xtheta1) Sin(xtheta2)dt
 	  dimension xtheta1(1:NODOSMAX)                     !First angular coordinate of nodes in a 3-sphere. Runs between 0 and Pi
       dimension xtheta2(1:NODOSMAX)                     !Second angular coordinate of nodes in a 3-sphere. Runs between 0 and Pi
 	  dimension xphi(1:NODOSMAX)                        !Third angular coordinate of nodes in a 3-sphere. Runs between 0 and 2Pi
+          dimension xtau(1:NODOSMAX)                    !Rescaled time t/a
 	  dimension xeta(1:NODOSMAX)                        !conformal time of nodes
       dimension xcoordinate(1:4,1:2)                    !coordinates of the 3-D sphere in a 4D Euclidean space
 
@@ -20,8 +22,11 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-	  filenameoutput='./dat/edg/Matter_Dark_Energy.net'                       !output filename
-	  open(1,file=filenameoutput,status='unknown')
+	  edgeoutput='./dat/edg/22222.cset.edg.dat'                       !output files
+	  open(1,file=edgeoutput,status='unknown')
+
+          posoutput='./dat/pos/22222.cset.pos.dat'
+          open(2,file=posoutput,status='unknown')
 
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -31,9 +36,9 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
    !model parameters
- 	  xDelta=100.                                                               !density of events in space-time
-      xtime=0.8458                                                              !observation time in units of a, i.e.,t/a
-      NODOS=10000
+ 	  xDelta=1.                                                               !density of events in space-time
+      xtime=1.5                                                              !observation time in units of a, i.e.,t/a
+      NODOS=10240
       xalpha=(3.*dble(NODOS)/
      +(xpi**2*xDelta*(dsinh(3.*xtime)-3.*xtime)))**(1./3.)
 
@@ -50,7 +55,9 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       xphi(i)=2.*xpi*ran2(idum)                                               !assignment of theta to vertex i
 	  xtheta1(i)=xtheta1gen(ran2(idum))
 	  xtheta2(i)=xtheta2gen(ran2(idum))
-	  xeta(i)=2.*xf(xzgen(ran2(idum),xz)/2.)/(3.*xalpha)             !assignment of conformal time to vertex i 
+          xtau(i)=xzgen(ran2(idum),xz)/3.
+          xeta(i)=2.*xf(3.*xtau(i)/2.)/(3.*xalpha)
+          write(2,101) xtau(i), xphi(i), xtheta1(i), xtheta2(i)
 	  enddo
       write(*,*) 'done with assignments of coordinates'
 
@@ -79,8 +86,16 @@ c%%%%%%%%%%%%%%CONSTRUCTION OF THE NETWORK %%%%%%%%%%%%%%%%%%%%%%
 		 xeta_i=xeta(i)
 		 xeta_j=xeta(j)
 		  if(xangle_ij.lt.dabs(xeta_i-xeta_j))then
-			if(xeta_i.gt.xeta_j) write(1,100) j,i
-			if(xeta_j.gt.xeta_i) write(1,100) i,j
+C			if(xeta_i.gt.xeta_j) then
+C                                write(1,100) j,i
+C			else
+C                                write(1,100) i,j
+C                        endif
+                  if (i.lt.j) then
+                        write(1,100) (i-1),(j-1)
+                  else
+                        write(1,100) (j-1),(i-1)
+                  endif
           endif
         enddo
        call cpu_time(xtime_end)
@@ -92,7 +107,8 @@ c%%%%%%%%%%%%%%CONSTRUCTION OF THE NETWORK %%%%%%%%%%%%%%%%%%%%%%
 	  close(1)
 	  
       stop
-100   format(I6,1x,I6)  
+100   format(I6,1x,I6)
+101   format(1F20.8,1x,1F20.8,1x,1F20.8,1x,1F20.8)
 	  end
 
 

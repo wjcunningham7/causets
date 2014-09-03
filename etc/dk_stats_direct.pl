@@ -21,20 +21,22 @@ my $outfile = "";
 my $inoutfile = "";
 my $outoutfile = "";
 my $sumfile = "";
-my $basedir = "../";
+#my $basedir = "../";
+my $basedir = "";
 if (@ARGV) {
-  $infile = $ARGV[0];
-  $outfile = $basedir."dat/dst/".$infile;
-  $infile =~ s/(.*\.gz)\s*$/gzip -dc < $1|/;
-  $outfile =~ s/\.gz$//;
-  $outfile =~ s/dat$//;
-  $outfile =~ s/txt$//;
-  $outfile =~ s/net$//;
-  $outfile .= "." if $outfile ne "" and not $outfile =~ /\.$/; 
-  $sumfile = $basedir."dat/".$outfile."stat.sum.dat";
-  $inoutfile = $basedir."dat/idd/".$outfile."in.stat.dat";
-  $outoutfile = $basedir."dat/odd/".$outfile."out.stat.dat";
-  $outfile .= "total.stat.dat";
+#  $infile = $ARGV[0];
+  $outfile = $ARGV[0];
+  $infile = $basedir."dat/edg/".$outfile.".cset.edg.dat";
+#  $infile =~ s/(.*\.gz)\s*$/gzip -dc < $1|/;
+#  $outfile =~ s/\.gz$//;
+#  $outfile =~ s/dat$//;
+#  $outfile =~ s/txt$//;
+#  $outfile =~ s/net$//;
+#  $outfile .= "." if $outfile ne "" and not $outfile =~ /\.$/; 
+  $sumfile = $basedir."dat/".$outfile.".stat.sum.dat";
+  $inoutfile = $basedir."dat/idd/".$outfile.".in.stat.dat";
+  $outoutfile = $basedir."dat/odd/".$outfile.".out.stat.dat";
+  $outfile = $basedir."dat/dst/".$outfile.".total.stat.dat";
 } else {
   die("no input file specified");
 }

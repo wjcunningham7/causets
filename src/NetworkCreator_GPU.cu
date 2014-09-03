@@ -515,7 +515,7 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	if (!bench) {
 		printf("\tCausets Successfully Connected.\n");
 		printf_cyan();
-		//printf("\t\tUndirected Links: %d\n", *g_idx);
+		printf("\t\tUndirected Links:         %d\n", *g_idx);
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
 		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);

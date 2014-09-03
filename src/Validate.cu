@@ -103,7 +103,7 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 
 //Generate confusion matrix for geodesic distances in universe with matter
 //Save matrix values as well as d_theta and d_eta to file
-bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const int &N_tar, const double &N_emb, const int &dim, const Manifold &manifold, const double &a, const double &alpha, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose)
+bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const int &N_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (N_tar > 0);
@@ -121,11 +121,11 @@ bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const 
 	stopwatchStart(&sValidateEmbedding);
 
 	try {
-		evd.confusion = (float*)malloc(sizeof(float) * 4);
+		evd.confusion = (double*)malloc(sizeof(double) * 4);
 		if (evd.confusion == NULL)
 			throw std::bad_alloc();
-		memset(evd.confusion, 0, sizeof(float) * 4);
-		hostMemUsed += sizeof(float) * 4;
+		memset(evd.confusion, 0, sizeof(double) * 4);
+		hostMemUsed += sizeof(double) * 4;
 
 		evd.tn = (float*)malloc(sizeof(float) * (static_cast<uint64_t>(N_emb) << 1));
 		if (evd.tn == NULL)
@@ -138,6 +138,10 @@ bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const 
 			throw std::bad_alloc();
 		memset(evd.fp, 0, sizeof(float) * (static_cast<uint64_t>(N_emb) << 1));
 		hostMemUsed += sizeof(float) * (static_cast<uint64_t>(N_emb) << 1);
+
+		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+		if (verbose)
+			printMemUsed("for Embedding Validation", hostMemUsed, devMemUsed);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -154,16 +158,16 @@ bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const 
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
-		if (i == j)
-			continue;
-
-		distanceDS(&evd, nodes.c.sc[i], nodes.id.tau[i], nodes.c.sc[j], nodes.id.tau[j], a, alpha, universe);
+		distanceDS(&evd, nodes.c.sc[i], nodes.id.tau[i], nodes.c.sc[j], nodes.id.tau[j], dim, manifold, a, alpha, universe);
 	}
 
 	//Normalize
-	float tot = evd.confusion[0] + evd.confusion[1] + evd.confusion[2] + evd.confusion[3];
-	for (i = 0; i < 4; i++)
-		evd.confusion[i] /= tot;
+	float A1T = N_res * k_res / 2;
+	double A1S = N_tar * (N_tar - 1) / 2 - A1T;
+	evd.confusion[0] /= A1S;
+	evd.confusion[1] /= A1T;
+	evd.confusion[2] /= A1T;
+	evd.confusion[3] /= A1S;
 
 	stopwatchStop(&sValidateEmbedding);
 
@@ -210,6 +214,7 @@ bool printValues(const Node &nodes, const int num_vals, const char *filename, co
 				outputStream << nodes.id.tau[i] << std::endl;
 			else if (strcmp(coord, "eta") == 0)
 				outputStream << nodes.c.sc[i].w << std::endl;
+				//outputStream << nodes.c.hc[i].x << std::endl;
 			else if (strcmp(coord, "theta") == 0)
 				outputStream << nodes.c.sc[i].x << std::endl;
 			else if (strcmp(coord, "phi") == 0)

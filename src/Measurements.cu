@@ -178,9 +178,6 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 	if (verbose)
 		printMemUsed("to Measure Components", hostMemUsed, devMemUsed);
 
-	N_cc = 0;
-	N_gcc = 0;
-
 	for (i = 0; i < N_tar; i++) {
 		elements = 0;
 		if (!nodes.cc_id[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0)
@@ -278,8 +275,6 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
-		if (i == j)
-			continue;
 		if (!(nodes.k_in[i] + nodes.k_out[i]) || !(nodes.k_in[j] + nodes.k_out[j]))
 			continue;
 		if (nodes.cc_id[i] != nodes.cc_id[j])
@@ -312,9 +307,9 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 						goto PathSuccess;
 					}
 					if (manifold == DE_SITTER)
-						dist = distanceDS(NULL, nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], a, alpha, universe);
+						dist = distanceDS(NULL, nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], dim, manifold, a, alpha, universe);
 					else if (manifold == HYPERBOLIC)
-						dist = distanceH(nodes.c.hc[idx_a], nodes.c.hc[idx_b], zeta);
+						dist = distanceH(nodes.c.hc[idx_a], nodes.c.hc[idx_b], dim, manifold, zeta);
 					//printf("\t\tDistance: %f\n", dist);
 					if (dist <= min_dist) {
 						min_dist = dist;
@@ -333,9 +328,9 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 						goto PathSuccess;
 					}
 					if (manifold == DE_SITTER)
-						dist = distanceDS(NULL, nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], a, alpha, universe);
+						dist = distanceDS(NULL, nodes.c.sc[idx_a], nodes.id.tau[idx_a], nodes.c.sc[idx_b], nodes.id.tau[idx_b], dim, manifold, a, alpha, universe);
 					else if (manifold == HYPERBOLIC)
-						dist = distanceH(nodes.c.hc[idx_a], nodes.c.hc[idx_b], zeta);
+						dist = distanceH(nodes.c.hc[idx_a], nodes.c.hc[idx_b], dim, manifold, zeta);
 					//printf("\t\tDistance: %f\n", dist);
 					if (dist <= min_dist) {
 						min_dist = dist;

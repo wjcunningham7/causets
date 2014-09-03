@@ -15,9 +15,13 @@ void quicksort(uint64_t *edges, int low, int high);
 static void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, const int j);
 static void swap(uint64_t *edges, const int i, const int j);
 
+//Bisection Algorithm
+bool bisection(double (*solve)(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * p6), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
+
 //Newton-Raphson Algorithm
 bool newton(double (*solve)(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6), double *x, const int max_iter, const double tol, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);
 
+//Edge Identification Algorithm
 bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, const int past_idx, const int future_idx);
 
 //Breadth First Search Algorithm

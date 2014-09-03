@@ -11,12 +11,6 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 	if (DEBUG)
 		assert (network_properties != NULL);
 
-	//If no seed specified, choose random one
-	if (network_properties->seed == -12345L) {
-		srand(time(NULL));
-		network_properties->seed = -1.0 * static_cast<long>(time(NULL));
-	}
-	
 	//Benchmarking
 	if (network_properties->flags.bench) {
 		network_properties->flags.verbose = false;
@@ -60,12 +54,18 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					assert (network_properties->delta > 0.0);
 				}
 
-				if (!newton(&solveTau0, &x, 10000, TOL, &network_properties->alpha, &network_properties->delta, NULL, NULL, &network_properties->N_tar, NULL))
+				double t = 6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * POW3(network_properties->alpha, EXACT));
+				if (t > MTAU)
+					x = LOG(t, STL) / 3.0;
+				else if (!newton(&solveTau0, &x, 10000, TOL, &network_properties->alpha, &network_properties->delta, NULL, NULL, &network_properties->N_tar, NULL))
 					return false;
 				network_properties->tau0 = x;
 				if (DEBUG) assert (network_properties->tau0 > 0.0);
 
-				network_properties->ratio = POW2(SINH(1.5 * static_cast<float>(network_properties->tau0), STL), EXACT);
+				if (t > MTAU)
+					network_properties->ratio = exp(3.0 * network_properties->tau0) / 4.0;
+				else
+					network_properties->ratio = POW2(SINH(1.5 * static_cast<float>(network_properties->tau0), STL), EXACT);
 				if (DEBUG) assert(network_properties->ratio > 0.0);
 				network_properties->omegaM = 1.0 / (network_properties->ratio + 1.0);
 				network_properties->omegaL = 1.0 - network_properties->omegaM;
@@ -82,7 +82,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					printf("\tEstimating Age of Universe.....\n");
 					float kappa1 = network_properties->k_tar / network_properties->delta;
 					float kappa2 = kappa1 / POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT);
-					printf("kappa2: %f\n", kappa2);
+					//printf("kappa2: %f\n", kappa2);
 
 					//Read Lookup Table
 					double *raduc_lookup;
@@ -141,7 +141,10 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					hostMemUsed -= size;
 
 					//Solve for ratio, omegaM, and omegaL
-					network_properties->ratio = POW2(SINH(1.5f * network_properties->tau0, STL), EXACT);
+					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
+						network_properties->ratio = exp(3.0 * network_properties->tau0) / 4.0;
+					else
+						network_properties->ratio = POW2(SINH(1.5f * network_properties->tau0, STL), EXACT);
 					network_properties->omegaM = 1.0 / (network_properties->ratio + 1.0);
 					network_properties->omegaL = 1.0 - network_properties->omegaM;
 
@@ -152,17 +155,22 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				
 				if (network_properties->N_tar > 0 && network_properties->alpha > 0.0) {
 					//Solve for delta
+					//Add MTAU approximation here
 					network_properties->delta = 3.0 * network_properties->N_tar / (POW2(static_cast<float>(M_PI), EXACT) * POW3(static_cast<float>(network_properties->alpha), EXACT) * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0));
 					if (DEBUG) assert (network_properties->delta > 0.0);
 				} else if (network_properties->N_tar == 0) {
 					//Solve for N_tar
+					//Add MTAU approximation here
 					if (DEBUG) assert (network_properties->alpha > 0.0);
 					network_properties->N_tar = static_cast<int>(POW2(static_cast<float>(M_PI), EXACT) * network_properties->delta * POW3(static_cast<float>(network_properties->alpha), EXACT) * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0) / 3.0);
 					if (DEBUG) assert (network_properties->N_tar > 0);
 				} else {
 					//Solve for alpha
 					if (DEBUG) assert (network_properties->N_tar > 0);
-					network_properties->alpha = POW(3.0 * network_properties->N_tar / (POW2(static_cast<float>(M_PI), EXACT) * network_properties->delta * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0)), (1.0 / 3.0), STL);
+					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
+						network_properties->alpha = exp(LOG(6.0 * network_properties->N_tar / POW2(M_PI, EXACT) * network_properties->delta * network_properties->a, STL) / 3.0 - network_properties->tau0);
+					else
+						network_properties->alpha = POW(3.0 * network_properties->N_tar / (POW2(static_cast<float>(M_PI), EXACT) * network_properties->delta * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0)), (1.0 / 3.0), STL);
 					if (DEBUG) assert (network_properties->alpha > 0.0);
 				}
 			}
@@ -173,11 +181,17 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				assert (network_properties->tau0 > 0.0);
 			}
 			network_properties->rhoL = 1.0 / POW2(network_properties->a, EXACT);
-			network_properties->rhoM = 1.0 / POW2(network_properties->a * SINH(1.5f * network_properties->tau0, STL), EXACT);
+			if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
+				network_properties->rhoM = 4.0 * exp(-3.0 * network_properties->tau0) / POW2(network_properties->a, EXACT);
+			else
+				network_properties->rhoM = 1.0 / POW2(network_properties->a * SINH(1.5f * network_properties->tau0, STL), EXACT);
 			if (DEBUG) {
 				assert (network_properties->rhoL > 0.0);
 				assert (network_properties->rhoM > 0.0);
 			}
+
+			//Rescale Alpha (factor of 'a' missing in (11) from [2])
+			network_properties->alpha /= POW(network_properties->a, 1.0f / 3.0f, STL);
 			
 			//Finally, solve for R0
 			if (DEBUG) {
@@ -190,7 +204,11 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			if (network_properties->k_tar == 0.0) {
 				//Use Monte Carlo integration to find k_tar
 				printf("\tEstimating Expected Average Degrees.....\n");
-				double r0 = POW(SINH(1.5f * network_properties->tau0, STL), 2.0f / 3.0f, STL);
+				double r0;
+				if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
+					r0 = POW(0.5f, 2.0f / 3.0f, STL) * exp(network_properties->tau0);
+				else
+					r0 = POW(SINH(1.5f * network_properties->tau0, STL), 2.0f / 3.0f, STL);
 
 				if (network_properties->flags.bench) {
 					for (i = 0; i < NBENCH; i++) {
@@ -204,7 +222,10 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				}
 
 				stopwatchStart(&cp->sCalcDegrees);
-				network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network_properties->seed, 0) * 8.0 * M_PI / (SINH(3.0f * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
+				if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
+					network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network_properties->seed, 0) * 16.0 * M_PI * exp(-3.0 * network_properties->tau0);
+				else
+					network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network_properties->seed, 0) * 8.0 * M_PI / (SINH(3.0f * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
 				stopwatchStop(&cp->sCalcDegrees);
 				printf("\t\tExecution Time: %5.6f sec\n", cp->sCalcDegrees.elapsedTime);
 				printf("\t\tCompleted.\n");
@@ -234,6 +255,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			printf("\t > Node Density:\t\t%.6f\n", network_properties->delta);
 			printf("\t > Alpha:\t\t\t%.6f\n", network_properties->alpha);
 			printf("\t > Scaling Factor:\t\t%.6f\n", network_properties->R0);
+			printf("\n");
 			printf_std();
 			fflush(stdout);
 		} else if (network_properties->manifold == DE_SITTER) {
@@ -554,8 +576,13 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 			rval = ran2(&seed);
 			if (universe) {
 				x = 0.5;
-				if (!newton(&solveTauUniverse, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
-					return false;
+				if (tau0 > 1.8) {	//Determined by trial and error
+					if (!bisection(&solveTauUnivBisec, &x, 2000, 0.0, tau0, TOL, true, &tau0, &rval, NULL, NULL, NULL, NULL))
+						return false;
+				} else {
+					if (!newton(&solveTauUniverse, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
+						return false;
+				}
 			} else {
 				x = 3.5;
 				if (!newton(&solveTau, &x, 1000, TOL, &zeta, NULL, &rval, NULL, NULL, NULL))
@@ -746,7 +773,7 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 	}
 
 	edges.future_edge_row_start[N_tar-1] = -1;
-	printf("\t\tEdges (forward): %d\n", future_idx);
+	printf("\t\tUndirected Links: %d\n", future_idx);
 	fflush(stdout);
 
 	//if (!printSpatialDistances(nodes, manifold, N_tar, dim)) return false;

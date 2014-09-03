@@ -12,6 +12,8 @@
 
 #define INF (1e20)	//Infinity
 
+#define MTAU (3e6)	//Used to identify tau approximations
+
 #define G (6.67384e-11)	//Gravitational Constant
 
 //Algorithmic Flags

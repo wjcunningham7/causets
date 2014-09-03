@@ -3,6 +3,8 @@ INCDIR		:= ./inc
 SRCDIR		:= ./src
 OBJDIR		:= ./obj
 DATDIR		:= ./dat
+ETCDIR		:= ./etc
+REFDIR		:= ./ref
 
 FASTSRC		:= /usr/local/src/fastmath
  
@@ -80,5 +82,11 @@ cleanobj :
 cleanlog :
 	rm -f *.log
 
-#cleandata :
-#	rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/data_keys.key
+#cleanfdata :
+#	rm -f $(DATDIR)/22222.* $(DATDIR)/pos/22222.* $(DATDIR)/edg/22222.* $(DATDIR)/dst/22222.* $(DATDIR)/odd/22222.* $(DATDIR)/idd/22222.*
+
+cleandata :
+	rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/emb/*.cset.emb.dat $(DATDIR)/emb/tn/*.cset.emb_tn.dat $(DATDIR)/emb/fp/*.cset.emb_fp.dat $(ETCDIR)/data_keys.cset.key
+
+cleanrefdata :
+	rm -f $(REFDIR)/*.cset.*.ref
