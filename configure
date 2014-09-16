@@ -1,5 +1,11 @@
 #!/bin/bash
 
+###########################
+#(C) Will Cunningham 2014 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
 mkdir bin
 mkdir dat
 mkdir dat/cdk

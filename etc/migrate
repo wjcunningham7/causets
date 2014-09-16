@@ -6,74 +6,76 @@
 # Northeastern University #
 ###########################
 
+net=/home/cunningham.wi/causets/net
+
 if [ "$#" -ne 1 ]; then
   echo "Must specify new folder name!"
   exit 1
 fi
 
-if [ ! -d net ]; then
-  mkdir net
-elif [ -d net/"$1" ]; then
+if [ ! -d $net ]; then
+  mkdir $net
+elif [ -d $net/"$1" ]; then
   echo "Folder already exists!"
   exit 2
 fi
 
-mkdir net/"$1"
-mv etc/data_keys.cset.key net/"$1"/
-mv dat/*.cset.out net/"$1"/
-mv dat/"$1".log net/"$1"/
+mkdir $net/"$1"
+mv etc/data_keys.cset.key $net/"$1"/
+mv dat/*.cset.out $net/"$1"/
+mv dat/"$1".log $net/"$1"/
 
-mkdir net/"$1"/pos
-mv dat/pos/*.cset.pos.dat net/"$1"/pos/
+mkdir $net/"$1"/pos
+mv dat/pos/*.cset.pos.dat $net/"$1"/pos/
 
-mkdir net/"$1"/edg
-mv dat/edg/*.cset.edg.dat net/"$1"/edg/
+mkdir $net/"$1"/edg
+mv dat/edg/*.cset.edg.dat $net/"$1"/edg/
 
 if [ "$(ls -A dat/dst/)" ]; then
-  mkdir net/"$1"/dst
-  mv dat/dst/*.cset.dst.dat net/"$1"/dst/
+  mkdir $net/"$1"/dst
+  mv dat/dst/*.cset.dst.dat $net/"$1"/dst/
 fi
 
 if [ "$(ls -A dat/idd/)" ]; then
-  mkdir net/"$1"/idd
-  mv dat/idd/*.cset.idd.dat net/"$1"/idd/
+  mkdir $net/"$1"/idd
+  mv dat/idd/*.cset.idd.dat $net/"$1"/idd/
 fi
 
 if [ "$(ls -A dat/odd/)" ]; then
-  mkdir net/"$1"/odd
-  mv dat/odd/*.cset.odd.dat net/"$1"/odd/
+  mkdir $net/"$1"/odd
+  mv dat/odd/*.cset.odd.dat $net/"$1"/odd/
 fi
 
 if [ "$(ls -A dat/ref/)" ]; then
-  mkdir net/"$1"/ref
-  mv dat/ref/*.ref net/"$1"/ref/
+  mkdir $net/"$1"/ref
+  mv dat/ref/*.ref $net/"$1"/ref/
 fi
 
 if [ "$(ls -A dat/cls/)" ]; then
-  mkdir net/"$1"/cls
-  mv dat/cls/*.cset.cls.dat net/"$1"/cls/
+  mkdir $net/"$1"/cls
+  mv dat/cls/*.cset.cls.dat $net/"$1"/cls/
 fi
 
 if [ "$(ls -A dat/cdk/)" ]; then
-  mkdir net/"$1"/cdk
-  mv dat/cdk/*.cset.cdk.dat net/"$1"/cdk/
+  mkdir $net/"$1"/cdk
+  mv dat/cdk/*.cset.cdk.dat $net/"$1"/cdk/
 fi
 
 if [ "$(ls -A dat/emb/)" ]; then
-  mkdir net/"$1"/emb
+  mkdir $net/"$1"/emb
 
   if [ -e dat/emb/*.cset.emb.dat ]; then
-    mv dat/emb/*.cset.emb.dat net/"$1"/emb/
+    mv dat/emb/*.cset.emb.dat $net/"$1"/emb/
   fi
 
   if [ "$(ls -A dat/emb/fp)" ]; then
-    mkdir net/"$1"/emb/fp
-    mv dat/emb/fp/*.cset.emb_fp.dat net/"$1"/emb/fp/
+    mkdir $net/"$1"/emb/fp
+    mv dat/emb/fp/*.cset.emb_fp.dat $net/"$1"/emb/fp/
   fi
 
   if [ "$(ls -A dat/emb/tn)" ]; then
-    mkdir net/"$1"/emb/tn
-    mv dat/emb/tn/*.cset.emb_tn.dat net/"$1"/emb/tn/
+    mkdir $net/"$1"/emb/tn
+    mv dat/emb/tn/*.cset.emb_tn.dat $net/"$1"/emb/tn/
   fi
 fi
 
