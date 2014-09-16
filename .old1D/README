@@ -1,9 +1,0 @@
-Compilation Instructions:
-gcc -o sets -lm main.c
-g++ -Wall -o causetGL -lm -lGLU -lglut causetGL.cpp
-
-Execution Instructions:
-./sets -N 10000 -D 10 -S 4357398
-./causetGL -N 10000 -K 50000 -F 100
-
-Note:  causetGL will not run remotely since X11 Forwarding does not support OpenGL

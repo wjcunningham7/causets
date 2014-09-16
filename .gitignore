@@ -1,3 +1,5 @@
-./dat/*.dat
-./bin/*
-./obj/*
+dat/**
+bin/*
+obj/*
+.old1D/**
+net/**
