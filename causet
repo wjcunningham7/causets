@@ -7,7 +7,20 @@
 ###########################
 
 # Prevents re-compiling during a long run
-#mv Makefile Makefile~
+mv Makefile Makefile~
+
+#####################################
+# These are experimental parameters #
+#####################################
+
+# Measure properties of 1+1 de Sitter
+#./bin/CausalSet --nodes 10240 --degrees 5.53 --dim 1 --components --print
+
+# Measure properties of 3+1 de Sitter
+#./bin/CausalSet --nodes 10240 --degrees 10 --radius 2.0 --gpu --print
+
+# Measure properties of Universe
+./bin/CausalSet --universe --components --degrees 58.3 --nodes 10240 --delta 1000 --radius 0.8
 
 ######################################
 # These will reproduce known results #
@@ -30,30 +43,9 @@
 #./bin/CausalSet --dim 1 --manifold h --seed 18100 --graph 321 -y --verbose --success 1
 # Should find a success ratio of 1.0 and a single connected component
 
-#####################################
-# These are experimental parameters #
-#####################################
-
-# Measure properties of 1+1 de Sitter
-#for i in {1..100}
-#do
-#  echo "Beginning Trial $i of 100"
-#  ./bin/CausalSet --nodes 10240 --degrees 5.53 --dim 1 --components --print
-#done
-
-# Measure properties of 3+1 de Sitter
-#./bin/CausalSet --nodes 10240 --degrees 5.29 --radius 2.0 --seed 84450 --gpu --embedding 1
-
-# Measure properties of Universe
-for i in {1..10}
-do
-  echo "Beginning Trial $i of 10"
-  ./bin/CausalSet --universe --age 4 --nodes 10240 --delta 1 --radius 1 --gpu --embedding 1 --print
-done
-
 # Compare to Dima's Fortran Code
 # Make sure to manually alter parameters in fortran code and re-compile!
 #./bin/CausalSet --universe --age 1.5 --delta 1 --radius 1 --gpu --graph 22222 --components
 #./etc/dk_stats_direct.pl 22222
 
-#mv Makefile~ Makefile
+mv Makefile~ Makefile

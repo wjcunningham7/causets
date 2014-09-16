@@ -1,0 +1,47 @@
+#!/bin/python
+
+###########################
+#(C) Will Cunningham 2014 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# Concatenates clustering-by-degree distribution files
+
+import glob
+import sys
+
+if (len(sys.argv) == 1):
+	sys.stdout.write('Must specify target number of nodes.\n')
+	sys.exit(1)
+elif (len(sys.argv) > 2):
+	sys.stdout.write('Too many parameters specified.\n')
+	sys.exit(2)
+
+N = int(sys.argv[1])
+
+if (N < 0):
+	sys.stdout.write('Invalid argument.\n')
+	sys.exit(3)
+
+cdk_files = glob.glob("dat/cdk/*.cset.cdk.dat")
+c = []
+
+for i in range(0,N):
+	c.append(0)
+
+for file in cdk_files:
+	h = open(file)
+	lines = h.readlines();
+	for line in lines:
+		token1,token2 = (float(x) for x in line.split())
+		c[int(token1)] += token2
+	h.close()
+
+h = open('dat/ref/cdk_dist.cset.cls.ref','w')
+for i in range(0,N):
+	if (c[i]):
+		h.write(str(i) + ' ' + str(c[i]) + '\n')
+h.close()
+
+sys.stdout.write('Completed CDK.\n')

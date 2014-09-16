@@ -485,20 +485,8 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio)
 		return true;
 		
-	/*boost::filesystem::create_directory("./dat");
-	boost::filesystem::create_directory("./dat/dst");
-
-	std::ofstream ks;
-	ks.open("dat/dst/kres.cset.dst.dat", std::ios::app);
-	ks << network->network_observables.k_res << std::endl;
-	ks.flush();
-	ks.close();
-
-	std::ofstream ks_all;
-	ks_all.open("dat/dst/kres_all.cset.dst.dat", std::ios::app);
-	ks_all << (network->network_observables.k_res * network->network_observables.N_res) / network->network_properties.N_tar << std::endl;
-	ks_all.flush();
-	ks_all.close();*/
+	//boost::filesystem::create_directory("./dat");
+	//boost::filesystem::create_directory("./dat/dst");
 
 	printf("\nCalculating Network Observables...\n");
 	fflush(stdout);
@@ -891,7 +879,7 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 }
 
 //Print to File
-static bool printNetwork(Network &network, const CausetPerformance &cp, const long &init_seed, const int &gpuID)
+static bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed, const int &gpuID)
 {
 	if (!network.network_properties.flags.print_network)
 		return false;
@@ -1000,12 +988,19 @@ static bool printNetwork(Network &network, const CausetPerformance &cp, const lo
 
 		if (network.network_properties.flags.calc_clustering)
 			outputStream << "Average Clustering\t\t\t" << network.network_observables.average_clustering << std::endl;
+		else
+			outputStream << std::endl;
+
 		if (network.network_properties.flags.calc_components) {
 			outputStream << "Number of Connected Components\t\t" << network.network_observables.N_cc << std::endl;
 			outputStream << "Size of Giant Connected Component\t" << network.network_observables.N_gcc << std::endl;
-		}
+		} else
+			outputStream << std::endl << std::endl;
+
 		if (network.network_properties.flags.calc_success_ratio)
 			outputStream << "Success Ratio\t\t\t\t" << network.network_observables.success_ratio << std::endl;
+		else
+			outputStream << std::endl;
 
 		outputStream << "\nNetwork Analysis Results:" << std::endl;
 		outputStream << "-------------------------" << std::endl;
@@ -1016,8 +1011,8 @@ static bool printNetwork(Network &network, const CausetPerformance &cp, const lo
 		outputStream << "Out-Degree Distribution Data:\t\t" << "odd/" << network.network_properties.graphID << ".cset.odd.dat" << std::endl;
 
 		if (network.network_properties.flags.calc_clustering) {
-			outputStream << "Clustering Coefficient Data:\t" << "cls/" << network.network_properties.graphID << ".cset.cls.dat" << std::endl;
-			outputStream << "Clustering by Degree Data:\t" << "cdk/" << network.network_properties.graphID << ".cset.cdk.dat" << std::endl;
+			outputStream << "Clustering Coefficient Data:\t\t" << "cls/" << network.network_properties.graphID << ".cset.cls.dat" << std::endl;
+			outputStream << "Clustering by Degree Data:\t\t" << "cdk/" << network.network_properties.graphID << ".cset.cdk.dat" << std::endl;
 		}
 
 		if (network.network_properties.flags.validate_embedding) {
@@ -1049,7 +1044,9 @@ static bool printNetwork(Network &network, const CausetPerformance &cp, const lo
 		if (network.network_properties.flags.calc_success_ratio)
 			outputStream << "measureSuccessRatio: " << cp.sMeasureSuccessRatio.elapsedTime << " sec" << std::endl;
 
-		outputStream << "Total Time:        " << cp.sCauset.elapsedTime << " sec" << std::endl;
+		stopwatchStop(&cp.sCauset);
+		outputStream << "Total Time:          " << cp.sCauset.elapsedTime << " sec" << std::endl;
+		stopwatchStart(&cp.sCauset);
 
 		outputStream.flush();
 		outputStream.close();
@@ -1381,7 +1378,7 @@ static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t 
 	if (network->network_properties.flags.calc_clustering) {
 		free(network->network_observables.clustering);
 		network->network_observables.clustering = NULL;
-		hostMemUsed -= sizeof(float) * network->network_observables.N_deg2;
+		hostMemUsed -= sizeof(float) * network->network_properties.N_tar;
 	}
 
 	if (network->network_properties.flags.calc_components) {

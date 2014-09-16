@@ -295,7 +295,7 @@ void display();
 
 static bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
 
-static bool printNetwork(Network &network, const CausetPerformance &cp, const long &init_seed, const int &gpuID);
+static bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed, const int &gpuID);
 
 static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf);
 

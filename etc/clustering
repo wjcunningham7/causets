@@ -1,0 +1,69 @@
+#!/bin/python
+
+###########################
+#(C) Will Cunningham 2014 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# Computes the distribution and expectation value of the average clustering
+
+import glob
+import sys
+
+if (len(sys.argv) == 1):
+	sys.stdout.write('Must specify topology.\n')
+	sys.exit(1)
+elif (len(sys.argv) > 2):
+	sys.stdout.write('Too many parameters specified.\n')
+	sys.exit(2)
+
+ctype = 0
+if (sys.argv[1] == '1+1'):
+	ctype = 1
+elif (sys.argv[1] == '3+1'):
+	ctype = 2
+elif (sys.argv[1] == 'uni'):
+	ctype = 3
+
+if (ctype == 0):
+	sys.stdout.write('Invalid parameter.\n')
+	sys.exit(3)
+
+cline = 0
+if (ctype == 1):
+	cline = 17
+elif (ctype == 2):
+	cline = 17
+elif (ctype == 3):
+	cline = 24
+
+files = glob.glob("dat/*.cset.out")
+
+N = len(files)
+c = []
+avg = 0
+
+for i in range(0,N):
+	c.append(0)
+
+idx = 0
+for file in files:
+	f = open(file)
+	lines = f.readlines()
+
+	c[idx] = float(lines[cline].split()[2])
+	avg += c[idx]
+	idx += 1
+
+	f.close()
+
+avg /= N
+sys.stdout.write('Average Clustering: %f\n' % avg)
+
+f = open('dat/ref/average_c.cset.cls.ref','w')
+for i in range(0,N):
+	f.write(str(c[i]) + '\n')
+f.close()
+
+sys.stdout.write('Completed CLS.\n')

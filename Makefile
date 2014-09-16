@@ -1,10 +1,15 @@
+###########################
+#(C) Will Cunningham 2014 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
 BINDIR		:= ./bin
 INCDIR		:= ./inc
 SRCDIR		:= ./src
 OBJDIR		:= ./obj
 DATDIR		:= ./dat
 ETCDIR		:= ./etc
-REFDIR		:= ./ref
 
 FASTSRC		:= /usr/local/src/fastmath
  
@@ -74,19 +79,13 @@ fortran2 : $(FSOURCES2)
 clean : cleanbin cleanobj cleanlog
 
 cleanbin :
-	rm -f $(BINDIR)/*
+	rm -f $(BINDIR)/CausalSet $(BINDIR)/ds3 $(BINDIR)/universe
 
 cleanobj :
 	rm -f $(OBJDIR)/*
 
 cleanlog :
-	rm -f *.log
-
-#cleanfdata :
-#	rm -f $(DATDIR)/22222.* $(DATDIR)/pos/22222.* $(DATDIR)/edg/22222.* $(DATDIR)/dst/22222.* $(DATDIR)/odd/22222.* $(DATDIR)/idd/22222.*
+	rm -f causet.log
 
 cleandata :
-	rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/emb/*.cset.emb.dat $(DATDIR)/emb/tn/*.cset.emb_tn.dat $(DATDIR)/emb/fp/*.cset.emb_fp.dat $(ETCDIR)/data_keys.cset.key
-
-cleanrefdata :
-	rm -f $(REFDIR)/*.cset.*.ref
+	rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/emb/*.cset.emb.dat $(DATDIR)/emb/tn/*.cset.emb_tn.dat $(DATDIR)/emb/fp/*.cset.emb_fp.dat $(ETCDIR)/data_keys.cset.key $(DATDIR)/ref/*.ref

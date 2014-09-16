@@ -82,15 +82,20 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					printf("\tEstimating Age of Universe.....\n");
 					float kappa1 = network_properties->k_tar / network_properties->delta;
 					float kappa2 = kappa1 / POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT);
+					//printf_red();
 					//printf("kappa2: %f\n", kappa2);
+					//printf_std();
 
 					//Read Lookup Table
 					double *raduc_lookup;
-					long size;
+					long size = 0;
 					std::ifstream lookup("./etc/raduc_table.cset.bin", std::ios::in | std::ios::binary | std::ios::ate);
 					if (lookup.is_open()) {
 						//Find size of file
 						size = lookup.tellg();
+						//printf_red();
+						//printf("Size: %d\n", size);
+						//printf_std();
 						//Allocate Memory for Buffer
 						char *memblock = (char*)malloc(size);
 						if (memblock == NULL)
@@ -118,15 +123,25 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					} else
 						throw CausetException("Failed to open 'raduc_table.cset.bin' file!\n");
 
+					//printf_red();
+					//for (i = 0; i < 100; i += 2)
+					//	printf("\t%.8f\t%.8f\n", raduc_lookup[i], raduc_lookup[i+1]);
+					//printf_std();
+					//getchar(); getchar();
+
 					//Identify tau0
 					//Assumes values are written as (kappa, tau0)
 					int t_idx = 0;
-					for (i = 0; i < size / (2 * sizeof(double)); i += 2) {
+					for (i = 0; i < size / sizeof(double); i += 2) {
 						if (raduc_lookup[i] > kappa2) {
 							t_idx = i;
 							break;
 						}
 					}
+					//printf_red();
+					//printf("tau index: %d\n", t_idx);
+					//printf("first entry: %f\n", raduc_lookup[0]);
+					//printf_std();
 
 					//Check if Table is Insufficient
 					if (t_idx == 0)
@@ -232,7 +247,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			}
 			
 			//20% Buffer
-			network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
+			//network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
+			network_properties->edge_buffer = 100000;
+			//printf("Edge Buffer: %d\n", network_properties->edge_buffer);
 
 			//Adjacency matrix not implemented in GPU algorithms
 			if (network_properties->flags.use_gpu)
@@ -601,7 +618,8 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 				if (USE_GSL) {
 					//Numerical Integration
 					idata.upper = nodes.id.tau[i] * a;
-					nodes.c.sc[i].w = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) / alpha;
+					//nodes.c.sc[i].w = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) / alpha;
+					nodes.c.sc[i].w = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) * a / alpha;
 				} else
 					//Exact Solution
 					nodes.c.sc[i].w = tauToEtaUniverseExact(nodes.id.tau[i], a, alpha);
@@ -748,10 +766,10 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 			try {
 				if (dx < dt) {
 					//if (i % NPRINT == 0) printf("%d %d\n", i, j); fflush(stdout);
-					edges.future_edges[future_idx] = j;
-					future_idx++;
+					edges.future_edges[++future_idx] = j;
+					//future_idx++;
 	
-					if (future_idx == N_tar * k_tar / 2 + edge_buffer)
+					if (future_idx >= N_tar * k_tar / 2 + edge_buffer)
 						throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 	
 					//Record number of degrees for each node
@@ -777,13 +795,6 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 	fflush(stdout);
 
 	//if (!printSpatialDistances(nodes, manifold, N_tar, dim)) return false;
-
-	//Write total degrees to file for this graph
-	/*std::ofstream deg;
-	deg.open("degrees.txt", std::ios::app);
-	deg << future_idx << std::endl;
-	deg.flush();
-	deg.close();*/
 
 	//Identify past connections
 	edges.past_edge_row_start[0] = -1;

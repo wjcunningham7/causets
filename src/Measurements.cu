@@ -26,17 +26,16 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 
 	float c_i, c_k, c_max;
 	float c_avg = 0.0;
-	int cls_idx = 0;
 	int i, j, k;
 
 	stopwatchStart(&sMeasureClustering);
 
 	try {
-		clustering = (float*)malloc(sizeof(float) * N_deg2);
+		clustering = (float*)malloc(sizeof(float) * N_tar);
 		if (clustering == NULL)
 			throw std::bad_alloc();
-		memset(clustering, 0, sizeof(float) * N_deg2);
-		hostMemUsed += sizeof(float) * N_deg2;
+		memset(clustering, 0, sizeof(float) * N_tar);
+		hostMemUsed += sizeof(float) * N_tar;
 	} catch (std::bad_alloc()) {
 		fprintf(stderr, "Failed to allocate memory in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -59,8 +58,10 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 		//fflush(stdout);
 
 		//Ingore nodes of degree 0 and 1
-		if (nodes.k_in[i] + nodes.k_out[i] < 2)
+		if (nodes.k_in[i] + nodes.k_out[i] < 2) {
+			clustering[i] = 0;
 			continue;
+		}
 
 		c_i = 0.0;
 		c_k = static_cast<float>((nodes.k_in[i] + nodes.k_out[i]));
@@ -94,7 +95,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 		c_i = c_i / c_max;
 		if (DEBUG) assert (c_i <= 1.0);
 
-		clustering[cls_idx] = c_i;
+		clustering[i] = c_i;
 		c_avg += c_i;
 
 		//printf("\tConnected Triplets: %f\n", (c_i * c_max));
@@ -106,13 +107,6 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 	average_clustering = c_avg / N_deg2;
 	if (DEBUG) assert (average_clustering >= 0.0 && average_clustering <= 1.0);
 
-	//Print average clustering to file
-	/*std::ofstream cls;
-	cls.open("clustering.txt", std::ios::app);
-	cls << average_clustering << std::endl;
-	cls.flush();
-	cls.close();*/
-
 	stopwatchStop(&sMeasureClustering);
 
 	if (!bench) {
@@ -123,7 +117,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 		fflush(stdout);
 		if (calc_autocorr) {
 			autocorr2 acClust(5);
-			for (i = 0; i < N_deg2; i++)
+			for (i = 0; i < N_tar; i++)
 				acClust.accum_data(clustering[i]);
 			acClust.analysis();
 			std::ofstream fout("clustAutoCorr.dat");
@@ -180,8 +174,11 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 	for (i = 0; i < N_tar; i++) {
 		elements = 0;
-		if (!nodes.cc_id[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0)
+		if (!nodes.cc_id[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0) {
+			//printf("BEFORE\n");
 			bfsearch(nodes, edges, i, ++N_cc, elements);
+			//printf("AFTER\n");
+		}
 		if (elements > N_gcc)
 			N_gcc = elements;
 	}

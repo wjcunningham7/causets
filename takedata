@@ -1,0 +1,229 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2014 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+mv Makefile Makefile~
+
+#Measure properties of 3+1 de Sitter
+echo "Measuring Data Segment A"
+echo "========================"
+
+echo "Beginning Data Set A1"
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --nodes 10240 --degrees 10 --radius 1 --components --clustering --gpu --print &>> dat/A1.log
+done
+
+python etc/degrees.py 3+1
+python etc/deg_dist.py 10240
+python etc/components.py 3+1
+python etc/clustering.py 3+1
+python etc/clust_dist.py 10240
+sh etc/migrate.sh A1
+echo "Completed A1."
+echo ""
+
+echo "Beginning Data Set A2"
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --nodes 10240 --degrees 10 --radius 1.5 --components --clustering --gpu --print &>> dat/A2.log
+done
+
+python etc/degrees.py 3+1
+python etc/deg_dist.py 10240
+python etc/components.py 3+1
+python etc/clustering.py 3+1
+python etc/clust_dist.py 10240
+sh etc/migrate.sh A2
+echo "Completed A2."
+echo ""
+
+echo "Beginning Data Set A3" 
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --nodes 10240 --degrees 10 --radius 2 --components --clustering --gpu --print &>> dat/A3.log
+done
+
+python etc/degrees.py 3+1
+python etc/deg_dist.py 10240
+python etc/components.py 3+1
+python etc/clustering.py 3+1
+python etc/clust_dist.py 10240
+sh etc/migrate.sh A3
+echo "Completed A3."
+echo ""
+
+#Measure properties of Universe
+echo ""
+echo "Measuring Data Segment B"
+echo "========================"
+
+echo "Beginning Data Set B1"
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --universe --nodes 10240 --degrees 12.90 --delta 1 --radius 0.9 --components --clustering --gpu --print &>> dat/B1.log
+done
+
+python etc/degrees.py uni
+python etc/deg_dist.py 10240
+python etc/components.py uni
+python etc/clustering.py uni
+python etc/clust_dist.py 10240
+sh etc/migrate.sh B1
+echo "Completed B1."
+echo ""
+
+echo "Beginning Data Set B2" 
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --universe --nodes 10240 --degrees 12.90 --delta 1 --radius 1 --components --clustering --gpu --print &>> dat/B2.log
+done
+
+python etc/degrees.py uni
+python etc/deg_dist.py 10240
+python etc/components.py uni
+python etc/clustering.py uni
+python etc/clust_dist.py 10240
+sh etc/migrate.sh B2
+echo "Completed B2."
+echo ""
+
+echo "Beginning Data Set B3"
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --universe --nodes 10240 --degrees 12.90 --delta 1 --radius 1.1 --components --clustering --gpu --print &>> dat/B3.log
+done
+
+python etc/degrees.py uni
+python etc/deg_dist.py 10240
+python etc/components.py uni
+python etc/clustering.py uni
+python etc/clust_dist.py 10240
+sh etc/migrate.sh B3
+echo "Completed B3."
+echo ""
+
+echo "Beginning Data Set B4"
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --universe --nodes 10240 --degrees 12.90 --delta 1 --radius 1.5 --components --clustering --gpu --print &>> dat/B4.log
+done
+
+python etc/degrees.py uni
+python etc/deg_dist.py 10240
+python etc/components.py uni
+python etc/clustering.py uni
+python etc/clust_dist.py 10240
+sh etc/migrate.sh B4
+echo "Completed B4."
+echo ""
+
+echo "Beginning Data Set B5"
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --universe --nodes 10240 --degrees 12.90 --delta 1 --radius 2 --components --clustering --gpu --print &>> dat/B5.log
+done
+
+python etc/degrees.py uni
+python etc/deg_dist.py 10240
+python etc/components.py uni
+python etc/clustering.py uni
+python etc/clust_dist.py 10240
+sh etc/migrate.sh B5
+echo "Completed B5."
+echo ""
+
+echo "Beginning Data Set B6"
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --universe --nodes 10240 --degrees 12.90 --delta 1 --radius 2.8 --components --clustering --gpu --print &>> dat/B6.log
+done
+
+python etc/degrees.py uni
+python etc/deg_dist.py 10240
+python etc/components.py uni
+python etc/clustering.py uni
+python etc/clust_dist.py 10240
+sh etc/migrate.sh B6
+echo "Completed B6."
+echo ""
+
+echo "Beginning Data Set B7"
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --universe --nodes 10240 --degrees 12.90 --delta 1 --radius 3 --components --clustering --gpu --print &>> dat/B7.log
+done
+
+python etc/degrees.py uni
+python etc/deg_dist.py 10240
+python etc/components.py uni
+python etc/clustering.py uni
+python etc/clust_dist.py 10240
+sh etc/migrate.sh B7
+echo "Completed B7."
+echo ""
+
+echo "Beginning Data Set B8"
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --universe --nodes 10240 --degrees 12.90 --delta 1 --radius 3.4 --components --clustering --gpu --print &>> dat/B8.log
+done
+
+python etc/degrees.py uni
+python etc/deg_dist.py 10240
+python etc/components.py uni
+python etc/clustering.py uni
+python etc/clust_dist.py 10240
+sh etc/migrate.sh B8
+echo "Completed B8."
+echo ""
+
+echo "Beginning Data Set B9"
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --universe --nodes 10240 --degrees 12.90 --delta 1 --radius 4 --components --clustering --gpu --print &>> dat/B9.log
+done
+
+python etc/degrees.py uni
+python etc/deg_dist.py 10240
+python etc/components.py uni
+python etc/clustering.py uni
+python etc/clust_dist.py 10240
+sh etc/migrate.sh B9
+echo "Completed B9."
+echo ""
+
+echo "Beginning Data Set B10"
+echo "---------------------"
+for i in {1..100}
+do
+  ./bin/CausalSet --universe --nodes 10240 --degrees 12.90 --delta 1 --radius 5 --components --clustering --gpu --print &>> dat/B10.log
+done
+
+python etc/degrees.py uni
+python etc/deg_dist.py 10240
+python etc/components.py uni
+python etc/clustering.py uni
+python etc/clust_dist.py 10240
+sh etc/migrate.sh B10
+echo "Completed B10."
+echo ""
+
+mv Makefile~ Makefile
+echo "COMPLETED."

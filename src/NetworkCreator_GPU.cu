@@ -211,10 +211,6 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	checkCudaErrors(cuMemAlloc(&d_g_idx, sizeof(int)));
 	devMemUsed += sizeof(int);
 
-	//Initialize Memory on Host
-	//memset(nodes.k_in, 0, sizeof(int) * N_tar);
-	//memset(nodes.k_out, 0, sizeof(int) * N_tar);
-	
 	//Allocate Mapped Pinned Memory
 	checkCudaErrors(cuMemHostGetDevicePointer(&d_k_in, (void*)nodes.k_in, 0));
 	checkCudaErrors(cuMemHostGetDevicePointer(&d_k_out, (void*)nodes.k_out, 0));
@@ -266,6 +262,17 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	d_g_idx = NULL;
 	devMemUsed -= sizeof(int);
 
+	try {
+		if (*g_idx >= N_tar * k_tar / 2 + edge_buffer)
+			throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		return false;
+	}
+
 	stopwatchStop(&sGPUOverhead);
 
 	//Decode past and future edge lists using Bitonic Sort
@@ -295,7 +302,6 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	stopwatchStop(&sGPUOverhead);
 
 	//CUDA Grid Specifications
-	//unsigned int gridx_decode = gridx_bitonic;
 	unsigned int gridx_decode = static_cast<unsigned int>(ceil(static_cast<float>(*g_idx) / BLOCK_SIZE));
 	dim3 blocks_per_grid_decode(gridx_decode, 1, 1);
 

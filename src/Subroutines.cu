@@ -254,17 +254,23 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 //Breadth First Search
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements)
 {
+	//printf("IDX: %d\n", index);
 	int ps = edges.past_edge_row_start[index];
 	int fs = edges.future_edge_row_start[index];
 	int i;
 
+	//printf("PS: %d\n", ps);
+	//printf("FS: %d\n", fs);
+
 	nodes.cc_id[index] = id;
 	elements++;
 
+	//printf("IN\n");
 	for (i = 0; i < nodes.k_in[index]; i++)
 		if (!nodes.cc_id[edges.past_edges[ps+i]])
 			bfsearch(nodes, edges, edges.past_edges[ps+i], id, elements);
 
+	//printf("OUT\n");
 	for (i = 0; i < nodes.k_out[index]; i++)
 		if (!nodes.cc_id[edges.future_edges[fs+i]])
 			bfsearch(nodes, edges, edges.future_edges[fs+i], id, elements);

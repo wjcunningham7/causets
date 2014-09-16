@@ -6,6 +6,7 @@
 \usepackage{amsfonts}
 \usepackage{amssymb}
 \usepackage{amsthm}
+\usepackage{appendix}
 \usepackage{commath}
 \usepackage{mathtools}
 \usepackage[usenames,dvipsnames]{color}
@@ -17,6 +18,8 @@
 \usepackage{listings}
 \usepackage{silence}
 \usepackage{tabto}
+
+\DeclareMathOperator{\sech}{sech}
 
 \definecolor{OliveGreen}{cmyk}{0.64,0,0.95,0.40}
 \definecolor{lightlightgray}{gray}{0.9}
@@ -65,34 +68,37 @@ morekeywords={__global__, __device__, __shared__, threadIdx, blockIdx, blockDim,
 
 \tableofcontents
 
+\newpage
+
 %%%%%%%%%%
 \section{Introduction}
 %%%%%%%%%%
 This project is a continuation of the work described in~\cite{ref:nc2012}.  
 We hypothesize that a spacetime with only dark energy has a structure which may be described by discrete events uniformly distributed across a de Sitter manifold.  
 Two events are connected if they share a causal relation - i.e. they lie within each other's light cones.  
-We choose a de Sitter manifold because for a positive cosmological constant $\Lambda$ in Einstein's field equations - which corresponds to a positive dark energy density - then the manifold which describes the solution to these equations is asymptotically de Sitter. \XXX{wc}{kz}{Why asymptotically? De Sitter is the exact solution for the dark energy only case.}
+A positive cosmological constant $\Lambda$ in Einstein's field equations - which corresponds to a positive dark energy density - results in a solution described by a de Sitter manifold.
+\XXX{wc}{kz}{Why asymptotically? De Sitter is the exact solution for the dark energy only case.} \XXX{kz}{wc}{Re-worded}
 When we add matter in the form of uniformly distributed dust, a singularity (or Big Bang) emerges naturally while the structure at late times remains the same.  
-This further connects the hubs of the networks, which are physically recognized as the earliest events.
-This allows us to construct a complex network which has physical properties which match those of our universe, as well as mathematical properties which match those of other well-studied complex networks. \par
+This connects the hubs of the networks, which are recognized as the earliest events.
+Subsequently this allows us to construct a complex network with physical properties which match those of our universe, as well as mathematical properties which match those of other well-studied complex networks. \par
 %%%%%%%%%%
 The rescaled degree distributions for the pure-energy causal set have been previously studied in~\cite{ref:nc2012}.
-In this project we compare them to the same distributions for a universe with matter over a range of parameters, including the ratio of matter to dark energy.
-We go further to study the clustering, connectedness, and navigability to attempt to understand the physical origins of the observed free parameters of our universe.
-Studying navigability alone requires addressing the issue of how to measure geodesic distances in the 3+1 universe, which remains an unsolved analytical problem.
-We attempt to solve this by embedding our universe in another spatial dimension, and implement several validation tests which aim to determine if this is a legitimate approach.
+In this project we compare them to the same distributions for a universe with matter over a range of physical parameters, including the ratio of matter to dark energy.
+We go further to study the clustering, connectedness, and navigability of our universe.
+Studying navigability alone requires addressing how to measure geodesic distances:  this remains an unsolved analytical problem.
+We attempt to solve this by embedding our universe in a higher spatial dimension, and we implement several validation tests to determine if this is a legitimate approach.
 We also would like to address the \textit{why now} problem:  why are the matter and dark energy densities currently the same order of magnitude?
 To study this we will look for special behaviors of the network when the rescaled time is set to unity.
 
 %%%%%%%%%%
 \section{Motivation}
 %%%%%%%%%%
-In recent years, experimental observations have made us increasingly certain that we live in a flat closed universe \XXX{wc}{kz}{How can it be both flat and closed? The spatial curvature $K$ is either zero or not.} which is expanding at an accelerating rate.  
+In recent years, experimental observations have made us increasingly certain that we live in a flat universe \XXX{wc}{kz}{How can it be both flat and closed? The spatial curvature $K$ is either zero or not.} \XXX{kz}{wc}{Fixed.  I was thinking flat refers to local geometry and closed refers to global topology, but the topology is still unknown I think.} which is expanding at an accelerating rate.  
 The $\Lambda$CDM Model has provided a robust theoretical framework for describing the cosmological evolution of our universe, though it relies on six free parameters whose origins have not yet been elucidated.
 Rather than simply relinquish this issue to the anthropic principle, we aim to identify how a causal set framework might shed light on the nature of these constraints and how they may be related.
 Complex networks have given insight into problems in many unrelated fields in the past decade, so it is not unreasonable to assume they could be help out here as well. \par
 %%%%%%%%%%
-In our work, we are interested in studying three of these free parameters:  the sum of the baryon and dark matter density, and the dark energy density \XXX{wc}{kz}{What is the 3rd parameter?}.  
+In our work, we are interested in studying two degrees of freedom:  the sum of the baryon and dark matter density, and the dark energy density \XXX{wc}{kz}{What is the 3rd parameter?} \XXX{kz}{wc}{Edited.}.  
 The matter and energy densities both enter Einstein's equations~\eqref{eq:einstein}, so they naturally both affect the manifold on which the causal set events lie.
 
 \begin{equation}
@@ -139,13 +145,13 @@ ds^2 = -dt^2 + R^2\left(t\right)\frac{dx^2 + dy^2 + dz^2}{\left(1 + \frac{K}{4}\
 \begin{equation}\label{ds^2}
 ds^2 = 
 \begin{cases}
--dt^2 + R^2\left(t\right)\left(d\chi^2 + \chi^2\left(d\theta^2+\sin^2\theta d\phi^2\right)\right)\quad, & \quad K = 0 \\
--dt^2 + R^2\left(t\right)\left(d\chi^2 + \sin^2\chi\left(d\theta^2 + \sin^2\theta d\phi^2\right)\right)\quad, & \quad K = 1 \\
--dt^2 + R^2\left(t\right)\left(d\chi^2 + \sinh^2\chi\left(d\theta^2 + \sin^2\theta d\phi^2\right)\right)\quad, & \quad K = -1
+-dt^2 + R^2\left(t\right)\left(d\theta_1^2 + \theta_1^2\left(d\theta_2^2+\sin^2\theta_2 d\theta_3^2\right)\right)\quad, & \quad K = 0 \\
+-dt^2 + R^2\left(t\right)\left(d\theta_1^2 + \sin^2\theta_1\left(d\theta_2^2 + \sin^2\theta_2 d\theta_3^2\right)\right)\quad, & \quad K = 1 \\
+-dt^2 + R^2\left(t\right)\left(d\theta_1^2 + \sinh^2\theta_1\left(d\theta_2^2 + \sin^2\theta_2 d\theta_3^2\right)\right)\quad, & \quad K = -1
 \end{cases}
 \end{equation}
 
-\noindent where $\theta\in[0,\pi]$, $\phi\in[0,2\pi)$, and $\chi\in[0,\infty)$ for K = 0, -1 and $\chi\in[0,\pi]$ for K = 1. \par
+\noindent where $\theta_2\in[0,\pi]$, $\theta_3\in[0,2\pi)$, and $\theta_1\in[0,\infty)$ for K = 0, -1 and $\theta_1\in[0,\pi]$ for K = 1. \par
 %%%%%%%%%%
 The evolution of the FLRW metric is described by the Friedmann equation:
 
@@ -159,7 +165,7 @@ The evolution of the FLRW metric is described by the Friedmann equation:
 c = \frac{8\pi G}{3}R_0^3\rho_M = H_0^2R_0^3\Omega_M = \frac{\alpha^3}{a^2}
 \end{equation}
 
-\noindent where $R_0$ is the scale factor at the present time, $\rho_M$ is the density of matter, $H_0$ is Hubble's constant at the present time, $\Omega_M$ is the fraction of matter in the universe, $a$ is the pseudoradius of the universe's manifold \XXX{wc}{kz}{the de Sitter pseudoradius}, and $\alpha$ is an unphysical constant used later.  We can identify several explicit solutions to the Friedmann equation which each represent different physical situations:
+\noindent where $R_0$ is the scale factor at the present time, $\rho_M$ is the density of matter, $H_0$ is Hubble's constant at the present time, $\Omega_M$ is the fraction of matter in the universe, $a$ is the de Sitter pseudoradius \XXX{wc}{kz}{the de Sitter pseudoradius} \XXX{kz}{wc}{Fixed.}, and $\alpha$ is an unphysical constant used later.  We can identify several explicit solutions to the Friedmann equation which each represent different physical situations:
 
 \begin{enumerate}
   \item Vacuum FLRW Spacetime (No Matter)
@@ -176,12 +182,12 @@ c = \frac{8\pi G}{3}R_0^3\rho_M = H_0^2R_0^3\Omega_M = \frac{\alpha^3}{a^2}
     a &= \sqrt{\frac{3}{\abs{\Lambda}}}
     \end{split}
     \end{equation}
-    \item $\Lambda > 0$ (de Sitter) \XXX{wc}{kz}{Let us don't confuse future generations and be careful with parentheses $\exp{(t/a)}$}
+    \item $\Lambda > 0$ (de Sitter) \XXX{wc}{kz}{Let us don't confuse future generations and be careful with parentheses $\exp{(t/a)}$} \XXX{kz}{wc}{Fixed.}
     \begin{equation}
     \begin{split}
     R\left(t\right) &= 
     \begin{cases}
-      a\exp{t/a}\quad,  & \quad K = 0 \\
+      ae^{t/a}\quad,  & \quad K = 0 \\
       a\cosh\left(\frac{t}{a}\right)\quad, & \quad K = 1 \\
       a\sinh\left(\frac{t}{a}\right)\quad, & \quad K = -1
     \end{cases} \\
@@ -217,57 +223,6 @@ c = \frac{8\pi G}{3}R_0^3\rho_M = H_0^2R_0^3\Omega_M = \frac{\alpha^3}{a^2}
 %%%%%%%%%%
 \section{Numerical Methods}
 %%%%%%%%%%
-In causal set simulations, all tasks are implemented serially and benchmarked before they are scaled up and done in parallel.
-The following provides a detailed description of the current state of the group's Causal Set simulation code, including the overall structure, values measured, and validation tests performed.
-%%%%%%%%%%
-\subsection{Usage of the Causal Set Software}
-%%%%%%%%%% 
-\XXX{wc}{kz}{I would put this sectiona at the end, since many commands become clear only after reading the consequent sections.}
-The tasks in the program are broken into modular subroutines so that it can be used for diverse purposes.
-Functions are divided in a hierarchical structure so that the main method only accesses high-level functions (described in \textit{Causets.cu}) with the entire \textit{Network} data structure.
-In a similar fashion, these high-level functions strictly access low-level functions (in \textit{NetworkCreator.cu} and \textit{Measurements.cu}), and the low-level functions access mathematical (\textit{Operations.h}) and algorithmic (\textit{Subroutines.cu}) functions.
-Debugging and other validation tests are located in the \textit{Validation.cu} file.
-When the GPU is used, entire low-level functions are replaced (e.g. in \textit{NetworkCreator\_GPU.cu}) because the flow of information is entirely different. \par
-%%%%%%%%%%
-All tasks and parameters may be specified as command-line parameters - these may be queried using the \textbf{-h} or \textbf{--help} flags.
-They are shown here alphabetically for the purposes of documentation.
-
-\begin{description}
-  \item[-A, --alpha] \tab Set unphysical free parameter used in the universe's causal set, described in (11) and (12) of~\cite{ref:snc2012}.
-  \item[-a, --radius] \tab Set pseudoradius of spacetime.
-  \item[-C, --clustering] \tab Calculate clustering coefficients and average clustering.
-  \item[-c, --core] \tab Set fraction of nodes used in adjacency matrix.  
-A hybrid method is used which minimizes both memory allocation and lookup times.
-Typically this value is $\mathcal{O}(0.01)$ of all nodes.
-  \item[-D, --delta] \tab Set node density.
-  \item[-d, --dim] \tab Set number of spatial dimensions (1 or 3).
-  \item[-E, --embedding] \tab Perform embedding validation test.  Space-like and time-like intervals are compared in the 3+1 and 4+1 universe's causal set.
-  \item[-G, --components] \tab Calcualate size of the giant connected component and the number of smaller connected components.
-  \item[-g, --graph] \tab Set graph ID.  
-This is used to indicate a unique ID of an existing graph which the program reads and analyzes.
-  \item[-h, --help] \tab Display this information.
-  \item[-k, --degrees] \tab Set the average degrees of the graph.
-  \item[-l, --lambda] \tab Set the cosmological constant.  
-Related to the pseudoradius via the equation $\Lambda = \frac{3}{a^2}$.
-  \item[-m, --manifold] \tab Indicate a [d]e Sitter or [h]yperbolic manifold.  Used to indicate the type of graph being read when the \textbf{-g} flag is used.
-  \item[-n, --nodes] \tab Set the number of nodes to generate and attempt to link.
-  \item[-o, --energy] \tab Set the dark energy density $\Omega_\Lambda$.
-  \item[-r, --ratio] \tab Set the ratio of dark energy to matter $\frac{\Omega_\Lambda}{\Omega_M}$.
-  \item[-S, --success] \tab Set the fraction of node pairs to use to study navigability and calculate the success ratio.
-  \item[-s, --seed] \tab Set the random seed.
-  \item[-T, --test] \tab Test parameters in the universe causal set to identify dependent constraints.
-  \item[-t, --age] \tab Rescaled age $\tau_0$.
-  \item[-u, --universe] \tab Indicate a causal set with dust matter (and Big Bang).
-  \item[-v, --verbose] \tab Print verbose output when the program is run.
-  \item[-y] \tab\tab Suppress user queries during the verbose output.
-  \item[-z, --zeta] \tab Set the curvature of a hyperbolic manifold.
-  \item[--autocorr] \tab Calculate autocorrelation of clustering coefficients.
-  \item[--benchmark] \tab Benchmark subroutines and numerical algorithms.
-  \item[--conflicts] \tab Show parameter conflicts for universe causal set.
-  \item[--gpu] \tab Use GPU accelerated subroutines.
-  \item[--print] \tab Print results to file in \textit{dat} folder.
-\end{description}
-%%%%%%%%%%
 \subsection{High-Level Tasks}
 %%%%%%%%%%
 \noindent The following subroutines may be accessed from the main method:
@@ -280,62 +235,53 @@ Related to the pseudoradius via the equation $\Lambda = \frac{3}{a^2}$.
   \item Free All Memory / Identify Memory Leaks
 \end{itemize}
 %%%%%%%%%%
-\subsection{Generating Graphs}
+\subsection{Low-Level Tasks}
 %%%%%%%%%%
 Of all the high-level tasks mentioned above, the single most computationally intensive involves generating graphs.  
 Certain measurement subroutines may take longer but the process of generating a graph efficiently requires a more elaborate process.  
-The following sections describe this process in terms of the sequence of low-level tasks, specific algorithms implemented, and basic tests which indicate the graphs have the correct known properties.
-%%%%%%%%%%
-\subsubsection{Low-Level Tasks}
-%%%%%%%%%%
 The low-level tasks may be divided into five steps, with the last being performed either serially on the CPU or in parallel on the GPU:
 %%%%%%%%%%
-\paragraph{Constraining the System}
+\subsubsection{Constraining the System}
 %%%%%%%%%%
 The universe causal set model must be constrained before any other step.  
-There are ten free parameters constrained by six equations~\eqref{eq:constraints} so we have four free parameters which define a network.  
+There are ten parameters constrained by six equations~\eqref{eq:constraint1} - \eqref{eq:constraint6} so we have four free parameters which define a network.  
 A network is taken to mean an ensemble of graphs, so identifying a random seed as well defines a particular graph.
 
-\begin{equation}
-\label{eq:constraints}
-\begin{split}
-N &= \frac{\pi^2}{3}\delta a\alpha^3\left(\sinh\left(3\tau_0\right)-3\tau_0\right) \\
-\bar{k} &= \delta a^4\bar{\kappa}\left(\tau_0\right) \\
-\tau_0 &= \frac{2}{3}\sinh^{-1}\sqrt{\frac{\Omega_\Lambda}{\Omega_M}} \\
-1 &= \Omega_\Lambda + \Omega_M \\
-\Lambda &= \frac{3}{a^2} \\
-R_0 &= \alpha\sinh^{\frac{2}{3}}\left(\frac{3}{2}\tau_0\right)
-\end{split}
-\end{equation}
+\begin{align}
+N &= \frac{\pi^2}{3}\delta a\alpha^3\left(\sinh\left(3\tau_0\right)-3\tau_0\right) \label{eq:constraint1} \\
+\bar{k} &= \delta a^4\bar{\kappa}\left(\tau_0\right) \label{eq:constraint2} \\
+\tau_0 &= \frac{2}{3}\sinh^{-1}\sqrt{\frac{\Omega_\Lambda}{\Omega_M}} \label{eq:constraint3} \\
+1 &= \Omega_\Lambda + \Omega_M \label{eq:constraint4} \\
+\Lambda &= \frac{3}{a^2} \label{eq:constraint5} \\
+R_0 &= \alpha\sinh^{\frac{2}{3}}\left(\frac{3}{2}\tau_0\right) \label{eq:constraint6}
+\end{align}
 
 \noindent The software is prepared to take any four of these parameters which do not explicitly conflict with each other, and the other six are then taken to be dependent variables.  
 Typically though, we use $N$, $\bar{k}$, $\delta$, and $a$ as our independent variables. \par
 %%%%%%%%%%
 There are only two cases when solving for dependent variables does not boil down to trivial algebra.  
 The first is when the maximum rescaled time $\tau_0$ is a dependent variable.  
-In this case, the first equation in~\eqref{eq:constraints} must be solve numerically using either the Newton-Raphson or bisection method due to the $\sinh$ term.  
-The second is when the theoretical average degrees $\bar{k}$ is begin calculated, as described by the second equation in~\eqref{eq:constraints}.  
+In this case,~\eqref{eq:constraint1} must be solve numerically using either the Newton-Raphson or bisection method due to the $\sinh$ term.  
+The second is when the theoretical average degrees $\bar{k}$ is begin calculated, as described by~\eqref{eq:constraint2}.  
 This requires the numerical evaluation of a 2-dimensional integral given by~\eqref{eq:kappa}, which is performed using the NINTLIB numerical library.  
-This uses Monte Carlo sampling over roughly half a million points to evaluate the integral. \XXX{wc}{kz}{Why not to use numerical 2D integration? And why not to use a lookup table that you mention on p.12} \par
+This uses Monte Carlo sampling over roughly half a million points to evaluate the integral. \XXX{wc}{kz}{Why not to use numerical 2D integration? And why not to use a lookup table that you mention on p.12} \XXX{kz}{wc}{Since this step is performed only once for a graph, it is better to trade speed for accuracy.  The lookup table is used when this step would be needed to be performed many times.} \par
 %%%%%%%%%%
 The derivation of~\eqref{eq:kappa} is straightforward (thanks to Kostia).
 Since the rescaled scale factor $r\left(\tau\right) = \sinh^{\frac{2}{3}}\left(\frac{3}{2}\tau\right)$ is a monotonic function of $\tau$, we can use $r$ as a measure of time instead of $\tau$.
 
 \begin{equation}
-\bar\kappa\left(r_0\right) = \int_0^{r_0}\!\bar\kappa\left(r|r_0\right)\,\mathrm dr 
+\bar\kappa\left(r_0\right) = \int_0^{r_0}\!\bar\kappa\left(r|r_0\right)\rho_r\left(r|r_0\right)\,\mathrm dr 
 \end{equation}
-\XXX{wc}{kz}{$\rho_r(r|r_0)$ is missing}
+\XXX{wc}{kz}{$\rho_r(r|r_0)$ is missing} \XXX{kz}{wc}{Fixed.}
 \noindent where we use the following definitions:
 
-\begin{equation}
-\begin{split}
-r_0 &= r\left(\tau_0\right) = \sinh^{\frac{2}{3}}\left(\frac{3}{2}\tau_0\right) \\
+\begin{align}
+r_0 &= \sinh^{\frac{2}{3}}\left(\frac{3}{2}\tau_0\right) \\
 \bar\kappa\left(r_0\right) &= \frac{\bar k\left(r_0\right)}{\delta a^4} \\
 \bar\kappa\left(r|r_0\right) &= \frac{\bar k\left(r|r_0\right)}{\delta a^4}
-\end{split}
-\end{equation}
+\end{align}
 
-\noindent Since $\tau \sim \rho_\tau\left(\tau|\tau_0\right) = \frac{\sinh^2\left(\frac{3}{2}\tau\right)}{\mathcal{N}\left(\tau_0\right)}$ where we have defined the normalization factor $\mathcal{N}\left(\tau_0\right) = \frac{1}{6}\left(\sinh\left(3\tau_0\right) - 3\tau_0\right)$ \XXX{wc}{kz}{This is not a definition, that is corollary.}, we find
+\noindent Since $\tau \sim \rho_\tau\left(\tau|\tau_0\right) = \frac{\sinh^2\left(\frac{3}{2}\tau\right)}{\mathcal{N}\left(\tau_0\right)}$ where the normalization factor $\mathcal{N}\left(\tau_0\right) = \frac{1}{6}\left(\sinh\left(3\tau_0\right) - 3\tau_0\right)$ \XXX{wc}{kz}{This is not a definition, that is corollary.} \XXX{kz}{wc}{Fixed.} is determined as a corollary, we find
 
 \begin{equation}
 \begin{split}
@@ -346,12 +292,10 @@ r_0 &= r\left(\tau_0\right) = \sinh^{\frac{2}{3}}\left(\frac{3}{2}\tau_0\right) 
 
 \noindent The rescaled average degree at "time" $r$ is given by the sum of the rescaled in- and out-degrees at this same $r$:  $\bar\kappa\left(r|r_0\right) = \bar\kappa_i\left(r|r_0\right) + \bar\kappa_o\left(r|r_0\right)$ which leads us to (108) and (109) from~\cite{ref:snc2012}.
 
-\begin{equation}
-\begin{split}
+\begin{align}
 \zeta\left(r\right) &= 2\sqrt r _2F_1\left(\frac{1}{6},\frac{1}{2};\frac{7}{6}; -r^3\right) \\
 \bar\kappa_i\left(r|r_0\right) &= \frac{4\pi}{3}\int_r^{r_0}\!\left[\zeta\left(x\right)-\zeta\left(r\right)\right]^3\frac{x^2}{\sqrt{1+x^{-3}}}\,\mathrm dx
-\end{split}
-\end{equation}
+\end{align}
 
 \noindent By following a similar approach and using (62), (88), and (108) from~\cite{ref:snc2012} we obtain a similar expression for the average out-degrees:
 
@@ -363,11 +307,11 @@ r_0 &= r\left(\tau_0\right) = \sinh^{\frac{2}{3}}\left(\frac{3}{2}\tau_0\right) 
 
 \begin{equation}
 \label{eq:kappa}
-\bar\kappa\left(r_0\right) = \frac{4\pi}{3\mathcal{N}\left(\tau_0\right)}\int_0^{r_0} \! \int_0^{r_0} \frac{\abs{\zeta\left(x\right) - \zeta\left(r\right)}^3 x^2 r^3 \sqrt r}{\sqrt{1+x^{-3}}\sqrt{1+r^3}}\,\mathrm dx\,\mathrm dr
+\bar\kappa\left(r_0\right) = \frac{4\pi}{3\mathcal{N}\left(\tau_0\right)}\int_0^{r_0} \! \int_0^{r_0} \frac{\abs{\zeta\left(x\right) - \zeta\left(r\right)}^3 x^2 r^2}{\sqrt{1+x^{-3}}\sqrt{1+r^{-3}}}\,\mathrm dx\,\mathrm dr
 \end{equation}
 
 \XXX{wc}{kz}{Let us write it in a more symmetric form: 
-	$\bar\kappa\left(\tau_0\right) = \frac{4\pi}{3\mathcal{N}\left(\tau_0\right)}\int_0^{r_0} \! \int_0^{r_0} \frac{\abs{\zeta\left(x\right) - \zeta\left(y\right)}^3 x^2 y^2 }{\sqrt{1+x^{-3}}\sqrt{1+y^{-3}}}\,\mathrm dx\,\mathrm dy$}
+	$\bar\kappa\left(\tau_0\right) = \frac{4\pi}{3\mathcal{N}\left(\tau_0\right)}\int_0^{r_0} \! \int_0^{r_0} \frac{\abs{\zeta\left(x\right) - \zeta\left(y\right)}^3 x^2 y^2 }{\sqrt{1+x^{-3}}\sqrt{1+y^{-3}}}\,\mathrm dx\,\mathrm dy$} \XXX{kz}{wc}{Fixed.}
 
 \noindent The relationship between $\kappa$ and $\tau_0$ is shown in Fig.~\ref{fig:kappa_tau}.
 Since the function is monotonic in the interval it is easy to solve for $\tau_0$ when $\kappa$ is provided as an independent variable by taking advantage of a lookup table.  
@@ -380,7 +324,7 @@ Currently it has a resolution of 0.001 and uses linear interpolation between the
 \centering
 \end{figure}
 
-\paragraph{Memory}
+\subsubsection{Memory}
 The next step requires allocating the data structures used to define a graph.  
 A graph is defined by the coordinates of its events as well as its adjacency list.  
 The list of coordinates takes 4 x 4 x N bytes at floating point precision.
@@ -388,7 +332,7 @@ The number of in- and out-degrees associated with each node is also saved - thes
 Since edges are sparse it is more economical to use an adjacency list rather than an adjacency matrix.
 Both the past and future edges (associated with in- and out-degrees respectively) are saved so that any given node can be analyzed independent from the rest of the graph.  
 Each takes 4 x (N x $\bar k$ / 2) bytes.  
-Since the actual average number of edges for a graph may be above the average of the ensemble, a buffer of 20\% is added. \XXX{wc}{kz}{How do you know that 20\% is enough? What will happen if the number of links exceed the buffer?}
+Since the actual average number of edges for a graph may be above the average of the ensemble, a buffer of 20\% is added. \XXX{wc}{kz}{How do you know that 20\% is enough? What will happen if the number of links exceed the buffer?} \XXX{kz}{wc}{20\% is not always enough, but only in rare cases does it overflow.  In this case, it just prints a warning message and the program exits.}
 Additionally, two indices pointing to locations in the adjacency lists are associated with each node to indicate where to start for a given node (the sparse pointers).
 These take 4 x N bytes each.
 Finally, a fraction of nodes indicated by the \textit{core\_edge\_ratio} parameter is allocated for an adjacency matrix so that subroutines looking for edges among the hubs (earliest events) do not suffer from long lookup times in the adjacency lists.  
@@ -396,7 +340,7 @@ This by default is set to 1\%.
 Memory is allocated and deallocated in other locations in the code as well, such as in low-level GPU functions, but the memory segments described here represent the minimal requirement to store a single graph.
 Moreover, all of these variables remain active and accessible throughout the duration of the simulation and are not freed until the very end.
 %%%%%%%%%%
-\paragraph{The Maximum Time}
+\subsubsection{The Maximum Time}
 %%%%%%%%%%
 One of the most basic constrained parameters is the maximum conformal and rescaled time of the graph.
 It serves to define the temporal boundary on the volume of the spacetime patch.  
@@ -405,19 +349,19 @@ In a 1+1 patch of spacetime without matter it is easy to derive the relation fro
 
 \begin{equation}
 \begin{split}
-\mathrm{d}V &= (a\mathrm{sec}\eta)^{\mathrm{d}+1} \, \mathrm{d}\eta \, \mathrm{d}\Phi_d \\
-   &= a^2\mathrm{sec}^2\eta \, \mathrm{d}\eta \, \mathrm{d}\theta
+\mathrm{d}V &= \left(a\sec\eta\right)^{\mathrm{d}+1}\,\mathrm{d}\eta\,\mathrm{d}\Phi_d \\
+   &= a^2\sec^2\eta\,\mathrm{d}\eta\,\mathrm{d}\theta_3
 \end{split}
 \end{equation}
-\XXX{wc}{kz}{To be consisnent with (\ref{ds^2}), $\theta$ must be repalce by $\phi$. This applies also to the next equation.}
+\XXX{wc}{kz}{To be consisnent with~\eqref{ds^2}, $\theta$ must be repalce by $\phi$. This applies also to the next equation.} \XXX{kz}{wc}{Fixed.}
 
 \noindent Integration yields the volume
 
 \begin{equation}
 \begin{split}
-V &= a^2\int_0^{\eta_0} \! \mathrm{d}\eta \int_0^{2\pi} \! \mathrm{d}\theta \, \mathrm{sec}^2\eta \\
-  &= 2\pi a^2 \int_0^{\eta_0} \! \mathrm{sec}^2\eta \, \mathrm{d}\eta \\
-  &= 2\pi a^2\mathrm{tan}\eta_0
+V &= a^2\int_0^{\eta_0}\!\mathrm{d}\eta\int_0^{2\pi}\!\mathrm{d}\theta_3\,\sec^2\eta \\
+  &= 2\pi a^2\int_0^{\eta_0}\!\sec^2\eta\,\mathrm{d}\eta \\
+  &= 2\pi a^2\tan\eta_0
 \end{split}
 \end{equation}
 
@@ -425,28 +369,25 @@ V &= a^2\int_0^{\eta_0} \! \mathrm{d}\eta \int_0^{2\pi} \! \mathrm{d}\theta \, \
 
 \begin{equation}
 \label{eq:finalN1}
-\begin{split}
-N &= \delta V \\
-N_{\mathrm{1+1}} &= 2\pi\delta a^2 \mathrm{tan}\eta_0
-\end{split}
+N_{\mathrm{1+1}} = 2\pi\delta a^2\tan\eta_0
 \end{equation}
 
 \noindent The same procedure may be applied to derive a similar relation in a 3+1 patch of spacetime without matter
 
 \begin{equation}
-\mathrm{d}V = a^4 \mathrm{sec}^4\eta \, \mathrm{d}\eta \, \mathrm{sin}^2\phi \, \mathrm{sin}\chi \, \mathrm{d}\phi \, \mathrm{d}\chi \, \mathrm{d}\theta
+\mathrm{d}V = a^4\sec^4\eta\,\mathrm{d}\eta\,\sin^2\theta_1\,\sin\theta_2\,\mathrm{d}\theta_1\,\mathrm{d}\theta_2\,\mathrm{d}\theta_3
 \end{equation}
-\XXX{wc}{kz}{To be consistent with (\ref{ds^2}), $\phi$ is $\chi$, $\chi$ is $\theta$, and $\theta$ is $\phi$}
+\XXX{wc}{kz}{To be consistent with~\eqref{ds^2}, $\phi$ is $\chi$, $\chi$ is $\theta$, and $\theta$ is $\phi$} \XXX{kz}{wc}{Fixed.}
 
 \noindent Integrate the differential volume element to get the total volume
 
 \begin{equation}
 \begin{split}
-V &= a^4 \int_0^{\eta_0} \! \mathrm{d}\eta \int_0^{2\pi} \! \mathrm{d}\theta \int_0^\pi \! \mathrm{d}\chi \int_0^\pi \! \mathrm{d}\phi \, \mathrm{sec}^4\eta \, \mathrm{sin}^2\phi \, \mathrm{sin}\chi \\
-  &= 2\pi a^4 \int_0^{\eta_0} \! \mathrm{d}\eta \int_0^\pi \! \mathrm{d}\chi \int_0^\pi \! \mathrm{d}\phi \, \mathrm{sec}^4\eta \, \mathrm{sin}^2\phi \, \mathrm{sin}\chi \\
-  &= 4\pi a^4 \int_0^{\eta_0} \! \mathrm{d}\eta \int_0^\pi \! \mathrm{d}\phi \, \mathrm{sec}^4\eta \, \mathrm{sin}^2\phi \\
-  &= 2\pi^2 a^4 \int_0^{\eta_0} \! \mathrm{sec}^4\eta \, \mathrm{d}\eta \\
-  &= \frac{2}{3}\pi^2 a^4 \, (2+\mathrm{sec}^2\eta_0) \, \mathrm{tan}\eta_0
+V &= a^4\int_0^{\eta_0}\!\mathrm{d}\eta\int_0^{2\pi}\!\mathrm{d}\theta_3\int_0^\pi\!\mathrm{d}\theta_2\int_0^\pi\!\mathrm{d}\theta_1\,\sec^4\eta\,\sin^2\theta_1\,\sin\theta_2 \\
+  &= 2\pi a^4\int_0^{\eta_0}\!\mathrm{d}\eta\int_0^\pi\!\mathrm{d}\theta_2\int_0^\pi\!\mathrm{d}\theta_1\,\sec^4\eta\,\sin^2\theta_1\,\sin\theta_2 \\
+  &= 4\pi a^4\int_0^{\eta_0}\!\mathrm{d}\eta\int_0^\pi\!\mathrm{d}\theta_1\,\sec^4\eta\,\sin^2\theta_1 \\
+  &= 2\pi^2 a^4\int_0^{\eta_0}\!\sec^4\eta\,\mathrm{d}\eta \\
+  &= \frac{2}{3}\pi^2 a^4\,\left(2+\sec^2\eta_0\right)\,\tan\eta_0
 \end{split}
 \end{equation}
 
@@ -454,83 +395,76 @@ V &= a^4 \int_0^{\eta_0} \! \mathrm{d}\eta \int_0^{2\pi} \! \mathrm{d}\theta \in
 
 \begin{equation}
 \label{eq:finalN3}
-\begin{split}
-N &= \delta V \\
-N_{\mathrm{3+1}} &= \frac{2}{3}\pi^2\delta a^4 \, (2+\mathrm{sec}^2\eta_0) \, \mathrm{tan}\eta_0
-\end{split}
+N_{\mathrm{3+1}} = \frac{2}{3}\pi^2\delta a^4\,\left(2+\sec^2\eta_0\right)\,\tan\eta_0
 \end{equation}
 
-\noindent Recall in a 3+1 patch of spacetime with matter, the maximum rescaled time is an independent parameter. \XXX{wc}{kz}{Why? $N$, $\bar{k}$, $\delta$, and $a$ are parameter, and $\tau_0$ is computed from (\ref{eq:constraints})}
+\noindent Recall in a 3+1 patch of spacetime with matter, the maximum rescaled time is an independent parameter. \XXX{wc}{kz}{Why? $N$, $\bar{k}$, $\delta$, and $a$ are parameter, and $\tau_0$ is computed from~\eqref{eq:constraint1}} \XXX{kz}{wc}{When $\bar{k}$ is specified, $\tau_0$ is constrained, and vice versa}
 In this case, the function solves for the maximum conformal time from the maximum rescaled time.
 The transformation is given by equations (52), (85), and (86) in~\cite{ref:snc2012}:
 
-\begin{equation}
-\begin{split}
+\begin{align}
 \eta &= \int_0^t\!\frac{\mathrm dt^\prime}{R\left(t^\prime\right)} \\
 R\left(t\right) &= \alpha\sinh^{\frac{2}{3}}\left(\frac{3t}{2a}\right)
-\end{split}
-\end{equation}
+\end{align}
 
 \noindent These combine to produce
 
 \begin{equation}
-\eta_0 = \frac{1}{\alpha}\int_0^{a\tau_0}\!\sinh^{\frac{-2}{3}}\left(\frac{3t^\prime}{2a}\right)
+\eta_0 = \frac{1}{\alpha}\int_0^{a\tau_0}\!\sinh^{-\frac{2}{3}}\left(\frac{3t^\prime}{2a}\right)\,\mathrm dt^\prime
 \end{equation}
-\XXX{wc}{kz}{$dt'$ is missing. }
+\XXX{wc}{kz}{$dt'$ is missing. } \XXX{kz}{wc}{Fixed.}
 
-\noindent This is calculated numerically using 1-D QNG integration in the GNU Scientific Library.  It may also be approximated with a power series.  This technique will be further discussed in the Algorithms section. \par
+\noindent This is calculated numerically using 1-D QNG integration in the GNU Scientific Library.  It may also be approximated with a power series.  This technique is described in detail in the appendix. \par
 %%%%%%%%%%
-It is often desirable to hold the average number of degrees \XXX{wc}{kz}{Do you mean ``average degree'' ?} approximately constant rather than the density of nodes or the pseudoradius.  
+It is often desirable to hold the average degree \XXX{wc}{kz}{Do you mean ``average degree'' ?} \XXX{kz}{wc}{Fixed.} approximately constant rather than the density of nodes or the pseudoradius.  
 In the cases with no matter (i.e. pure energy) the maximum conformal time may be solved via a transcendental equation if the average degrees is specified as an independent parameter.
 In a 1+1 spacetime patch the distribution of nodes in the temporal dimension is given by
 
 \begin{equation}
-\rho = \frac{\mathrm{sec}^2\eta}{\mathrm{tan}\eta_0}
+\rho = \frac{\sec^2\eta}{\tan\eta_0}
 \end{equation}
 
-\noindent with the volume of the past light cone \XXX{wc}{kz}{of the event at temporal coordinate $\eta$} written as
+\noindent with the volume of the past light cone of the event at $\eta$ \XXX{wc}{kz}{of the event at temporal coordinate $\eta$} \XXX{kz}{wc}{Fixed.} written as
 
 \begin{equation}
-V_p = \mathrm{ln} \, \mathrm{sec}\eta
+V_p = 2a^2\ln\sec\eta
 \end{equation}
-\XXX{wc}{kz}{A factor $2a^2$ is missing here and below.}
-\noindent With some algebra this simplifies \XXX{wc}{kz}{The expected volume $\bar{V_p}$ is then}
+\XXX{wc}{kz}{A factor $2a^2$ is missing here and below.} \XXX{kz}{wc}{Fixed.}
+\noindent With some algebra the expected volume becomes \XXX{wc}{kz}{The expected volume $\bar{V_p}$ is then} \XXX{kz}{wc}{Fixed.}
 
 \begin{equation}
 \begin{split}
-V_p &= \int_0^{\eta_0} \! \frac{\mathrm{sec}^2\eta}{\mathrm{tan}\eta_0} \, \mathrm{ln} \, \mathrm{sec}\eta \, \mathrm{d}\eta \\
-  &= \frac{1}{\mathrm{tan}\eta_0} \, \lbrack \eta + \mathrm{tan}\eta (\mathrm{ln} \, \mathrm{sec}\eta - 1) \rbrack_0^{\eta_0} \\
-  &= \frac{1}{\mathrm{tan}\eta_0} \, \lbrack \eta_0 + \mathrm{tan}\eta_0 (\mathrm{ln} \, \mathrm{sec}\eta_0 - 1) \rbrack \\
-  &= \frac{\eta_0}{\mathrm{tan}\eta_0} + \mathrm{ln} \, \mathrm{sec}\eta_0 - 1
+V_p &= 2a^2\int_0^{\eta_0}\!\frac{\sec^2\eta}{\tan\eta_0}\,\ln\,\sec\eta\,\mathrm{d}\eta \\
+  &= \frac{2a^2}{\tan\eta_0}\,\lbrack\eta + \tan\eta\left(\ln\,\sec\eta - 1\right)\rbrack_0^{\eta_0} \\
+  &= \frac{2a^2}{\tan\eta_0}\,\lbrack\eta_0 + \tan\eta_0\left(\ln\,\sec\eta_0 - 1\right)\rbrack \\
+  &= 2a^2\left(\frac{\eta_0}{\tan\eta_0} + \ln\,\sec\eta_0 - 1\right)
 \end{split}
 \end{equation}
 
-\noindent Similarly, the volume of the future light cone is
+\noindent Similarly, the volume of the future light cone of the event at $\eta$ is
 
 \begin{equation}
-V_f = (\eta_0 - \eta) \, \mathrm{tan}\eta_0 + \mathrm{ln} \, \left(\frac{\mathrm{sec}\eta}{\mathrm{sec}\eta_0}\right)
+V_f = 2a^2\left(\left(\eta_0 - \eta\right)\,\tan\eta_0 + \ln\,\left(\frac{\sec\eta}{\sec\eta_0}\right)\right)
 \end{equation}
 
-\noindent which simplifies as well \XXX{wc}{kz}{The expected volume:}
+\noindent and the expected volume of the future light cone becomes \XXX{wc}{kz}{The expected volume:} \XXX{kz}{wc}{Fixed.}
 
 \begin{equation}
 \begin{split}
-V_f &= \int_0^{\eta_0} \! \frac{\mathrm{sec}^2\eta}{\mathrm{tan}\eta_0} \left[ (\eta_0 - \eta) \, \mathrm{tan}\eta_0 + \ln\left(\frac{\sec\eta}{\sec\eta_0}\right) \right] \, \mathrm{d}\eta \\
-  &= \frac{1}{\tan\eta_0} \left[ \eta_0\tan\eta_0 \int_0^{\eta_0} \! \sec^2\eta \, \mathrm{d}\eta - \tan\eta_0 \int_0^{\eta_0} \! \eta\sec^2\eta \, \mathrm{d}\eta \right. \\ & \left.\,\,\,\,\, + \int_0^{\eta_0} \! \sec^2\eta\ln\sec\eta \, \mathrm{d}\eta - \ln\sec\eta_0 \int_0^{\eta_0} \! \sec^2\eta \, \mathrm{d}\eta \right] \\
-  &= \frac{1}{\tan\eta_0} \left[ \eta_0\tan^2\eta_0 - \eta_0\tan^2\eta_0 + \tan\eta_0\ln\sec\eta_0 \right. \\ & \left. \,\,\,\,\, + \eta_0 + \tan\eta_0\left(\ln\sec\eta_0 - 1\right) - \tan\eta_0\ln\sec\eta_0 \right] \\
-  &= \frac{\eta_0}{\tan\eta_0} + \ln\sec\eta_0 - 1
+V_f &= 2a^2\int_0^{\eta_0} \! \frac{\sec^2\eta}{\tan\eta_0} \left[\left(\eta_0 - \eta\right)\,\tan\eta_0 + \ln\left(\frac{\sec\eta}{\sec\eta_0}\right) \right]\,\mathrm{d}\eta \\
+  &= \frac{2a^2}{\tan\eta_0}\left[\eta_0\tan\eta_0\int_0^{\eta_0}\!\sec^2\eta\,\mathrm{d}\eta - \tan\eta_0 \int_0^{\eta_0}\!\eta\sec^2\eta\,\mathrm{d}\eta\right. \\ & \left.\,\,\,\,\, + \int_0^{\eta_0}\!\sec^2\eta\ln\sec\eta\,\mathrm{d}\eta - \ln\sec\eta_0\int_0^{\eta_0}\!\sec^2\eta\,\mathrm{d}\eta\right] \\
+  &= \frac{2a^2}{\tan\eta_0}\left[\eta_0\tan^2\eta_0 - \eta_0\tan^2\eta_0 + \tan\eta_0\ln\sec\eta_0\right. \\ & \left.\,\,\,\,\, + \eta_0 + \tan\eta_0\left(\ln\sec\eta_0 - 1\right) - \tan\eta_0\ln\sec\eta_0\right] \\
+  &= 2a^2\left(\frac{\eta_0}{\tan\eta_0} + \ln\sec\eta_0 - 1\right)
 \end{split}
 \end{equation}
 
-\noindent We now see the two \XXX{wc}{kz}{expected} volumes are indeed equal
+\noindent We now see the two expected \XXX{wc}{kz}{expected} \XXX{kz}{wc}{Fixed.} volumes are indeed equal
 
-\begin{equation}
-\begin{split}
+\begin{align}
 V_p &= V_f \\
-\bar{k} &= 2a^2\delta \left( V_p + V_f \right)
-\end{split}
-\end{equation}
-\XXX{wc}{kz}{$2a^2$ is not needed here.}
+\bar{k} &= \delta\left( V_p + V_f \right)
+\end{align}
+\XXX{wc}{kz}{$2a^2$ is not needed here.} \XXX{kz}{wc}{Fixed.}
 \noindent and we arrive at the final result for a 1+1 patch:
 
 \begin{equation}
@@ -548,11 +482,11 @@ V_p &= V_f \\
 \noindent A similar strategy may applied to a 3+1 patch of spacetime with no matter.  The volume of the past light cone is given by the expression
 
 \begin{align}
-V_p\left(\eta\right) &= \int_0^\eta \! \mathrm d\eta^\prime \, \int_0^{\eta-\eta^\prime} \! \mathrm d\phi \, \int_0^{2\pi}\!\mathrm d\theta\, \int_0^\pi\!\mathrm d\chi\, a^4\sec^4\eta^\prime\sin^2\phi\sin\chi \\
-  &= 2a^4\int_0^\eta\!\mathrm d\eta^\prime\, \int_0^{\eta-\eta^\prime}\!\mathrm d\phi\, \int_0^{2\pi}\!\mathrm d\theta\, \sec^4\eta^\prime\sin^2\phi \\
-  &= 4\pi a^4 \int_0^\eta\!\mathrm d\eta^\prime\,\int_0^{\eta-\eta^\prime}\!\mathrm d\phi\, \sec^4\eta^\prime\sin^2\phi \\
+V_p\left(\eta\right) &= \int_0^\eta \! \mathrm d\eta^\prime \, \int_0^{\eta-\eta^\prime} \! \mathrm d\theta_1 \, \int_0^{2\pi}\!\mathrm d\theta_3\, \int_0^\pi\!\mathrm d\theta_2\, a^4\sec^4\eta^\prime\sin^2\theta_1\sin\theta_2 \\
+  &= 2a^4\int_0^\eta\!\mathrm d\eta^\prime\, \int_0^{\eta-\eta^\prime}\!\mathrm d\theta_1\, \int_0^{2\pi}\!\mathrm d\theta_3\, \sec^4\eta^\prime\sin^2\theta_1 \\
+  &= 4\pi a^4 \int_0^\eta\!\mathrm d\eta^\prime\,\int_0^{\eta-\eta^\prime}\!\mathrm d\theta_1\, \sec^4\eta^\prime\sin^2\theta_1 \\
   &\qquad\begin{aligned}
-    \int_0^{\eta-\eta^\prime}\!\sin^2\phi\,\mathrm d\phi = \frac{1}{2}\left[\eta-\eta^\prime\right.&\left.+\sin\eta\cos\eta\left(1-2\cos^2\eta^\prime\right)\right. \\
+    \int_0^{\eta-\eta^\prime}\!\sin^2\theta_1\,\mathrm d\theta_1 = \frac{1}{2}\left[\eta-\eta^\prime\right.&\left.+\sin\eta\cos\eta\left(1-2\cos^2\eta^\prime\right)\right. \\
     &\left.-\sin\eta^\prime\cos\eta^\prime\left(1-2\cos^2\eta\right)\right]
   \end{aligned} \\
   &\begin{aligned}
@@ -592,7 +526,7 @@ V_p\left(\eta\right) &= \int_0^\eta \! \mathrm d\eta^\prime \, \int_0^{\eta-\eta
   &=\frac{2\pi\delta a^4}{2+\sec^2\eta_0}\left[\frac{4}{3}\frac{\eta_0}{\tan\eta_0} - \frac{7}{9} + \frac{4}{3}\ln\sec\eta_0 - \frac{5}{9}\sec^2\eta_0 + \frac{2}{3}\sec^2\eta_0\ln\sec\eta_0\right]
 \end{align}
 
-\noindent Once again recognizing the two \XXX{wc}{kz}{expected} volumes are equal saves some work
+\noindent Once again recognizing the two expected \XXX{wc}{kz}{expected} \XXX{kz}{wc}{Fixed.} volumes are equal saves some work
 
 \begin{equation}
 \bar{k} = 2\bar{k_o}
@@ -620,7 +554,7 @@ V_p\left(\eta\right) &= \int_0^\eta \! \mathrm d\eta^\prime \, \int_0^{\eta-\eta
 
 \noindent so at this point it is easy to obtain the rescaled time for pure-energy graphs.
 %%%%%%%%%%
-\paragraph{Generating Nodes}
+\subsubsection{Generating Nodes}
 %%%%%%%%%%
 Generating the spacetime coordinates of the nodes is the next task.  
 In \textit{d}+1 dimensions we draw \textit{d} spatial coordinates from the surface of a unit \textit{d}-sphere.  
@@ -630,12 +564,10 @@ In a 3+1 spacetime two more angles $\theta_1$ and $\theta_2$ are drawn from the 
 On the other hand, generating the temporal coordinates is different for each topology.
 When there is no matter, conformal times are drawn between 0 and $\eta_0$:
 
-\begin{equation}
-\begin{split}
+\begin{align}
 \rho_{1+1}\left(\eta|\eta_0\right) &= \frac{\sec^2\eta}{\tan\eta_0} \\
 \rho_{3+1}\left(\eta|\eta_0\right) &= \frac{3\sec^4\eta}{\left(2+\sec^2\eta_0\right)\tan\eta_0}
-\end{split}
-\end{equation}
+\end{align}
 
 \noindent When dust matter is present rescaled times are drawn between 0 and $\tau_0$ from the distribution
 
@@ -644,19 +576,19 @@ When there is no matter, conformal times are drawn between 0 and $\eta_0$:
 \rho_{3+1}\left(\tau|\tau_0\right) = \frac{6\sinh^2\left(\frac{3}{2}\tau\right)}{\sinh\left(3\tau_0\right) - 3\tau_0}
 \end{equation}
 
-\noindent This distribution is shown in Figure~\ref{fig:tau_cdf} for the indicated parameters \XXX{wc}{kz}{This distribution has only one parameter, $\tau_0$}.
+\noindent This distribution is shown in Figure~\ref{fig:tau_cdf} for the indicated parameter \XXX{wc}{kz}{This distribution has only one parameter, $\tau_0$} \XXX{kz}{wc}{Fixed.}.
 For each node, both its conformal and rescaled time are stored in memory to avoid redundant calculations in the measurement stages.
 This requires only 4 x N extra bytes of memory so the tradeoff is worthwhile.
 
 \begin{figure}
 \includegraphics[width=10cm]{figures/tau_dist.jpg}
-\caption{Cumulative distribution function of rescaled times for N = 10240, $\tau$ = 4, a = 1, and $\delta$ = 1.  The blue curve represents the theoretical distribution.}
+\caption{Cumulative distribution function of rescaled times for $\tau$ = 4.  The blue curve represents the theoretical distribution.}
 \label{fig:tau_cdf}
 \centering
 \end{figure}
 
 %%%%%%%%%%
-\paragraph{Linking Nodes with the CPU}
+\subsubsection{Linking Nodes with the CPU}
 %%%%%%%%%%
 Two events are said to be connected if there is a causal relation between them.  
 Mathematically, this means if the Lorentzian inner product $\langle \vec x - \vec y, \vec x - \vec y\rangle$ is negative then the events are time-like separated and the two nodes located at coordinates $x$ and $y$ are connected.  
@@ -704,7 +636,7 @@ It is important to have these two values be very close to their target values so
 Small fluctuations mean there is a large degree of control over the graphs produced by any given parameters, so the measured values have higher precision.
 The number of nodes of degree two or higher is also calculated since it's a useful statistical quantity.
 %%%%%%%%%%
-\paragraph{Linking Nodes with the GPU}
+\subsubsection{Linking Nodes with the GPU}
 %%%%%%%%%%
 
 \begin{figure}
@@ -719,7 +651,7 @@ The pairwise comparison may be viewed as non-zero elements of an upper triangula
 In greater detail, splitting this matrix into four quadrants yields a triangular portion in both the upper-left and lower-right quadrants and a full square matrix in the upper-right quadrant.
 By mapping the lower-right quadrant's values to the lower triangle in the upper-left quadrant, we are left with two densely packed square matrices in the upper half of the original matrix, each of width $width$. \par
 %%%%%%%%%%
-If $N(N-1)/4$ threads are launched, each thread can compare two pairs of nodes - one if \XXX{wc}{kz}{in?} the upper left quadrant and one in the upper-right quadrant of the original matrix.
+If $N(N-1)/4$ threads are launched, each thread can compare two pairs of nodes - one in \XXX{wc}{kz}{in?} \XXX{kz}{wc}{Fixed.} the upper left quadrant and one in the upper-right quadrant of the original matrix.
 For the purposes of this algorithm, threads indexed in the upper triangle of the upper-left quadrant is designated with the \textit{a} label, the lower triangle of the same quadrant with the \textit{b} label, and the upper right-quadrant with the \textit{c} label.  
 Hence, each thread addresses an \textit{a} or \textit{b} pair as well as a \textit{c} pair.  
 The method for determining the four nodes assigned to a given thread is shown below:
@@ -819,39 +751,6 @@ It is written in this manner because it is both easy to sort and it allows for c
 \end{lstlisting}
 %%%%%%%%%%
 
-\begin{comment}
-
-\subsubsection{Serial Algorithms}
-%%%%%%%%%%
-Here we review notable algorithms used in the serial implementation of the program.
-%%%%%%%%%%
-\paragraph{Quicksort}
-%%%%%%%%%%
-The quicksort is used simply to put the nodes in ascending temporal order after the coordinates are generated.
-%%%%%%%%%%
-\paragraph{Newton-Raphson Method}
-%%%%%%%%%%
-The Newton-Raphson method is used to find roots of transcendental equations numerically.  
-It is used here to solve for maximum conformal time in~\eqref{eq:trans1},~\eqref{eq:trans3}, and the first equation of ~\eqref{eq:constraints} with 10,000 iterations as well as for the temporal coordinates of nodes in a 3+1 spacetime (~\eqref{eq:rhoeta3} and~\eqref{eq:rhotau3}) with 1,000 iterations each.  
-The first angle of each node $\theta_1$ is also found by using Netwon-Raphson with 250 iterations each.
-%%%%%%%%%%
-\paragraph{Bisection Method}
-%%%%%%%%%%
-The bisection method is used when the Newton-Raphson method fails to converge due to the large slope of functions such as $\sinh\tau$.  
-The method works like a binary search with a given margin of error.
-%%%%%%%%%%
-\subsubsection{Parallel Algorithms}
-\paragraph{Prefix Sum}
-\paragraph{Bitonic Sort}
-%%%%%%%%%%
-\subsection{General Validation Tests}
-\subsubsection{Creating Networks with the CPU}
-\subsubsection{Creating Networks with the GPU}
-\subsubsection{Reading Networks}
-%%%%%%%%%%
-
-\end{comment}
-
 \section{Measurements}
 %description/purpose
 %analytical/theoretical
@@ -865,13 +764,9 @@ We expect the expected average degrees of a network to be a Poissonian distribut
 Because points are scattered via a Poisson process, the fluctuations from the average degrees will be Poissonian in their form.  
 For each of the sets of parameters listed below, a sample of 1000 graphs was produced and compared to the theoretical curves:
 
-%1+1 for N = 24586, k = 5.53
-%3+1 for N = 25441, k = 5.29
-%uni for N = 10240, tau_0 = 4, a = 1, delta = 1
-
 \begin{figure}
 \includegraphics[width=10cm]{figures/Average_Degree.jpg}
-\caption{Distribution of the resulting average degree for $N = 10240$, $\tau_0$ = 4, $a = 1$, $\delta = 1$.  The target average degree was constrained by these parameters to be 12.8788.\XXX{wc}{kz}{The expected average degree seems to be much smaller, about $9$. So this plot shows that for this set of parameters we can't really generate graphs with the desired $\bar{k}$. In this plot, is it the average degree in the whole graph, or only in its giant component? (BTW, why do you use $\tau_0$ is a parameter, and not $\bar{k}$?). It is interestig to see the plot $\bar{k}$ (target) versus expected average degree in generated graphs (both full graphs and giant components) $\langle\bar{k}\rangle$ (obtained), for fixed values of $N, \delta$, and $a$.} }
+\caption{Distribution of the resulting average degree for $N = 10240$, $\tau_0$ = 4, $a = 1$, $\delta = 1$.  The target average degree was constrained by these parameters to be 12.8788.\XXX{wc}{kz}{The expected average degree seems to be much smaller, about $9$. So this plot shows that for this set of parameters we can't really generate graphs with the desired $\bar{k}$. In this plot, is it the average degree in the whole graph, or only in its giant component? (BTW, why do you use $\tau_0$ is a parameter, and not $\bar{k}$?). It is interestig to see the plot $\bar{k}$ (target) versus expected average degree in generated graphs (both full graphs and giant components) $\langle\bar{k}\rangle$ (obtained), for fixed values of $N, \delta$, and $a$.} \XXX{kz}{wc}{Yes, this is correct.  What I found is that the average degree does not differ much for the whole graph vs giant component - they are nearly equivalent.  Also, as I mentioned earlier, $\tau_0$ and $\bar{k}$ are interchangeable as constraints.  Here I used the former to avoid confusion.  I am going to add more of these graphs for different parameters to see how things scale.} }
 \label{fig:avg_deg_uni}
 \centering
 \end{figure}
@@ -890,7 +785,7 @@ The number of isolated nodes may be solve analytically for a 1+1 spacetime with 
 P(x) = \frac{\left(\delta V\right)^x}{x!}e^{-\delta V}
 \end{equation}
 
-\noindent The probability a node is isolated at conformal time $\eta$ is given by this expression, where $x=0$ is the expected number of nodes \XXX{wc}{kz}{just the number of nodes, not expected.} in the sum of the light cone volumes $V=V_p\left(\eta\right)+V_f\left(\eta\right)$.  
+\noindent The probability a node is isolated at conformal time $\eta$ is given by this expression, where $x=0$ is the number of nodes \XXX{wc}{kz}{just the number of nodes, not expected.} \XXX{kz}{wc}{Fixed.} in the sum of the light cone volumes $V=V_p\left(\eta\right)+V_f\left(\eta\right)$.  
 Manipulating this expression yields
 
 \begin{equation}
@@ -916,18 +811,20 @@ P\left(0\right) &= e^{-2\delta a^2\left[\left(\eta_0-\eta\right)\tan\eta_0 + \ln
 
 \begin{equation}
 \begin{split}
-\int_0^a\!\cos^bx\exp{cx}\,\mathrm dx = &\frac{\left(1+\exp{2ia}\right)\exp{ac}\cos^ba}{c-ib} {}_2F_1\left(1,\frac{b}{2}+1-i\frac{c}{2};1-\frac{b}{2}-i\frac{c}{2};-\exp{2ia}\right) \\
+\int_0^a\!\cos^bxe^{cx}\,\mathrm dx = &\frac{\left(1+e^{2ia}\right)e^{ac}\cos^ba}{c-ib} {}_2F_1\left(1,\frac{b}{2}+1-i\frac{c}{2};1-\frac{b}{2}-i\frac{c}{2};-e^{2ia}\right) \\
 & - \frac{2}{c-ib} {}_2F_1\left(1,\frac{b}{2}+1-i\frac{c}{2};1-\frac{b}{2}-i\frac{c}{2};-1\right)
 \end{split}
 \end{equation}
-\XXX{wc}{kz}{$\exp(ac)$}
+\XXX{wc}{kz}{$\exp(ac)$} \XXX{kz}{wc}{Fixed.}
 
 \noindent so in the present case we find
 
 \begin{equation}
 \begin{split}
-\int_0^{\eta_0}\!\left(\cos\eta\right)^{4\delta a^2 - 2}\exp{2\delta a^2\eta\tan\eta_0}\,\mathrm d\eta = &\frac{\left(1+\exp{2i\eta_0}\right)\exp{2\delta a^2\eta_0\tan\eta_0}\left(\cos\eta_0\right)^{4\delta a^2 - 2}}{2\delta a^2\tan\eta_0 - i\left(4\delta a^2 - 2\right)} {}_2F_1\left(1,2\delta a^2 - i\delta a^2\tan\eta_0;2-2\delta a^2 - i\delta a^2\tan\eta_0;-\exp{2i\eta_0}\right) \\
-& - \frac{1}{\delta a^2\tan\eta_0 - i\left(2\delta a^2 - 1\right)} {}_2F_1\left(1,2\delta a^2-i\delta a^2\tan\eta_0;2-2\delta a^2-i\delta a^2\tan\eta_0;-1\right)
+\int_0^{\eta_0}\!\left(\cos\eta\right)^{4\delta a^2 - 2}&e^{2\delta a^2\eta\tan\eta_0}\,\mathrm d\eta = \left[\frac{\left(1+e^{2i\eta_0}\right)e^{2\delta a^2\eta_0\tan\eta_0}\left(\cos\eta_0\right)^{4\delta a^2 - 2}}{2\delta a^2\tan\eta_0 - i\left(4\delta a^2 - 2\right)}\right. \\
+&\left.\times{}_2F_1\left(1,2\delta a^2 - i\delta a^2\tan\eta_0;2-2\delta a^2 - i\delta a^2\tan\eta_0;-e^{2i\eta_0}\right)\right] \\
+& - \left[\frac{1}{\delta a^2\tan\eta_0 - i\left(2\delta a^2 - 1\right)}\right. \\
+&\left.\times{}_2F_1\left(1,2\delta a^2-i\delta a^2\tan\eta_0;2-2\delta a^2-i\delta a^2\tan\eta_0;-1\right)\right]
 \end{split}
 \end{equation}
 
@@ -935,14 +832,14 @@ P\left(0\right) &= e^{-2\delta a^2\left[\left(\eta_0-\eta\right)\tan\eta_0 + \ln
 
 \begin{equation}
 \begin{split}
-\bar{N}_0 &\sim N\frac{\exp{-2\delta a^2\eta_0\tan\eta_0}\left(\cos\eta_0\right)^{-2\delta a^2}}{\tan\eta_0}\frac{\left(1+\exp{2i\eta_0}\right)\exp{2\delta a^2\eta_0}\left(\cos\eta_0\right)^{4\delta a^2-2}}{2\delta a^2\tan\eta_0 - i\left(4\delta a^2 - 2\right)} \\
-& \quad\times {}_2F_1\left(1,2\delta a^2 - i\delta a^2\tan\eta_0;2-2\delta a^2 - i\delta a^2\tan\eta_0;-\exp{2i\eta_0}\right) \\
-&\sim N\frac{\left(1+\exp{2i\eta_0}\right)\left(\cos\eta_0\right)^{2\delta a^2 - 2}}{2\delta a^2\left(\tan\eta_0\right)^2} {}_2F_1\left(1,2\delta a^2-i\delta a^2\tan\eta_0;2-2\delta-i\delta a^2\tan\eta_0;-\exp{2i\eta_0}\right) \\
-&\sim N\frac{\left(1+\exp{2i\eta_0}\right)\left(\cos\eta_0\right)^{2\delta a^2}}{2\delta a^2} {}_2F_1\left(1,2\delta a^2-i\delta a^2\tan\eta_0;2-2\delta-i\delta a^2\tan\eta_0;-\exp{2i\eta_0}\right)
+\bar{N}_0 &\sim N\frac{e^{-2\delta a^2\eta_0\tan\eta_0}\left(\cos\eta_0\right)^{-2\delta a^2}}{\tan\eta_0}\frac{\left(1+e^{2i\eta_0}\right)e^{2\delta a^2\eta_0}\left(\cos\eta_0\right)^{4\delta a^2-2}}{2\delta a^2\tan\eta_0 - i\left(4\delta a^2 - 2\right)} \\
+& \quad\times {}_2F_1\left(1,2\delta a^2 - i\delta a^2\tan\eta_0;2-2\delta a^2 - i\delta a^2\tan\eta_0;-e^{2i\eta_0}\right) \\
+&\sim N\frac{\left(1+e^{2i\eta_0}\right)\left(\cos\eta_0\right)^{2\delta a^2 - 2}}{2\delta a^2\left(\tan\eta_0\right)^2} {}_2F_1\left(1,2\delta a^2-i\delta a^2\tan\eta_0;2-2\delta-i\delta a^2\tan\eta_0;-e^{2i\eta_0}\right) \\
+&\sim N\frac{\left(1+e^{2i\eta_0}\right)\left(\cos\eta_0\right)^{2\delta a^2}}{2\delta a^2} {}_2F_1\left(1,2\delta a^2-i\delta a^2\tan\eta_0;2-2\delta-i\delta a^2\tan\eta_0;-e^{2i\eta_0}\right)
 \end{split}
 \end{equation}
 
-\noindent This can be reduced by implementing the Pfaff transformation, defined as \XXX{wc}{kz}{this is not a definition, it is a theorem, a property of the hypergeometric function.}
+\noindent This can be reduced by implementing the Pfaff transformation: \XXX{wc}{kz}{this is not a definition, it is a theorem, a property of the hypergeometric function.} \XXX{kz}{wc}{Fixed.}
 
 \begin{equation}
 {}_2F_1\left(a,b;c;z\right) = \left(1-z\right)^{-a} {}_2F_1\left(a,c-b;c;\frac{z}{z-1}\right)
@@ -952,15 +849,15 @@ P\left(0\right) &= e^{-2\delta a^2\left[\left(\eta_0-\eta\right)\tan\eta_0 + \ln
 
 \begin{equation}
 \begin{split}
-\bar{N}_0 \sim &N\frac{\left(1+\exp{2i\eta_0}\right)\left(\cos\eta_0\right)^{2\delta a^2}}{2\delta a^2}\left(1+\exp{2i\eta_0}\right)^{-1} \\
-&\quad \times {}_2F_1\left(1,2-4\delta a^2;2-2\delta a^2-i\delta a^2\tan\eta_0;\frac{\exp{2i\eta_0}}{1+\exp{2i\eta_0}}\right)
+\bar{N}_0 \sim &N\frac{\left(1+e^{2i\eta_0}\right)\left(\cos\eta_0\right)^{2\delta a^2}}{2\delta a^2}\left(1+e^{2i\eta_0}\right)^{-1} \\
+&\quad \times {}_2F_1\left(1,2-4\delta a^2;2-2\delta a^2-i\delta a^2\tan\eta_0;\frac{e^{2i\eta_0}}{1+e^{2i\eta_0}}\right)
 \end{split}
 \end{equation}
 
 \noindent and by using the approximations (as $\eta_0\to\frac{\pi}{2}$)
 
 \begin{equation}
-\exp{2i\eta_0}\to -1;\quad 1+\exp{2i\eta_0}\to 2i\left(\frac{\pi}{2} - \eta_0\right);\quad \tan\eta_0\to\frac{1}{\frac{\pi}{2}-\eta_0}
+e^{2i\eta_0}\to -1;\quad 1+e^{2i\eta_0}\to 2i\left(\frac{\pi}{2} - \eta_0\right);\quad \tan\eta_0\to\frac{1}{\frac{\pi}{2}-\eta_0}
 \end{equation}
 
 we arrive at the equation
@@ -976,16 +873,17 @@ Since the average number of isolated nodes is known to be a real number, it make
 To do this, we need to apply four new relations:
 
 \begin{enumerate}
-  \item 
+  \item For $a - b\notin \mathbb{Z}$ and $x\notin\left(0, 1\right)$,
   \begin{equation}
+    \label{eq:2F1transform}
     \begin{split}
-    {}_2F_1\left(a,b;c;x\right) =& \frac{\Gamma\left(b-a\right)\Gamma\left(c\right)}{\Gamma\left(b\right)\Gamma\left(c-b\right)}\left(-x\right)^{-a} {}_2F_1\left(a,a-c+1;a-b+1;\frac{1}{x}\right) \\
+    {}_2F_1\left(a,b;c;x\right) =& \frac{\Gamma\left(b-a\right)\Gamma\left(c\right)}{\Gamma\left(b\right)\Gamma\left(c-b\right)}\left(-x\right)^{-a} {}_2F_1\left(a,a-c+1;a-b+1;\frac{1}{x}\right) + \\
     & \frac{\Gamma\left(a-b\right)\Gamma\left(c\right)}{\Gamma\left(a\right)\Gamma\left(c-b\right)}\left(-x\right)^{-b} {}_2F_1\left(b,b-c+1;-a+b+1;\frac{1}{x}\right)
     \end{split}
   \end{equation}
-  \XXX{wc}{kz}{This is true if $a-b\notin \mathbb{Z}$, and $x\notin(0,1).$}
+  \XXX{wc}{kz}{This is true if $a-b\notin \mathbb{Z}$, and $x\notin(0,1).$} \XXX{kz}{wc}{Added above equation.}
 
-  \item The Kummer hypergeometric function is defined as \XXX{wc}{kz}{Again, it is not a definition, it is (an elementary) property of the Kummer hypergeometric function proved in my notes.}
+  \item The Kummer hypergeometric function is \XXX{wc}{kz}{Again, it is not a definition, it is (an elementary) property of the Kummer hypergeometric function proved in my notes.} \XXX{kz}{wc}{Fixed.}
   \begin{equation}
   {}_1F_1\left(a;c;bd\right) = \lim_{x\to\infty} {}_2F_1\left(a,bx;c;\frac{d}{x}\right)
   \end{equation}
@@ -996,10 +894,11 @@ To do this, we need to apply four new relations:
   \end{equation}
 
   \item
-  \begin{equation}\label{78}
-  {}_1F_1\left(1;a;b\right) = \left(a-1\right)\exp{b}b^{1-a}\left(\Gamma\left(a-1\right)-\Gamma\left(a-1,b\right)\right)
+  \begin{equation}
+  \label{eq:1F1_limit}
+  {}_1F_1\left(1;a;b\right) = \left(a-1\right)e^{b}b^{1-a}\left(\Gamma\left(a-1\right)-\Gamma\left(a-1,b\right)\right)
   \end{equation}
-  \XXX{wc}{kz}{$\exp(b)$}
+  \XXX{wc}{kz}{$\exp(b)$} \XXX{kz}{wc}{Fixed.}
 \end{enumerate}
 
 \noindent By using the definitions $\alpha\equiv 2-4\delta a^2$, $\beta\equiv -i\delta a^2$, $\gamma\equiv\frac{i}{2}$, and $x\equiv\tan\eta_0$ and the relations
@@ -1008,23 +907,23 @@ To do this, we need to apply four new relations:
 \begin{split}
 {}_2F_1\left(1,\alpha;\beta x;\gamma x\right) &= \frac{\Gamma\left(\alpha-1\right)\Gamma\left(\beta x\right)}{\Gamma\left(\alpha\right)\Gamma\left(\beta x-1\right)}\left(-\gamma x\right)^{-1} {}_2F_1\left(1,2-\beta x;2-\alpha;\frac{1}{\gamma x}\right) \\
 &\quad + \frac{\Gamma\left(1-\alpha\right)\Gamma\left(\beta x\right)}{\Gamma\left(1\right)\Gamma\left(\beta x-\alpha\right)}\left(-\gamma x\right)^{-\alpha} {}_2F_1\left(\alpha,\alpha+1-\beta x;\alpha;\frac{1}{\gamma x}\right) \\
-&= \frac{\beta x-1}{\left(\alpha-1\right)\left(-\gamma x\right)} {}_1F_1\left(1;2-\alpha;-\frac{\beta}{\gamma}\right) \\
+&\rightarrow \frac{\beta x-1}{\left(\alpha-1\right)\left(-\gamma x\right)} {}_1F_1\left(1;2-\alpha;-\frac{\beta}{\gamma}\right) \\
 &\quad + \frac{\Gamma\left(1-\alpha\right)\left(\beta x\right)^\alpha}{\left(-\gamma x\right)^\alpha} {}_1F_1\left(\alpha;\alpha;-\frac{\beta}{\gamma}\right)
 \end{split}
 \end{equation}
-\XXX{wc}{kz}{The last $=$ should be replaced by $\rightarrow$}
-\noindent as well as the limit \XXX{wc}{kz}{Using (\ref{78}), we obtain}
+\XXX{wc}{kz}{The last $=$ should be replaced by $\rightarrow$} \XXX{kz}{wc}{Fixed.}
+\noindent as well as the limit with~\eqref{eq:1F1_limit}, we obtain \XXX{wc}{kz}{Using~\eqref{eq:1F1_limit}, we obtain} \XXX{kz}{wc}{Fixed.}
 
 \begin{equation}
-\lim_{x\to\infty} {}_2F_1\left(1,\alpha;\beta x;\gamma x\right) = \exp{-\beta/\gamma}\left(-\frac{\beta}{\gamma}\right)^\alpha\Gamma\left(1-\alpha,-\frac{\beta}{\gamma}\right)
+\lim_{x\to\infty} {}_2F_1\left(1,\alpha;\beta x;\gamma x\right) = e^{-\beta/\gamma}\left(-\frac{\beta}{\gamma}\right)^\alpha\Gamma\left(1-\alpha,-\frac{\beta}{\gamma}\right)
 \end{equation}
 
-\noindent we arrive at the result
+\noindent and finally arrive at the result
 
 \begin{equation}
-\bar{N}_0 \sim N\left(\exp{}\cos\eta_0\right)^{2\delta a^2}\left(2\delta a^2\right)^{1-4\delta a^2}\Gamma\left(4\delta a^2-1,2\delta a^2\right)
+\bar{N}_0 \sim N\left(e\cos\eta_0\right)^{2\delta a^2}\left(2\delta a^2\right)^{1-4\delta a^2}\Gamma\left(4\delta a^2-1,2\delta a^2\right)
 \end{equation}
-\XXX{wc}{kz}{It is not $\exp$, it is a number $e$ :)}
+\XXX{wc}{kz}{It is not $\exp$, it is a number $e$ :)} \XXX{kz}{wc}{Fixed.}
 
 \noindent For a 3+1 spacetime it does not appear to be possible to obtain a closed-form analogue of this solution.  
 
@@ -1035,7 +934,7 @@ To do this, we need to apply four new relations:
 
 \begin{figure}
 \includegraphics[width=10cm]{figures/Isolated_Nodes.jpg}
-\caption{The distribution of isolated nodes taken over a sample of 1000 graphs.  These graphs were constrained by the parameters $N = 10240$, $\tau_0 = 4$, $a = 1$, and $\delta = 1$. \XXX{wc}{kz}{It seems that the expected number of isolated nodes is less than 1\% of the full network. So they alone should not strongly affect the average degree. But the problem is that there are non-isolated nodes that do not belong to the giant component. Their fraction is bigger.}}
+\caption{The distribution of isolated nodes taken over a sample of 1000 graphs.  These graphs were constrained by the parameters $N = 10240$, $\tau_0 = 4$, $a = 1$, and $\delta = 1$. \XXX{wc}{kz}{It seems that the expected number of isolated nodes is less than 1\% of the full network. So they alone should not strongly affect the average degree. But the problem is that there are non-isolated nodes that do not belong to the giant component. Their fraction is bigger.} \XXX{kz}{wc}{Yes, this is correct, but from the size of the giant component you can see most of the time the giant component strongly dominates.}}
 \label{fig:iso_nodes_uni}
 \centering
 \end{figure}
@@ -1066,21 +965,21 @@ Therefore by counting the number of nodes which have matching IDs it is easy to 
 
 \begin{figure}
 \includegraphics[width=10cm]{figures/Giant_Component.jpg}
-\caption{The size of the giant component in a sample of 1000 graphs.  These were constrained by the parameters $N = 10240$, $\tau_0 = 4$, $a = 1$, and $\delta = 1$. \XXX{wc}{kz}{It would be interesting to see the plot of the expected relative size of the giant component $\langle\mathcal{G}\rangle/N$ as a function of $\bar{k}$ and $a$, }}
+\caption{The size of the giant component in a sample of 1000 graphs.  These were constrained by the parameters $N = 10240$, $\tau_0 = 4$, $a = 1$, and $\delta = 1$. \XXX{wc}{kz}{It would be interesting to see the plot of the expected relative size of the giant component $\langle\mathcal{G}\rangle/N$ as a function of $\bar{k}$ and $a$, } \XXX{kz}{wc}{I'll add this.}}
 \label{fig:size_gcc_uni}
 \centering
 \end{figure}
 
 \subsection{Degree Distribution}
-Numerical evaluation of the degree distributions for a universe with matter can be done using these equations from~\cite{ref:snc2012}: \XXX{wc}{kz}{More details are needed here. Where exactly do you use these equations? In Eq. for $\bar{k}_i$, should be $\eta''-\eta'$ insted of $\eta'-\eta''$.}
+Numerical evaluation of the degree distributions for a universe with matter can be done using these equations from~\cite{ref:snc2012}: \XXX{wc}{kz}{More details are needed here. Where exactly do you use these equations? In Eq. for $\bar{k}_i$, should be $\eta''-\eta'$ insted of $\eta'-\eta''$.} \XXX{kz}{wc}{Fixed the equations. They are used in a MATLAB script Dima provided.}
 
-\begin{equation}
-\bar{k}_i\left(\eta^\prime|\eta\right) = \delta\frac{\pi}{K}\int_{\eta^\prime}^\eta\!\left\{2\left(\eta^\prime - \eta^{\prime\prime}\right) - \frac{1}{\sqrt{K}}\sin\left[2\sqrt{K}\left(\eta^\prime - \eta^{\prime\prime}\right)\right]\right\}R^4\left(\eta^{\prime\prime}\right)\, \mathrm d\eta^{\prime\prime}
-\bar{k}_o\left(\eta^\prime|\eta\right) = \delta\frac{\pi}{K}\int_0^{\eta^\prime}\!\left\{2\left(\eta^\prime - \eta^{\prime\prime}\right) - \frac{1}{\sqrt{K}}\sin\left[2\sqrt{K}\left(\eta^\prime - \eta^{\prime\prime}\right)\right]\right\}R^4\left(\eta^{\prime\prime}\right)\, \mathrm d\eta^{\prime\prime}
-p\left(k|\eta^\prime,\eta\right) = \frac{1}{k\!}\left[\bar{k} \left(\eta^\prime|\eta\right)\right]^k \exp{-\bar{k} \left(\eta^\prime|\eta\right)}
-\rho\left(\eta^\prime|\eta\right) = \frac{R^4\left(\eta^\prime\right)}{\mathcal N \left(\eta\right)}
-P\left(k,\eta\right) = \int_0^\eta\! p\left(k|\eta^\prime,\eta\right)\rho\left(\eta^\prime|\eta\right)\,\mathrm d\eta^\prime
-\end{equation}
+\begin{align}
+\bar{k}_i\left(\eta^\prime|\eta\right) &= \delta\frac{\pi}{K}\int_{\eta^\prime}^\eta\!\left\{2\left(\eta^{\prime\prime} - \eta^{\prime}\right) - \frac{1}{\sqrt{K}}\sin\left[2\sqrt{K}\left(\eta^{\prime\prime} - \eta^{\prime}\right)\right]\right\}R^4\left(\eta^{\prime\prime}\right)\, \mathrm d\eta^{\prime\prime} \\
+\bar{k}_o\left(\eta^\prime|\eta\right) &= \delta\frac{\pi}{K}\int_0^{\eta^\prime}\!\left\{2\left(\eta^{\prime\prime} - \eta^{\prime}\right) - \frac{1}{\sqrt{K}}\sin\left[2\sqrt{K}\left(\eta^{\prime\prime} - \eta^{\prime}\right)\right]\right\}R^4\left(\eta^{\prime\prime}\right)\, \mathrm d\eta^{\prime\prime} \\
+p\left(k|\eta^\prime,\eta\right) &= \frac{1}{k\!}\left[\bar{k} \left(\eta^\prime|\eta\right)\right]^k e^{-\bar{k} \left(\eta^\prime|\eta\right)} \\
+\rho\left(\eta^\prime|\eta\right) &= \frac{R^4\left(\eta^\prime\right)}{\mathcal N \left(\eta\right)} \\
+P\left(k,\eta\right) &= \int_0^\eta\! p\left(k|\eta^\prime,\eta\right)\rho\left(\eta^\prime|\eta\right)\,\mathrm d\eta^\prime
+\end{align}
 
 \subsubsection{In-Degree Distribution}
 The in-degrees describe connections coming into a given node from an earlier node.  Here we study the degree distribution for N = 10240, $\tau_0$ = 4, a = 1, and $\delta$ = 1.
@@ -1097,18 +996,14 @@ Likewise, the out-degrees describe connections exiting a given node toward a nod
 
 \begin{figure}
 \includegraphics[width=10cm]{figures/out_degree_universe.jpg}
-\caption{Distribution of out-degrees observed over 1000 graphs. \XXX{wc}{kz}{Network size is $N=10240$. What are those squares going towards $10^5$? }}
+\caption{Distribution of out-degrees observed over 1000 graphs. \XXX{wc}{kz}{Network size is $N=10240$. What are those squares going towards $10^5$? } \XXX{kz}{wc}{I believe this is summed over all 1000 graphs.}}
 \label{fig:out_deg_uni}
 \centering
 \end{figure}
 
-\begin{comment}
-
 \subsection{Clustering}
 \subsubsection{Average Clustering}
 \subsubsection{Clustering Distribution}
-
-\end{comment}
 
 \subsection{Navigability in the Universe}
 \subsubsection{Geodesic Distances in the Universe}
@@ -1129,7 +1024,7 @@ ds^2 = -dz_0^2 + dz_1^2 + dz_2^2 + dz_3^2 + dz_4^2,
 -z_0^2 + z_1^2 + z_2^2 + z_3^2 + z_4^2 = a^2, \quad a = \sqrt{3/\Lambda}
 \end{equation}
 
-\noindent $d\mathbb{S}^{3+1}$ can be covered by the coordinates $\left(t,\theta_1,\theta_2,\theta_3\right)$.  Let us rotate the system such that all the angular coordinates \XXX{wc}{kz}{of a node} are zero.  Then we have
+\noindent $d\mathbb{S}^{3+1}$ can be covered by the coordinates $\left(t,\theta_1,\theta_2,\theta_3\right)$.  Let us rotate the system such that all the angular coordinates of a node \XXX{wc}{kz}{of a node} \XXX{kz}{wc}{Fixed.} are zero.  Then we have
 
 \begin{equation}
 \begin{cases}
@@ -1155,14 +1050,14 @@ z_2 &= z_3 = z_4 = 0
 L = \int_0^{z_0}\!\sqrt{\abs{f^\prime\left(x\right)^2 - 1}}\,\mathrm dx
 \end{equation}
 
-Therefore, using~\ref{eq:length} we have
+Therefore, using~\eqref{eq:length} we have
 
 \begin{equation}
 \label{eq:embedded_z0}
 f\left(z_0\right) = R\left(\int_0^{z_0}\!\sqrt{\abs{f^\prime\left(x\right)^2-1}}\,\mathrm dx\right)
 \end{equation}
 
-For $d\mathbb{S}^{3+1}$, we know that $R\left(t\right) = a\cosh\frac{t}{a}$ and $f\left(z_0\right) = \sqrt{z_0^2+a^2}$.  As a test, let us check that~\ref{eq:embedded_z0} is satisfied for this special case.
+For $d\mathbb{S}^{3+1}$, we know that $R\left(t\right) = a\cosh\frac{t}{a}$ and $f\left(z_0\right) = \sqrt{z_0^2+a^2}$.  As a test, let us check that~\eqref{eq:embedded_z0} is satisfied for this special case.
 
 \begin{equation}
 \begin{split}
@@ -1182,7 +1077,7 @@ f\left(z_0\right) &= a\cosh\left(\sinh^{-1}\frac{z_0}{a}\right) \\
 \end{split}
 \end{equation}
 
-\noindent Since the scale factor $R\left(t\right)$ is monotonic, we can invert this equation \XXX{wc}{kz}{We can invert $R(t)$, not the equation.} and obtain the transcendental differential equation
+\noindent Since the scale factor $R\left(t\right)$ is monotonic, we can invert $R\left(t\right)$ \XXX{wc}{kz}{We can invert $R(t)$, not the equation.} \XXX{kz}{wc}{Fixed.} and obtain the transcendental differential equation
 
 \begin{equation}
 \frac{f^\prime\left(z_0\right)}{R^\prime\left(R^{-1}\left(f\left(z_0\right)\right)\right)} = \sqrt{\abs{1 - f^\prime\left(z_0\right)^2}}
@@ -1190,14 +1085,12 @@ f\left(z_0\right) &= a\cosh\left(\sinh^{-1}\frac{z_0}{a}\right) \\
 
 \noindent For a $\Lambda$CDM spacetime we obtain from this
 
-\begin{equation}
-\begin{split}
+\begin{align}
 R\left(t\right) &= \alpha\sinh^\frac{2}{3}\left(\frac{3t}{2a}\right) \\
 R^\prime\left(t\right) &= \frac{\alpha}{a}\frac{\cosh\left(\frac{3t}{2a}\right)}{\sinh^{1/3}\left(\frac{3t}{2a}\right)} \\
 R^{-1}\left(t\right) &= \frac{2a}{3}\sinh^{-1}\left(\frac{t}{\alpha}\right)^{3/2} \\
 R^\prime\left(R^{-1}\left(t\right)\right) &= \frac{\alpha}{a}\frac{\sqrt{1+\left(\frac{t}{\alpha}\right)^3}}{\sqrt{\frac{t}{\alpha}}}
-\end{split}
-\end{equation}
+\end{align}
 
 \noindent so we get the result
 
@@ -1207,15 +1100,13 @@ R^\prime\left(R^{-1}\left(t\right)\right) &= \frac{\alpha}{a}\frac{\sqrt{1+\left
 
 Now, we would like to obtain an analogue of this equation for the function $z_0 = f\left(z_1\right)$.  We begin the derivation as before:
 
-\begin{equation}
-\begin{split}
+\begin{align}
 z_1 &= R\left(\int_0^{z_1}\!\sqrt{\abs{1-f^\prime\left(x\right)^2}}\,\mathrm dx\right) \\
 R^{-1}\left(z_1\right) &= \int_0^{z_1}\!\sqrt{\abs{1-f^\prime\left(x\right)^2}}\,\mathrm dx \\
 \frac{\mathrm d}{\mathrm dz_1}R^{-1}\left(z_1\right) &= \sqrt{\abs{1-f^\prime\left(z_1\right)^2}} \\
 \abs{1-f^\prime\left(z_1\right)^2} &= \left(\frac{\mathrm d}{\mathrm dz_1}R^{-1}\left(z_1\right)\right)^2 \\
 f^\prime\left(z_1\right) &= \sqrt{1\pm\left(\frac{\mathrm d}{\mathrm dz_1}R^{-1}\left(z_1\right)\right)^2}
-\end{split}
-\end{equation}
+\end{align}
 
 \noindent and we find the resulting general expression to be
 
@@ -1231,36 +1122,34 @@ f\left(z_1\right) = z_0 = \int_0^{z_1}\!\sqrt{1+\frac{a^2x\alpha^2}{\alpha^3+x^3
 
 \begin{figure}
 \includegraphics[width=10cm]{figures/Embedding.jpg}
-\caption{Embedding function $z_0 = f\left(z_1\right)$ for the $\Lambda$CDM spacetime. \XXX{wc}{kz}{What is $\alpha$? Is $\alpha=a^{2/3}$?}}
+\caption{Embedding function $z_0 = f\left(z_1\right)$ for the $\Lambda$CDM spacetime. \XXX{wc}{kz}{What is $\alpha$? Is $\alpha=a^{2/3}$?} \XXX{kz}{wc}{Yes}}
 \label{fig:embedding}
 \centering
 \end{figure}
 
 \noindent where we have taken the positive sign in the $\pm$ to represent the physical situation.  A plot of this equation is shown in Fig.~\ref{fig:embedding} for several choices of parameters. \par
 %%%%%%%%%%
-The inner product between two vectors is always invariant \XXX{wc}{kz}{Counterexample: inner product is not invariant under scaling, $x\mapsto\lambda x$ :-) invariant under what transformation of vectors?}, so the two vectors may be rotated such that each of their spatial coordinates is zero by definition \XXX{wc}{kz}{becomes zero}.  
-The scalar product of the two 5-D vectors in terms of the transformed coordinates is described by \XXX{wc}{kz}{Why suddenly $\tau$ instead of $t$?}
+The inner product between two vectors is always invariant under Lorentz transformations \XXX{wc}{kz}{Counterexample: inner product is not invariant under scaling, $x\mapsto\lambda x$ :-) invariant under what transformation of vectors?} \XXX{kz}{wc}{Fixed.}, so the two vectors may be rotated such that each of their spatial coordinates is zero \XXX{wc}{kz}{becomes zero} \XXX{kz}{wc}{Fixed.}.  
+The scalar product of the two 5-D vectors in terms of the transformed coordinates is described by \XXX{wc}{kz}{Why suddenly $\tau$ instead of $t$?} \XXX{kz}{wc}{Fixed.}
 
-\begin{equation}
-\begin{split}
-z^\prime_1 &= R\left(\tau\right) \\
+\begin{align}
+z^\prime_1 &= R\left(t\right) \\
 z^\prime_0 &= \int_0^{z^\prime_1} \! \sqrt{1 + \frac{a^2x\alpha^2}{\alpha^3 + x^3}} \, \mathrm{d}x \\
 \langle \vec{z}^\prime_a, \vec{z}^\prime_b \rangle &= -\left(z^\prime_0\right)_a \left(z^\prime_0\right)_b + \left(z^\prime_1\right)_a \left(z^\prime_1\right)_b
-\end{split}
-\end{equation}
+\end{align}
 
 \noindent When rotated into the spatial planes by the angles $(\theta_1, \theta_2, \theta_3)$, we find the scalar product becomes 
 
-\begin{equation}
-\begin{split}
+\begin{align}
 z_0 &= z^\prime_0 \\
 z_1 &= z^\prime_1\cos\theta_1 \\
 z_2 &= z^\prime_1\sin\theta_1\cos\theta_2 \\
 z_3 &= z^\prime_1\sin\theta_1\sin\theta_2\cos\theta_3 \\
 z_4 &= z^\prime_1\sin\theta_1\sin\theta_2\sin\theta_3 \\
 \langle \vec{z}_a, \vec{z}_b \rangle &= -\left(z_0\right)_a\left(z_0\right)_b + \left(z_1\right)_a\left(z_1\right)_b + \left(z_2\right)_a\left(z_2\right)_b + \left(z_3\right)_a\left(z_3\right)_b + \left(z_4\right)_a\left(z_4\right)_b
-\end{split}
-\end{equation}
+\end{align}
+
+\begin{comment}
 
 \noindent As mentioned earlier, the angular distributions from which $\theta_1$ and $\theta_2$ are drawn are given by 
 
@@ -1271,21 +1160,24 @@ P\left(\theta_2\right) &= \frac{1}{2}\sin\theta_2
 \end{split}
 \end{equation}
 
-\noindent while the third angle is drawn uniformly from the region $\left[0, 2\pi\right]$. \XXX{wc}{kz}{At the moment we are concerned with calculating distance between two given points $(t_a,(\theta_1)_a,(\theta_2)_a,(\theta_3)_a)$  and $(t_b,(\theta_1)_b,(\theta_2)_b,(\theta_3)_b)$. Explaining how thetas were generated does not seem logical to me. }\par
+\noindent while the third angle is drawn uniformly from the region $\left[0, 2\pi\right]$. \XXX{wc}{kz}{At the moment we are concerned with calculating distance between two given points $(t_a,(\theta_1)_a,(\theta_2)_a,(\theta_3)_a)$  and $(t_b,(\theta_1)_b,(\theta_2)_b,(\theta_3)_b)$. Explaining how thetas were generated does not seem logical to me. } \XXX{kz}{wc}{Removed.}\par
 %%%%%%%%%%
+
+\end{comment}
+
 The condition for calculating the distance is given by Definition 2.6 in~\cite{ref:asmus2009}.
-If the vector $\vec{x}-\vec{y}$ is timelike, this means \XXX{wc}{ks}{Please introduce the notation used in (101) and (102). Also are $x$ and $\vec x$ the same or different?}
+If the vector $\vec{x}-\vec{y}$ is timelike, this means \XXX{wc}{kz}{Please introduce the notation used in (101) and (102). Also are $x$ and $\vec x$ the same or different?} \XXX{kz}{wc}{Fixed.}
 
 \begin{equation}
 \langle\vec x - \vec y,\vec x - \vec y\rangle < 0
 \end{equation}
 
 \begin{equation}
-x^2 - 2\vec x\dot\vec y + y^2 = 2\left(1-\vec x\dot\vec y\right)
+\vec{x}^2 - 2\vec{x}\cdot\vec{y} + \vec{y}^2 = 2\left(1-\vec{x}\cdot\vec{y}\right)
 \end{equation}
 
 \begin{equation}
-\vec x\dot\vec y > 1
+\vec{x}\cdot\vec{y} > 1
 \end{equation}
 
 \noindent and then the distance is given by
@@ -1300,7 +1192,7 @@ If the inner product $\langle \vec{x},\vec{y}\rangle \leq -1$ then the distance 
 If the vector $\vec{x}-\vec{y}$ is spacelike on the condition that $\langle \vec{x},\vec{y}\rangle \geq -1$ then
 
 \begin{equation}
-\vec x\dot\vec y < 1
+\vec{x}\cdot\vec{y} < 1
 \end{equation}
 
 \noindent and the distance is given by
@@ -1311,10 +1203,10 @@ d(\vec{x},\vec{y}) = \cos^{-1}(\langle \vec{x},\vec{y}\rangle)
 
 \noindent This represents the case where the points are connected by a great ellipse.
 
-\XXX{wc}{kz}{After all explanations, can we write down a ready-to-use formula for computing distance between two nodes $n_a=(t_a,(\theta_1)_a,(\theta_2)_a,(\theta_3)_a)$  and $n_b=(t_b,(\theta_1)_b,(\theta_2)_b,(\theta_3)_b)$? (I still prefer to use $\phi, \theta,$ and $\chi$)}
+\XXX{wc}{kz}{After all explanations, can we write down a ready-to-use formula for computing distance between two nodes $n_a=(t_a,(\theta_1)_a,(\theta_2)_a,(\theta_3)_a)$  and $n_b=(t_b,(\theta_1)_b,(\theta_2)_b,(\theta_3)_b)$? (I still prefer to use $\phi, \theta,$ and $\chi$)} \XXX{kz}{wc}{I'll add this later.}
 
 \subsubsection{Validation Test for Manifold Embedding}
-One method of validating the approach for using this approach \XXX{wc}{kz}{I tried to make sense of the beginning of the sentence, but failed :)} to calculate geodesic distances is to identify if time-like and space-like intervals in 3+1 de Sitter space are also classified as such in the embedded 4+1 manifold.  
+One method of validating this approach \XXX{wc}{kz}{I tried to make sense of the beginning of the sentence, but failed :)} \XXX{kz}{wc}{Fixed.} is to calculate geodesic distances is to identify if time-like and space-like intervals in 3+1 de Sitter space are also classified as such in the embedded 4+1 manifold.  
 If two nodes are connected when the network is constructed, the distance between the two points should be time-like.  
 If not, it should be classified as space-like.  
 There should be no light-like vectors because nodes are randomly distributed.
@@ -1335,10 +1227,10 @@ C = \left( \begin{array}{cc}
 1.000 & 0.934 \\
 0.000 & 0.066 \end{array} \right)
 \end{equation}
-\XXX{wc}{kz}{It seems that $T_5\approx0$ and $S_5\approx1$ and the network is essentially disconnected. What is $\bar{k}$ in this case, maybe it is too small? We need to see how entries of this matrix change with $\bar{k}$.}
+\XXX{wc}{kz}{It seems that $T_5\approx0$ and $S_5\approx1$ and the network is essentially disconnected. What is $\bar{k}$ in this case, maybe it is too small? We need to see how entries of this matrix change with $\bar{k}$.} \XXX{kz}{wc}{This is something I will add.}
 
 This indicates when the 4-D manifold is embedded in the fifth dimension using this set of constraints, $93.4\%$ of timelike pairs are misclassified as spacelike.
-Figure 3 \XXX{wc}{kz}{Where is it?} indicates how misclassified distances vary as a function of $\Delta\theta$, $\Delta\eta$, and the pseudoradius $a$.
+Figure X \XXX{wc}{kz}{Where is it?} \XXX{kz}{wc}{Not ready yet, I'll introduce it for a range of parameters.} indicates how misclassified distances vary as a function of $\Delta\theta$, $\Delta\eta$, and the pseudoradius $a$.
 
 \begin{comment}
 
@@ -1352,33 +1244,27 @@ Figure 3 \XXX{wc}{kz}{Where is it?} indicates how misclassified distances vary a
 \subsubsection{Limiting Cases}
 Because we are using the pseudoradius as our variable parameter in the greedy routing experiment, it is useful to know the analytic expression for the asymptotic behavior of the matter and energy densities as $t_0$ (and therefore $a$) tends to zero and $\infty$.  We begin with the following definitions which were derived earlier:
 
-\begin{equation}
-\begin{split}
+\begin{align}
 \rho_\Lambda &= \frac{3}{8\pi G}\frac{1}{a^2} \\
 \rho_M &= \frac{3}{8\pi G}\left(a\sinh\frac{3\tau_0}{2}\right)^{-2} \\
 t_0 &= \left(\frac{\bar k}{\delta\bar\kappa}\right)^{1/4}\tau_0
-\end{split}
-\end{equation}
+\end{align}
 
 \noindent For the two densities we can drop the numerical coefficients since we are interested in asymptotic behavior only. \\
 %%%%%%%%%%
 \textbf{Statement:}
 \begin{enumerate}
   \item
-  \begin{equation}
-  \begin{split}
+  \begin{align}
   \lim_{a\to 0} t_0 &= \infty \\
   \lim_{a\to\infty} t_0 &= \hat{t}_0\in\left(0,\infty\right)
-  \end{split}
-  \end{equation}
+  \end{align}
 
   \item
-  \begin{equation}
-  \begin{split}
+  \begin{align}
   \lim_{a\to 0} \rho_M &= 0 \\
   \lim_{a\to\infty} \rho_M &= \hat{\rho}_M\in\left(0,\infty\right)
-  \end{split}
-  \end{equation}
+  \end{align}
 \end{enumerate}
 
 \noindent To show this we need to find the asymptotic behavior of $\bar\kappa\left(\tau_0\right)$ as $\tau_0\to 0$ and $\tau_0\to\infty$. \\
@@ -1388,8 +1274,8 @@ t_0 &= \left(\frac{\bar k}{\delta\bar\kappa}\right)^{1/4}\tau_0
 \begin{equation}
 \bar{\kappa}\left(\tau_0\right) = 
 \begin{cases}
-\mathcal{O}\left(\tau_0^4\right) & as \tau_0\to 0 \\
-\mathcal{O}\left(\tau_0\right) & as \tau_0\to\infty
+\mathcal{O}\left(\tau_0^4\right) & \mathrm{as}\quad \tau_0\to 0 \\
+\mathcal{O}\left(\tau_0\right) & \mathrm{as}\quad \tau_0\to\infty
 \end{cases}
 \end{equation}
 
@@ -1414,8 +1300,8 @@ t_0 = \left(\frac{\bar k}{\delta}\right)^{1/4}\frac{\tau_0}{\bar\kappa\left(\tau
 \end{equation}
 
 \begin{align}
-\lim_{a\to 0}\rho_M^\prime &= \lim_{\tau_0\to\infty}\rho_M^\prime = \left(\frac{\delta}{\bar k}\right)^{1/2}\lim_{\tau_0\to\infty}\frac{\mathcal{O}\left(\tau_0\right)}{\mathcal{O}\left(\exp{3\tau_0}\right)} = 0 \\
-\lim_{a\to\infty}\rho_M^\prime &= \lim_{\tau_0\to 0}\rho_M^\prime = \left(\frac{\delta}{\bar k}\right)^{1/2}\lim{\tau_0\to 0}\frac{\mathcal{O}\left(\tau_0^2\right)}{\mathcal{O}\left(\tau_0^2\right)} = \hat{\rho}_M^\prime
+\lim_{a\to 0}\rho_M^\prime &= \lim_{\tau_0\to\infty}\rho_M^\prime = \left(\frac{\delta}{\bar k}\right)^{1/2}\lim_{\tau_0\to\infty}\frac{\mathcal{O}\left(\tau_0\right)}{\mathcal{O}\left(e^{3\tau_0}\right)} = 0 \\
+\lim_{a\to\infty}\rho_M^\prime &= \lim_{\tau_0\to 0}\rho_M^\prime = \left(\frac{\delta}{\bar k}\right)^{1/2}\lim_{\tau_0\to 0}\frac{\mathcal{O}\left(\tau_0^2\right)}{\mathcal{O}\left(\tau_0^2\right)} = \hat{\rho}_M^\prime
 \end{align}
 \XXX{wc}{kz}{Before we start experiments with greedy routing, we need to fix 2 things: 1) find for which values of parameters we can control $\bar{k}$ in simulated graphs, i.e. generate graphs with observed $\bar{k}$ close to the target one. First step is to fix $N$, $\delta$, and $a$, and to plot $\langle\bar{k}\rangle$ and $\langle\mathcal{G}\rangle/N$ as functions of $\bar{k}$; expectations can be estimated using, say 1000 realizations. 2) Fix the entries of confusion matrix. It must be close to the identity matrix, otherwise, our embedding and the corresponding computation of the distance do not make sense.   }
 \subsubsection{Greedy Routing Algorithm}
@@ -1470,13 +1356,100 @@ The following describes the greedy routing algorithm in terms of pseudocode
 \subsubsection{Success Ratio}
 Here we have tested several combinations of parameters:
 
-%N = 10240, tau0 = 4, delta = 1, a = 0.9
-%N = 10240, tau0 = 4, delta = 1, a = 1
-%N = 10240, tau0 = 4, delta = 1, a = 1.2
-%N = 10240, tau0 = 4, delta = 1, a = 1.5
-%N = 10240, tau0 = 4, delta = 1, a = 2
+%N = 10240, kbar = 12.90, delta = 1
+%a = 0.9, 1.0, 1.1, 1.5, 2, 2.8, 3, 3.4, 4, 5
 
-%\section{Summary of Results}
+\section{Summary of Results}
+
+\section{Latest Challenges}
+
+\appendix
+\appendixpage
+\addappheadtotoc
+
+\section{Usage of the Causal Set Software}
+%%%%%%%%%% 
+\XXX{wc}{kz}{I would put this sectiona at the end, since many commands become clear only after reading the consequent sections.} \XXX{kz}{wc}{Moved.}
+The tasks in the program are broken into modular subroutines so that it can be used for diverse purposes.
+Functions are divided in a hierarchical structure so that the main method only accesses high-level functions (described in \textit{Causets.cu}) with the entire \textit{Network} data structure.
+In a similar fashion, these high-level functions strictly access low-level functions (in \textit{NetworkCreator.cu} and \textit{Measurements.cu}), and the low-level functions access mathematical (\textit{Operations.h}) and algorithmic (\textit{Subroutines.cu}) functions.
+Debugging and other validation tests are located in the \textit{Validation.cu} file.
+When the GPU is used, entire low-level functions are replaced (e.g. in \textit{NetworkCreator\_GPU.cu}) because the flow of information is entirely different. \par
+%%%%%%%%%%
+All tasks and parameters may be specified as command-line parameters - these may be queried using the \textbf{-h} or \textbf{--help} flags.
+They are shown here alphabetically for the purposes of documentation.
+
+\begin{description}
+  \item[-A, --alpha] \tab Set unphysical free parameter used in the universe's causal set, described in (11) and (12) of~\cite{ref:snc2012}.
+  \item[-a, --radius] \tab Set pseudoradius of spacetime.
+  \item[-C, --clustering] \tab Calculate clustering coefficients and average clustering.
+  \item[-c, --core] \tab Set fraction of nodes used in adjacency matrix.  
+A hybrid method is used which minimizes both memory allocation and lookup times.
+Typically this value is $\mathcal{O}(0.01)$ of all nodes.
+  \item[-D, --delta] \tab Set node density.
+  \item[-d, --dim] \tab Set number of spatial dimensions (1 or 3).
+  \item[-E, --embedding] \tab Perform embedding validation test.  Space-like and time-like intervals are compared in the 3+1 and 4+1 universe's causal set.
+  \item[-G, --components] \tab Calcualate size of the giant connected component and the number of smaller connected components.
+  \item[-g, --graph] \tab Set graph ID.  
+This is used to indicate a unique ID of an existing graph which the program reads and analyzes.
+  \item[-h, --help] \tab Display this information.
+  \item[-k, --degrees] \tab Set the average degrees of the graph.
+  \item[-l, --lambda] \tab Set the cosmological constant.  
+Related to the pseudoradius via the equation $\Lambda = \frac{3}{a^2}$.
+  \item[-m, --manifold] \tab Indicate a [d]e Sitter or [h]yperbolic manifold.  Used to indicate the type of graph being read when the \textbf{-g} flag is used.
+  \item[-n, --nodes] \tab Set the number of nodes to generate and attempt to link.
+  \item[-o, --energy] \tab Set the dark energy density $\Omega_\Lambda$.
+  \item[-r, --ratio] \tab Set the ratio of dark energy to matter $\frac{\Omega_\Lambda}{\Omega_M}$.
+  \item[-S, --success] \tab Set the fraction of node pairs to use to study navigability and calculate the success ratio.
+  \item[-s, --seed] \tab Set the random seed.
+  \item[-T, --test] \tab Test parameters in the universe causal set to identify dependent constraints.
+  \item[-t, --age] \tab Rescaled age $\tau_0$.
+  \item[-u, --universe] \tab Indicate a causal set with dust matter (and Big Bang).
+  \item[-v, --verbose] \tab Print verbose output when the program is run.
+  \item[-y] \tab\tab Suppress user queries during the verbose output.
+  \item[-z, --zeta] \tab Set the curvature of a hyperbolic manifold.
+  \item[--autocorr] \tab Calculate autocorrelation of clustering coefficients.
+  \item[--benchmark] \tab Benchmark subroutines and numerical algorithms.
+  \item[--conflicts] \tab Show parameter conflicts for universe causal set.
+  \item[--gpu] \tab Use GPU accelerated subroutines.
+  \item[--print] \tab Print results to file in \textit{dat} folder.
+\end{description}
+
+\section{Alternative Expressions for the Conformal Time}
+One of the most important numerical steps in the simulation involves identifying causally connected points, which necessarily uses the conformal time.  In the causal set representing the universe with matter, this requires solving
+
+\begin{equation}
+\eta\left(t\right) = \frac{1}{\alpha}\int_0^t\!\sinh^{-2/3}\left(\frac{3t^\prime}{2a}\right)\,\mathrm dt^\prime
+\end{equation}
+
+\noindent for every spacetime node.  An integral of this form can easily be expressed in terms of the Gauss Hypergeometric function by equating a binomial series expansion to the hypergeometric series.
+
+\begin{equation}
+\begin{split}
+\int\!\sinh^nx\,\mathrm dx &= \int\!\sinh x\sinh^{n-1}x\,\mathrm dx \\
+  &= \int\!\sinh x\left(\cosh^2x-1\right)^{\left(n-1\right)/2}\,\mathrm dx \\
+  &= \left(-1\right)^{\left(1-n\right)/2}\int\!\sinh x\left(1-\cosh^2x\right)^{\left(n-1\right)/2}\,\mathrm dx \\
+  &= \left(-1\right)^{\left(1-n\right)/2}\cosh x{}_2F_1\left(\frac{1}{2},\frac{1-n}{2};\frac{3}{2};\cosh^2x\right)
+\end{split}
+\end{equation}
+
+\noindent In the present case, we have $n=-2/3$, which yields the following intermediate result
+
+\begin{equation}
+\eta\left(t\right) = \frac{2a}{3\alpha}\left(-1\right)^{5/6}\left[\cosh\left(\frac{3t}{2a}\right) {}_2F_1\left(\frac{1}{2},\frac{5}{6};\frac{3}{2};\cosh^2\left(\frac{3t}{2a}\right)\right) - \frac{\sqrt{\pi}\Gamma\left(1/6\right)}{2\Gamma\left(2/3\right)}\right]
+\end{equation}
+
+\noindent We can easily approximate the Hypergeometric function here by a power series, but only if the magnitude of its kernel function is less than one.  Since we know $\cosh^2x$ is always greater than one, we can implement the transformation~\eqref{eq:2F1transform} to get (after some algebra)
+
+\begin{equation}
+\eta\left(t\right) = \frac{a}{9\alpha\Gamma\left(2/3\right)}\left[\frac{4\sqrt{3}\pi^{3/2}}{\Gamma\left(5/6\right)}+3\Gamma\left(-1/3\right)\sech^{2/3}\left(\frac{3t}{2a}\right) {}_2F_1\left(\frac{1}{3},\frac{5}{6};\frac{4}{3};\sech^2\left(\frac{3t}{2a}\right)\right)\right]
+\end{equation}
+
+\noindent This expression may now be evaluated numerically using the Hypergeometric series
+
+\begin{equation}
+{}_2F_1\left(a,b\;c\;z\right) = \sum\limits_{j=0}^{\infty} \frac{\left(a\right)_j\left(b\right)_j}{\left(c\right)_j}\frac{z^j}{j!}
+\end{equation}
 
 \bibliographystyle{acm}
 \bibliography{causets}
