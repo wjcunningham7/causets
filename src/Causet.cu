@@ -31,7 +31,6 @@ int main(int argc, char **argv)
 	if (!measureNetworkObservables(&network, &cp, &bm, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
 
 	if (network.network_properties.flags.bench && !printBenchmark(bm, network.network_properties.flags)) goto CausetExit;
-	if (network.network_properties.flags.disp_network && !displayNetwork(network.nodes, network.edges.future_edges, argc, argv)) goto CausetExit;
 	if (!network.network_properties.flags.bench) printMemUsed(NULL, resources.maxHostMemUsed, resources.maxDevMemUsed);
 	if (network.network_properties.flags.print_network && !printNetwork(network, cp, init_seed, resources.gpuID)) goto CausetExit;
 
@@ -535,39 +534,6 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 	return true;
 }
 
-//Plot using OpenGL
-static bool displayNetwork(const Node &nodes, const int * const future_edges, int argc, char **argv)
-{
-	if (DEBUG)
-		assert (future_edges != NULL);
-
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DOUBLE);
-	glutInitWindowSize(900, 900);
-	glutInitWindowPosition(50, 50);
-	glutCreateWindow("Causets");
-	glutDisplayFunc(display);
-	glOrtho(0.0f, 0.01f, 0.0f, 6.3f, -1.0f, 1.0f);
-	glutMainLoop();
-
-	return true;
-}
-
-//Display Function for OpenGL Instructions
-void display()
-{
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	glBegin(GL_LINES);
-		glColor3f(0.0f, 0.0f, 0.0f);
-		//Draw Lines
-	glEnd();
-
-	glLoadIdentity();
-	glutSwapBuffers();
-}
-
 //Load Network Data from Existing File
 //O(xxx)
 //Reads the following files:
@@ -892,7 +858,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 
 	try {
 		//Confirm directory structure exists
-		boost::filesystem::create_directory("./dat");
+		/*boost::filesystem::create_directory("./dat");
 		boost::filesystem::create_directory("./dat/pos");
 		boost::filesystem::create_directory("./dat/edg");
 		boost::filesystem::create_directory("./dat/dst");
@@ -902,7 +868,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 		boost::filesystem::create_directory("./dat/cdk");
 		boost::filesystem::create_directory("./dat/emb");
 		boost::filesystem::create_directory("./dat/emb/tn");
-		boost::filesystem::create_directory("./dat/emb/fp");
+		boost::filesystem::create_directory("./dat/emb/fp");*/
 
 		std::ofstream outputStream;
 		std::stringstream sstm;

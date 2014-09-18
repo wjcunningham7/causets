@@ -6,25 +6,32 @@
 # Northeastern University #
 ###########################
 
-#BSUB -J causet.161414
-#BSUB -o /scratch/cunningham/causets/job161414/161414.log
-#BSUB -e /scratch/cunningham/causets/job161414/161414.err
+#BSUB -J causetjob
+#BSUB -o /scratch/cunningham/causets/causet.log
+#BSUB -e /scratch/cunningham/causets/causet.err
 #BSUB -q par-gpu
-#BSUB -cwd /scratch/cunningham/causets/job161414
+#BSUB -n 32
+#BSUB -R span[ptile=32]
+#BSUB -u wjcunningham7@gmail.com
+#BSUB -N
+#BSUB -cwd /scratch/cunningham/causets/
 
-mkdir /scratch/cunningham/causets/job161414
-work=/scratch/cunningham/causets/job161414
+mkdir /scratch/cunningham
+mkdir /scratch/cunningham/causets/
 
-cp /home/cunningham.wi/causets/bin/CausalSet $work/
+work=/scratch/cunningham/causets/
+homedir=/home/cunningham.wi/projects/causets
+
+cp $homedir/bin/CausalSet $work/
 
 mkdir $work/etc
 
-cp /home/cunningham.wi/causets/etc/degrees $work/etc/
-cp /home/cunningham.wi/causets/etc/deg_dist $work/etc/
-cp /home/cunningham.wi/causets/etc/components $work/etc/
-cp /home/cunningham.wi/causets/etc/clustering $work/etc/
-cp /home/cunningham.wi/causets/etc/clust_dist $work/etc/
-cp /home/cunningham.wi/causets/etc/migrate $work/etc/
+cp $homedir/etc/degrees $work/etc/
+cp $homedir/etc/deg_dist $work/etc/
+cp $homedir/etc/components $work/etc/
+cp $homedir/etc/clustering $work/etc/
+cp $homedir/etc/clust_dist $work/etc/
+cp $homedir/etc/migrate $work/etc/
 
 mkdir $work/dat
 mkdir $work/dat/cdk
@@ -56,14 +63,15 @@ done
 
 # Do not edit above this
 
-./CausalSet --universe --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 --components --clustering --print --gpu
+#./CausalSet --universe --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 --components --clustering --print --gpu
+./CausalSet --universe --age 4 --nodes 10240 --delta 1 --radius 1 --components --clustering --print --gpu
 
-./etc/degrees uni
-./etc/deg_dist 1000887
-./etc/components uni
-./etc/clustering uni
-./etc/clust_dist 1000887
-./migrate 161414
+#./etc/degrees uni
+#./etc/deg_dist 1000887
+#./etc/components uni
+#./etc/clustering uni
+#./etc/clust_dist 1000887
+#./migrate TEST
 
 # Do not edit below this
 

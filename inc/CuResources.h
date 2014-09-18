@@ -1,14 +1,14 @@
 #ifndef CU_RESOURCES_H_
 #define CU_RESOURCES_H_
 
-#include <assert.h>
+#include <cassert>
 #include <iostream>
 #include <stdint.h>
 #include <string>
 
 #include <cuda.h>
 #include <drvapi_error_string.h>
-#include <shrQATest.h>
+#include <cuda/shrQATest.h>
 
 #include <fastmath/stopwatch.h>
 

@@ -25,7 +25,7 @@ GFOR		?= /usr/bin/gfortran
 NVCC 		?= $(CUDA_HOME)/bin/nvcc
 INCD 		 = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include -I $(INCDIR) -I $(LOCAL_DIR)/inc/
 #LIBS 		 = -L /usr/lib/nvidia-current/ -lcuda -L $(LD_LIBRARY_PATH) -L $(CUDA_HOME)/lib64/ -lcudadevrt -lcudart -lcurand -L $(CUDA_SDK_PATH)/common/lib -lstdc++ -lpthread -lm -lGLU -lglut -lgsl -lgslcblas -lfastmath -lnint -lgomp -lboost_filesystem -lprintcolor
-LIBS		 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PATH)/common/lib -L $(LOCAL_DIR)/lib64 -lcuda -lcudart -lcudadevrt -lcurand -lstdc++ -lpthread -lm -lgsl -lgslcblas -lfastmath -lnint -lgomp -lprintcolor
+LIBS		 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PATH)/common/lib -L $(LOCAL_DIR)/lib64 -lcuda -lcudart -lcudadevrt -lcudart -lcurand -lstdc++ -lpthread -lm -lgsl -lgslcblas -lfastmath -lnint -lgomp -lboost_filesystem -lprintcolor
 
 CXXFLAGS	:= -O3 -g -Wall
 NVCCFLAGS 	:= -arch=sm_35 -m64 -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))'
@@ -80,7 +80,7 @@ fortran1 : $(FSOURCES1)
 fortran2 : $(FSOURCES2)
 	$(GFOR) $(FSOURCES2) -o $(BINDIR)/universe
 
-clean : cleanbin cleanobj cleanlog cleanscratch
+clean : cleanbin cleanobj cleanlog
 
 cleanbin :
 	rm -f $(BINDIR)/CausalSet $(BINDIR)/ds3 $(BINDIR)/universe
@@ -90,9 +90,6 @@ cleanobj :
 
 cleanlog :
 	rm -f causet.log
-
-cleanscratch :
-	rm -rf /scratch/cunningham
 
 cleandata :
 	rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/emb/*.cset.emb.dat $(DATDIR)/emb/tn/*.cset.emb_tn.dat $(DATDIR)/emb/fp/*.cset.emb_fp.dat $(ETCDIR)/data_keys.cset.key $(DATDIR)/ref/*.ref

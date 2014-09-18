@@ -255,11 +255,11 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 
 	//Free Device Memory
 	cuMemFree(d_nodes);
-	d_nodes = NULL;
+	//d_nodes = NULL;
 	devMemUsed -= sizeof(float4) * N_tar;
 	
 	cuMemFree(d_g_idx);
-	d_g_idx = NULL;
+	//d_g_idx = NULL;
 	devMemUsed -= sizeof(int);
 
 	try {
@@ -341,7 +341,7 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	
 	//Free Device Memory
 	cuMemFree(d_edges);
-	d_edges = NULL;
+	//d_edges = NULL;
 	devMemUsed -= sizeof(uint64_t) * d_edges_size;
 
 	//Parallel Prefix Sum of 'k_in' and 'k_out' and Write to Edge Pointers
@@ -445,19 +445,19 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 
 	//Free Device Memory
 	cuMemFree(d_past_edge_row_start);
-	d_past_edge_row_start = NULL;
+	//d_past_edge_row_start = NULL;
 	devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_future_edge_row_start);
-	d_future_edge_row_start = NULL;
+	//d_future_edge_row_start = NULL;
 	devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_buf);
-	d_buf = NULL;
+	//d_buf = NULL;
 	devMemUsed -= sizeof(int) * (BLOCK_SIZE << 1);
 
 	cuMemFree(d_buf_scanned);
-	d_buf_scanned = NULL;
+	//d_buf_scanned = NULL;
 	devMemUsed -= sizeof(int) * (BLOCK_SIZE << 1);
 
 	//Resulting Network Properties
@@ -508,11 +508,11 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 
 	//Free Device Memory
 	cuMemFree(d_N_res);
-	d_N_res = NULL;
+	//d_N_res = NULL;
 	devMemUsed -= sizeof(int);
 
 	cuMemFree(d_N_deg2);
-	d_N_deg2 = NULL;
+	//d_N_deg2 = NULL;
 	devMemUsed -= sizeof(int);
 
 	stopwatchStop(&sGPUOverhead);

@@ -14,7 +14,7 @@
 #include <string>
 
 //Other System Files
-#include <boost/filesystem.hpp>
+//#include <boost/filesystem.hpp>
 #include <boost/unordered_map.hpp>
 #include <cuda.h>
 #include <curand.h>
@@ -288,10 +288,6 @@ static NetworkProperties parseArgs(int argc, char **argv);
 static bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
 
 static bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
-
-static bool displayNetwork(const Node &nodes, const int * const future_edges, int argc, char **argv);
-
-void display();
 
 static bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
 
