@@ -80,13 +80,13 @@ double lookup(const char* filename, double *x, double *y)
 		table = NULL;
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		return nan;
+		return std::numeric_limits<double>::quiet_NaN();
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
-		return nan;
+		return std::numeric_limits<double>::quiet_NaN();
 	} catch (std::exception e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-		return nan;
+		return std::numeric_limits<double>::quiet_NaN();
 	}
 
 	return output;

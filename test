@@ -22,12 +22,12 @@
 # Measure properties of Universe
 #./bin/CausalSet --universe --nodes 1048576 --age 4.0 --delta 1.0 --radius 1.0 --seed 18100 --verbose -y --gpu
 
-samples=10
+samples=1
 for (( i=0; i<${samples}; i++ ))
 do
   let t=$i+1
   echo Trial $t of ${samples}
-  ./bin/CausalSet --universe --nodes 10240 --age 2.9 --delta 1 --radius 1 --components --print
+  ./bin/CausalSet --universe --nodes 10240 --age 1.5 --delta 1 --radius 1 --components --test
 done
 
 ######################################

@@ -64,7 +64,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				double t = 6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * POW3(network_properties->alpha, EXACT));
 				if (t > MTAU)
 					x = LOG(t, STL) / 3.0;
-				else if (!newton(&solveTau0, &x, 10000, TOL, &network_properties->alpha, &network_properties->delta, network_properties->a, NULL, &network_properties->N_tar, NULL))
+				else if (!newton(&solveTau0, &x, 10000, TOL, &network_properties->alpha, &network_properties->delta, &network_properties->a, NULL, &network_properties->N_tar, NULL))
 					return false;
 				network_properties->tau0 = x;
 				if (DEBUG) assert (network_properties->tau0 > 0.0);
@@ -87,14 +87,17 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 					//Solve for tau_0
 					printf("\tEstimating Age of Universe.....\n");
-					float kappa1 = network_properties->k_tar / network_properties->delta;
-					float kappa2 = kappa1 / POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT);
+					double kappa1 = network_properties->k_tar / network_properties->delta;
+					double kappa2 = kappa1 / POW2(POW2(network_properties->a, EXACT), EXACT);
 					//printf_red();
 					//printf("kappa2: %f\n", kappa2);
 					//printf_std();
 
 					//Use Lookup Table
 					network_properties->tau0 = lookup("./etc/raduc_table.cset.bin", NULL, &kappa2);
+					//Check for NaN
+					if (network_properties->tau0 != network_properties->tau0)
+						return false;
 
 					//Solve for ratio, omegaM, and omegaL
 					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
@@ -159,7 +162,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			
 			if (network_properties->k_tar == 0.0) {
 				//Use Monte Carlo integration to find k_tar
-				printf("\tEstimating Expected Average Degrees.....\n");
+				/*printf("\tEstimating Expected Average Degrees.....\n");
 				double r0;
 				if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
 					r0 = POW(0.5f, 2.0f / 3.0f, STL) * exp(network_properties->tau0);
@@ -184,7 +187,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network_properties->seed, 0) * 8.0 * M_PI / (SINH(3.0f * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
 				stopwatchStop(&cp->sCalcDegrees);
 				printf("\t\tExecution Time: %5.6f sec\n", cp->sCalcDegrees.elapsedTime);
-				printf("\t\tCompleted.\n");
+				printf("\t\tCompleted.\n");*/
+				
+				network_properties->k_tar = lookup("./etc/raduc_table.cset.bin", &network_properties->tau0, NULL) * network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT);
 			}
 			
 			//20% Buffer
