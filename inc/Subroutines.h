@@ -9,6 +9,9 @@
 // Northeastern University //
 /////////////////////////////
 
+//Lookup Table (Linear Interpolation w/ Table)
+double lookup(const char* filename, double *x, double *y);
+
 //Quicksort Algorithm
 void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, int high);
 void quicksort(uint64_t *edges, int low, int high);

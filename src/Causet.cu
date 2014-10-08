@@ -62,7 +62,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":m:n:k:d:s:a:c:g:t:A:D:S:E:o:r:l:z:uvyCGTh";
+	static const char *optString = ":m:n:k:d:s:a:c:g:t:A:D:S:E:o:r:l:z:uvyCGTLh";
 	//Multi-character options
 	static const struct option longOpts[] = {
 		{ "manifold",	required_argument,	NULL, 'm' },
@@ -76,6 +76,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 		{ "success",	required_argument,	NULL, 'S' },
 		{ "components", no_argument,		NULL, 'G' },
 		{ "embedding",  required_argument,	NULL, 'E' },
+		{ "link",	no_argument,		NULL, 'L' },
 		{ "graph",	required_argument,	NULL, 'g' },
 		{ "universe",	no_argument,		NULL, 'u' },
 		{ "age",	required_argument,	NULL, 't' },
@@ -174,6 +175,8 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				network_properties.N_emb = atof(optarg);
 				if (network_properties.N_emb <= 0.0 || network_properties.N_emb > 1.0)
 					throw CausetException("Invalid argument for 'embedding' parameter!\n");
+				break;
+			case 'L':	//Flag for Reading Nodes and Re-Linking
 				break;
 			case 'g':	//Graph ID
 				network_properties.graphID = atoi(optarg);
@@ -692,9 +695,23 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 		//Quicksort
 		quicksort(network->nodes, network->network_properties.dim, network->network_properties.manifold, 0, network->network_properties.N_tar - 1);
 
+		//Re-Link Using linkNodes Subroutine
+		if (network->network_properties.manifold == DE_SITTER && network->network_properties.flags.link) {
+			if (network->network_properties.flags.use_gpu) {
+				if (!linkNodesGPU(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+					return false;
+			} else {
+				if (!linkNodes(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+					return false;
+			}
+
+			return true;
+		}
+
 		//Populate Hashmap
-		for (i = 0; i < network->network_properties.N_tar; i++)
-			network->nodes.AS_idx.insert(std::make_pair(network->nodes.id.AS[i], i));
+		if (network->network_properties.manifold == HYPERBOLIC)
+			for (i = 0; i < network->network_properties.N_tar; i++)
+				network->nodes.AS_idx.insert(std::make_pair(network->nodes.id.AS[i], i));
 
 		//Read Edges
 		printf("\tReading Edge List Data.....\n");

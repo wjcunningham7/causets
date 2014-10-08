@@ -136,7 +136,7 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), test(false), use_gpu(false), disp_network(false), print_network(false), universe(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), validate_embedding(false) {}
+	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), test(false), use_gpu(false), disp_network(false), print_network(false), universe(false), link(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), validate_embedding(false) {}
 
 	CausetConflicts cc;		//Conflicting Parameters
 
@@ -144,6 +144,7 @@ struct CausetFlags {
 	bool disp_network;		//Plot Network using OpenGL
 	bool print_network;		//Print to File
 	bool universe;			//Use Universe's Tau Distribution
+	bool link;			//Link Nodes in Graph Identified by 'graphID'
 	
 	bool calc_clustering;		//Find Clustering Coefficients
 	bool calc_components;		//Find Connected Components

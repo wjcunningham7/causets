@@ -47,9 +47,9 @@ inline double zetaPrime4D(const double &x)
 	return (3.0 * (COS(5.0f * x, APPROX ? FAST : STL) - 32.0 * (M_PI - 2.0 * x) * _sinx3) + COS(static_cast<float>(x), APPROX ? FAST : STL) * (84.0 - 72.0 * _lncscx) + COS(3.0 * static_cast<float>(x), APPROX ? FAST : STL) * (24.0 * _lncscx - 31.0)) / (-4.0 * M_PI * _sinx4 * _cosx3 * POW3((2.0f + _cscx2), EXACT));
 }
 
-inline double tau0(const double &x, const int &N_tar, const double &alpha, const double &delta)
+inline double tau0(const double &x, const int &N_tar, const double &alpha, const double &delta, const double &a)
 {
-	return SINH(3.0f * x, APPROX ? FAST : STL) - 3.0 * (x + static_cast<double>(N_tar) / (POW2(static_cast<float>(M_PI), EXACT) * delta * POW3(static_cast<float>(alpha), EXACT)));
+	return SINH(3.0f * x, APPROX ? FAST : STL) - 3.0 * (x + static_cast<double>(N_tar) / (POW2(static_cast<float>(M_PI), EXACT) * delta * a * POW3(static_cast<float>(alpha), EXACT)));
 }
 
 inline double tau0Prime(const double &x)
@@ -123,15 +123,17 @@ inline double solveTau0(const double &x, const double * const p1, const double *
 		//No null pointers
 		assert (p1 != NULL);	//alpha
 		assert (p2 != NULL);	//delta
+		assert (p3 != NULL);	//a
 		assert (p5 != NULL);	//N_tar
 
 		//Variables in the correct ranges
 		assert (*p1 > 0.0);
-		assert (*p2 > 0);
+		assert (*p2 > 0.0);
+		assert (*p3 > 0.0);
 		assert (*p5 > 0);
 	}
 
-	return (-1.0f * tau0(x, *p5, *p1, *p2) / tau0Prime(x));
+	return (-1.0f * tau0(x, *p5, *p1, *p2, *p3) / tau0Prime(x));
 }
 
 //Returns tau Residual

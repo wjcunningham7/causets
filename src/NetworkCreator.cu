@@ -64,7 +64,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				double t = 6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * POW3(network_properties->alpha, EXACT));
 				if (t > MTAU)
 					x = LOG(t, STL) / 3.0;
-				else if (!newton(&solveTau0, &x, 10000, TOL, &network_properties->alpha, &network_properties->delta, NULL, NULL, &network_properties->N_tar, NULL))
+				else if (!newton(&solveTau0, &x, 10000, TOL, &network_properties->alpha, &network_properties->delta, network_properties->a, NULL, &network_properties->N_tar, NULL))
 					return false;
 				network_properties->tau0 = x;
 				if (DEBUG) assert (network_properties->tau0 > 0.0);
@@ -608,8 +608,6 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 				if (USE_GSL) {
 					//Numerical Integration
 					idata.upper = nodes.id.tau[i] * a;
-					//nodes.c.sc[i].w = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) / alpha;
-					nodes.c.sc[i].w = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) * a / alpha;
 				} else
 					//Exact Solution
 					nodes.c.sc[i].w = tauToEtaUniverseExact(nodes.id.tau[i], a, alpha);
