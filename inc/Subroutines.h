@@ -27,4 +27,8 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 //Breadth First Search Algorithm
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements);
 
+//Format Partial Adjacency Matrix Data
+void readDegrees(int * const &degrees, const int * const h_k, const int &index, const size_t &offset_size);
+void readEdges(uint64_t * const &edges, const bool * const h_edges, int * const &g_idx, const size_t &d_edges_size, const size_t &buffer_size, const int x, const int y);
+
 #endif

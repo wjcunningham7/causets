@@ -22,7 +22,7 @@ my $inoutfile = "";
 my $outoutfile = "";
 my $sumfile = "";
 #my $basedir = "../";
-my $basedir = "";
+my $basedir = "/scratch/cunningham/causets/"
 if (@ARGV) {
 #  $infile = $ARGV[0];
   $outfile = $ARGV[0];

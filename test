@@ -7,7 +7,7 @@
 ###########################
 
 # Prevents re-compiling during a long run
-mv Makefile Makefile~
+#mv Makefile Makefile~
 
 #####################################
 # These are experimental parameters #
@@ -20,7 +20,15 @@ mv Makefile Makefile~
 #./bin/CausalSet --nodes 10240 --degrees 10 --radius 2.0 --gpu --print
 
 # Measure properties of Universe
-./bin/CausalSet --universe --components --degrees 58.3 --nodes 10240 --delta 1000 --radius 0.8
+#./bin/CausalSet --universe --nodes 1048576 --age 4.0 --delta 1.0 --radius 1.0 --seed 18100 --verbose -y --gpu
+
+samples=10
+for (( i=0; i<${samples}; i++ ))
+do
+  let t=$i+1
+  echo Trial $t of ${samples}
+  ./bin/CausalSet --universe --nodes 10240 --age 2.9 --delta 1 --radius 1 --components --print
+done
 
 ######################################
 # These will reproduce known results #
@@ -48,4 +56,4 @@ mv Makefile Makefile~
 #./bin/CausalSet --universe --age 1.5 --delta 1 --radius 1 --gpu --graph 22222 --components
 #./etc/dk_stats_direct.pl 22222
 
-mv Makefile~ Makefile
+#mv Makefile~ Makefile

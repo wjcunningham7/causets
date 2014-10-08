@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 ###########################
 #(C) Will Cunningham 2014 #
@@ -24,8 +24,9 @@ if (N < 0):
 	sys.stdout.write('Invalid argument.\n')
 	sys.exit(3)
 
-idd_files = glob.glob("dat/idd/*.cset.idd.dat")
-odd_files = glob.glob("dat/odd/*.cset.odd.dat")
+basedir = '/scratch/cunningham/causets/'
+idd_files = glob.glob(basedir + 'dat/idd/*.cset.idd.dat')
+odd_files = glob.glob(basedir + 'dat/odd/*.cset.odd.dat')
 
 k_in = []
 k_out = []
@@ -50,12 +51,12 @@ for file in odd_files:
 		k_out[token1] += token2
 	h.close()
 
-h = open('dat/ref/in_degrees.cset.dst.ref','w')
+h = open(basedir + 'dat/ref/in_degrees.cset.dst.ref','w')
 for i in range(0,N):
 	h.write(str(i) + ' ' + str(k_in[i]) + '\n')
 h.close()
 
-h = open('dat/ref/out_degrees.cset.dst.ref','w')
+h = open(basedir + 'dat/ref/out_degrees.cset.dst.ref','w')
 for i in range(0,N):
 	h.write(str(i) + ' ' + str(k_out[i]) + '\n')
 h.close()

@@ -6,7 +6,7 @@
 # Northeastern University #
 ###########################
 
-net=/home/cunningham.wi/causets/net
+net=/scratch/cunningham/causets/net
 
 if [ "$#" -ne 1 ]; then
   echo "Must specify new folder name!"

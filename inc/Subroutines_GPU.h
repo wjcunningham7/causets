@@ -2,6 +2,7 @@
 #define SUBROUTINES_GPU_H_
 
 #include "CuResources.h"
+#include "Constants.h"
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //

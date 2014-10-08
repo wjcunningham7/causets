@@ -24,8 +24,7 @@ CXX 		?= /usr/bin/g++
 GFOR		?= /usr/bin/gfortran
 NVCC 		?= $(CUDA_HOME)/bin/nvcc
 INCD 		 = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include -I $(INCDIR) -I $(LOCAL_DIR)/inc/
-#LIBS 		 = -L /usr/lib/nvidia-current/ -lcuda -L $(LD_LIBRARY_PATH) -L $(CUDA_HOME)/lib64/ -lcudadevrt -lcudart -lcurand -L $(CUDA_SDK_PATH)/common/lib -lstdc++ -lpthread -lm -lGLU -lglut -lgsl -lgslcblas -lfastmath -lnint -lgomp -lboost_filesystem -lprintcolor
-LIBS		 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PATH)/common/lib -L $(LOCAL_DIR)/lib64 -lcuda -lcudart -lcudadevrt -lcurand -lstdc++ -lpthread -lm -lgsl -lgslcblas -lfastmath -lnint -lgomp -lprintcolor
+LIBS		 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PATH)/common/lib -L $(LOCAL_DIR)/lib64 -lcuda -lcudart -lcurand -lstdc++ -lpthread -lm -lgsl -lgslcblas -lfastmath -lnint -lgomp -lprintcolor
 
 CXXFLAGS	:= -O3 -g -Wall
 NVCCFLAGS 	:= -arch=sm_35 -m64 -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))'
@@ -47,12 +46,12 @@ CEXTOBJS	:= $(patsubst $(FASTSRC)/%.cpp, $(OBJDIR)/%.o, $(CEXTSOURCES))
 OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%_cu.o, $(SOURCES))
 LOBJS		:= $(patsubst $(OBJDIR)/%_cu.o, $(OBJDIR)/%.o, $(OBJS))
 
-all : $(COBJS) $(CEXTOBJS) $(OBJS) link bindir bin cleanlog
+all : $(COBJS) $(CEXTOBJS) $(OBJS) link bindir bin
 
 $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<
 
-$(COBJS) : | $(OBJDIR)
+$(COBJS) : | $(OBJDIR) bindir
 
 $(OBJDIR) :
 	mkdir -p $(OBJDIR)
@@ -80,13 +79,13 @@ fortran1 : $(FSOURCES1)
 fortran2 : $(FSOURCES2)
 	$(GFOR) $(FSOURCES2) -o $(BINDIR)/universe
 
-clean : cleanbin cleanobj cleanlog cleanscratch
+clean : cleanbin cleanobj cleanlog
 
 cleanbin :
-	rm -f $(BINDIR)/CausalSet $(BINDIR)/ds3 $(BINDIR)/universe
+	rm -rf $(BINDIR)
 
 cleanobj :
-	rm -f $(OBJDIR)/*
+	rm -rf $(OBJDIR)
 
 cleanlog :
 	rm -f causet.log

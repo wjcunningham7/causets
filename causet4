@@ -7,17 +7,16 @@
 ###########################
 
 #BSUB -J universe
-#BSUB -o /scratch/cunningham/causets/causet.log
-#BSUB -e /scratch/cunningham/causets/causet.err
+#BSUB -o /scratch/cunningham/causets4/causet.log
+#BSUB -e /scratch/cunningham/causets4/causet.err
 #BSUB -q par-gpu
 #BSUB -n 32
 #BSUB -R span[ptile=32]
-#BSUB -cwd /scratch/cunningham/causets/
+#BSUB -cwd /scratch/cunningham/causets4/
 
-mkdir /scratch/cunningham
-mkdir /scratch/cunningham/causets/
+mkdir /scratch/cunningham/causets4/
 
-work=/scratch/cunningham/causets/
+work=/scratch/cunningham/causets4/
 homedir=/home/cunningham.wi/projects/causets
 
 cp $homedir/bin/CausalSet $work/

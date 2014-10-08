@@ -29,6 +29,13 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			return false;
 	}
 
+	//Optimize Parameters for GPU
+	if (network_properties->flags.use_gpu && network_properties->N_tar % (BLOCK_SIZE << 1)) {
+		printf("If you are using the GPU, set the target number of nodes (--nodes) to be a multiple of double the thread block size (%d)!\n", BLOCK_SIZE << 1);
+		fflush(stdout);
+		return false;
+	}
+
 	try {
 		if (network_properties->flags.universe) {
 			int i;
@@ -171,21 +178,21 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				if (network_properties->N_tar > 0 && network_properties->alpha > 0.0) {
 					//Solve for delta
 					//Add MTAU approximation here
-					network_properties->delta = 3.0 * network_properties->N_tar / (POW2(static_cast<float>(M_PI), EXACT) * POW3(static_cast<float>(network_properties->alpha), EXACT) * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0));
+					network_properties->delta = 3.0 * network_properties->N_tar / (POW2(static_cast<float>(M_PI), EXACT) * POW3(static_cast<float>(network_properties->alpha), EXACT) * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0) * network_properties->a);
 					if (DEBUG) assert (network_properties->delta > 0.0);
 				} else if (network_properties->N_tar == 0) {
 					//Solve for N_tar
 					//Add MTAU approximation here
 					if (DEBUG) assert (network_properties->alpha > 0.0);
-					network_properties->N_tar = static_cast<int>(POW2(static_cast<float>(M_PI), EXACT) * network_properties->delta * POW3(static_cast<float>(network_properties->alpha), EXACT) * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0) / 3.0);
+					network_properties->N_tar = static_cast<int>(POW2(static_cast<float>(M_PI), EXACT) * network_properties->delta * POW3(static_cast<float>(network_properties->alpha), EXACT) * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0) * network_properties->a / 3.0);
 					if (DEBUG) assert (network_properties->N_tar > 0);
 				} else {
 					//Solve for alpha
 					if (DEBUG) assert (network_properties->N_tar > 0);
 					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
-						network_properties->alpha = exp(LOG(6.0 * network_properties->N_tar / POW2(M_PI, EXACT) * network_properties->delta * network_properties->a, STL) / 3.0 - network_properties->tau0);
+						network_properties->alpha = exp(LOG(6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a), STL) / 3.0 - network_properties->tau0);
 					else
-						network_properties->alpha = POW(3.0 * network_properties->N_tar / (POW2(static_cast<float>(M_PI), EXACT) * network_properties->delta * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0)), (1.0 / 3.0), STL);
+						network_properties->alpha = static_cast<double>(POW(3.0 * network_properties->N_tar / (POW2(static_cast<float>(M_PI), EXACT) * network_properties->delta * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0) * network_properties->a), (1.0 / 3.0), STL));
 					if (DEBUG) assert (network_properties->alpha > 0.0);
 				}
 			}
@@ -206,7 +213,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			}
 
 			//Rescale Alpha (factor of 'a' missing in (11) from [2])
-			network_properties->alpha /= POW(network_properties->a, 1.0f / 3.0f, STL);
+			//network_properties->alpha /= POW(network_properties->a, 1.0f / 3.0f, STL);
 			
 			//Finally, solve for R0
 			if (DEBUG) {
@@ -247,8 +254,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			}
 			
 			//20% Buffer
-			//network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
-			network_properties->edge_buffer = 100000;
+			network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
 			//printf("Edge Buffer: %d\n", network_properties->edge_buffer);
 
 			//Adjacency matrix not implemented in GPU algorithms
@@ -387,46 +393,30 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			hostMemUsed += sizeof(float2) * N_tar;
 		}
 
-		if (use_gpu)
-			checkCudaErrors(cuMemHostAlloc((void**)&nodes.k_in, sizeof(int) * N_tar, CU_MEMHOSTALLOC_DEVICEMAP));
-		else {
-			nodes.k_in = (int*)malloc(sizeof(int) * N_tar);
-			if (nodes.k_in == NULL)
-				throw std::bad_alloc();
-		}
+		nodes.k_in = (int*)malloc(sizeof(int) * N_tar);
+		if (nodes.k_in == NULL)
+			throw std::bad_alloc();
 		memset(nodes.k_in, 0, sizeof(int) * N_tar);
 		hostMemUsed += sizeof(int) * N_tar;
 
-		if (use_gpu)
-			checkCudaErrors(cuMemHostAlloc((void**)&nodes.k_out, sizeof(int) * N_tar, CU_MEMHOSTALLOC_DEVICEMAP));
-		else {
-			nodes.k_out = (int*)malloc(sizeof(int) * N_tar);
-			if (nodes.k_out == NULL)
-				throw std::bad_alloc();
-		}
+		nodes.k_out = (int*)malloc(sizeof(int) * N_tar);
+		if (nodes.k_out == NULL)
+			throw std::bad_alloc();
 		memset(nodes.k_out, 0, sizeof(int) * N_tar);
 		hostMemUsed += sizeof(int) * N_tar;
 
 		if (verbose)
 			printMemUsed("for Nodes", hostMemUsed, devMemUsed);
 
-		if (use_gpu)
-			checkCudaErrors(cuMemHostAlloc((void**)&edges.past_edges, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer), CU_MEMHOSTALLOC_DEVICEMAP));
-		else {
-			edges.past_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
-			if (edges.past_edges == NULL)
-				throw std::bad_alloc();
-		}
+		edges.past_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
+		if (edges.past_edges == NULL)
+			throw std::bad_alloc();
 		memset(edges.past_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
 		hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer);
 
-		if (use_gpu)
-			checkCudaErrors(cuMemHostAlloc((void**)&edges.future_edges, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer), CU_MEMHOSTALLOC_DEVICEMAP));
-		else {
-			edges.future_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
-			if (edges.future_edges == NULL)
-				throw std::bad_alloc();
-		}
+		edges.future_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
+		if (edges.future_edges == NULL)
+			throw std::bad_alloc();
 		memset(edges.future_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
 		hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer);
 
@@ -713,9 +703,6 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 
 	stopwatchStart(&sLinkNodes);
 
-	//memset(nodes.k_in, 0, sizeof(int) * N_tar);
-	//memset(nodes.k_out, 0, sizeof(int) * N_tar);
-	
 	//Identify future connections
 	for (i = 0; i < N_tar - 1; i++) {
 		if (i < core_limit)

@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 ###########################
 #(C) Will Cunningham 2014 #
@@ -38,7 +38,8 @@ elif (ctype == 2):
 elif (ctype == 3):
 	cline = 24
 
-files = glob.glob("dat/*.cset.out")
+basedir = '/scratch/cunningham/causets/'
+files = glob.glob(basedir + 'dat/*.cset.out')
 
 N = len(files)
 c = []
@@ -61,7 +62,7 @@ for file in files:
 avg /= N
 sys.stdout.write('Average Clustering: %f\n' % avg)
 
-f = open('dat/ref/average_c.cset.cls.ref','w')
+f = open(basedir + 'dat/ref/average_c.cset.cls.ref','w')
 for i in range(0,N):
 	f.write(str(c[i]) + '\n')
 f.close()

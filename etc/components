@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 ###########################
 #(C) Will Cunningham 2014 #
@@ -54,7 +54,8 @@ elif (ctype == 3):
 	cc_line = 25
 	gcc_line = 26
 
-files = glob.glob("dat/*.cset.out")
+basedir = '/scratch/cunningham/causets/'
+files = glob.glob(basedir + 'dat/*.cset.out')
 
 N = len(files)
 
@@ -99,17 +100,17 @@ sys.stdout.write('Number of Connected Components: %d\n' % avg_cc)
 sys.stdout.write('Size of Giant Component: %d\n' % avg_gcc)
 sys.stdout.write('Relative Size of Giant Component: %f\n' % (float(avg_gcc) / float(N_tar)))
 
-f = open('dat/ref/average_N_iso.cset.cmp.ref','w')
+f = open(basedir + 'dat/ref/average_N_iso.cset.cmp.ref','w')
 for i in range(0,N):
 	f.write(str(N_iso[i]) + '\n')
 f.close()
 
-f = open('dat/ref/average_N_cc.cset.cmp.ref','w')
+f = open(basedir + 'dat/ref/average_N_cc.cset.cmp.ref','w')
 for i in range(0,N):
 	f.write(str(N_cc[i]) + '\n')
 f.close()
 
-f = open('dat/ref/average_N_gcc.cset.cmp.ref','w')
+f = open(basedir + 'dat/ref/average_N_gcc.cset.cmp.ref','w')
 for i in range(0,N):
 	f.write(str(N_gcc[i]) + '\n')
 f.close()

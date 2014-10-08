@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 ###########################
 #(C) Will Cunningham 2014 #
@@ -38,9 +38,9 @@ elif (ctype == 2):
 elif (ctype == 3):
 	kline = 23
 
-#sys.stdout.write('kline: %d\n' % kline)
-
-files = glob.glob("dat/*.cset.out")
+#basedir = '/scratch/cunningham/causets/'
+basedir = ''
+files = glob.glob(basedir + 'dat/*.cset.out')
 
 N = len(files)
 k = []
@@ -65,7 +65,7 @@ for file in files:
 avg /= N
 sys.stdout.write('Average Degrees: %f\n' % avg)
 
-f = open('dat/ref/average_k.cset.deg.ref','w')
+f = open(basedir + 'dat/ref/average_k.cset.deg.ref','w')
 for i in range(0,N):
 	f.write(str(k[i]) + '\n')
 f.close()

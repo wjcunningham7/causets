@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 ###########################
 #(C) Will Cunningham 2014 #
@@ -11,8 +11,9 @@
 import glob
 import sys
 
-cfiles = glob.glob("dat/emb/*.cset.emb.dat")
-tnfiles = glob.glob("dat/emb/tn/*.cset.emb_tn.dat")
+basedir = '/scratch/cunningham/causets/'
+cfiles = glob.glob(basedir + 'dat/emb/*.cset.emb.dat')
+tnfiles = glob.glob(basedir + 'dat/emb/tn/*.cset.emb_tn.dat')
 
 confusion = []
 for i in range(0,4):
@@ -41,12 +42,12 @@ for file in tnfiles:
 
 	f.close()
 
-f = open('dat/ref/confusion.cset.emb.ref','w')
+f = open(basedir + 'dat/ref/confusion.cset.emb.ref','w')
 for i in range(0,4):
 	f.write(str(confusion[i]) + '\n')
 f.close()
 
-f = open('dat/ref/tn.cset.emb.ref','w')
+f = open(basedir + 'dat/ref/tn.cset.emb.ref','w')
 for i in range(0,len(tn_eta)):
 	f.write(str(tn_eta[i]) + ' ' + str(tn_theta[i]) + '\n')
 f.close()

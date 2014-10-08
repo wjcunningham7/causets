@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 ###########################
 #(C) Will Cunningham 2014 #
@@ -24,7 +24,8 @@ if (N < 0):
 	sys.stdout.write('Invalid argument.\n')
 	sys.exit(3)
 
-cdk_files = glob.glob("dat/cdk/*.cset.cdk.dat")
+basedir = '/scratch/cunningham/causets/'
+cdk_files = glob.glob(basedir + 'dat/cdk/*.cset.cdk.dat')
 c = []
 
 for i in range(0,N):
@@ -38,7 +39,7 @@ for file in cdk_files:
 		c[int(token1)] += token2
 	h.close()
 
-h = open('dat/ref/cdk_dist.cset.cls.ref','w')
+h = open(basedir + 'dat/ref/cdk_dist.cset.cls.ref','w')
 for i in range(0,N):
 	if (c[i]):
 		h.write(str(i) + ' ' + str(c[i]) + '\n')

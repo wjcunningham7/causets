@@ -31,4 +31,15 @@
 //Benchmarking Flags
 #define NBENCH 10	//Number of samples used during benchmarking
 
+//CUDA Flags
+#define BLOCK_SIZE 128	//Number of threads per block
+
+#define GROUP_SIZE 8	//Number of block groups per grid dimension
+			//Increase this by a power of 2 if too much GPU memory is
+			//requested in the generateLists() algorithm
+
+#define THREAD_SIZE 4	//Number of element operations per thread
+
+#define NBUFFERS 4	//Number of memory buffers used concurrently on GPU
+
 #endif

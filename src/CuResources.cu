@@ -113,7 +113,7 @@ void connectToGPU(Resources *resources, int argc, char **argv)
 	fflush(stdout);
 
 	//Create Context
-	status = cuCtxCreate(&resources->cuContext, CU_CTX_SCHED_SPIN | CU_CTX_MAP_HOST, resources->cuDevice);
+	status = cuCtxCreate(&resources->cuContext, CU_CTX_SCHED_SPIN, resources->cuDevice);
 	if (status != CUDA_SUCCESS) {
 		printf("Could not create CUDA context!\n");
 		cuCtxDetach(resources->cuContext);

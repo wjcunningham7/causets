@@ -6,98 +6,63 @@
 // Northeastern University //
 /////////////////////////////
 
-__global__ void GenerateAdjacencyLists(float4 *nodes, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width)
+__global__ void GenerateAdjacencyLists_v2(float4 *nodes0, float4 *nodes1, int *k_in, int *k_out, bool *edges, int diag)
 {
-	///////////////////////////////////////
-	// Identify Node Pair with Thread ID //
-	///////////////////////////////////////
+	__shared__ float4 shr_n1[THREAD_SIZE];
+	__shared__ int n[BLOCK_SIZE][THREAD_SIZE];
 
-	__shared__ float4 shr_node0_c;
-	__shared__ int n_a[BLOCK_SIZE];
-	__shared__ int n_b[BLOCK_SIZE];
-	__shared__ int n_c[BLOCK_SIZE];
-	float4 node0_ab, node0_c, node1_ab, node1_c;
+	float4 n0, n1;
 
-	unsigned int tid = threadIdx.x;
-	unsigned int i = blockIdx.y;
-	unsigned int j = blockDim.x * blockIdx.x + threadIdx.x;
-	int do_map = i >= j;
-
-	// a -> upper triangle of upper left block (do_map == 0)
-	// b -> lower triangle of upper left block (do_map == 1)
-	// c -> upper right block
-
-	unsigned int i_ab = i + do_map * (((width - i) << 1) - 1);
-	unsigned int j_ab = j + do_map * ((width - j) << 1);
-
-	unsigned int i_c = i;
-	unsigned int j_c = j + width;
+	unsigned int tid = threadIdx.y;
+	unsigned int i = blockIdx.x;
+	unsigned int j = blockDim.y * blockIdx.y + threadIdx.y;
+	unsigned int k;
 
 	if (!tid)
-		shr_node0_c = nodes[i_c];
+		for (k = 0; k < THREAD_SIZE; k++)
+			shr_n1[k] = nodes1[i*THREAD_SIZE+k];
 	__syncthreads();
 
-	float dt_ab = 0.0f, dt_c = 0.0f, dx_ab = 0.0f, dx_c = 0.0f;
-	if (j < width) {
-		node0_c = shr_node0_c;
-		node1_c = nodes[j_c];
+	float dt[THREAD_SIZE];
+	float dx[THREAD_SIZE];
 
-		node0_ab = do_map ? nodes[i_ab] : node0_c;
-		node1_ab = !j ? node0_ab : nodes[j_ab];
+	for (k = 0; k < THREAD_SIZE; k++) {
+		if (!diag || j < i * THREAD_SIZE + k) {
+			n0 = nodes0[j];
+			n1 = shr_n1[k];
 
-		//////////////////////////////////
-		// Identify Causal Relationship //
-		//////////////////////////////////
-
-		//Calculate dt (assumes nodes are already temporally ordered)
-		dt_ab = node1_ab.w - node0_ab.w;
-		dt_c  = node1_c.w  - node0_c.w;
-
-		//Calculate dx
-		dx_ab = acosf(sphProduct_GPU(node0_ab, node1_ab));
-		dx_c = acosf(sphProduct_GPU(node0_c, node1_c));
+			dt[k] = n1.w - n0.w;
+			dx[k] = acosf(sphProduct_GPU(n0, n1));
+		}
 	}
 
-	//Reduction in Shared Memory
-	int edge_ab = dx_ab < dt_ab;
-	int edge_c = dx_c < dt_c;
-	n_a[tid] = edge_ab * !do_map;
-	n_b[tid] = edge_ab * do_map;
-	n_c[tid] = edge_c;
+	bool edge[THREAD_SIZE];
+	int in = 0;
+	for (k = 0; k < THREAD_SIZE; k++) {
+		edge[k] = (!diag || j < i * THREAD_SIZE + k) && dx[k] < dt[k];
+		n[tid][k] = (int)edge[k];
+		in += (int)edge[k];
+	}
 	__syncthreads();
 
 	int stride;
 	for (stride = 1; stride < BLOCK_SIZE; stride <<= 1) {
-		if (!(tid % (stride << 1))) {
-			n_a[tid] += n_a[tid+stride];
-			n_b[tid] += n_b[tid+stride];
-			n_c[tid] += n_c[tid+stride];
-		}
+		if (!(tid % (stride << 1)))
+			for (k = 0; k < THREAD_SIZE; k++)
+				n[tid][k] += n[tid+stride][k];
 		__syncthreads();
 	}
 
-	//Write Degrees to Global Memory
-	if (edge_ab)
-		atomicAdd(&k_in[j_ab], 1);
-	if (edge_c)
-		atomicAdd(&k_in[j_c], 1);
-	if (!tid) {
-		if (n_a[0])
-			atomicAdd(&k_out[i], n_a[0]);
-		if (n_b[0])
-			atomicAdd(&k_out[i_ab], n_b[0]);
-		if (n_c[0])
-			atomicAdd(&k_out[i_c], n_c[0]);
-	}
+	//Write values to global memory
+	for (k = 0; k < THREAD_SIZE; k++)
+		if (!diag || j < i * THREAD_SIZE + k)
+			edges[(i*THREAD_SIZE+k)*blockDim.y*gridDim.y+j] = edge[k];
+	atomicAdd(&k_in[j], in);
 
-	//Write Edges to Global Memory
-	int idx = 0;
-	if (edge_ab | edge_c)
-		idx = atomicAdd(g_idx, edge_ab + edge_c);
-	if (edge_ab)
-		edges[idx++] = ((uint64_t)i_ab) << 32 | ((uint64_t)j_ab);
-	if (edge_c)
-		edges[idx] = ((uint64_t)i_c) << 32 | ((uint64_t)j_c);
+	if (!tid)
+		for (k = 0; k < THREAD_SIZE; k++)
+			if (!diag || j < i * THREAD_SIZE + k)
+				atomicAdd(&k_out[i*THREAD_SIZE+k], n[0][k]);
 }
 
 __global__ void DecodeFutureEdges(uint64_t *edges, int *future_edges, int elements, int offset)
@@ -145,7 +110,7 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (edges.past_edges != NULL);
@@ -174,22 +139,30 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	Stopwatch sDecode2 = Stopwatch();
 	Stopwatch sProps = Stopwatch();
 
-	CUdeviceptr d_nodes;
-	CUdeviceptr d_k_in, d_k_out;
 	CUdeviceptr d_edges;
 	CUdeviceptr d_past_edges, d_future_edges;
 	CUdeviceptr d_past_edge_row_start, d_future_edge_row_start;
+	CUdeviceptr d_k_in, d_k_out;
 	CUdeviceptr d_buf, d_buf_scanned;
 	CUdeviceptr d_N_res, d_N_deg2;
-	CUdeviceptr d_g_idx;
+
+	uint64_t *h_edges;
 	int *g_idx;
 	int i, j, k;
 
 	stopwatchStart(&sLinkNodesGPU);
 	stopwatchStart(&sGPUOverhead);
+	
+	size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar / 2 + edge_buffer)));
 
 	//Allocate Overhead on Host
 	try {
+		h_edges = (uint64_t*)malloc(sizeof(uint64_t) * d_edges_size);
+		if (h_edges == NULL)
+			throw std::bad_alloc();
+		memset(h_edges, 0, sizeof(uint64_t) * d_edges_size);
+		hostMemUsed += sizeof(uint64_t) * d_edges_size;
+
 		g_idx = (int*)malloc(sizeof(int));
 		if (g_idx == NULL)
 			throw std::bad_alloc();
@@ -201,69 +174,25 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	}
 
 	//Allocate Global Device Memory
-	checkCudaErrors(cuMemAlloc(&d_nodes, sizeof(float4) * N_tar));
-	devMemUsed += sizeof(float4) * N_tar;
-
-	size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar / 2 + edge_buffer)));
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
+	checkCudaErrors(cuMemsetD32(d_edges, 0, d_edges_size << 1));
 	devMemUsed += sizeof(uint64_t) * d_edges_size;
 	
-	checkCudaErrors(cuMemAlloc(&d_g_idx, sizeof(int)));
-	devMemUsed += sizeof(int);
-
-	//Allocate Mapped Pinned Memory
-	checkCudaErrors(cuMemHostGetDevicePointer(&d_k_in, (void*)nodes.k_in, 0));
-	checkCudaErrors(cuMemHostGetDevicePointer(&d_k_out, (void*)nodes.k_out, 0));
-
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
-	if (verbose)
-		printMemUsed("for Parallel Node Linking", hostMemUsed, devMemUsed);
-
-	//Copy Memory from Host to Device
-	checkCudaErrors(cuMemcpyHtoD(d_nodes, nodes.c.sc, sizeof(float4) * N_tar));
-
-	//Initialize Memory on Device
-	checkCudaErrors(cuMemsetD32(d_edges, 0, d_edges_size << 1));
-	checkCudaErrors(cuMemsetD32(d_g_idx, 0, 1));
-
 	//Synchronize
 	checkCudaErrors(cuCtxSynchronize());
 
 	stopwatchStop(&sGPUOverhead);
-
-	//CUDA Grid Specifications
-	unsigned int gridx_GAL = static_cast<unsigned int>(ceil((static_cast<float>(N_tar) / 2) / BLOCK_SIZE));
-	unsigned int gridy_GAL = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / 2));
-	dim3 threads_per_block(BLOCK_SIZE, 1, 1);
-	dim3 blocks_per_grid_GAL(gridx_GAL, gridy_GAL, 1);
-	
 	stopwatchStart(&sGenAdjList);
 
-	//Execute Kernel
-	GenerateAdjacencyLists<<<blocks_per_grid_GAL, threads_per_block>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar >> 1);
-	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
-
-	//Synchronize
-	checkCudaErrors(cuCtxSynchronize());
+	//if (!generateLists(nodes, h_edges, g_idx, N_tar, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
+	if (!generateLists_v2(nodes, h_edges, g_idx, N_tar, d_edges_size, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
+	//	return false;
 
 	stopwatchStop(&sGenAdjList);
 	stopwatchStart(&sGPUOverhead);
 
-	//Check Number of Connections
-	checkCudaErrors(cuMemcpyDtoH(g_idx, d_g_idx, sizeof(int)));
-	checkCudaErrors(cuCtxSynchronize());
-
-	//Free Device Memory
-	cuMemFree(d_nodes);
-	//d_nodes = NULL;
-	devMemUsed -= sizeof(float4) * N_tar;
-	
-	cuMemFree(d_g_idx);
-	//d_g_idx = NULL;
-	devMemUsed -= sizeof(int);
-
 	try {
-		if (*g_idx >= N_tar * k_tar / 2 + edge_buffer)
+		if (*g_idx + 1 >= N_tar * k_tar / 2 + edge_buffer)
 			throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
@@ -273,12 +202,26 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 		return false;
 	}
 
+	printf_cyan();
+	printf("Number of edges detected: %d\n", *g_idx);
+	printf_std();
+	//printf("\nCHECKPOINT.\n");
+	//if (*g_idx || true) exit(1);
+
+	checkCudaErrors(cuMemcpyHtoD(d_edges, h_edges, sizeof(uint64_t) * d_edges_size));
+	checkCudaErrors(cuCtxSynchronize());
+
+	free(h_edges);
+	h_edges = NULL;
+	hostMemUsed -= sizeof(uint64_t) * d_edges_size;
+
 	stopwatchStop(&sGPUOverhead);
 
 	//Decode past and future edge lists using Bitonic Sort
 
 	//CUDA Grid Specifications
 	unsigned int gridx_bitonic = d_edges_size / BLOCK_SIZE;
+	dim3 threads_per_block(BLOCK_SIZE, 1, 1);
 	dim3 blocks_per_grid_bitonic(gridx_bitonic, 1, 1);
 
 	stopwatchStart(&sBitonic0);
@@ -295,9 +238,17 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	stopwatchStop(&sBitonic0);
 	stopwatchStart(&sGPUOverhead);
 
-	//Allocate Mapped Pinned Memory
-	checkCudaErrors(cuMemHostGetDevicePointer(&d_past_edges, (void*)edges.past_edges, 0));
-	checkCudaErrors(cuMemHostGetDevicePointer(&d_future_edges, (void*)edges.future_edges, 0));
+	/////////
+	//DEBUG//
+	/////////
+	//printMemUsed("at Checkpoint", hostMemUsed, devMemUsed);
+
+	//Allocate Device Memory
+	checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * d_edges_size));
+	devMemUsed += sizeof(int) * d_edges_size;
+
+	//Initialize Memory on Device
+	checkCudaErrors(cuMemsetD32(d_future_edges, 0, d_edges_size));
 
 	stopwatchStop(&sGPUOverhead);
 
@@ -315,6 +266,17 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	checkCudaErrors(cuCtxSynchronize());
 
 	stopwatchStop(&sDecode0);
+	stopwatchStart(&sGPUOverhead);
+
+	//Copy Memory from Device to Host
+	checkCudaErrors(cuMemcpyDtoH(edges.future_edges, d_future_edges, sizeof(int) * *g_idx));
+
+	//Free Device Memory
+	cuMemFree(d_future_edges);
+	d_future_edges = NULL;
+	devMemUsed -= sizeof(int) * d_edges_size;
+
+	stopwatchStop(&sGPUOverhead);
 	stopwatchStart(&sBitonic1);
 
 	//Resort Edges with New Encoding
@@ -327,6 +289,16 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	}
 
 	stopwatchStop(&sBitonic1);
+	stopwatchStart(&sGPUOverhead);
+
+	//Allocate Device Memory
+	checkCudaErrors(cuMemAlloc(&d_past_edges, sizeof(int) * d_edges_size));
+	devMemUsed += sizeof(int) * d_edges_size;
+
+	//Initialize Memory on Device
+	checkCudaErrors(cuMemsetD32(d_past_edges, 0, d_edges_size));
+
+	stopwatchStop(&sGPUOverhead);
 	stopwatchStart(&sDecode1);
 
 	//Execute Kernel
@@ -338,11 +310,18 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 
 	stopwatchStop(&sDecode1);
 	stopwatchStart(&sGPUOverhead);
+
+	//Copy Memory from Device to Host
+	checkCudaErrors(cuMemcpyDtoH(edges.past_edges, d_past_edges, sizeof(int) * *g_idx));
 	
 	//Free Device Memory
 	cuMemFree(d_edges);
-	//d_edges = NULL;
+	d_edges = NULL;
 	devMemUsed -= sizeof(uint64_t) * d_edges_size;
+
+	cuMemFree(d_past_edges);
+	d_past_edges = NULL;
+	devMemUsed -= sizeof(int) * d_edges_size;
 
 	//Parallel Prefix Sum of 'k_in' and 'k_out' and Write to Edge Pointers
 
@@ -351,6 +330,12 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	devMemUsed += sizeof(int) * N_tar;
 
 	checkCudaErrors(cuMemAlloc(&d_future_edge_row_start, sizeof(int) * N_tar));
+	devMemUsed += sizeof(int) * N_tar;
+
+	checkCudaErrors(cuMemAlloc(&d_k_in, sizeof(int) * N_tar));
+	devMemUsed += sizeof(int) * N_tar;
+
+	checkCudaErrors(cuMemAlloc(&d_k_out, sizeof(int) * N_tar));
 	devMemUsed += sizeof(int) * N_tar;
 
 	checkCudaErrors(cuMemAlloc(&d_buf, sizeof(int) * (BLOCK_SIZE << 1)));
@@ -366,6 +351,10 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_past_edge_row_start, 0, N_tar));
 	checkCudaErrors(cuMemsetD32(d_future_edge_row_start, 0, N_tar));
+
+	//Copy Memory from Host to Device
+	checkCudaErrors(cuMemcpyHtoD(d_k_in, nodes.k_in, sizeof(int) * N_tar));
+	checkCudaErrors(cuMemcpyHtoD(d_k_out, nodes.k_out, sizeof(int) * N_tar));
 
 	stopwatchStop(&sGPUOverhead);
 
@@ -445,19 +434,19 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 
 	//Free Device Memory
 	cuMemFree(d_past_edge_row_start);
-	//d_past_edge_row_start = NULL;
+	d_past_edge_row_start = NULL;
 	devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_future_edge_row_start);
-	//d_future_edge_row_start = NULL;
+	d_future_edge_row_start = NULL;
 	devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_buf);
-	//d_buf = NULL;
+	d_buf = NULL;
 	devMemUsed -= sizeof(int) * (BLOCK_SIZE << 1);
 
 	cuMemFree(d_buf_scanned);
-	//d_buf_scanned = NULL;
+	d_buf_scanned = NULL;
 	devMemUsed -= sizeof(int) * (BLOCK_SIZE << 1);
 
 	//Resulting Network Properties
@@ -490,6 +479,8 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	stopwatchStart(&sGPUOverhead);
 
 	//Copy Memory from Device to Host
+	checkCudaErrors(cuMemcpyDtoH(nodes.k_in, d_k_in, sizeof(int) * N_tar));
+	checkCudaErrors(cuMemcpyDtoH(nodes.k_out, d_k_out, sizeof(int) * N_tar));
 	checkCudaErrors(cuMemcpyDtoH(&N_res, d_N_res, sizeof(int)));
 	checkCudaErrors(cuMemcpyDtoH(&N_deg2, d_N_deg2, sizeof(int)));
 
@@ -507,12 +498,20 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	}
 
 	//Free Device Memory
+	cuMemFree(d_k_in);
+	d_k_in = NULL;
+	devMemUsed -= sizeof(int) * N_tar;
+
+	cuMemFree(d_k_out);
+	d_k_out = NULL;
+	devMemUsed -= sizeof(int) * N_tar;
+
 	cuMemFree(d_N_res);
-	//d_N_res = NULL;
+	d_N_res = NULL;
 	devMemUsed -= sizeof(int);
 
 	cuMemFree(d_N_deg2);
-	//d_N_deg2 = NULL;
+	d_N_deg2 = NULL;
 	devMemUsed -= sizeof(int);
 
 	stopwatchStop(&sGPUOverhead);
@@ -547,6 +546,395 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 		printf("\t\t\tPost Scan Decode Time: %5.6f sec\n", sDecode2.elapsedTime);
 		fflush(stdout);
 	}
+
+	return true;
+}
+
+//Uses multiple buffers and asynchronous operations
+bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+{
+	if (DEBUG) {
+		//No Null Pointers
+		assert (nodes.c.sc != NULL);
+		assert (nodes.k_in != NULL);
+		assert (nodes.k_out != NULL);
+		assert (edges != NULL);
+		assert (g_idx != NULL);
+
+		//Values in correct ranges
+		assert (N_tar > 0);
+	}
+
+	//CUDA Streams
+	CUstream stream[NBUFFERS];
+
+	//Arrays of Buffers
+	int *h_k_in[NBUFFERS];
+	int *h_k_out[NBUFFERS];
+	bool *h_edges[NBUFFERS];
+
+	CUdeviceptr d_nodes0[NBUFFERS];
+	CUdeviceptr d_nodes1[NBUFFERS];
+	CUdeviceptr d_k_in[NBUFFERS];
+	CUdeviceptr d_k_out[NBUFFERS];
+	CUdeviceptr d_edges[NBUFFERS];
+
+	unsigned int i, j, m;
+	unsigned int diag;
+	
+	//Thread blocks are grouped into "mega" blocks
+	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * GROUP_SIZE)));
+	size_t mthread_size = mblock_size * BLOCK_SIZE;
+	size_t m_edges_size = mthread_size * mthread_size;
+
+	//Create Streams
+	for (i = 0; i < NBUFFERS; i++)
+		checkCudaErrors(cuStreamCreate(&stream[i], CU_STREAM_NON_BLOCKING));
+
+	//Allocate Memory
+	for (i = 0; i < NBUFFERS; i++) {
+		checkCudaErrors(cuMemHostAlloc((void**)&h_k_in[i], sizeof(int) * mthread_size, CU_MEMHOSTALLOC_PORTABLE));
+		hostMemUsed += sizeof(int) * mthread_size;
+
+		checkCudaErrors(cuMemHostAlloc((void**)&h_k_out[i], sizeof(int) * mthread_size, CU_MEMHOSTALLOC_PORTABLE));
+		hostMemUsed += sizeof(int) * mthread_size;
+
+		checkCudaErrors(cuMemHostAlloc((void**)&h_edges[i], sizeof(bool) * m_edges_size, CU_MEMHOSTALLOC_PORTABLE));
+		hostMemUsed += sizeof(bool) * m_edges_size;
+
+		checkCudaErrors(cuMemAlloc(&d_nodes0[i], sizeof(float4) * mthread_size));
+		devMemUsed += sizeof(float4) * mthread_size;
+
+		checkCudaErrors(cuMemAlloc(&d_nodes1[i], sizeof(float4) * mthread_size));
+		devMemUsed += sizeof(float4) * mthread_size;
+
+		checkCudaErrors(cuMemAlloc(&d_k_in[i], sizeof(int) * mthread_size));
+		devMemUsed += sizeof(int) * mthread_size;
+
+		checkCudaErrors(cuMemAlloc(&d_k_out[i], sizeof(int) * mthread_size));
+		devMemUsed += sizeof(int) * mthread_size;
+
+		checkCudaErrors(cuMemAlloc(&d_edges[i], sizeof(bool) * m_edges_size));
+		devMemUsed += sizeof(bool) * m_edges_size;
+	}
+	
+	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	if (verbose)
+		printMemUsed("for Linking Nodes on GPU", hostMemUsed, devMemUsed);
+
+	//CUDA Grid Specifications
+	unsigned int gridx = static_cast<unsigned int>(ceil(static_cast<float>(mthread_size) / THREAD_SIZE));
+	unsigned int gridy = mblock_size;
+	dim3 threads_per_block(1, BLOCK_SIZE, 1);
+	dim3 blocks_per_grid(gridx, gridy, 1);
+	
+	Stopwatch gtest = Stopwatch();
+	stopwatchStart(&gtest);
+
+	//Adjacency matrix block C and non-diagonal blocks of AB
+	for (i = 0; i < 2 * GROUP_SIZE; i++) {
+		for (j = 0; j < 2 * GROUP_SIZE / NBUFFERS; j++) {
+			//DEBUG
+			//if (i < GROUP_SIZE || j * NBUFFERS < GROUP_SIZE) continue;
+
+			#ifdef _OPENMP
+			#pragma omp parallel num_threads(NBUFFERS)
+			{
+				checkCudaErrors(cuCtxSetCurrent(ctx));
+
+				#pragma omp for schedule(dynamic, 1)
+			#endif
+				for (m = 0; m < NBUFFERS; m++) {
+					//if (!((j * NBUFFERS + m) % (2 * GROUP_SIZE + 1)))
+					if (i > j * NBUFFERS + m)
+						continue;
+
+					diag = (unsigned int)(i == j * NBUFFERS + m);
+
+					//Clear Device Buffers
+					checkCudaErrors(cuMemsetD32Async(d_k_in[m], 0, mthread_size, stream[m]));
+					checkCudaErrors(cuMemsetD32Async(d_k_out[m], 0, mthread_size, stream[m]));
+					checkCudaErrors(cuMemsetD8Async(d_edges[m], 0, m_edges_size, stream[m]));					
+			
+					//Transfer Nodes to Device Buffers
+					checkCudaErrors(cuMemcpyHtoDAsync(d_nodes0[m], nodes.c.sc + i * mthread_size, sizeof(float4) * mthread_size, stream[m]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_nodes1[m], nodes.c.sc + (j*NBUFFERS+m) * mthread_size, sizeof(float4) * mthread_size, stream[m]));
+
+					//Execute Kernel
+					GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float4*)d_nodes0[m], (float4*)d_nodes1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], diag);
+					getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
+
+					//Copy Memory to Host Buffers
+					checkCudaErrors(cuMemcpyDtoHAsync(h_k_in[m], d_k_in[m], sizeof(int) * mthread_size, stream[m]));
+					checkCudaErrors(cuMemcpyDtoHAsync(h_k_out[m], d_k_out[m], sizeof(int) * mthread_size, stream[m]));
+					checkCudaErrors(cuMemcpyDtoHAsync(h_edges[m], d_edges[m], sizeof(bool) * m_edges_size, stream[m]));
+				}
+			#ifdef _OPENMP
+			}
+			#endif
+
+			for (m = 0; m < NBUFFERS; m++) {
+				if (!((j * NBUFFERS + m) % (2 * GROUP_SIZE + 1)))
+					continue;
+
+				//Synchronize
+				checkCudaErrors(cuStreamSynchronize(stream[m]));
+
+				//Read Data from Buffers
+				readDegrees(nodes.k_in, h_k_in[m], i, mthread_size);
+				readDegrees(nodes.k_out, h_k_out[m], j*NBUFFERS+m, mthread_size);
+				readEdges(edges, h_edges[m], g_idx, d_edges_size, mthread_size, i, j*NBUFFERS+m);
+			}				
+		}
+	}
+	
+	stopwatchStop(&gtest);
+	//printf_cyan();
+	//printf("Time Elapsed: %.6f\n", gtest.elapsedTime);
+	//printf_std();
+	//fflush(stdout);
+
+	//Free Buffers
+	for (i = 0; i < NBUFFERS; i++) {
+		cuMemFreeHost(h_k_in[i]);
+		h_k_in[i] = NULL;
+		hostMemUsed -= sizeof(int) * mthread_size;
+
+		cuMemFreeHost(h_k_out[i]);
+		h_k_out[i] = NULL;
+		hostMemUsed -= sizeof(int) * mthread_size;
+
+		cuMemFreeHost(h_edges[i]);
+		h_edges[i] = NULL;
+		hostMemUsed -= sizeof(bool) * m_edges_size;
+
+		cuMemFree(d_nodes0[i]);
+		d_nodes0[i] = NULL;
+		devMemUsed -= sizeof(float4) * mthread_size;
+
+		cuMemFree(d_nodes1[i]);
+		d_nodes1[i] = NULL;
+		devMemUsed -= sizeof(float4) * mthread_size;
+
+		cuMemFree(d_k_in[i]);
+		d_k_in[i] = NULL;
+		devMemUsed -= sizeof(int) * mthread_size;
+
+		cuMemFree(d_k_out[i]);
+		d_k_out[i] = NULL;
+		devMemUsed -= sizeof(int) * mthread_size;
+
+		cuMemFree(d_edges[i]);
+		d_edges[i] = NULL;
+		devMemUsed -= sizeof(bool) * m_edges_size;
+	}
+
+	//Destroy Streams
+	for (i = 0; i < NBUFFERS; i++)
+		checkCudaErrors(cuStreamDestroy(stream[i]));
+
+	//Final Synchronization
+	checkCudaErrors(cuCtxSynchronize());
+
+	return true;
+}
+
+bool generateLists(const Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+{
+	if (DEBUG) {
+		//No Null Pointers
+		assert (nodes.c.sc != NULL);
+		assert (nodes.k_in != NULL);
+		assert (nodes.k_out != NULL);
+		assert (edges != NULL);
+		assert (g_idx != NULL);
+
+		//Values in correct ranges
+		assert (N_tar > 0);
+	}
+
+	Stopwatch gtest = Stopwatch();
+	stopwatchStart(&gtest);
+
+	//Temporary Buffers
+	CUdeviceptr d_nodes0, d_nodes1;
+	CUdeviceptr d_k_in, d_k_out;
+	CUdeviceptr d_edges;
+
+	int *h_k_in;
+	int *h_k_out;
+	bool *h_edges;
+
+	unsigned int i, j;
+	unsigned int diag;
+
+	//Thread blocks are grouped into "mega" blocks
+	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * GROUP_SIZE)));
+	size_t mthread_size = mblock_size * BLOCK_SIZE;
+	size_t m_edges_size = mthread_size * mthread_size;
+
+	//DEBUG
+	printf_red();
+	printf("THREAD  SIZE: %d\n", THREAD_SIZE);
+	printf("BLOCK   SIZE: %d\n", BLOCK_SIZE);
+	printf("GROUP   SIZE: %d\n", GROUP_SIZE);
+	printf("MBLOCK  SIZE: %zd\n", mblock_size);
+	printf("MTHREAD SIZE: %zd\n", mthread_size);
+	printf("\nNumber of Times Kernel is Executed: %d\n", (GROUP_SIZE*GROUP_SIZE));
+	printf_std();
+	fflush(stdout);
+
+	//Allocate Buffers on Host
+	try {
+		h_k_in = (int*)malloc(sizeof(int) * mthread_size);
+		if (h_k_in == NULL)
+			throw std::bad_alloc();
+		memset(h_k_in, 0, sizeof(int) * mthread_size);
+		hostMemUsed += sizeof(int) * mthread_size;
+
+		h_k_out = (int*)malloc(sizeof(int) * mthread_size);
+		if (h_k_out == NULL)
+			throw std::bad_alloc();
+		memset(h_k_out, 0, sizeof(int) * mthread_size);
+		hostMemUsed += sizeof(int) * mthread_size;
+
+		h_edges = (bool*)malloc(sizeof(bool) * m_edges_size);
+		if (h_edges == NULL)
+			throw std::bad_alloc();
+		memset(h_edges, 0, sizeof(bool) * m_edges_size);
+		hostMemUsed += sizeof(bool) * m_edges_size;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	}
+	
+	//Allocate Node Buffers on Device
+	checkCudaErrors(cuMemAlloc(&d_nodes0, sizeof(float4) * mthread_size));
+	checkCudaErrors(cuMemsetD32(d_nodes0, 0, 4 * mthread_size));
+	devMemUsed += sizeof(float4) * mthread_size;
+
+	checkCudaErrors(cuMemAlloc(&d_nodes1, sizeof(float4) * mthread_size));
+	checkCudaErrors(cuMemsetD32(d_nodes1, 0, 4 * mthread_size));
+	devMemUsed += sizeof(float4) * mthread_size;
+
+	//Allocate Degree Buffers on Device
+	checkCudaErrors(cuMemAlloc(&d_k_in, sizeof(int) * mthread_size));
+	checkCudaErrors(cuMemsetD32(d_k_in, 0, mthread_size));
+	devMemUsed += sizeof(int) * mthread_size;
+
+	checkCudaErrors(cuMemAlloc(&d_k_out, sizeof(int) * mthread_size));
+	checkCudaErrors(cuMemsetD32(d_k_out, 0, mthread_size));
+	devMemUsed += sizeof(int) * mthread_size;
+
+	//if (verbose)
+	//	printMemUsed("at Checkpoint", hostMemUsed, devMemUsed);
+
+	//Allocate Edge Buffer on Device
+	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(bool) * m_edges_size));
+	checkCudaErrors(cuMemsetD8(d_edges, 0, m_edges_size));
+	devMemUsed += sizeof(bool) * m_edges_size;
+
+	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	if (verbose)
+		printMemUsed("for Linking Nodes on GPU", hostMemUsed, devMemUsed);
+
+	//CUDA Grid Specifications
+	unsigned int gridx = static_cast<unsigned int>(ceil(static_cast<float>(mthread_size) / THREAD_SIZE));
+	unsigned int gridy = mblock_size;
+	dim3 threads_per_block(1, BLOCK_SIZE, 1);
+	dim3 blocks_per_grid(gridx, gridy, 1);
+
+	//DEBUG
+	printf_red();
+	printf("Grid X: %u\n", gridx);
+	printf("Grid Y: %u\n", gridy);
+	printf_std();
+	fflush(stdout);
+
+	//Block C and non-diagonal groups of block AB
+	for (i = 0; i < 2 * GROUP_SIZE; i++) {
+		for (j = 0; j < 2 * GROUP_SIZE; j++) {
+			if (i > j)
+				continue;
+
+			diag = (unsigned int)(i == j);
+
+			//Copy node values to device buffers
+			checkCudaErrors(cuMemcpyHtoD(d_nodes0, nodes.c.sc + i * mthread_size, sizeof(float4) * mthread_size));
+			checkCudaErrors(cuMemcpyHtoD(d_nodes1, nodes.c.sc + j * mthread_size, sizeof(float4) * mthread_size));
+
+			//Synchronize
+			checkCudaErrors(cuCtxSynchronize());
+
+			//Execute Kernel
+			GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes0, (float4*)d_nodes1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, diag);
+			getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
+
+			//Synchronize
+			checkCudaErrors(cuCtxSynchronize());
+
+			//Copy edges to host
+			checkCudaErrors(cuMemcpyDtoH(h_edges, d_edges, sizeof(bool) * m_edges_size));
+
+			//Copy degrees to host
+			checkCudaErrors(cuMemcpyDtoH(h_k_in, d_k_in, sizeof(int) * mthread_size));
+			checkCudaErrors(cuMemcpyDtoH(h_k_out, d_k_out, sizeof(int) * mthread_size));
+
+			//Synchronize
+			checkCudaErrors(cuCtxSynchronize());
+
+			//Transfer data from buffers
+			readEdges(edges, h_edges, g_idx, d_edges_size, mthread_size, i, j);
+			readDegrees(nodes.k_in, h_k_in, i, mthread_size);
+			readDegrees(nodes.k_out, h_k_out, j, mthread_size);
+
+			//Clear Device Memory
+			checkCudaErrors(cuMemsetD8(d_edges, 0, m_edges_size));
+			checkCudaErrors(cuMemsetD32(d_k_in, 0, mthread_size));
+			checkCudaErrors(cuMemsetD32(d_k_out, 0, mthread_size));
+
+			//Synchronize
+			checkCudaErrors(cuCtxSynchronize());			
+		}
+	}
+
+	cuMemFree(d_nodes0);
+	d_nodes0 = NULL;
+	devMemUsed -= sizeof(float4) * mthread_size;
+
+	cuMemFree(d_nodes1);
+	d_nodes1 = NULL;
+	devMemUsed -= sizeof(float4) * mthread_size;
+
+	cuMemFree(d_k_in);
+	d_k_in = NULL;
+	devMemUsed -= sizeof(int) * mthread_size;
+
+	cuMemFree(d_k_out);
+	d_k_out = NULL;
+	devMemUsed -= sizeof(int) * mthread_size;
+
+	cuMemFree(d_edges);
+	d_edges = NULL;
+	devMemUsed -= sizeof(bool) * m_edges_size;
+
+	free(h_k_in);
+	h_k_in = NULL;
+	hostMemUsed -= sizeof(int) * mthread_size;
+
+	free(h_k_out);
+	h_k_out = NULL;
+	hostMemUsed -= sizeof(int) * mthread_size;
+
+	free(h_edges);
+	h_edges = NULL;
+	hostMemUsed -= sizeof(bool) * m_edges_size;
+
+	stopwatchStop(&gtest);
+	//printf_cyan();
+	//printf("Time Elapsed: %.6f\n", gtest.elapsedTime);
+	//printf_std();
+	//fflush(stdout);
 
 	return true;
 }
