@@ -9,7 +9,87 @@
 //Linear Interpolation using Lookup Table
 double lookup(const char* filename, double *x, double *y)
 {
-	//
+	if (DEBUG) {
+		assert (filename != NULL);
+		//Only one should be NULL
+		assert (x == NULL ^ y == NULL);
+	}
+
+	//Identify which is being calculated
+	bool first = x == NULL;
+	//Identify input value
+	double input = first ? *y : *x;
+	double output = 0.0;
+	int i;
+
+	double *table;
+	long size = 0;
+	std::ifstream ltable(filename, std::ios::in | std::ios::binary | std::ios::ate);
+
+	try {
+		if (ltable.is_open()) {
+			//Find size of file
+			size = ltable.tellg();
+
+			//Allocate Memory for Buffer
+			char *memblock = (char*)malloc(size);
+			if (memblock == NULL)
+				throw std::bad_alloc();
+
+			//Allocate Memory for Lookup Table
+			table = (double*)malloc(size);
+			if (table == NULL)
+				throw std::bad_alloc();
+
+			//Read File
+			ltable.seekg(0, std::ios::beg);
+			ltable.read(memblock, size);
+			memcpy(table, memblock, size);
+
+			//Free Memory
+			free(memblock);
+			memblock = NULL;
+
+			//Close Stream
+			ltable.close();
+		} else
+			throw CausetException("Failed to open lookup table file!\n");
+
+		//Identify Value in Table
+		//Assumes values are written (y, x)
+		int t_idx = 0;
+		for (i = (int)(!first); i < size / sizeof(double); i += 2) {
+			if (table[i] > input) {
+				t_idx = i;
+				break;
+			}
+		}
+
+		//Check if Table is Insufficient
+		if (t_idx == 0)
+			throw CausetException("Values from lookup table do not include requested input.  Recreate table or change input.\n");
+
+		//Linear Interpolation
+		if (first)
+			output = table[t_idx-1] + (table[t_idx+1] - table[t_idx-1]) * (input - table[t_idx-2]) / (table[t_idx] - table[t_idx-2]);
+		else
+			output = table[t_idx-3] + (table[t_idx-1] - table[t_idx-3]) * (input - table[t_idx-2]) / (table[t_idx] - table[t_idx-2]);
+
+		//Free Memory
+		free(table);
+		table = NULL;
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return nan;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return nan;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		return nan;
+	}
+
+	return output;
 }
 
 //Sort nodes temporally by tau coordinate

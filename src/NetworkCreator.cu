@@ -93,74 +93,8 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					//printf("kappa2: %f\n", kappa2);
 					//printf_std();
 
-					//Read Lookup Table
-					double *raduc_lookup;
-					long size = 0;
-					std::ifstream lookup("./etc/raduc_table.cset.bin", std::ios::in | std::ios::binary | std::ios::ate);
-					if (lookup.is_open()) {
-						//Find size of file
-						size = lookup.tellg();
-						//printf_red();
-						//printf("Size: %d\n", size);
-						//printf_std();
-						//Allocate Memory for Buffer
-						char *memblock = (char*)malloc(size);
-						if (memblock == NULL)
-							throw std::bad_alloc();
-						hostMemUsed += size;
-
-						//Allocate Memory for Lookup Table
-						raduc_lookup = (double*)malloc(size);
-						if (raduc_lookup == NULL)
-							throw std::bad_alloc();
-						hostMemUsed += size;
-
-						//Read File
-						lookup.seekg(0, std::ios::beg);
-						lookup.read(memblock, size);
-						memcpy(raduc_lookup, memblock, size);
-
-						//Free Memory
-						free(memblock);
-						memblock = NULL;
-						hostMemUsed -= size;
-
-						//Close Stream
-						lookup.close();
-					} else
-						throw CausetException("Failed to open 'raduc_table.cset.bin' file!\n");
-
-					//printf_red();
-					//for (i = 0; i < 100; i += 2)
-					//	printf("\t%.8f\t%.8f\n", raduc_lookup[i], raduc_lookup[i+1]);
-					//printf_std();
-					//getchar(); getchar();
-
-					//Identify tau0
-					//Assumes values are written as (kappa, tau0)
-					int t_idx = 0;
-					for (i = 0; i < size / sizeof(double); i += 2) {
-						if (raduc_lookup[i] > kappa2) {
-							t_idx = i;
-							break;
-						}
-					}
-					//printf_red();
-					//printf("tau index: %d\n", t_idx);
-					//printf("first entry: %f\n", raduc_lookup[0]);
-					//printf_std();
-
-					//Check if Table is Insufficient
-					if (t_idx == 0)
-						throw CausetException("Values from 'raduc_table.cset.bin' file do not include requested 'k_tar'.  Recreate table or change k_tar.\n");
-
-					//Linear Interpolation
-					network_properties->tau0 = raduc_lookup[t_idx-1] + (raduc_lookup[t_idx+1] - raduc_lookup[t_idx-1]) * (kappa2 - raduc_lookup[t_idx-2]) / (raduc_lookup[t_idx] - raduc_lookup[t_idx-2]);
-
-					//Free Memory
-					free(raduc_lookup);
-					raduc_lookup = NULL;
-					hostMemUsed -= size;
+					//Use Lookup Table
+					network_properties->tau0 = lookup("./etc/raduc_table.cset.bin", NULL, &kappa2);
 
 					//Solve for ratio, omegaM, and omegaL
 					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
