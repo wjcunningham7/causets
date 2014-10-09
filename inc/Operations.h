@@ -273,7 +273,7 @@ inline double tauToEtaUniverse(double tau, void *params)
 	return POW(SINH(1.5f * tau, APPROX ? FAST : STL), (-2.0f / 3.0f), APPROX ? FAST : STL);
 }
 
-//Exact Solution (no integration)
+//Exact Solution - Power Series Approximation
 inline float tauToEtaUniverseExact(const float &tau, const float &a, const float &alpha)
 {
 	float z = _2F1_tau(tau, NULL);
@@ -287,6 +287,16 @@ inline float tauToEtaUniverseExact(const float &tau, const float &a, const float
 	eta *= a / (9.0f * alpha * GAMMA(2.0f / 3.0f, STL));
 
 	return eta;
+}
+
+//Gives Input to Lookup Table
+inline double etaToTauUniverse(const double &eta, const double &a, const double &alpha)
+{
+	double g = 9.0 * GAMMA(2.0f / 3.0f, STL) * alpha * eta / a;
+	g -= 4.0f * SQRT(3.0f, APPROX ? BITWISE : STL) * POW(M_PI, 1.5f, STL) / GAMMA(5.0f / 6.0f, STL);
+	g /= 3.0f * GAMMA(-1.0f / 3.0f);
+
+	return g;
 }
 
 //Rescaled Average Degree in Universe Causet
@@ -317,7 +327,7 @@ inline double xi(double &r)
 
 //Note to get the rescaled averge degree this result must still be
 //multiplied by 8pi/(sinh(3tau0)-3tau0)
-inline double rescaledDegreeUniverse(int dim, double x[])
+inline double rescaledDegreeUniverse(int dim, double x[], double *params)
 {
 	//Identify x[0] with x coordinate
 	//Identify x[1] with r coordinate
@@ -326,6 +336,37 @@ inline double rescaledDegreeUniverse(int dim, double x[])
 
 	z = POW3(ABS(xi(x[0]) - xi(x[1]), STL), EXACT) * POW2(x[0], EXACT) * POW3(x[1], EXACT) * SQRT(x[1], STL);
 	z /= (SQRT(1.0 + 1.0 / POW3(x[0], EXACT), STL) * SQRT(1.0 + POW3(x[1], EXACT), STL));
+
+	return z;
+}
+
+//Average Degree in Universe Causet (not rescaled)
+
+//Gives rescaled scale factor as a function of eta
+inline double rescaledScaleFactor(double *table, double eta, double a, double alpha)
+{
+	double g = etaToTauUniverse(eta, a, alpha);
+	double tau = lookupValue(table, NULL, &g, false);
+	double r = static_cast<double>(POW(SINH(1.5f * tau, APPROX ? FAST : STL), 2.0f / 3.0f, APPROX ? FAST : STL));
+
+	return r;
+}
+
+//Note to get the average degree this result must still be
+//multipled by (4pi/3)*delta*alpha^4/psi
+inline double averageDegreeUniverse(int dim, double x[], double *params)
+{
+	//Identify x[0] with eta'
+	//Identify x[1] with eta''
+	//Identify params[0] with a
+	//Identify params[1] with alpha
+	//Identify params[2] with table
+
+	double z;
+
+	z = POW3(ABS(x[0] - x[1], STL), EXACT);
+	z *= POW2(POW2(rescaledScaleFactor(params[2], x[0], params[0], params[1]), EXACT), EXACT);
+	z *= POW2(POW2(rescaledScaleFactor(params[2], x[1], params[0], params[1]), EXACT), EXACT);
 
 	return z;
 }

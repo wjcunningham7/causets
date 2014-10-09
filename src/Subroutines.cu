@@ -7,23 +7,15 @@
 /////////////////////////////
 
 //Linear Interpolation using Lookup Table
-double lookup(const char* filename, double *x, double *y)
+bool getLookupTable(double **lt, const char *filename)
 {
 	if (DEBUG) {
+		assert (lt != NULL);
 		assert (filename != NULL);
-		//Only one should be NULL
-		assert (x == NULL ^ y == NULL);
 	}
 
-	//Identify which is being calculated
-	bool first = x == NULL;
-	//Identify input value
-	double input = first ? *y : *x;
-	double output = 0.0;
-	int i;
-
 	double *table;
-	long size = 0;
+	long size = 0;	//Add this to function definition
 	std::ifstream ltable(filename, std::ios::in | std::ios::binary | std::ios::ate);
 
 	try {
@@ -55,11 +47,41 @@ double lookup(const char* filename, double *x, double *y)
 		} else
 			throw CausetException("Failed to open lookup table file!\n");
 
+		//Return Table
+		*lt = table;
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		return false;
+	}
+
+	return true;
+}
+
+double lookupValue(const double *table, double *x, double *y, bool increasing)
+{
+	if (DEBUG) {
+		assert (table != NULL);
+		assert (x == NULL ^ y == NULL);
+	}
+	
+	//Identify which is being calculated
+	bool first = x == NULL;
+	//Identify input value
+	double input = first ? *y : *x;
+	double output = 0.0;
+	int t_idx = 0;
+
+	try {
 		//Identify Value in Table
 		//Assumes values are written (y, x)
-		int t_idx = 0;
 		for (i = (int)(!first); i < size / sizeof(double); i += 2) {
-			if (table[i] > input) {
+			if ((increasing && table[i] > input) || (!increasing && table[i] < input)) {
 				t_idx = i;
 				break;
 			}
@@ -74,19 +96,12 @@ double lookup(const char* filename, double *x, double *y)
 			output = table[t_idx-1] + (table[t_idx+1] - table[t_idx-1]) * (input - table[t_idx-2]) / (table[t_idx] - table[t_idx-2]);
 		else
 			output = table[t_idx-3] + (table[t_idx-1] - table[t_idx-3]) * (input - table[t_idx-2]) / (table[t_idx] - table[t_idx-2]);
-
-		//Free Memory
-		free(table);
-		table = NULL;
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		return std::numeric_limits<double>::quiet_NaN();
-	} catch (std::bad_alloc) {
-		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
-		return std::numeric_limits<double>::quiet_NaN();
+		output = NaN;
 	} catch (std::exception e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-		return std::numeric_limits<double>::quiet_NaN();
+		output = NaN;
 	}
 
 	return output;

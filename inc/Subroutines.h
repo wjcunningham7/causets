@@ -10,7 +10,8 @@
 /////////////////////////////
 
 //Lookup Table (Linear Interpolation w/ Table)
-double lookup(const char* filename, double *x, double *y);
+bool getLookupTable(double **lt, const char *filename);
+double lookupValue(const double *table, double *x, double *y, bool increasing);
 
 //Quicksort Algorithm
 void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, int high);

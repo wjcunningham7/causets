@@ -94,7 +94,10 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					//printf_std();
 
 					//Use Lookup Table
-					network_properties->tau0 = lookup("./etc/raduc_table.cset.bin", NULL, &kappa2);
+					double *table;
+					if (!getLookupTable(&table, "./etc/raduc_table.cset.bin"))
+						return false;
+					network_properties->tau0 = lookup(table, NULL, &kappa2, true);
 					//Check for NaN
 					if (network_properties->tau0 != network_properties->tau0)
 						return false;
@@ -161,7 +164,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			if (DEBUG) assert (network_properties->R0 > 0.0);
 			
 			if (network_properties->k_tar == 0.0) {
-				//Use Monte Carlo integration to find k_tar
+i				//Method 1 of 3: Use Monte Carlo integration to evaluate Kostia's formula
 				/*printf("\tEstimating Expected Average Degrees.....\n");
 				double r0;
 				if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
@@ -172,7 +175,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				if (network_properties->flags.bench) {
 					for (i = 0; i < NBENCH; i++) {
 						stopwatchStart(&cp->sCalcDegrees);
-						integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network_properties->seed, 0);
+						integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0);
 						stopwatchStop(&cp->sCalcDegrees);
 						bm->bCalcDegrees += cp->sCalcDegrees.elapsedTime;
 						stopwatchReset(&cp->sCalcDegrees);
@@ -182,14 +185,28 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 				stopwatchStart(&cp->sCalcDegrees);
 				if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
-					network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network_properties->seed, 0) * 16.0 * M_PI * exp(-3.0 * network_properties->tau0);
+					network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 16.0 * M_PI * exp(-3.0 * network_properties->tau0);
 				else
-					network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, network_properties->seed, 0) * 8.0 * M_PI / (SINH(3.0f * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
+					network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 8.0 * M_PI / (SINH(3.0f * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
 				stopwatchStop(&cp->sCalcDegrees);
 				printf("\t\tExecution Time: %5.6f sec\n", cp->sCalcDegrees.elapsedTime);
 				printf("\t\tCompleted.\n");*/
 				
-				network_properties->k_tar = lookup("./etc/raduc_table.cset.bin", &network_properties->tau0, NULL) * network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT);
+				//Method 2 of 3: Lookup table to approximate method 1
+				double *table;
+				if (!getLookupTable(&table, "./etc/raduc_table.cset.bin"))
+					return false;
+				network_properties->k_tar = lookupValue(table, &network_properties->tau0, NULL, true) * network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT);
+				//Check for NaN
+				if (network_properties->k_tar != network_properties->k_tar)
+					return false;
+
+				//Method 3 of 3: Will's formulation
+				double *table;
+				if (!getLookupTable(&table, "./etc/ctuc_table.cset.bin"))
+					return false;
+
+				double *params = (double*)malloc(
 			}
 			
 			//20% Buffer
