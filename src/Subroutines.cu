@@ -7,7 +7,7 @@
 /////////////////////////////
 
 //Linear Interpolation using Lookup Table
-bool getLookupTable(double **lt, const char *filename)
+bool getLookupTable(const char *filename, double **lt, long *size)
 {
 	if (DEBUG) {
 		assert (lt != NULL);
@@ -15,28 +15,30 @@ bool getLookupTable(double **lt, const char *filename)
 	}
 
 	double *table;
-	long size = 0;	//Add this to function definition
 	std::ifstream ltable(filename, std::ios::in | std::ios::binary | std::ios::ate);
 
 	try {
 		if (ltable.is_open()) {
 			//Find size of file
-			size = ltable.tellg();
+			*size = ltable.tellg();
+
+			if (*size == 0)
+				throw CausetException("Lookup table file is empty!\n");
 
 			//Allocate Memory for Buffer
-			char *memblock = (char*)malloc(size);
+			char *memblock = (char*)malloc(*size);
 			if (memblock == NULL)
 				throw std::bad_alloc();
 
 			//Allocate Memory for Lookup Table
-			table = (double*)malloc(size);
+			table = (double*)malloc(*size);
 			if (table == NULL)
 				throw std::bad_alloc();
 
 			//Read File
 			ltable.seekg(0, std::ios::beg);
-			ltable.read(memblock, size);
-			memcpy(table, memblock, size);
+			ltable.read(memblock, *size);
+			memcpy(table, memblock, *size);
 
 			//Free Memory
 			free(memblock);
@@ -63,10 +65,11 @@ bool getLookupTable(double **lt, const char *filename)
 	return true;
 }
 
-double lookupValue(const double *table, double *x, double *y, bool increasing)
+double lookupValue(const double *table, const long &size, double *x, double *y, bool increasing)
 {
 	if (DEBUG) {
 		assert (table != NULL);
+		assert (size > 0);
 		assert (x == NULL ^ y == NULL);
 	}
 	
@@ -76,6 +79,7 @@ double lookupValue(const double *table, double *x, double *y, bool increasing)
 	double input = first ? *y : *x;
 	double output = 0.0;
 	int t_idx = 0;
+	int i;
 
 	try {
 		//Identify Value in Table
@@ -88,7 +92,7 @@ double lookupValue(const double *table, double *x, double *y, bool increasing)
 		}
 
 		//Check if Table is Insufficient
-		if (t_idx == 0)
+		if (t_idx == (int)(!first))
 			throw CausetException("Values from lookup table do not include requested input.  Recreate table or change input.\n");
 
 		//Linear Interpolation
@@ -98,10 +102,10 @@ double lookupValue(const double *table, double *x, double *y, bool increasing)
 			output = table[t_idx-3] + (table[t_idx-1] - table[t_idx-3]) * (input - table[t_idx-2]) / (table[t_idx] - table[t_idx-2]);
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		output = NaN;
+		output = std::numeric_limits<double>::quiet_NaN();
 	} catch (std::exception e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-		output = NaN;
+		output = std::numeric_limits<double>::quiet_NaN();
 	}
 
 	return output;

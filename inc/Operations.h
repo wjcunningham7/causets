@@ -294,7 +294,7 @@ inline double etaToTauUniverse(const double &eta, const double &a, const double 
 {
 	double g = 9.0 * GAMMA(2.0f / 3.0f, STL) * alpha * eta / a;
 	g -= 4.0f * SQRT(3.0f, APPROX ? BITWISE : STL) * POW(M_PI, 1.5f, STL) / GAMMA(5.0f / 6.0f, STL);
-	g /= 3.0f * GAMMA(-1.0f / 3.0f);
+	g /= 3.0f * GAMMA(-1.0f / 3.0f, STL);
 
 	return g;
 }
@@ -343,10 +343,11 @@ inline double rescaledDegreeUniverse(int dim, double x[], double *params)
 //Average Degree in Universe Causet (not rescaled)
 
 //Gives rescaled scale factor as a function of eta
-inline double rescaledScaleFactor(double *table, double eta, double a, double alpha)
+inline double rescaledScaleFactor(double *table, double size, double eta, double a, double alpha)
 {
 	double g = etaToTauUniverse(eta, a, alpha);
-	double tau = lookupValue(table, NULL, &g, false);
+	long l_size = static_cast<long>(size);
+	double tau = lookupValue(table, l_size, NULL, &g, false);
 	double r = static_cast<double>(POW(SINH(1.5f * tau, APPROX ? FAST : STL), 2.0f / 3.0f, APPROX ? FAST : STL));
 
 	return r;
@@ -360,15 +361,27 @@ inline double averageDegreeUniverse(int dim, double x[], double *params)
 	//Identify x[1] with eta''
 	//Identify params[0] with a
 	//Identify params[1] with alpha
-	//Identify params[2] with table
+	//Identify params[2] with size
+	//Identify params[3] with table
 
 	double z;
 
 	z = POW3(ABS(x[0] - x[1], STL), EXACT);
-	z *= POW2(POW2(rescaledScaleFactor(params[2], x[0], params[0], params[1]), EXACT), EXACT);
-	z *= POW2(POW2(rescaledScaleFactor(params[2], x[1], params[0], params[1]), EXACT), EXACT);
+	z *= POW2(POW2(rescaledScaleFactor(&params[3], params[2], x[0], params[0], params[1]), EXACT), EXACT);
+	z *= POW2(POW2(rescaledScaleFactor(&params[3], params[2], x[1], params[0], params[1]), EXACT), EXACT);
 
 	return z;
+}
+
+//For use with GNU Scientific Library
+inline double psi(double eta, void *params)
+{
+	//Identify params[0] with a
+	//Identify params[1] with alpha
+	//Identify params[2] with size
+	//Identify params[3] with table
+	
+	return POW2(POW2(rescaledScaleFactor(&((double*)params)[3], ((double*)params)[2], eta, ((double*)params)[0], ((double*)params)[1]), EXACT), EXACT);
 }
 
 //Geodesic Distances

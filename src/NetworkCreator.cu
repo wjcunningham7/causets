@@ -38,8 +38,6 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 	try {
 		if (network_properties->flags.universe) {
-			int i;
-
 			//Check for conflicting topologies
 			if (network_properties->dim == 1 || network_properties->manifold != DE_SITTER)
 				throw CausetException("Universe causet must be 3+1 DS topology!\n");
@@ -95,9 +93,10 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 					//Use Lookup Table
 					double *table;
-					if (!getLookupTable(&table, "./etc/raduc_table.cset.bin"))
+					long size = 0;
+					if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
 						return false;
-					network_properties->tau0 = lookup(table, NULL, &kappa2, true);
+					network_properties->tau0 = lookupValue(table, size, NULL, &kappa2, true);
 					//Check for NaN
 					if (network_properties->tau0 != network_properties->tau0)
 						return false;
@@ -164,7 +163,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			if (DEBUG) assert (network_properties->R0 > 0.0);
 			
 			if (network_properties->k_tar == 0.0) {
-i				//Method 1 of 3: Use Monte Carlo integration to evaluate Kostia's formula
+				//Method 1 of 3: Use Monte Carlo integration to evaluate Kostia's formula
 				/*printf("\tEstimating Expected Average Degrees.....\n");
 				double r0;
 				if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
@@ -172,6 +171,7 @@ i				//Method 1 of 3: Use Monte Carlo integration to evaluate Kostia's formula
 				else
 					r0 = POW(SINH(1.5f * network_properties->tau0, STL), 2.0f / 3.0f, STL);
 
+				int i;
 				if (network_properties->flags.bench) {
 					for (i = 0; i < NBENCH; i++) {
 						stopwatchStart(&cp->sCalcDegrees);
@@ -193,20 +193,50 @@ i				//Method 1 of 3: Use Monte Carlo integration to evaluate Kostia's formula
 				printf("\t\tCompleted.\n");*/
 				
 				//Method 2 of 3: Lookup table to approximate method 1
-				double *table;
-				if (!getLookupTable(&table, "./etc/raduc_table.cset.bin"))
+				/*double *table;
+				long size = 0;
+				if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
 					return false;
 				network_properties->k_tar = lookupValue(table, &network_properties->tau0, NULL, true) * network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT);
 				//Check for NaN
 				if (network_properties->k_tar != network_properties->k_tar)
-					return false;
+					return false;*/
 
 				//Method 3 of 3: Will's formulation
 				double *table;
-				if (!getLookupTable(&table, "./etc/ctuc_table.cset.bin"))
+				long size = 0;
+				if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
 					return false;
 
-				double *params = (double*)malloc(
+				double *params = (double*)malloc(size + sizeof(double) * 3);
+				if (params == NULL)
+					throw std::bad_alloc();
+				hostMemUsed += size + sizeof(double) * 3;
+
+				double d_size = static_cast<double>(size);
+				memcpy(params, &network_properties->a, sizeof(double));
+				memcpy(params + 1, &network_properties->alpha, sizeof(double));
+				memcpy(params + 2, &d_size, sizeof(double));
+				memcpy(params + 3, table, size);
+
+				double max_time = tauToEtaUniverseExact(network_properties->tau0, network_properties->a, network_properties->alpha);
+				network_properties->k_tar = integrate2D(&averageDegreeUniverse, 0.0, 0.0, max_time, max_time, params, network_properties->seed, 0);
+				network_properties->k_tar *= 4.0 * M_PI * network_properties->delta * POW2(POW2(network_properties->alpha, EXACT), EXACT);
+			
+				IntData idata = IntData();
+				idata.limit = 50;
+				idata.tol = 1e-4;
+				idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+				idata.upper = max_time;
+				network_properties->k_tar /= 3.0 * integrate1D(&psi, params, &idata, QAGS);
+				gsl_integration_workspace_free(idata.workspace);
+
+				free(params);
+				params = NULL;
+				hostMemUsed -= size + sizeof(double) * 3;
+
+				free(table);
+				table = NULL;
 			}
 			
 			//20% Buffer
