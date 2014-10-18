@@ -193,18 +193,21 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				printf("\t\tCompleted.\n");*/
 				
 				//Method 2 of 3: Lookup table to approximate method 1
-				/*double *table;
+				double *table;
 				long size = 0;
 				if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
 					return false;
-				network_properties->k_tar = lookupValue(table, &network_properties->tau0, NULL, true) * network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT);
+				network_properties->k_tar = lookupValue(table, size, &network_properties->tau0, NULL, true) * network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT);
 				//Check for NaN
 				if (network_properties->k_tar != network_properties->k_tar)
-					return false;*/
+					return false;
+
+				//DEBUG
+				printf("Kostia's Method: %f\n", network_properties->k_tar);
 
 				//Method 3 of 3: Will's formulation
-				double *table;
-				long size = 0;
+				//double *table;
+				//long size = 0;
 				if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
 					return false;
 
@@ -241,6 +244,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 				free(table);
 				table = NULL;
+
+				//DEBUG
+				printf("Will's Method: %f\n", network_properties->k_tar);
 			}
 			
 			//20% Buffer
