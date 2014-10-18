@@ -32,77 +32,80 @@
 \citation{ref:snc2012}
 \citation{ref:snc2012}
 \newlabel{eq:kappa}{{28}{10}{}{}{}}
+\citation{ref:snc2012}
+\citation{ref:snc2012}
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Rescaled Average Degree of the Universe Causet}}{11}{}}
 \newlabel{fig:kappa_tau}{{1}{11}{}{}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {2}Memory}{11}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3}The Maximum Time}{12}{}}
+\newlabel{eq:avg_degree_uni}{{29}{11}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Conformal Time Lookup Table}}{13}{}}
+\newlabel{fig:f_tau_tau}{{2}{13}{}{}{}}
+\newlabel{eq:alt_avg_deg}{{38}{13}{}{}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2}Memory}{13}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3}The Maximum Time}{14}{}}
 \citation{ref:snc2012}
-\newlabel{eq:finalN1}{{31}{13}{}{}{}}
-\newlabel{eq:finalN3}{{34}{13}{}{}{}}
-\newlabel{eq:finalk1}{{45}{15}{}{}{}}
-\newlabel{eq:trans1}{{46}{15}{}{}{}}
-\newlabel{eq:rhoeta3}{{58}{16}{}{}{}}
-\newlabel{eq:finalk3}{{67}{17}{}{}{}}
-\newlabel{eq:trans3}{{68}{17}{}{}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {4}Generating Nodes}{18}{}}
-\newlabel{eq:rhotau3}{{72}{18}{}{}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {5}Linking Nodes with the CPU}{18}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Cumulative distribution function of rescaled times for $\tau $ = 4. The blue curve represents the theoretical distribution.}}{19}{}}
-\newlabel{fig:tau_cdf}{{2}{19}{}{}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces The lower right triangle B is mapped to the upper left quadrant, creating two square matrices which can be handled much more efficiently by the GPU.}}{20}{}}
-\newlabel{fig:matrix_map}{{3}{20}{}{}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {6}Linking Nodes with the GPU}{21}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {IV}Measurements}{24}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A}Average Degrees}{24}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {B}Connectivity}{24}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {1}Isolated Nodes}{24}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Distribution of the resulting average degree for $N = 10240$, $\tau _0$ = 4, $a = 1$, $\delta = 1$. The target average degree was constrained by these parameters to be 12.8788.{\bf  [wc: } {\tt  The expected average degree seems to be much smaller, about $9$. So this plot shows that for this set of parameters we can't really generate graphs with the desired $\mathaccentV {bar}016{k}$. In this plot, is it the average degree in the whole graph, or only in its giant component? (BTW, why do you use $\tau _0$ is a parameter, and not $\mathaccentV {bar}016{k}$?). It is interestig to see the plot $\mathaccentV {bar}016{k}$ (target) versus expected average degree in generated graphs (both full graphs and giant components) $\delimiter "426830A \mathaccentV {bar}016{k}\delimiter "526930B $ (obtained), for fixed values of $N, \delta $, and $a$.} {\it  -kz-}{\bf  ]} {\bf  [kz: } {\tt  Yes, this is correct. What I found is that the average degree does not differ much for the whole graph vs giant component - they are nearly equivalent. Also, as I mentioned earlier, $\tau _0$ and $\mathaccentV {bar}016{k}$ are interchangeable as constraints. Here I used the former to avoid confusion. I am going to add more of these graphs for different parameters to see how things scale.} {\it  -wc-}{\bf  ]} }}{25}{}}
-\newlabel{fig:avg_deg_uni}{{4}{25}{}{}{}}
-\newlabel{eq:2F1transform}{{86}{28}{}{}{}}
-\newlabel{eq:1F1_limit}{{89}{28}{}{}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces The distribution of isolated nodes taken over a sample of 1000 graphs. These graphs were constrained by the parameters $N = 10240$, $\tau _0 = 4$, $a = 1$, and $\delta = 1$. {\bf  [wc: } {\tt  It seems that the expected number of isolated nodes is less than 1\% of the full network. So they alone should not strongly affect the average degree. But the problem is that there are non-isolated nodes that do not belong to the giant component. Their fraction is bigger.} {\it  -kz-}{\bf  ]} {\bf  [kz: } {\tt  Yes, this is correct, but from the size of the giant component you can see most of the time the giant component strongly dominates.} {\it  -wc-}{\bf  ]}}}{29}{}}
-\newlabel{fig:iso_nodes_uni}{{5}{29}{}{}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces The distribution of connected components taken over a sample of 1000 graphs. These were constrained by the parameters $N = 10240$, $\tau _0 = 4$, $a = 1$, and $\delta = 1$.}}{30}{}}
-\newlabel{fig:num_comp_uni}{{6}{30}{}{}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {2}Number of Connected Components}{30}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3}Size of Giant Component}{30}{}}
+\newlabel{eq:finalN1}{{41}{15}{}{}{}}
+\newlabel{eq:finalN3}{{44}{15}{}{}{}}
+\newlabel{eq:t_to_eta}{{45}{16}{}{}{}}
+\newlabel{eq:scale_factor}{{46}{16}{}{}{}}
+\newlabel{eq:finalk1}{{55}{18}{}{}{}}
+\newlabel{eq:trans1}{{56}{18}{}{}{}}
+\newlabel{eq:rhoeta3}{{68}{19}{}{}{}}
+\newlabel{eq:finalk3}{{77}{19}{}{}{}}
+\newlabel{eq:trans3}{{78}{19}{}{}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4}Generating Nodes}{20}{}}
+\newlabel{eq:rhotau3}{{82}{20}{}{}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5}Linking Nodes with the CPU}{20}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Cumulative distribution function of rescaled times for $\tau $ = 4. The blue curve represents the theoretical distribution.}}{21}{}}
+\newlabel{fig:tau_cdf}{{3}{21}{}{}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6}Linking Nodes with the GPU}{22}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces The lower right triangle B is mapped to the upper left quadrant, creating two square matrices which can be handled much more efficiently by the GPU.}}{23}{}}
+\newlabel{fig:matrix_map}{{4}{23}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Measurements}{26}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A}Average Degrees}{26}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B}Connectivity}{26}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1}Isolated Nodes}{26}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Each of these graphs shows the average degree distribution for $N = 10240$ and $a = 1$ over approximately 400 graphs. In the upper left graph, $\delta = 1$ and $\tau _0 = 4.0$. In the upper right graph, $\delta = 10$ and $\tau _0 = 1.8$. In the lower left graph, $\delta = 20$ and $\tau _0 = 1.5$. In the lower right graph, $\delta = 150$ and $\tau _0 = 0.9$.}}{27}{}}
+\newlabel{fig:avg_deg_uni}{{5}{27}{}{}{}}
+\newlabel{eq:2F1transform}{{96}{30}{}{}{}}
+\newlabel{eq:1F1_limit}{{99}{30}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces The distribution of isolated nodes taken over a sample of 1000 graphs. These graphs were constrained by the parameters $N = 10240$, $\tau _0 = 4$, $a = 1$, and $\delta = 1$. {\bf  [wc: } {\tt  It seems that the expected number of isolated nodes is less than 1\% of the full network. So they alone should not strongly affect the average degree. But the problem is that there are non-isolated nodes that do not belong to the giant component. Their fraction is bigger.} {\it  -kz-}{\bf  ]} {\bf  [kz: } {\tt  Yes, this is correct, but from the size of the giant component you can see most of the time the giant component strongly dominates.} {\it  -wc-}{\bf  ]}}}{31}{}}
+\newlabel{fig:iso_nodes_uni}{{6}{31}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces The distribution of connected components taken over a sample of 1000 graphs. These were constrained by the parameters $N = 10240$, $\tau _0 = 4$, $a = 1$, and $\delta = 1$.}}{32}{}}
+\newlabel{fig:num_comp_uni}{{7}{32}{}{}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2}Number of Connected Components}{32}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3}Size of Giant Component}{32}{}}
 \citation{ref:snc2012}
-\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces The size of the giant component in a sample of 1000 graphs. These were constrained by the parameters $N = 10240$, $\tau _0 = 4$, $a = 1$, and $\delta = 1$. {\bf  [wc: } {\tt  It would be interesting to see the plot of the expected relative size of the giant component $\delimiter "426830A \mathcal  {G}\delimiter "526930B /N$ as a function of $\mathaccentV {bar}016{k}$ and $a$, } {\it  -kz-}{\bf  ]} {\bf  [kz: } {\tt  I'll add this.} {\it  -wc-}{\bf  ]}}}{31}{}}
-\newlabel{fig:size_gcc_uni}{{7}{31}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {C}Degree Distribution}{31}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Distribution of in-degrees observed over 1000 graphs.}}{32}{}}
-\newlabel{fig:in_deg_uni}{{8}{32}{}{}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {1}In-Degree Distribution}{32}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {2}Out-Degree Distribution}{32}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Distribution of out-degrees observed over 1000 graphs. {\bf  [wc: } {\tt  Network size is $N=10240$. What are those squares going towards $10^5$? } {\it  -kz-}{\bf  ]} {\bf  [kz: } {\tt  I believe this is summed over all 1000 graphs.} {\it  -wc-}{\bf  ]}}}{33}{}}
-\newlabel{fig:out_deg_uni}{{9}{33}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {D}Clustering}{33}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {1}Average Clustering}{33}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {2}Clustering Distribution}{33}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {E}Navigability in the Universe}{33}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {1}Geodesic Distances in the Universe}{33}{}}
-\newlabel{eq:length}{{101}{34}{}{}{}}
-\newlabel{eq:embedded_z0}{{103}{34}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces The size of the giant component in a sample of 1000 graphs. These were constrained by the parameters $N = 10240$, $\tau _0 = 4$, $a = 1$, and $\delta = 1$. {\bf  [wc: } {\tt  It would be interesting to see the plot of the expected relative size of the giant component $\delimiter "426830A \mathcal  {G}\delimiter "526930B /N$ as a function of $\mathaccentV {bar}016{k}$ and $a$, } {\it  -kz-}{\bf  ]} {\bf  [kz: } {\tt  I'll add this.} {\it  -wc-}{\bf  ]}}}{33}{}}
+\newlabel{fig:size_gcc_uni}{{8}{33}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C}Degree Distribution}{33}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1}In-Degree Distribution}{34}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2}Out-Degree Distribution}{34}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {D}Navigability in the Universe}{34}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1}Geodesic Distances in the Universe}{34}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Each of these graphs shows the in-degree distribution for $N = 10240$ and $a = 1$ over approximately 400 graphs. In the upper left graph, $\delta = 1$ and $\tau _0 = 4.0$. In the upper right graph, $\delta = 10$ and $\tau _0 = 1.8$. In the lower left graph, $\delta = 20$ and $\tau _0 = 1.5$. In the lower right graph, $\delta = 150$ and $\tau _0 = 0.9$.}}{35}{}}
+\newlabel{fig:in_deg_uni}{{9}{35}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Each of these graphs shows the out-degree distribution for $N = 10240$ and $a = 1$ over approximately 400 graphs. In the upper left graph, $\delta = 1$ and $\tau _0 = 4.0$. In the upper right graph, $\delta = 10$ and $\tau _0 = 1.8$. In the lower left graph, $\delta = 20$ and $\tau _0 = 1.5$. In the lower right graph, $\delta = 150$ and $\tau _0 = 0.9$.}}{36}{}}
+\newlabel{fig:out_deg_uni}{{10}{36}{}{}{}}
+\newlabel{eq:length}{{111}{37}{}{}{}}
+\newlabel{eq:embedded_z0}{{113}{37}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Embedding function $z_0 = f\left (z_1\right )$ for the $\Lambda $CDM spacetime. {\bf  [wc: } {\tt  What is $\alpha $? Is $\alpha =a^{2/3}$?} {\it  -kz-}{\bf  ]} {\bf  [kz: } {\tt  Yes} {\it  -wc-}{\bf  ]}}}{39}{}}
+\newlabel{fig:embedding}{{11}{39}{}{}{}}
 \citation{ref:asmus2009}
-\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Embedding function $z_0 = f\left (z_1\right )$ for the $\Lambda $CDM spacetime. {\bf  [wc: } {\tt  What is $\alpha $? Is $\alpha =a^{2/3}$?} {\it  -kz-}{\bf  ]} {\bf  [kz: } {\tt  Yes} {\it  -wc-}{\bf  ]}}}{37}{}}
-\newlabel{fig:embedding}{{10}{37}{}{}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {2}Validation Test for Manifold Embedding}{39}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3}Limiting Cases}{40}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {4}Greedy Routing Algorithm}{41}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2}Validation Test for Manifold Embedding}{41}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3}Limiting Cases}{42}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4}Greedy Routing Algorithm}{44}{}}
 \citation{ref:snc2012}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {5}Success Ratio}{43}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {V}Summary of Results}{43}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {VI}Latest Challenges}{43}{}}
 \@writefile{toc}{\appendix }
-\@writefile{toc}{\contentsline {section}{Appendices}{43}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A}Usage of the Causal Set Software}{43}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {B}Alternative Expressions for the Conformal Time}{45}{}}
+\@writefile{toc}{\contentsline {section}{Appendices}{46}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Usage of the Causal Set Software}{46}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {B}Alternative Expressions for the Conformal Time}{48}{}}
+\newlabel{sec:alt_conformal}{{B}{48}{}{}{}}
 \bibdata{causetsNotes,causets}
 \bibcite{ref:asmus2009}{{1}{}{{}}{{}}}
 \bibcite{ref:nc2012}{{2}{}{{}}{{}}}
 \bibcite{ref:snc2012}{{3}{}{{}}{{}}}
 \bibstyle{acm}
 \global\NAT@numberstrue
-\@writefile{toc}{\contentsline {section}{\numberline {}References}{46}{}}
-\newlabel{LastBibItem}{{3}{46}{}{}{}}
-\newlabel{LastPage}{{}{46}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {}References}{49}{}}
+\newlabel{LastBibItem}{{3}{49}{}{}{}}
+\newlabel{LastPage}{{}{49}{}{}{}}

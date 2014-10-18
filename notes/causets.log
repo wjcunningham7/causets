@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=pdflatex 2013.10.9)  10 SEP 2014 16:35
+This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=pdflatex 2013.10.9)  18 OCT 2014 15:46
 entering extended mode
  %&-line parsing enabled.
 **causets.tex
@@ -469,142 +469,104 @@ orm: $[] [] \OT1/cmr/m/n/12 = [] [][]  [][] [] d\OML/cmm/m/it/12 x \OT1/cmr/m/n
 File: figures/Rescaled_Average_Degree.jpg Graphic file (type jpg)
 
 <use figures/Rescaled_Average_Degree.jpg> [11 <./figures/Rescaled_Average_Degre
-e.jpg>] [12] [13] [14] [15] [16] [17]
-<figures/tau_dist.jpg, id=71, 674.52pt x 505.89pt>
+e.jpg>] <figures/ctuc.png, id=52, 449.68pt x 337.26pt>
+File: figures/ctuc.png Graphic file (type png)
+ <use figures/ctuc.png>
+[12] [13 <./figures/ctuc.png (PNG copy)>] [14] [15] [16] [17] [18] [19]
+<figures/tau_dist.jpg, id=79, 674.52pt x 505.89pt>
 File: figures/tau_dist.jpg Graphic file (type jpg)
  <use figures/tau_dist.jpg>
-[18] [19 <./figures/tau_dist.jpg>]
-<figures/Matrix_Map.jpg, id=80, 140.9265pt x 130.68825pt>
+[20] [21 <./figures/tau_dist.jpg>]
+<figures/Matrix_Map.jpg, id=87, 140.9265pt x 130.68825pt>
 File: figures/Matrix_Map.jpg Graphic file (type jpg)
 
-<use figures/Matrix_Map.jpg> [20 <./figures/Matrix_Map.jpg>] [21] [22] [23]
-<figures/Average_Degree.jpg, id=93, 674.52pt x 505.89pt>
-File: figures/Average_Degree.jpg Graphic file (type jpg)
+<use figures/Matrix_Map.jpg> [22] [23 <./figures/Matrix_Map.jpg>] [24] [25]
+<figures/avg_degrees.jpg, id=101, 1003.75pt x 803.0pt>
+File: figures/avg_degrees.jpg Graphic file (type jpg)
 
-<use figures/Average_Degree.jpg>
-Underfull \hbox (badness 10000) in paragraph at lines 769--769
-\OT1/cmtt/m/n/10.95 expected average degree seems to be much smaller, about $\O
-T1/cmr/m/n/10.95 9$\OT1/cmtt/m/n/10.95 . So this plot shows
+<use figures/avg_degrees.jpg>
+Overfull \hbox (42.39458pt too wide) in paragraph at lines 844--845
+ [][] 
  []
 
-
-Underfull \hbox (badness 10000) in paragraph at lines 769--769
-\OT1/cmtt/m/n/10.95 that for this set of parameters we can't really generate gr
-aphs with the desired
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 769--769
-[]$\OT1/cmtt/m/n/10.95 . In this plot, is it the average degree in the whole gr
-aph, or only in its
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 769--769
-\OT1/cmtt/m/n/10.95 giant component? (BTW, why do you use $\OML/cmm/m/it/10.95 
-^^\[]$ \OT1/cmtt/m/n/10.95 is a parameter, and not $[]$?). It is
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 769--769
-\OT1/cmtt/m/n/10.95 interestig to see the plot $[]$ (target) versus expected av
-erage degree in generated
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 769--769
-\OT1/cmtt/m/n/10.95 graphs (both full graphs and giant components) $\OMS/cmsy/m
-/n/10.95 h[]i$ \OT1/cmtt/m/n/10.95 (obtained), for fixed values
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 769--769
-\OT1/cmtt/m/n/10.95 degree does not differ much for the whole graph vs giant co
-mponent - they are
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 769--769
-\OT1/cmtt/m/n/10.95 nearly equivalent. Also, as I mentioned earlier, $\OML/cmm/
-m/it/10.95 ^^\[]$ \OT1/cmtt/m/n/10.95 and $[]$ are interchangeable as
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 769--769
-\OT1/cmtt/m/n/10.95 constraints. Here I used the former to avoid confusion. I a
-m going to add more
- []
-
-[24] [25 <./figures/Average_Degree.jpg>] [26] [27]
-Overfull \hbox (23.37021pt too wide) in paragraph at lines 886--887
+[26] [27 <./figures/avg_degrees.jpg>] [28] [29]
+Overfull \hbox (23.37021pt too wide) in paragraph at lines 962--963
 \OT1/cmtt/m/n/12 it is (an elementary) property of the Kummer hypergeometric fu
 nction proved
  []
 
-[28] <figures/Isolated_Nodes.jpg, id=112, 674.52pt x 505.89pt>
+[30] <figures/Isolated_Nodes.jpg, id=118, 674.52pt x 505.89pt>
 File: figures/Isolated_Nodes.jpg Graphic file (type jpg)
 
 <use figures/Isolated_Nodes.jpg>
-Underfull \hbox (badness 10000) in paragraph at lines 937--937
+Underfull \hbox (badness 10000) in paragraph at lines 1013--1013
 \OT1/cmtt/m/n/10.95 expected number of isolated nodes is less than 1% of the fu
 ll network. So they
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 937--937
+Underfull \hbox (badness 10000) in paragraph at lines 1013--1013
 \OT1/cmtt/m/n/10.95 alone should not strongly affect the average degree. But th
 e problem is that
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 937--937
+Underfull \hbox (badness 10000) in paragraph at lines 1013--1013
 \OT1/cmtt/m/n/10.95 there are non-isolated nodes that do not belong to the gian
 t component. Their
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 937--937
+Underfull \hbox (badness 10000) in paragraph at lines 1013--1013
 \OT1/cmtt/m/n/10.95 component you can see most of the time the giant component 
 strongly dominates.
  []
 
-[29 <./figures/Isolated_Nodes.jpg>]
-<figures/Number_Components.jpg, id=116, 674.52pt x 505.89pt>
+[31 <./figures/Isolated_Nodes.jpg>]
+<figures/Number_Components.jpg, id=124, 674.52pt x 505.89pt>
 File: figures/Number_Components.jpg Graphic file (type jpg)
 
-<use figures/Number_Components.jpg> [30 <./figures/Number_Components.jpg>]
-<figures/Giant_Component.jpg, id=120, 674.52pt x 505.89pt>
+<use figures/Number_Components.jpg> [32 <./figures/Number_Components.jpg>]
+<figures/Giant_Component.jpg, id=128, 674.52pt x 505.89pt>
 File: figures/Giant_Component.jpg Graphic file (type jpg)
 
 <use figures/Giant_Component.jpg>
-Underfull \hbox (badness 3503) in paragraph at lines 968--968
-[]\OT1/cmr/m/n/10.95 FIG. 7. The size of the gi-ant com-po-nent in a sam-ple of
+Underfull \hbox (badness 3503) in paragraph at lines 1044--1044
+[]\OT1/cmr/m/n/10.95 FIG. 8. The size of the gi-ant com-po-nent in a sam-ple of
  1000 graphs. These
  []
 
 
-Underfull \hbox (badness 2197) in paragraph at lines 968--968
+Underfull \hbox (badness 2197) in paragraph at lines 1044--1044
 \OT1/cmr/m/n/10.95 were con-strained by the pa-ram-e-ters $\OML/cmm/m/it/10.95 
 N \OT1/cmr/m/n/10.95 = 10240$, $\OML/cmm/m/it/10.95 ^^\[] \OT1/cmr/m/n/10.95 = 
 4$, $\OML/cmm/m/it/10.95 a \OT1/cmr/m/n/10.95 = 1$, and $\OML/cmm/m/it/10.95 ^^
 N \OT1/cmr/m/n/10.95 = 1$.
  []
 
-[31 <./figures/Giant_Component.jpg>]
-<figures/in_degree_universe.jpg, id=125, 674.52pt x 505.89pt>
-File: figures/in_degree_universe.jpg Graphic file (type jpg)
+[33 <./figures/Giant_Component.jpg>]
+<figures/in_degrees.jpg, id=132, 1003.75pt x 803.0pt>
+File: figures/in_degrees.jpg Graphic file (type jpg)
 
-<use figures/in_degree_universe.jpg>
-<figures/out_degree_universe.jpg, id=126, 674.52pt x 505.89pt>
-File: figures/out_degree_universe.jpg Graphic file (type jpg)
+<use figures/in_degrees.jpg>
+Overfull \hbox (42.39458pt too wide) in paragraph at lines 1065--1066
+ [][] 
+ []
 
-<use figures/out_degree_universe.jpg> [32 <./figures/in_degree_universe.jpg>]
-[33 <./figures/out_degree_universe.jpg>] [34] [35]
-<figures/Embedding.jpg, id=139, 674.52pt x 505.89pt>
+<figures/out_degrees.jpg, id=133, 1003.75pt x 803.0pt>
+File: figures/out_degrees.jpg Graphic file (type jpg)
+
+<use figures/out_degrees.jpg>
+Overfull \hbox (42.39458pt too wide) in paragraph at lines 1075--1076
+ [][] 
+ []
+
+[34] [35 <./figures/in_degrees.jpg>] [36 <./figures/out_degrees.jpg>] [37]
+[38] <figures/Embedding.jpg, id=150, 674.52pt x 505.89pt>
 File: figures/Embedding.jpg Graphic file (type jpg)
 
-<use figures/Embedding.jpg> [36] [37 <./figures/Embedding.jpg>]
-Overfull \hbox (61.69716pt too wide) in paragraph at lines 1206--1207
+<use figures/Embedding.jpg> [39 <./figures/Embedding.jpg>] [40]
+Overfull \hbox (61.69716pt too wide) in paragraph at lines 1287--1288
 \OT1/cmtt/m/n/12 computing distance between two nodes $\OML/cmm/m/it/12 n[] \OT
 1/cmr/m/n/12 = (\OML/cmm/m/it/12 t[]; \OT1/cmr/m/n/12 (\OML/cmm/m/it/12 ^^R[]\O
 T1/cmr/m/n/12 )[]\OML/cmm/m/it/12 ; \OT1/cmr/m/n/12 (\OML/cmm/m/it/12 ^^R[]\OT1
@@ -617,13 +579,13 @@ T1/cmtt/m/n/12 ?
  []
 
 
-Overfull \hbox (13.70824pt too wide) in paragraph at lines 1209--1214
+Overfull \hbox (13.70824pt too wide) in paragraph at lines 1290--1295
 []\OT1/cmr/m/n/12 One method of val-i-dat-ing this ap-proach \OT1/cmr/bx/n/12 [
 wc:  \OT1/cmtt/m/n/12 I tried to make sense of the beginning
  []
 
-[38]
-Overfull \hbox (25.50249pt too wide) in paragraph at lines 1229--1231
+[41]
+Overfull \hbox (25.50249pt too wide) in paragraph at lines 1310--1312
 \OT1/cmr/bx/n/12 [wc:  \OT1/cmtt/m/n/12 It seems that $\OML/cmm/m/it/12 T[] \OM
 S/cmsy/m/n/12 ^^Y \OT1/cmr/m/n/12 0$ \OT1/cmtt/m/n/12 and $\OML/cmm/m/it/12 S[]
  \OMS/cmsy/m/n/12 ^^Y \OT1/cmr/m/n/12 1$ \OT1/cmtt/m/n/12 and the network is es
@@ -631,31 +593,31 @@ sentially disconnected.
  []
 
 
-Overfull \hbox (6.05905pt too wide) in paragraph at lines 1229--1231
+Overfull \hbox (6.05905pt too wide) in paragraph at lines 1310--1312
 \OT1/cmtt/m/n/12 What is $[]$ in this case, maybe it is too small? We need to s
 ee how entries of
  []
 
-[39] [40]
-Overfull \hbox (13.7146pt too wide) in paragraph at lines 1305--1307
+[42] [43]
+Overfull \hbox (13.7146pt too wide) in paragraph at lines 1386--1388
 \OT1/cmr/bx/n/12 [wc:  \OT1/cmtt/m/n/12 Before we start experiments with greedy
  routing, we need to fix 2 things:
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 1305--1307
+Underfull \hbox (badness 10000) in paragraph at lines 1386--1388
 \OT1/cmtt/m/n/12 1) find for which values of parameters we can control $[]$ in 
 simulated graphs,
  []
 
 
-Overfull \hbox (6.05905pt too wide) in paragraph at lines 1305--1307
+Overfull \hbox (6.05905pt too wide) in paragraph at lines 1386--1388
 \OT1/cmtt/m/n/12 i.e. generate graphs with observed $[]$ close to the target on
 e. First step is
  []
 
 
-Overfull \hbox (9.53368pt too wide) in paragraph at lines 1305--1307
+Overfull \hbox (9.53368pt too wide) in paragraph at lines 1386--1388
 \OT1/cmtt/m/n/12 to fix $\OML/cmm/m/it/12 N$\OT1/cmtt/m/n/12 , $\OML/cmm/m/it/1
 2 ^^N$\OT1/cmtt/m/n/12 , and $\OML/cmm/m/it/12 a$\OT1/cmtt/m/n/12 , and to plot
  $\OMS/cmsy/m/n/12 h[]i$ \OT1/cmtt/m/n/12 and $\OMS/cmsy/m/n/12 hGi\OML/cmm/m/i
@@ -663,50 +625,50 @@ t/12 =N$ \OT1/cmtt/m/n/12 as functions of $[]$; expectations
  []
 
 
-Overfull \hbox (18.07022pt too wide) in paragraph at lines 1305--1307
+Overfull \hbox (18.07022pt too wide) in paragraph at lines 1386--1388
 \OT1/cmtt/m/n/12 can be estimated using, say 1000 realizations. 2) Fix the entr
 ies of confusion
  []
 
 
-Overfull \hbox (11.89522pt too wide) in paragraph at lines 1305--1307
+Overfull \hbox (11.89522pt too wide) in paragraph at lines 1386--1388
 \OT1/cmtt/m/n/12 matrix. It must be close to the identity matrix, otherwise, ou
 r embedding and
  []
 
-[41] [42]
-Overfull \hbox (10.18959pt too wide) in paragraph at lines 1372--1377
+[44]
+Overfull \hbox (10.18959pt too wide) in paragraph at lines 1457--1462
 []\OT1/cmr/bx/n/12 [wc:  \OT1/cmtt/m/n/12 I would put this sectiona at the end,
  since many commands become clear
  []
 
-[43] [44] [45] (./causets.bbl) [46] (./causets.aux) ) 
+[45] [46] [47] [48] (./causets.bbl) [49] (./causets.aux) ) 
 Here is how much of TeX's memory you used:
- 6542 strings out of 256216
- 87900 string characters out of 1917072
- 215806 words of memory out of 1500000
- 9719 multiletter control sequences out of 10000+200000
+ 6555 strings out of 256216
+ 88009 string characters out of 1917072
+ 216806 words of memory out of 1500000
+ 9730 multiletter control sequences out of 10000+200000
  12999 words of font info for 49 fonts, out of 1200000 for 2000
  645 hyphenation exceptions out of 8191
- 34i,22n,49p,1413b,1450s stack positions out of 5000i,500n,6000p,200000b,15000s
-</usr/share/texmf/fonts/ty
-pe1/bluesky/cm/cmbx10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmbx12.pfb><
-/usr/share/texmf/fonts/type1/bluesky/cm/cmcsc10.pfb></usr/share/texmf/fonts/typ
-e1/bluesky/cm/cmex10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmmi10.pfb></
-usr/share/texmf/fonts/type1/bluesky/cm/cmmi12.pfb></usr/share/texmf/fonts/type1
-/bluesky/cm/cmmi6.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmmi8.pfb></usr/
-share/texmf/fonts/type1/bluesky/cm/cmr10.pfb></usr/share/texmf/fonts/type1/blue
-sky/cm/cmr12.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmr6.pfb></usr/share/
-texmf/fonts/type1/bluesky/cm/cmr8.pfb></usr/share/texmf/fonts/type1/bluesky/cm/
-cmsy10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmsy6.pfb></usr/share/texmf
-/fonts/type1/bluesky/cm/cmsy8.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmti
-10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmti12.pfb></usr/share/texmf/fo
-nts/type1/bluesky/cm/cmtt10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmtt12
-.pfb></usr/share/texmf/fonts/type1/public/cmex/fmex8.pfb></usr/share/texmf/font
-s/type1/bluesky/ams/msbm10.pfb>
-Output written on causets.pdf (46 pages, 519201 bytes).
+ 34i,22n,49p,773b,1450s stack positions out of 5000i,500n,6000p,200000b,15000s
+</usr/share/texmf/fon
+ts/type1/bluesky/cm/cmbx10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmbx12.
+pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmcsc10.pfb></usr/share/texmf/font
+s/type1/bluesky/cm/cmex10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmmi10.p
+fb></usr/share/texmf/fonts/type1/bluesky/cm/cmmi12.pfb></usr/share/texmf/fonts/
+type1/bluesky/cm/cmmi6.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmmi8.pfb><
+/usr/share/texmf/fonts/type1/bluesky/cm/cmr10.pfb></usr/share/texmf/fonts/type1
+/bluesky/cm/cmr12.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmr6.pfb></usr/s
+hare/texmf/fonts/type1/bluesky/cm/cmr8.pfb></usr/share/texmf/fonts/type1/bluesk
+y/cm/cmsy10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmsy6.pfb></usr/share/
+texmf/fonts/type1/bluesky/cm/cmsy8.pfb></usr/share/texmf/fonts/type1/bluesky/cm
+/cmti10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmti12.pfb></usr/share/tex
+mf/fonts/type1/bluesky/cm/cmtt10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/c
+mtt12.pfb></usr/share/texmf/fonts/type1/public/cmex/fmex8.pfb></usr/share/texmf
+/fonts/type1/bluesky/ams/msbm10.pfb>
+Output written on causets.pdf (49 pages, 700205 bytes).
 PDF statistics:
- 245 PDF objects out of 1000 (max. 8388607)
+ 256 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 131072)
- 51 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 56 words of extra memory for PDF output out of 10000 (max. 10000000)
 
