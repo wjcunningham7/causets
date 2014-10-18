@@ -74,7 +74,7 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 	}
 	
 	//Identify which is being calculated
-	bool first = x == NULL;
+	bool first = (x == NULL);
 	//Identify input value
 	double input = first ? *y : *x;
 	double output = 0.0;
@@ -85,7 +85,7 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 		//Identify Value in Table
 		//Assumes values are written (y, x)
 		for (i = (int)(!first); i < size / sizeof(double); i += 2) {
-			if ((increasing && table[i] > input) || (!increasing && table[i] < input)) {
+			if (increasing && table[i] > input || !increasing && table[i] < input) {
 				t_idx = i;
 				break;
 			}

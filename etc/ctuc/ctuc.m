@@ -6,6 +6,10 @@ function ctuc
 
 clear;
 
+% tauMin = 0;
+% tauMax = 0.1;
+% stepSize = 0.00001;
+
 tauMin = 0.11;
 tauMax = 10;
 stepSize = 0.01;
@@ -30,7 +34,8 @@ disp(t(numSamples));
 
 vals = [f, t]';
 
-fid = fopen('ctuc_table_med_res.cset.bin','w');
+% fid = fopen('ctuc_table_high_res.cset.bin', 'w');
+fid = fopen('ctuc_table_med_res.cset.bin', 'w');
 fwrite(fid, vals, 'double');
 fclose(fid);
 

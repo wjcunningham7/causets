@@ -202,12 +202,6 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 		return false;
 	}
 
-	printf_cyan();
-	printf("Number of edges detected: %d\n", *g_idx);
-	printf_std();
-	//printf("\nCHECKPOINT.\n");
-	//if (*g_idx || true) exit(1);
-
 	checkCudaErrors(cuMemcpyHtoD(d_edges, h_edges, sizeof(uint64_t) * d_edges_size));
 	checkCudaErrors(cuCtxSynchronize());
 

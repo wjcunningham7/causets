@@ -262,7 +262,7 @@ Typically though, we use $N$, $\bar{k}$, $\delta$, and $a$ as our independent va
 There are only two cases when solving for dependent variables does not boil down to trivial algebra.  
 The first is when the maximum rescaled time $\tau_0$ is a dependent variable.  
 In this case,~\eqref{eq:constraint1} must be solve numerically using either the Newton-Raphson or bisection method due to the $\sinh$ term.  
-The second is when the theoretical average degrees $\bar{k}$ is begin calculated, as described by~\eqref{eq:constraint2}.  
+The second is when the theoretical average degrees $\bar{k}$ is calculated, as described by~\eqref{eq:constraint2}.  
 This requires the numerical evaluation of a 2-dimensional integral given by~\eqref{eq:kappa}, which is performed using the NINTLIB numerical library.  
 This uses Monte Carlo sampling over roughly half a million points to evaluate the integral. \XXX{wc}{kz}{Why not to use numerical 2D integration? And why not to use a lookup table that you mention on p.12} \XXX{kz}{wc}{Since this step is performed only once for a graph, it is better to trade speed for accuracy.  The lookup table is used when this step would be needed to be performed many times.} \par
 %%%%%%%%%%
@@ -323,6 +323,81 @@ Currently it has a resolution of 0.001 and uses linear interpolation between the
 \label{fig:kappa_tau}
 \centering
 \end{figure}
+
+An alternative approach has also been studied to verify the integrity of this method.
+When the conformal time, scale factor, and expected average degree are rescaled in~\cite{ref:snc2012} it is not necessarily clear how the pseudoradius and scaling constant $\alpha$ could implicitly affect the results.
+To show the above method is correct, the expected average in-degree is calculated directly using
+
+\begin{equation}
+\label{eq:avg_degree_uni}
+\bar{k}_i\left(\eta^\prime|\eta\right) = \frac{4}{3}\pi\delta\int_{\eta^\prime}^\eta\!\left(\eta^{\prime\prime} - \eta^\prime\right)^3 R^4\left(\eta^{\prime\prime}\right)\,\mathrm d\eta^{\prime\prime}
+\end{equation}
+
+\noindent which can be recognized as (89) in~\cite{ref:snc2012}.
+
+The primary difficulty in evaluating this expression is that we must find an analytical expression for the scale factor in terms of the conformal time.
+We know the scale factor in terms of cosmic (and therefore rescaled) time, and we know how to solve for a given conformal time from a given rescaled time (see~\eqref{eq:t_to_eta} and~\eqref{eq:scale_factor} for exact expressions) but we require an expression which has the form $R\left(\tau\left(\eta\right)\right)$ which involves inverting~\eqref{eq:t_to_eta}.
+With a little bit of math and a single lookup table this is possible. \par
+%%%%%%%%%%
+First, we need a method for approximating \eqref{eq:t_to_eta}.
+This can be accomplished using the Gauss Hypergeometric function and its associated transformations.
+The integral can be rewritten in the following form:
+
+\begin{equation}
+\eta\left(\tau\right) = \frac{2a}{3\alpha}\left(-1\right)^{5/6}\left[\cosh\left(\frac{3}{2}\tau\right){}_2F_1\left(\frac{1}{2},\frac{5}{6},\frac{3}{2};\cosh^2\left(\frac{3}{2}\tau\right)\right)
+\end{equation}
+
+\noindent However, to use the power series approximation for the hypergeometric term we must rewrite it as
+
+\begin{equation}
+\begin{split}
+& \frac{\Gamma\left(3/2\right)\Gamma\left(1/3\right)}{\Gamma\left(5/6\right)}\left[-\cosh^2\left(\frac{3}{2}\tau\right)\right]^{-1/2}{}_2F_1\left[\frac{1}{2},0,\frac{2}{3};\sech^2\left(\frac{3}{2}\tau\right)\right] + \\
+& \frac{\Gamma\left(3/2\right)\Gamma\left(-2/3\right)}{\Gamma\left(1/2\right)\Gamma\left(2/3\right)}\left[-\cosh^2\left(\frac{3}{2}\tau\right)\right]^{-5/6}{}_2F_1\left[\frac{5}{6},\frac{1}{3},\frac{4}{3};\sech^2\left(\frac{3}{2}\tau\right)\right]
+\end{split}
+\end{equation}
+
+\noindent which allows the integral to be simplified to
+
+\begin{equation}
+\eta\left(\tau\right) = \frac{a}{9\alpha\Gamma\left(2/3\right)}\left[\frac{4\sqrt{3}\pi^{3/2}}{\Gamma\left(5/6\right)} + 3\Gamma\left(-1/3\right)\sech^{2/3}\left(\frac{3}{2}\tau\right){}_2F_1\left(\frac{1}{3},\frac{5}{6},\frac{4}{3};\sech^2\left(\frac{3}{2}\tau\right)\right)\right]
+\end{equation}
+
+\noindent and so by using a pre-generated lookup table we can return a value of $\tau$ for any given $\eta$ by inverting the left-hand side of $f\left(\tau\right) = g\left(\eta\right)$, so that $R\left(\eta\right) = R\left(f^{-1}\left(g\left(\eta\right)\right)\right)$.  This is possible because the function $f\left(\tau\right)$ is a monotonically decreasing function, shown in Fig.~\ref{fig:f_tau_tau}.
+Then, the average in- and out-degree should be
+
+\begin{figure}
+\includegraphics[width=10cm]{figures/ctuc.png}
+\caption{Conformal Time Lookup Table}
+\label{fig:f_tau_tau}
+\centering
+\end{figure}
+
+\begin{align}
+\bar{k}_i\left(\eta^\prime|\eta_0\right) &= \frac{4\pi\delta\alpha^4}{3}\int_{\eta^\prime}^{\eta_0}\!\left(\eta^{\prime\prime}-\eta^\prime\right)^3\sinh^{8/3}\left(\frac{3}{2}f^{-1}\left(g\left(\eta^{\prime\prime}\right)\right)\right)\,\mathrm d\eta^{\prime\prime} \\
+\bar{k}_o\left(\eta^\prime|\eta_0\right) &= \frac{4\pi\delta\alpha^4}{3}\int_0^{\eta^\prime}\!\left(\eta^\prime-\eta^{\prime\prime}\right)^3\sinh^{8/3}\left(\frac{3}{2}f^{-1}\left(g\left(\eta^{\prime\prime}\right)\right)\right)\,\mathrm d\eta^{\prime\prime}
+\end{align}
+
+\noindent and the average degree is found by integrating over the density function
+
+\begin{align}
+\rho\left(\eta^\prime|\eta\right) &= \frac{R^4\left(\eta^\prime\right)}{\mathcal{N}\left(\eta\right)} \\
+\mathcal{N}\left(\eta\right) &= \int_0^\eta\!R^4\left(\eta^\prime\right)\,\mathrm d\eta^\prime \\
+\bar{k}\left(\eta_0\right) &= \int_0^{\eta_0}\!\left(\bar{k}_i\left(\eta^\prime|\eta_0\right) + \bar{k}_o\left(\eta^\prime|\eta_0\right)\right)\rho\left(\eta^\prime|\eta_0\right)\,\mathrm d\eta^\prime \\
+\bar{k}\left(\eta_0,a,\alpha\right) &= \frac{4\pi\delta\alpha^8}{3\mathcal{N}}\int_0^{\eta_0}\,\int_0^{\eta_0}\,\abs{\eta^\prime - \eta^{\prime\prime}}^3 r^4\left(\eta^\prime\right)r^4\left(\eta^{\prime\prime}\right)\,\mathrm d\eta^\prime\,\mathrm d\eta^{\prime\prime} \label{eq:alt_avg_deg}
+\end{align}
+
+\noindent The final result~\eqref{eq:alt_avg_deg} is evaluated by numerically evaluating a 2-D and a 1-D integral (the latter for normalization) and by utilizing the lookup table in the 2-D integration.  Results are shown for the two methods below over a range of parameters.
+
+
+SHOW RESULTS HERE (TABLE)
+
+
+
+
+
+
+
+
 
 \subsubsection{Memory}
 The next step requires allocating the data structures used to define a graph.  
@@ -403,8 +478,8 @@ In this case, the function solves for the maximum conformal time from the maximu
 The transformation is given by equations (52), (85), and (86) in~\cite{ref:snc2012}:
 
 \begin{align}
-\eta &= \int_0^t\!\frac{\mathrm dt^\prime}{R\left(t^\prime\right)} \\
-R\left(t\right) &= \alpha\sinh^{\frac{2}{3}}\left(\frac{3t}{2a}\right)
+\eta &= \int_0^t\!\frac{\mathrm dt^\prime}{R\left(t^\prime\right)} \label{eq:t_to_eta}\\
+R\left(t\right) &= \alpha\sinh^{\frac{2}{3}}\left(\frac{3t}{2a}\right) \label{eq:scale_factor}
 \end{align}
 
 \noindent These combine to produce
@@ -761,8 +836,16 @@ It is written in this manner because it is both easy to sort and it allows for c
 %any conclusions
 \subsection{Average Degrees}
 We expect the expected average degrees of a network to be a Poissonian distribution about the mean value $\langle\bar{k}\rangle$.  
-Because points are scattered via a Poisson process, the fluctuations from the average degrees will be Poissonian in their form.  
-For each of the sets of parameters listed below, a sample of 1000 graphs was produced and compared to the theoretical curves:
+Because points are scattered via a Poisson process, the fluctuations from the average degrees will be Poissonian in their form.
+
+
+
+
+
+
+
+
+
 
 \begin{figure}
 \includegraphics[width=10cm]{figures/Average_Degree.jpg}
@@ -982,7 +1065,21 @@ P\left(k,\eta\right) &= \int_0^\eta\! p\left(k|\eta^\prime,\eta\right)\rho\left(
 \end{align}
 
 \subsubsection{In-Degree Distribution}
-The in-degrees describe connections coming into a given node from an earlier node.  Here we study the degree distribution for N = 10240, $\tau_0$ = 4, a = 1, and $\delta$ = 1.
+The in-degrees describe connections coming into a given node from an earlier node.
+See FIG XXXXX for a comparison of simulation results to theory.
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 \begin{figure}
 \includegraphics[width=10cm]{figures/in_degree_universe.jpg}
@@ -992,7 +1089,7 @@ The in-degrees describe connections coming into a given node from an earlier nod
 \end{figure}
 
 \subsubsection{Out-Degree Distribution}
-Likewise, the out-degrees describe connections exiting a given node toward a node at a later time.  The same parameters have been tested to produce these plots:
+Likewise, the out-degrees describe connections exiting a given node toward a node at a later time.  The same parameters have been tested to produce the plots shown in FIG XXXXX.
 
 \begin{figure}
 \includegraphics[width=10cm]{figures/out_degree_universe.jpg}

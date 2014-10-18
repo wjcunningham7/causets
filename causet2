@@ -30,6 +30,9 @@ cp $homedir/etc/clustering $work/etc/
 cp $homedir/etc/clust_dist $work/etc/
 cp $homedir/etc/migrate $work/etc/
 
+cp $homedir/etc/raduc_table.cset.bin $work/etc/
+cp $homedir/etc/ctuc_table.cset.bin $work/etc/
+
 mkdir $work/dat
 mkdir $work/dat/cdk
 mkdir $work/dat/cls
@@ -60,12 +63,12 @@ done
 
 # Do not edit above this
 
-nodes=524288
-samples=25
+nodes=10240
+samples=100
 
-for i in {1..25}
+for i in {1..100}
 do
-  ./CausalSet --universe --age 0.8458 --nodes $nodes --delta 10000 --radius 1 --components --print --gpu --verbose -y
+  ./CausalSet --universe --age 0.9 --nodes $nodes --delta 150 --radius 1 --components --print --gpu --verbose -y
 done
 
 #./etc/degrees uni

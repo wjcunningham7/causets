@@ -219,16 +219,20 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				memcpy(params + 2, &d_size, sizeof(double));
 				memcpy(params + 3, table, size);
 
-				double max_time = tauToEtaUniverseExact(network_properties->tau0, network_properties->a, network_properties->alpha);
-				network_properties->k_tar = integrate2D(&averageDegreeUniverse, 0.0, 0.0, max_time, max_time, params, network_properties->seed, 0);
-				network_properties->k_tar *= 4.0 * M_PI * network_properties->delta * POW2(POW2(network_properties->alpha, EXACT), EXACT);
-			
 				IntData idata = IntData();
 				idata.limit = 50;
 				idata.tol = 1e-4;
 				idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+				idata.upper = network_properties->tau0 * network_properties->a;
+				double max_time = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) * network_properties->a / network_properties->alpha;
+				gsl_integration_workspace_free(idata.workspace);
+
+				network_properties->k_tar = integrate2D(&averageDegreeUniverse, 0.0, 0.0, max_time, max_time, params, network_properties->seed, 0);
+				network_properties->k_tar *= 4.0 * M_PI * network_properties->delta * POW2(POW2(network_properties->alpha, EXACT), EXACT);
+		
+				idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 				idata.upper = max_time;
-				network_properties->k_tar /= 3.0 * integrate1D(&psi, params, &idata, QAGS);
+				network_properties->k_tar /= (3.0 * integrate1D(&psi, params, &idata, QAGS));
 				gsl_integration_workspace_free(idata.workspace);
 
 				free(params);
@@ -462,11 +466,18 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 			idata.tol = 1e-4;
 			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 			idata.upper = tau0 * a;
-			zeta = HALF_PI - integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS);
+			//zeta = HALF_PI - integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS);
+			zeta = HALF_PI - integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) / alpha;
 			gsl_integration_workspace_free(idata.workspace);
 		} else
 			//Exact Solution
 			zeta = HALF_PI - tauToEtaUniverseExact(tau0, a, alpha);
+
+		printf_cyan();
+		printf("\t\tMaximum Conformal Time: %5.8f\n", HALF_PI - zeta);
+		printf("\t\tMaximum Rescaled Time:  %5.8f\n", tau0);
+		printf_std();
+		fflush(stdout);
 	} else {
 		//Solve for eta0 using Newton-Raphson Method
 		if (DEBUG) {
@@ -594,6 +605,7 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 				if (USE_GSL) {
 					//Numerical Integration
 					idata.upper = nodes.id.tau[i] * a;
+					nodes.c.sc[i].w = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) * a / alpha;
 				} else
 					//Exact Solution
 					nodes.c.sc[i].w = tauToEtaUniverseExact(nodes.id.tau[i], a, alpha);
