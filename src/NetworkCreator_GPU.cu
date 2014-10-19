@@ -232,11 +232,6 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	stopwatchStop(&sBitonic0);
 	stopwatchStart(&sGPUOverhead);
 
-	/////////
-	//DEBUG//
-	/////////
-	//printMemUsed("at Checkpoint", hostMemUsed, devMemUsed);
-
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * d_edges_size));
 	devMemUsed += sizeof(int) * d_edges_size;
@@ -622,15 +617,12 @@ bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g
 	dim3 threads_per_block(1, BLOCK_SIZE, 1);
 	dim3 blocks_per_grid(gridx, gridy, 1);
 	
-	Stopwatch gtest = Stopwatch();
-	stopwatchStart(&gtest);
+	//Stopwatch gtest = Stopwatch();
+	//stopwatchStart(&gtest);
 
 	//Adjacency matrix block C and non-diagonal blocks of AB
 	for (i = 0; i < 2 * GROUP_SIZE; i++) {
 		for (j = 0; j < 2 * GROUP_SIZE / NBUFFERS; j++) {
-			//DEBUG
-			//if (i < GROUP_SIZE || j * NBUFFERS < GROUP_SIZE) continue;
-
 			#ifdef _OPENMP
 			#pragma omp parallel num_threads(NBUFFERS)
 			{
@@ -639,7 +631,6 @@ bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g
 				#pragma omp for schedule(dynamic, 1)
 			#endif
 				for (m = 0; m < NBUFFERS; m++) {
-					//if (!((j * NBUFFERS + m) % (2 * GROUP_SIZE + 1)))
 					if (i > j * NBUFFERS + m)
 						continue;
 
@@ -682,7 +673,7 @@ bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g
 		}
 	}
 	
-	stopwatchStop(&gtest);
+	//stopwatchStop(&gtest);
 	//printf_cyan();
 	//printf("Time Elapsed: %.6f\n", gtest.elapsedTime);
 	//printf_std();
@@ -747,8 +738,8 @@ bool generateLists(const Node &nodes, uint64_t * const &edges, int * const &g_id
 		assert (N_tar > 0);
 	}
 
-	Stopwatch gtest = Stopwatch();
-	stopwatchStart(&gtest);
+	//Stopwatch gtest = Stopwatch();
+	//stopwatchStart(&gtest);
 
 	//Temporary Buffers
 	CUdeviceptr d_nodes0, d_nodes1;
@@ -768,15 +759,15 @@ bool generateLists(const Node &nodes, uint64_t * const &edges, int * const &g_id
 	size_t m_edges_size = mthread_size * mthread_size;
 
 	//DEBUG
-	printf_red();
-	printf("THREAD  SIZE: %d\n", THREAD_SIZE);
-	printf("BLOCK   SIZE: %d\n", BLOCK_SIZE);
-	printf("GROUP   SIZE: %d\n", GROUP_SIZE);
-	printf("MBLOCK  SIZE: %zd\n", mblock_size);
-	printf("MTHREAD SIZE: %zd\n", mthread_size);
-	printf("\nNumber of Times Kernel is Executed: %d\n", (GROUP_SIZE*GROUP_SIZE));
-	printf_std();
-	fflush(stdout);
+	//printf_red();
+	//printf("THREAD  SIZE: %d\n", THREAD_SIZE);
+	//printf("BLOCK   SIZE: %d\n", BLOCK_SIZE);
+	//printf("GROUP   SIZE: %d\n", GROUP_SIZE);
+	//printf("MBLOCK  SIZE: %zd\n", mblock_size);
+	//printf("MTHREAD SIZE: %zd\n", mthread_size);
+	//printf("\nNumber of Times Kernel is Executed: %d\n", (GROUP_SIZE*GROUP_SIZE));
+	//printf_std();
+	//fflush(stdout);
 
 	//Allocate Buffers on Host
 	try {
@@ -820,9 +811,6 @@ bool generateLists(const Node &nodes, uint64_t * const &edges, int * const &g_id
 	checkCudaErrors(cuMemsetD32(d_k_out, 0, mthread_size));
 	devMemUsed += sizeof(int) * mthread_size;
 
-	//if (verbose)
-	//	printMemUsed("at Checkpoint", hostMemUsed, devMemUsed);
-
 	//Allocate Edge Buffer on Device
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(bool) * m_edges_size));
 	checkCudaErrors(cuMemsetD8(d_edges, 0, m_edges_size));
@@ -839,11 +827,11 @@ bool generateLists(const Node &nodes, uint64_t * const &edges, int * const &g_id
 	dim3 blocks_per_grid(gridx, gridy, 1);
 
 	//DEBUG
-	printf_red();
-	printf("Grid X: %u\n", gridx);
-	printf("Grid Y: %u\n", gridy);
-	printf_std();
-	fflush(stdout);
+	//printf_red();
+	//printf("Grid X: %u\n", gridx);
+	//printf("Grid Y: %u\n", gridy);
+	//printf_std();
+	//fflush(stdout);
 
 	//Block C and non-diagonal groups of block AB
 	for (i = 0; i < 2 * GROUP_SIZE; i++) {
@@ -924,7 +912,7 @@ bool generateLists(const Node &nodes, uint64_t * const &edges, int * const &g_id
 	h_edges = NULL;
 	hostMemUsed -= sizeof(bool) * m_edges_size;
 
-	stopwatchStop(&gtest);
+	//stopwatchStop(&gtest);
 	//printf_cyan();
 	//printf("Time Elapsed: %.6f\n", gtest.elapsedTime);
 	//printf_std();

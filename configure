@@ -16,7 +16,9 @@ mkdir dat/emb
 mkdir dat/emb/fp
 mkdir dat/emb/tn
 mkdir dat/idd
+mkdir dat/idf
 mkdir dat/odd
+mkdir dat/odf
 mkdir dat/pos
 mkdir dat/ref
 mkdir net

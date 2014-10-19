@@ -137,7 +137,7 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), test(false), use_gpu(false), disp_network(false), print_network(false), universe(false), link(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), validate_embedding(false) {}
+	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), test(false), use_gpu(false), disp_network(false), print_network(false), universe(false), link(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), validate_embedding(false) {}
 
 	CausetConflicts cc;		//Conflicting Parameters
 
@@ -151,6 +151,7 @@ struct CausetFlags {
 	bool calc_components;		//Find Connected Components
 	bool calc_success_ratio;	//Find Success Ratio
 	bool calc_autocorr;		//Autocorrelation
+	bool calc_deg_field;		//Measure Degree Field
 
 	bool validate_embedding;	//Find Embedding Statistics
 	
@@ -162,7 +163,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), dim(3), a(1.0), lambda(3.0), zeta(1.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
+	NetworkProperties() : N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(1000), tau_m(0.0), dim(3), a(1.0), lambda(3.0), zeta(1.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), flags(CausetFlags()),  manifold(DE_SITTER) {}
 
 	CausetFlags flags;
 
@@ -171,6 +172,8 @@ struct NetworkProperties {
 
 	double N_emb;			//Number of Pairs Used in Embedding Validation
 	double N_sr;			//Number of Pairs Used in Success Ratio
+	int N_df;			//Number of Samples Used in Degree Field Measurements
+	double tau_m;			//Rescaled Time of Nodes used for Measuring Degree Field
 
 	int dim;			//Spacetime Dimension (2 or 4)
 	Manifold manifold;		//Manifold of the Network
@@ -216,6 +219,9 @@ struct NetworkObservables {
 	float success_ratio;		//Success Ratio
 
 	EVData evd;			//Embedding Verification Data
+
+	int *in_degree_field;		//In-Degree Field Measurements
+	int *out_degree_field;		//Out-Degree Field Measurements
 };
 
 //Network object containing minimal unique information
@@ -233,7 +239,7 @@ struct Network {
 
 //Algorithmic Performance
 struct CausetPerformance {
-	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sValidateEmbedding(Stopwatch()), sMeasureSuccessRatio(Stopwatch()) {}
+	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sValidateEmbedding(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureDegreeField(Stopwatch()) {}
 
 	Stopwatch sCauset;
 	Stopwatch sCalcDegrees;
@@ -247,11 +253,12 @@ struct CausetPerformance {
 	Stopwatch sMeasureConnectedComponents;
 	Stopwatch sValidateEmbedding;
 	Stopwatch sMeasureSuccessRatio;
+	Stopwatch sMeasureDegreeField;
 };
 
 //Benchmark Statistics
 struct Benchmark {
-	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0) {}
+	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0), bMeasureDegreeField(0.0) {}
 
 	double bCalcDegrees;
 	double bCreateNetwork;
@@ -263,6 +270,7 @@ struct Benchmark {
 	double bMeasureClustering;
 	double bMeasureConnectedComponents;
 	double bMeasureSuccessRatio;
+	double bMeasureDegreeField;
 };
 
 //Used for GSL Integration

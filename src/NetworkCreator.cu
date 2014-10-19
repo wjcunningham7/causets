@@ -151,9 +151,10 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				assert (network_properties->rhoM > 0.0);
 			}
 
-			//Rescale Alpha (factor of 'a' missing in (11) from [2])
-			//network_properties->alpha /= POW(network_properties->a, 1.0f / 3.0f, STL);
-			
+			//Make sure tau_m < tau_0 (if applicable)
+			if (network_properties->flags.calc_deg_field && network_properties->tau_m >= network_properties->tau0)
+				throw CausetException("You have chosen to measure the degree fields at a time greater than the maximum time!\n");
+
 			//Finally, solve for R0
 			if (DEBUG) {
 				assert (network_properties->alpha > 0.0);
@@ -171,24 +172,21 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				else
 					r0 = POW(SINH(1.5f * network_properties->tau0, STL), 2.0f / 3.0f, STL);
 
+				int nb = static_cast<int>(network->network_properties.flags.bench) * NBENCH;
 				int i;
-				if (network_properties->flags.bench) {
-					for (i = 0; i < NBENCH; i++) {
-						stopwatchStart(&cp->sCalcDegrees);
-						integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0);
-						stopwatchStop(&cp->sCalcDegrees);
-						bm->bCalcDegrees += cp->sCalcDegrees.elapsedTime;
-						stopwatchReset(&cp->sCalcDegrees);
-					}
-					bm->bCalcDegrees /= NBENCH;
+
+				for (i = 0; i <= nb; i++) {
+					stopwatchStart(&cp->sCalcDegrees);
+					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
+						network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 16.0 * M_PI * exp(-3.0 * network_properties->tau0);
+					else
+						network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 8.0 * M_PI / (SINH(3.0f * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
+					stopwatchStop(&cp->sCalcDegrees);
 				}
 
-				stopwatchStart(&cp->sCalcDegrees);
-				if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
-					network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 16.0 * M_PI * exp(-3.0 * network_properties->tau0);
-				else
-					network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 8.0 * M_PI / (SINH(3.0f * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
-				stopwatchStop(&cp->sCalcDegrees);
+				if (nb)
+					bm->bCalcDegrees = cp->sCalcDegrees.elapsedTime / NBENCH;
+
 				printf("\t\tExecution Time: %5.6f sec\n", cp->sCalcDegrees.elapsedTime);
 				printf("\t\tCompleted.\n");*/
 				
@@ -472,7 +470,6 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 			idata.tol = 1e-4;
 			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 			idata.upper = tau0 * a;
-			//zeta = HALF_PI - integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS);
 			zeta = HALF_PI - integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) / alpha;
 			gsl_integration_workspace_free(idata.workspace);
 		} else

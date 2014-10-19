@@ -62,7 +62,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":m:n:k:d:s:a:c:g:t:A:D:S:E:o:r:l:z:uvyCGTLh";
+	static const char *optString = ":m:n:k:d:s:a:c:g:t:A:D:S:E:F:o:r:l:z:uvyCGTLh";
 	//Multi-character options
 	static const struct option longOpts[] = {
 		{ "manifold",	required_argument,	NULL, 'm' },
@@ -77,6 +77,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 		{ "components", no_argument,		NULL, 'G' },
 		{ "embedding",  required_argument,	NULL, 'E' },
 		{ "link",	no_argument,		NULL, 'L' },
+		{ "field",	required_argument,	NULL, 'F' },
 		{ "graph",	required_argument,	NULL, 'g' },
 		{ "universe",	no_argument,		NULL, 'u' },
 		{ "age",	required_argument,	NULL, 't' },
@@ -176,7 +177,12 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.N_emb <= 0.0 || network_properties.N_emb > 1.0)
 					throw CausetException("Invalid argument for 'embedding' parameter!\n");
 				break;
-			case 'L':	//Flag for Reading Nodes and Re-Linking
+			case 'L':	//Flag for Reading Nodes (and not links) and Re-Linking
+				network_properties.flags.link = true;
+				break;
+			case 'F':	//Measure Degree Field with Test Nodes
+				network_properties.flags.calc_deg_field = true;
+				network_properties.tau_m = atof(optarg);
 				break;
 			case 'g':	//Graph ID
 				network_properties.graphID = atoi(optarg);
@@ -427,6 +433,18 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 	if (!solveMaxTime(network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.flags.universe))
 		return false;
 
+	//Make sure tau_m < tau_0 (if applicable)
+	try {	
+		if (!network->network_properties.flags.universe && network->network_properties.flags.calc_deg_field && network->network_properties.tau_m >= network->network_properties.tau0)
+			throw CausetException("You have chosen to measure the degree fields at a time greater than the maximum time!\n");
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__,  e.what(), __LINE__);
+		return false;
+	}
+
 	//Generate coordinates of spacetime nodes and then order nodes temporally using quicksort
 	int low = 0;
 	int high = network->network_properties.N_tar - 1;
@@ -529,6 +547,15 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 
 		if (nb)
 			bm->bMeasureSuccessRatio = cp->sMeasureSuccessRatio.elapsedTime / NBENCH;
+	}
+
+	if (network->network_properties.flags.calc_deg_field) {
+		for (i = 0; i <= nb; i++) {
+			//Call 'measureDegreeField' function
+		}
+
+		if (nb)
+			bm->bMeasureDegreeField = cp->sMeasureDegreeField.elapsedTime / NBENCH;
 	}
 
 	printf("Task Completed.\n");
@@ -1004,6 +1031,11 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 			outputStream << "Embedding False Positives:\t\t" << "emb/fp/" << network.network_properties.graphID << ".cset.emb_fp.dat" << std::endl;
 		}
 
+		if (network.network_properties.flags.calc_deg_field) {
+			outputStream << "In-Degree Field Data:\t\t" << "idf/" << network.network_properties.graphID << ".cset.idf.dat" << std::endl;
+			outputStream << "Out-Degree Field Data: \t\t" << "odf/" << network.network_properties.graphID << ".cset.odf.dat" << std::endl;
+		}
+
 		outputStream << "\nAlgorithmic Performance:" << std::endl;
 		outputStream << "--------------------------" << std::endl;
 		outputStream << "calcDegrees:         " << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
@@ -1026,6 +1058,8 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 			outputStream << "validateEmbedding:   " << cp.sValidateEmbedding.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_success_ratio)
 			outputStream << "measureSuccessRatio: " << cp.sMeasureSuccessRatio.elapsedTime << " sec" << std::endl;
+		if (network.network_properties.flags.calc_deg_field)
+			outputStream << "measureDegreeField: " << cp.sMeasureDegreeField.elapsedTime << " sec" << std::endl;
 
 		stopwatchStop(&cp.sCauset);
 		outputStream << "Total Time:          " << cp.sCauset.elapsedTime << " sec" << std::endl;
@@ -1210,6 +1244,19 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 			dataStream.close();
 		}
 
+		if (network.network_properties.flags.calc_deg_field) {
+			sstm.str("");
+			sstm.clear();
+			sstm << "./dat/idf/" << network.network_properties.graphID << ".cset.idf.dat";
+			dataStream.open(sstm.str().c_str());
+			if (!dataStream.is_open())
+				throw CausetException("Failed to open in-degree field file!\n");
+			//Print data here
+
+			dataStream.flush();
+			dataStream.close();
+		}
+
 		printf("\tFilename: %s.cset.out\n", filename.c_str());
 		fflush(stdout);
 	} catch (CausetException c) {
@@ -1255,6 +1302,8 @@ static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
 			fprintf(f, "\tmeasureComponents:\t%5.6f sec\n", bm.bMeasureConnectedComponents);
 		if (cf.calc_success_ratio)
 			fprintf(f, "\tmeasureSuccessRatio:\t%5.6f sec\n", bm.bMeasureSuccessRatio);
+		if (cf.calc_deg_field)
+			fprintf(f, "\tmeasureDegreeField:\t%5.6f sec\n", bm.bMeasureDegreeField);
 
 		fclose(f);
 	} catch (CausetException c) {
@@ -1286,6 +1335,8 @@ static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
 		printf("\tmeasureConnectedComponents:\t%5.6f sec\n", bm.bMeasureConnectedComponents);
 	if (cf.calc_success_ratio)
 		printf("\tmeasureSuccessRatio:\t%5.6f sec\n", bm.bMeasureSuccessRatio);
+	if (cf.calc_deg_field)
+		printf("\tmeasureDegreeField:\t%5.6f sec\n", bm.bMeasureDegreeField);
 	printf("\n");
 	fflush(stdout);
 
