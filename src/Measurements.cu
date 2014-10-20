@@ -403,6 +403,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 	//Algorithm goes here
 
+
 	stopwatchStop(&sMeasureDegreeField);
 	
 	if (!bench) {
