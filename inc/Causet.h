@@ -203,7 +203,7 @@ struct NetworkProperties {
 
 //Measured values of the network
 struct NetworkObservables {
-	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), success_ratio(0.0), evd(EVData()) {}
+	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), success_ratio(0.0), evd(EVData()), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0) {}
 	
 	int N_res;			//Resulting Number of Connected Nodes
 	float k_res;			//Resulting Average Degree
@@ -221,7 +221,10 @@ struct NetworkObservables {
 	EVData evd;			//Embedding Verification Data
 
 	int *in_degree_field;		//In-Degree Field Measurements
+	float avg_idf;			//Average In-Degree Field Value
+
 	int *out_degree_field;		//Out-Degree Field Measurements
+	float avg_odf;			//Average Out-Degree Field Value
 };
 
 //Network object containing minimal unique information

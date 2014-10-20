@@ -551,7 +551,8 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 
 	if (network->network_properties.flags.calc_deg_field) {
 		for (i = 0; i <= nb; i++) {
-			//Call 'measureDegreeField' function
+			if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.c.sc, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.dim, network->network_properties.manifold, cp->sMeasureDegreeField, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+				return false;
 		}
 
 		if (nb)
@@ -565,7 +566,7 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 }
 
 //Load Network Data from Existing File
-//O(xxx)
+//O(xxx) Efficiency (revise this)
 //Reads the following files:
 //	-Node position data		(./dat/pos/*.cset.pos.dat)
 //	-Edge data			(./dat/edg/*.cset.edg.dat)
@@ -1012,6 +1013,13 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 		else
 			outputStream << std::endl;
 
+		if (network.network_properties.flags.calc_deg_field) {
+			outputStream << "Degree Field Measurement Time\t\t" << network.network_properties.tau_m << std::endl;
+			outputStream << "Average In-Degree Field Value\t\t" << network.network_observables.avg_idf << std::endl;
+			outputStream << "Average Out-Degree Field Value\t\t" << network.network_observables.avg_odf << std::endl;
+		} else
+			outputStream << std::endl;
+
 		outputStream << "\nNetwork Analysis Results:" << std::endl;
 		outputStream << "-------------------------" << std::endl;
 		outputStream << "Node Position Data:\t\t\t" << "pos/" << network.network_properties.graphID << ".cset.pos.dat" << std::endl;
@@ -1251,7 +1259,19 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open in-degree field file!\n");
-			//Print data here
+			for (i = 0; i < network.network_properties.N_df; i++)
+				dataStream << network.network_observables.in_degree_field[i] << std::endl;
+
+			dataStream.flush();
+			dataStream.close();
+
+			sstm.str("");
+			sstm.clear();
+			sstm << "./dat/odf/" << network.network_properties.graphID << ".cset.odf.dat";
+			if (!dataStream.is_open())
+				throw CausetException("Failed to open out-degree field file!\n");
+			for (i = 0; i < network.network_properties.N_df; i++)
+				dataStream << network.network_observables.out_degree_field[i] << std::endl;
 
 			dataStream.flush();
 			dataStream.close();

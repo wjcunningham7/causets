@@ -260,7 +260,6 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 
 	n_trav = 0;
 	for (k = 0; k < static_cast<uint64_t>(N_sr); k++) {
-	//for (k = 0; k < 1; k++) {
 		//Pick Unique Pair
 		vec_idx = k * stride + 1;
 		i = static_cast<int>(vec_idx / (N_tar - 1));
@@ -376,6 +375,48 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sMeasureSuccessRatio.elapsedTime);
+		fflush(stdout);
+	}
+
+	return true;
+}
+
+//Takes N_df measurements of in-degree and out-degree fields at time tau_m
+//O(xxx) Efficiency (revise this)
+bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, const float4 * const sc, const int &N_tar, const int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+{
+	if (DEBUG) {
+		//No Null Pointers
+		assert (sc != NULL);
+
+		//Parameters in Correct Ranges
+		assert (N_tar > 0);
+		assert (N_df > 0);
+		assert (tau_m > 0.0);
+		assert (dim == 1 || dim == 3);
+		assert (manifold == DE_SITTER);
+	}
+
+	//Variable declarations go here
+
+	stopwatchStart(&sMeasureDegreeField);
+
+	//Algorithm goes here
+
+	stopwatchStop(&sMeasureDegreeField);
+	
+	if (!bench) {
+		printf("\tCalculated Degree Field Values.\n");
+		printf_cyan();
+		printf("\t\tMeasurement Time: %f\n", tau_m);
+		printf("\t\tAverage In-Degree Field Value: %f\n", avg_idf);
+		printf("\t\tAverage Out-Degree Field Value: %f\n", avg_odf);
+		printf_std();
+		fflush(stdout);
+	}
+
+	if (verbose) {
+		printf("\t\tExecution Time: %5.6f sec\n", sMeasureDegreeField.elapsedTime);
 		fflush(stdout);
 	}
 
