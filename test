@@ -27,7 +27,7 @@ for (( i=0; i<${samples}; i++ ))
 do
   let t=$i+1
   echo Trial $t of ${samples}
-  ./bin/CausalSet --universe --nodes 10240 --age 1.8 --alpha 2 --radius 1.4 --seed 18100 --components --gpu --test
+  ./bin/CausalSet --universe --nodes 10240 --age 1.8 --alpha 2 --radius 1.4 --seed 18100 --components --field 1.6 --gpu --print --verbose
 done
 
 ######################################

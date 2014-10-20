@@ -199,9 +199,13 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				//Check for NaN
 				if (network_properties->k_tar != network_properties->k_tar)
 					return false;
+				free(table);
 
 				//DEBUG
-				printf("Kostia's Method: %f\n", network_properties->k_tar);
+				//printf_red();
+				//printf("Kostia's Method: %f\n", network_properties->k_tar);
+				//printf_std();
+				//fflush(stdout);
 
 				//Method 3 of 3: Will's formulation
 				//double *table;
@@ -244,7 +248,10 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				table = NULL;
 
 				//DEBUG
-				printf("Will's Method: %f\n", network_properties->k_tar);
+				//printf_red();
+				//printf("Will's Method: %f\n", network_properties->k_tar);
+				//pritnf_std();
+				//fflush(stdout);
 			}
 			
 			//20% Buffer

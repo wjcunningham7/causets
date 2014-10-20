@@ -551,7 +551,7 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 
 	if (network->network_properties.flags.calc_deg_field) {
 		for (i = 0; i <= nb; i++) {
-			if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.c.sc, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.dim, network->network_properties.manifold, cp->sMeasureDegreeField, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.c.sc, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.seed, cp->sMeasureDegreeField, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
 
@@ -1268,6 +1268,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 			sstm.str("");
 			sstm.clear();
 			sstm << "./dat/odf/" << network.network_properties.graphID << ".cset.odf.dat";
+			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open out-degree field file!\n");
 			for (i = 0; i < network.network_properties.N_df; i++)
@@ -1441,5 +1442,15 @@ static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t 
 		free(network->network_observables.evd.fp);
 		network->network_observables.evd.fp = NULL;
 		hostMemUsed -= sizeof(float) * 2 * static_cast<uint64_t>(network->network_properties.N_emb);
+	}
+
+	if (network->network_properties.flags.calc_deg_field) {
+		free(network->network_observables.in_degree_field);
+		network->network_observables.in_degree_field = NULL;
+		hostMemUsed -= sizeof(int) * network->network_properties.N_df;
+
+		free(network->network_observables.out_degree_field);
+		network->network_observables.out_degree_field = NULL;
+		hostMemUsed -= sizeof(int) * network->network_properties.N_df;
 	}
 }

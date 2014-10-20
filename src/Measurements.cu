@@ -383,7 +383,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m
 //O(xxx) Efficiency (revise this)
-bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, const float4 * const sc, const int &N_tar, const int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, const float4 * const sc, const int &N_tar, const int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No Null Pointers
@@ -393,19 +393,109 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		assert (N_tar > 0);
 		assert (N_df > 0);
 		assert (tau_m > 0.0);
-		assert (dim == 1 || dim == 3);
+		assert (dim == 3);
 		assert (manifold == DE_SITTER);
+		assert (a > 0.0);
+		assert (alpha > 0.0);
 	}
 
 	//Variable declarations go here
+	float4 test_node;
+	double x, rval;	
+	float dt, dx;
+	int k_in, k_out;
+	int i, j;
+
+	IntData idata = IntData();
+	//Modify these two parameters to trade off between speed and accuracy
+	idata.limit = 50;
+	idata.tol = 1e-4;
+	if (USE_GSL && universe)
+		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 	stopwatchStart(&sMeasureDegreeField);
 
-	//Algorithm goes here
+	try {
+		in_degree_field = (int*)malloc(sizeof(int) * N_df);
+		if (in_degree_field == NULL)
+			throw std::bad_alloc();
+		memset(in_degree_field, 0, N_df);
+		hostMemUsed += sizeof(int) * N_df;
 
+		out_degree_field = (int*)malloc(sizeof(int) * N_df);
+		if (out_degree_field == NULL)
+			throw std::bad_alloc();
+		memset(out_degree_field, 0, N_df);
+		hostMemUsed += sizeof(int) * N_df;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	}
+
+	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	if (verbose)
+		printMemUsed("to Measure Degree Fields", hostMemUsed, devMemUsed);
+
+	if (universe) {
+		if (USE_GSL) {
+			//Numerical Integration
+			idata.upper = tau_m * a;
+			test_node.w = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) * a / alpha;
+		} else
+			//Exact Solution
+			test_node.w = tauToEtaUniverseExact(tau_m, a, alpha);
+	} else
+		test_node.w = tauToEta(tau_m);
+
+	for (i = 0; i < N_df; i++) {
+		//Sample Theta from (0, 2pi)
+		x = TWO_PI * ran2(&seed);
+		test_node.x = x;
+		if (DEBUG) assert (test_node.x > 0.0 && test_node.x < TWO_PI);
+
+		//Sample Phi from (0, pi)
+		x = HALF_PI;
+		rval = ran2(&seed);
+		if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
+			return false;
+		test_node.y = x;
+		if (DEBUG) assert (test_node.y > 0.0 && test_node.y < M_PI);
+
+		//Sample Chi from (0, pi)
+		test_node.z = ACOS(1.0 - 2.0 * static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+		if (DEBUG) assert (test_node.z > 0.0 && test_node.z < M_PI);
+
+		k_in = 0;
+		k_out = 0;
+
+		for (j = 0; j < N_tar; j++) {
+			dt = ABS(sc[j].w - test_node.w, STL);
+			dx = ACOS(sphProduct(sc[j], test_node), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+
+			if (dx < dt) {
+				//They are connected
+				if (sc[j].w < test_node.w)
+					k_in++;
+				else
+					k_out++;
+			}
+		}
+
+		in_degree_field[i] = k_in;
+		out_degree_field[i] = k_out;
+
+		avg_idf += k_in;
+		avg_odf += k_out;
+	}
+
+	avg_idf /= N_df;
+	avg_odf /= N_df;
 
 	stopwatchStop(&sMeasureDegreeField);
-	
+
+	if (USE_GSL && universe)
+		gsl_integration_workspace_free(idata.workspace);
+
 	if (!bench) {
 		printf("\tCalculated Degree Field Values.\n");
 		printf_cyan();
