@@ -415,6 +415,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 	stopwatchStart(&sMeasureDegreeField);
 
+	//Allocate memory for data
 	try {
 		in_degree_field = (int*)malloc(sizeof(int) * N_df);
 		if (in_degree_field == NULL)
@@ -436,6 +437,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 	if (verbose)
 		printMemUsed("to Measure Degree Fields", hostMemUsed, devMemUsed);
 
+	//Calculate eta_m
 	if (universe) {
 		if (USE_GSL) {
 			//Numerical Integration
@@ -447,6 +449,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 	} else
 		test_node.w = tauToEta(tau_m);
 
+	//Take N_df measurements of the fields
 	for (i = 0; i < N_df; i++) {
 		//Sample Theta from (0, 2pi)
 		x = TWO_PI * ran2(&seed);
@@ -468,7 +471,9 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		k_in = 0;
 		k_out = 0;
 
+		//Compare test node to N_tar other nodes
 		for (j = 0; j < N_tar; j++) {
+			//Calculate sign of spacetime interval
 			dt = ABS(sc[j].w - test_node.w, STL);
 			dx = ACOS(sphProduct(sc[j], test_node), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 
@@ -481,6 +486,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 			}
 		}
 
+		//Save measurements
 		in_degree_field[i] = k_in;
 		out_degree_field[i] = k_out;
 
@@ -488,6 +494,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		avg_odf += k_out;
 	}
 
+	//Normalize averages
 	avg_idf /= N_df;
 	avg_odf /= N_df;
 

@@ -235,14 +235,18 @@ bool bisection(double (*solve)(const double &x, const double * const p1, const d
 		if (b <= a)
 			throw CausetException("Invalid Bounds in Bisection!\n");
 
+		//Initial test point
 		*x = (b + a) / 2;
 		while (ABS(res, STL) > tol && iter < max_iter) {
-			//printf("lower: %.16e\n", a);
-			//printf("upper: %.16e\n", b);
+			//Residual Value
 			res = (*solve)(*x, p1, p2, p3, p4, p5, p6);
 			//printf("res:   %.16e\n\n", res);
+
+			//Check for NaN
 			if (res != res)
 				throw CausetException("NaN Error in Bisection!\n");
+
+			//Change bounds
 			if (increasing) {
 				if (res > 0)
 					b = *x;
@@ -255,6 +259,7 @@ bool bisection(double (*solve)(const double &x, const double * const p1, const d
 					b = *x;
 			}
 
+			//New test point
 			*x = (b + a) / 2;
 			iter++;
 		}
@@ -288,11 +293,15 @@ bool newton(double (*solve)(const double &x, const double * const p1, const doub
 
 	try {
 		while (ABS(res, STL) > tol && iter < max_iter) {
+			//Residual Value
 			res = (*solve)(*x, p1, p2, p3, p4, p5, p6);
 			//printf("res: %E\n", res);
+
+			//Check for NaN
 			if (res != res)
 				throw CausetException("NaN Error in Newton-Raphson\n");
 	
+			//New test value
 			x1 = *x + res;
 			//printf("x1: %E\n", x1);
 	
@@ -359,23 +368,19 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 //Breadth First Search
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements)
 {
-	//printf("IDX: %d\n", index);
 	int ps = edges.past_edge_row_start[index];
 	int fs = edges.future_edge_row_start[index];
 	int i;
 
-	//printf("PS: %d\n", ps);
-	//printf("FS: %d\n", fs);
-
 	nodes.cc_id[index] = id;
 	elements++;
 
-	//printf("IN\n");
+	//Move to past nodes
 	for (i = 0; i < nodes.k_in[index]; i++)
 		if (!nodes.cc_id[edges.past_edges[ps+i]])
 			bfsearch(nodes, edges, edges.past_edges[ps+i], id, elements);
 
-	//printf("OUT\n");
+	//Move to future nodes
 	for (i = 0; i < nodes.k_out[index]; i++)
 		if (!nodes.cc_id[edges.future_edges[fs+i]])
 			bfsearch(nodes, edges, edges.future_edges[fs+i], id, elements);

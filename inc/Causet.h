@@ -15,7 +15,6 @@
 #include <string>
 
 //Other System Files
-//#include <boost/filesystem.hpp>
 #include <boost/unordered_map.hpp>
 #include <cuda.h>
 #include <curand.h>

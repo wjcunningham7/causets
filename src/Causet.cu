@@ -9,6 +9,7 @@
 
 int main(int argc, char **argv)
 {
+	//Initialize Data Structures
 	CausetPerformance cp = CausetPerformance();
 	stopwatchStart(&cp.sCauset);
 
@@ -21,29 +22,37 @@ int main(int argc, char **argv)
 
 	shrQAStart(argc, argv);
 
+	//Identify and Connect to GPU
 	if (network.network_properties.flags.use_gpu)
 		connectToGPU(&resources, argc, argv);
-	
+
+	//Create Causal Set Graph	
 	if (network.network_properties.graphID == 0 && !initializeNetwork(&network, &cp, &bm, resources.cuContext, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
 	else if (network.network_properties.graphID != 0 && !loadNetwork(&network, &cp, &bm, resources.cuContext, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
 
+	//Measure Graph Properties
 	if (network.network_properties.flags.test) goto CausetSuccess;
 	if (!measureNetworkObservables(&network, &cp, &bm, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
 
+	//Print Results
 	if (network.network_properties.flags.bench && !printBenchmark(bm, network.network_properties.flags)) goto CausetExit;
 	if (!network.network_properties.flags.bench) printMemUsed(NULL, resources.maxHostMemUsed, resources.maxDevMemUsed);
 	if (network.network_properties.flags.print_network && !printNetwork(network, cp, init_seed, resources.gpuID)) goto CausetExit;
 
+	//Free Resources
 	destroyNetwork(&network, resources.hostMemUsed, resources.devMemUsed);
 
 	CausetSuccess:
+	//Release GPU
 	if (network.network_properties.flags.use_gpu) cuCtxDetach(resources.cuContext);
 
+	//Identify Potential Memory Leaks
 	success = !resources.hostMemUsed && !resources.devMemUsed;
 	if (!success)
 		printf("WARNING: Memory leak detected!\n");
 
 	CausetExit:
+	//Exit Program
 	stopwatchStop(&cp.sCauset);
 	shrQAFinish(argc, (const char**)argv, success ? QA_PASSED : QA_FAILED);
 	printf("Time: %5.6f sec\n", cp.sCauset.elapsedTime);
@@ -77,7 +86,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 		{ "components", no_argument,		NULL, 'G' },
 		{ "embedding",  required_argument,	NULL, 'E' },
 		{ "link",	no_argument,		NULL, 'L' },
-		{ "field",	required_argument,	NULL, 'F' },
+		{ "fields",	required_argument,	NULL, 'F' },
 		{ "graph",	required_argument,	NULL, 'g' },
 		{ "universe",	no_argument,		NULL, 'u' },
 		{ "age",	required_argument,	NULL, 't' },
@@ -334,6 +343,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				printf("  -D, --delta\t\tNode Density\t\t\t10000\n");
 				printf("  -d, --dim\t\tSpatial Dimensions\t\t1 or 3\n");
 				printf("  -E, --embedding\tValidate Embedding\t\t0.01\n");
+				printf("  -F, --fields\t\tMeasure Degree Fields\n");
 				printf("  -G, --components\tIdentify Giant Component\n");
 				printf("  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
 				printf("  -h, --help\t\tDisplay This Menu\n");
@@ -410,9 +420,11 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 	int nb = static_cast<int>(network->network_properties.flags.bench) * NBENCH;
 	int i;
 
+	//Initialize variables using constraints
 	if (!initVars(&network->network_properties, cp, bm, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
 		return false;
 
+	//If 'test' flag specified, exit here
 	if (network->network_properties.flags.test)
 		return true;
 
@@ -505,15 +517,13 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio)
 		return true;
 		
-	//boost::filesystem::create_directory("./dat");
-	//boost::filesystem::create_directory("./dat/dst");
-
 	printf("\nCalculating Network Observables...\n");
 	fflush(stdout);
 
 	int nb = static_cast<int>(network->network_properties.flags.bench) * NBENCH;
 	int i;
 
+	//Measure Clustering
 	if (network->network_properties.flags.calc_clustering) {
 		for (i = 0; i <= nb; i++) {
 			if (!measureClustering(network->network_observables.clustering, network->nodes, network->edges, network->core_edge_exists, network->network_observables.average_clustering, network->network_properties.N_tar, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, cp->sMeasureClustering, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.calc_autocorr, network->network_properties.flags.verbose, network->network_properties.flags.bench))
@@ -524,6 +534,7 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 			bm->bMeasureClustering = cp->sMeasureClustering.elapsedTime / NBENCH;
 	}
 
+	//Measure Connectedness
 	if (network->network_properties.flags.calc_components) {
 		for (i = 0; i <= nb; i++) {
 			if (!measureConnectedComponents(network->nodes, network->edges, network->network_properties.N_tar, network->network_observables.N_cc, network->network_observables.N_gcc, cp->sMeasureConnectedComponents, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
@@ -534,11 +545,13 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 			bm->bMeasureConnectedComponents = cp->sMeasureConnectedComponents.elapsedTime / NBENCH;
 	}
 
+	//Validate Embedding
 	if (network->network_properties.flags.validate_embedding) {
 		if (!validateEmbedding(network->network_observables.evd, network->nodes, network->edges, network->network_properties.N_tar, network->network_properties.N_emb, network->network_observables.N_res, network->network_observables.k_res, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.seed, cp->sValidateEmbedding, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose))
 			return false;
 	}
 
+	//Measure Success Ratio
 	if (network->network_properties.flags.calc_success_ratio) {
 		for (i = 0; i <= nb; i++) {
 			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
@@ -549,6 +562,7 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 			bm->bMeasureSuccessRatio = cp->sMeasureSuccessRatio.elapsedTime / NBENCH;
 	}
 
+	//Measure Degree Fields
 	if (network->network_properties.flags.calc_deg_field) {
 		for (i = 0; i <= nb; i++) {
 			if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.c.sc, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.seed, cp->sMeasureDegreeField, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
@@ -902,22 +916,10 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 	int i, j, k;
 
 	try {
-		//Confirm directory structure exists
-		/*boost::filesystem::create_directory("./dat");
-		boost::filesystem::create_directory("./dat/pos");
-		boost::filesystem::create_directory("./dat/edg");
-		boost::filesystem::create_directory("./dat/dst");
-		boost::filesystem::create_directory("./dat/idd");
-		boost::filesystem::create_directory("./dat/odd");
-		boost::filesystem::create_directory("./dat/cls");
-		boost::filesystem::create_directory("./dat/cdk");
-		boost::filesystem::create_directory("./dat/emb");
-		boost::filesystem::create_directory("./dat/emb/tn");
-		boost::filesystem::create_directory("./dat/emb/fp");*/
-
 		std::ofstream outputStream;
 		std::stringstream sstm;
 
+		//Generate Filename
 		if (network.network_properties.flags.use_gpu)
 			sstm << "Dev" << gpuID << "_";
 		else
@@ -937,6 +939,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 		sstm << init_seed;
 		std::string filename = sstm.str();
 
+		//Write Simulation Parameters and Main Results to File
 		sstm.str("");
 		sstm.clear();
 		sstm << "./dat/" << filename << ".cset.out";
@@ -1076,6 +1079,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 		outputStream.flush();
 		outputStream.close();
 
+		//Add Data Key
 		std::ofstream mapStream;
 		mapStream.open("./etc/data_keys.cset.key", std::ios::app);
 		if (!mapStream.is_open())
@@ -1085,6 +1089,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 
 		std::ofstream dataStream;
 
+		//Write Data to File
 		sstm.str("");
 		sstm.clear();
 		sstm << "./dat/pos/" << network.network_properties.graphID << ".cset.pos.dat";
@@ -1294,6 +1299,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 	return true;
 }
 
+//Print Benchmarking Data
 static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
 {
 	//Print to File

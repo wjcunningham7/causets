@@ -42,7 +42,9 @@ mkdir $work/dat/emb
 mkdir $work/dat/emb/fp
 mkdir $work/dat/emb/tn
 mkdir $work/dat/idd
+mkdir $work/dat/idf
 mkdir $work/dat/odd
+mkdir $work/dat/odf
 mkdir $work/dat/pos
 mkdir $work/dat/ref
 
@@ -66,17 +68,11 @@ done
 nodes=10240
 samples=100
 
-for i in {1..100}
+for (( i=1; i<=${samples}; i++ ))
 do
-  ./CausalSet --universe --age 0.9 --nodes $nodes --delta 150 --radius 1 --components --print --gpu --verbose -y
+  echo Trial $i of ${samples}
+  ./CausalSet --universe --age 1.5 --nodes $nodes --delta 10 --radius 1 --components --print --gpu --verbose -y --fields 1.0
 done
-
-#./etc/degrees uni
-#./etc/deg_dist $nodes
-#./etc/components uni
-#./etc/clustering uni
-#./etc/clust_dist $nodes
-#./migrate TEST
 
 # Do not edit below this
 
