@@ -349,11 +349,15 @@ inline double rescaledScaleFactor(double *table, double size, double eta, double
 	long l_size = static_cast<long>(size);
 
 	double tau = lookupValue(table, l_size, NULL, &g, false);
-	if (DEBUG && tau != tau) {
-		printf("Value not found in ctuc_table.cset.bin:\n");
-		printf("\tEta: %f\n", eta);
-		printf("\tg:   %f\n", g);
-		exit(0);
+	if (tau != tau) {
+		if (g > table[0])
+			tau = table[1] / 2.0;
+		else {
+			printf("Value not found in ctuc_table.cset.bin:\n");
+			printf("\tEta: %f\n", eta);
+			printf("\tg:   %f\n", g);
+			exit(0);
+		}
 	}
 		
 	double r = static_cast<double>(POW(SINH(1.5f * tau, APPROX ? FAST : STL), 2.0f / 3.0f, APPROX ? FAST : STL));

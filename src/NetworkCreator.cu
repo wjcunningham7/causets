@@ -210,7 +210,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				//Method 3 of 3: Will's formulation
 				//double *table;
 				//long size = 0;
-				if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
+				/*if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
 					return false;
 
 				double *params = (double*)malloc(size + sizeof(double) * 3);
@@ -245,12 +245,12 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				hostMemUsed -= size + sizeof(double) * 3;
 
 				free(table);
-				table = NULL;
+				table = NULL;*/
 
 				//DEBUG
 				//printf_red();
 				//printf("Will's Method: %f\n", network_properties->k_tar);
-				//pritnf_std();
+				//printf_std();
 				//fflush(stdout);
 			}
 			
