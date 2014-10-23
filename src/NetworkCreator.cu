@@ -477,7 +477,7 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 			idata.tol = 1e-4;
 			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 			idata.upper = tau0 * a;
-			zeta = HALF_PI - integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) / alpha;
+			zeta = HALF_PI - integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) * a / alpha;
 			gsl_integration_workspace_free(idata.workspace);
 		} else
 			//Exact Solution

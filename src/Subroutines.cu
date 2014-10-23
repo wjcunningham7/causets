@@ -10,8 +10,9 @@
 bool getLookupTable(const char *filename, double **lt, long *size)
 {
 	if (DEBUG) {
-		assert (lt != NULL);
 		assert (filename != NULL);
+		assert (lt != NULL);
+		assert (size != NULL);
 	}
 
 	double *table;

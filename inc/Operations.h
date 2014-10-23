@@ -206,6 +206,9 @@ inline double solvePhi(const double &x, const double * const p1, const double * 
 //by numerical integration using the tauToEtaUniverse function
 inline float _2F1_tau(const float &tau, void * const param)
 {
+	if (DEBUG)
+		assert (tau > 0.0);
+
 	return 1.0f / POW2(COSH(1.5f * tau, APPROX ? FAST : STL), EXACT);
 }
 
@@ -256,12 +259,18 @@ inline float sphProduct(const float4 &sc0, const float4 &sc1)
 //Conformal to Rescaled Time
 inline float etaToTau(const float eta)
 {
+	if (DEBUG)
+		assert (eta > 0.0 && eta < HALF_PI);
+
 	return ACOSH(1.0f / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 }
 
 //Rescaled to Conformal Time
 inline float tauToEta(const float tau)
 {
+	if (DEBUG)
+		assert (tau > 0.0);
+
 	return ACOS(1.0f / COSH(tau, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 }
 
@@ -270,12 +279,22 @@ inline float tauToEta(const float tau)
 //For use with GNU Scientific Library
 inline double tauToEtaUniverse(double tau, void *params)
 {
+	if (DEBUG)
+		assert (tau > 0.0);
+
 	return POW(SINH(1.5f * tau, APPROX ? FAST : STL), (-2.0f / 3.0f), APPROX ? FAST : STL);
 }
 
 //Exact Solution - Power Series Approximation
 inline float tauToEtaUniverseExact(const float &tau, const float &a, const float &alpha)
 {
+	if (DEBUG) {
+		//Parameters in Correct Ranges
+		assert (tau > 0.0);
+		assert (a > 0.0);
+		assert (alpha > 0.0);
+	}
+
 	float z = _2F1_tau(tau, NULL);
 	float eta, f, err;
 	int nterms = 50;
@@ -286,15 +305,28 @@ inline float tauToEtaUniverseExact(const float &tau, const float &a, const float
 	eta += 4.0f * SQRT(3.0f, STL) * POW(M_PI, 1.5f, APPROX ? FAST : STL) / GAMMA(5.0f / 6.0f, STL);
 	eta *= a / (9.0f * alpha * GAMMA(2.0f / 3.0f, STL));
 
+	if (DEBUG)
+		assert (eta > 0.0);
+
 	return eta;
 }
 
 //Gives Input to Lookup Table
 inline double etaToTauUniverse(const double &eta, const double &a, const double &alpha)
 {
+	if (DEBUG) {
+		//Parameters in Correct Ranges
+		assert (eta > 0.0);
+		assert (a > 0.0);
+		assert (alpha > 0.0);
+	}
+
 	double g = 9.0 * GAMMA(2.0f / 3.0f, STL) * alpha * eta / a;
 	g -= 4.0f * SQRT(3.0f, APPROX ? BITWISE : STL) * POW(M_PI, 1.5f, STL) / GAMMA(5.0f / 6.0f, STL);
 	g /= 3.0f * GAMMA(-1.0f / 3.0f, STL);
+
+	if (DEBUG)
+		assert (g > 0.0);
 
 	return g;
 }
@@ -329,6 +361,16 @@ inline double xi(double &r)
 //multiplied by 8pi/(sinh(3tau0)-3tau0)
 inline double rescaledDegreeUniverse(int dim, double x[], double *params)
 {
+	if (DEBUG) {
+		//No Null Pointers
+		assert (params != NULL);
+
+		//Variables in Correct Ranges
+		assert (dim > 0);
+		assert (x[0] > 0.0);
+		assert (x[1] > 0.0);
+	}
+
 	//Identify x[0] with x coordinate
 	//Identify x[1] with r coordinate
 
@@ -336,6 +378,9 @@ inline double rescaledDegreeUniverse(int dim, double x[], double *params)
 
 	z = POW3(ABS(xi(x[0]) - xi(x[1]), STL), EXACT) * POW2(x[0], EXACT) * POW3(x[1], EXACT) * SQRT(x[1], STL);
 	z /= (SQRT(1.0 + 1.0 / POW3(x[0], EXACT), STL) * SQRT(1.0 + POW3(x[1], EXACT), STL));
+
+	if (DEBUG)
+		assert (z > 0.0);
 
 	return z;
 }
@@ -345,10 +390,27 @@ inline double rescaledDegreeUniverse(int dim, double x[], double *params)
 //Gives rescaled scale factor as a function of eta
 inline double rescaledScaleFactor(double *table, double size, double eta, double a, double alpha)
 {
+	if (DEBUG) {
+		//No Null Pointers
+		assert (table != NULL);
+
+		//Variables in Correct Ranges
+		assert (size > 0.0);
+		assert (eta > 0.0);
+		assert (a > 0.0);
+		assert (alpha > 0.0);
+	}
+
 	double g = etaToTauUniverse(eta, a, alpha);
+	if (DEBUG) 
+		assert (g > 0.0);
+
 	long l_size = static_cast<long>(size);
 
 	double tau = lookupValue(table, l_size, NULL, &g, false);
+	if (DEBUG)
+		assert (tau > 0.0);
+
 	if (tau != tau) {
 		if (g > table[0])
 			tau = table[1] / 2.0;
@@ -360,15 +422,26 @@ inline double rescaledScaleFactor(double *table, double size, double eta, double
 		}
 	}
 		
-	double r = static_cast<double>(POW(SINH(1.5f * tau, APPROX ? FAST : STL), 2.0f / 3.0f, APPROX ? FAST : STL));
-
-	return r;
+	return static_cast<double>(POW(SINH(1.5f * tau, APPROX ? FAST : STL), 2.0f / 3.0f, APPROX ? FAST : STL));
 }
 
 //Note to get the average degree this result must still be
 //multipled by (4pi/3)*delta*alpha^4/psi
 inline double averageDegreeUniverse(int dim, double x[], double *params)
 {
+	if (DEBUG) {
+		//No Null Pointers
+		assert (params != NULL);
+
+		//Variables in Correct Ranges
+		assert (dim > 0);
+		assert (x[0] > 0.0);
+		assert (x[1] > 0.0);
+		assert (params[0] > 0.0);
+		assert (params[1] > 0.0);
+		assert (params[2] > 0.0);
+	}
+
 	//Identify x[0] with eta'
 	//Identify x[1] with eta''
 	//Identify params[0] with a
@@ -382,18 +455,49 @@ inline double averageDegreeUniverse(int dim, double x[], double *params)
 	z *= POW2(POW2(rescaledScaleFactor(&params[3], params[2], x[0], params[0], params[1]), EXACT), EXACT);
 	z *= POW2(POW2(rescaledScaleFactor(&params[3], params[2], x[1], params[0], params[1]), EXACT), EXACT);
 
+	if (DEBUG)
+		assert (z > 0.0);
+
 	return z;
 }
 
 //For use with GNU Scientific Library
 inline double psi(double eta, void *params)
 {
+	if (DEBUG) {
+		//No Null Pointers
+		assert (params != NULL);
+
+		//Variables in Correct Ranges
+		assert (eta > 0.0);
+	}
+
 	//Identify params[0] with a
 	//Identify params[1] with alpha
 	//Identify params[2] with size
 	//Identify params[3] with table
 	
 	return POW2(POW2(rescaledScaleFactor(&((double*)params)[3], ((double*)params)[2], eta, ((double*)params)[0], ((double*)params)[1]), EXACT), EXACT);
+}
+
+//For use with GNU Scientific Library
+inline double degreeFieldTheory(double eta, void *params)
+{
+	if (DEBUG) {
+		//No Null Pointers
+		assert (params != NULL);
+
+		//Variables in Correct Ranges
+		assert (eta > 0.0);
+	}
+
+	//Identify params[0] with eta_m
+	//Identify params[1] with a
+	//Identify params[2] with alpha
+	//Identify params[3] with size
+	//Identify params[4] with table
+	
+	return POW3(ABS(((double*)params)[0] - eta, STL), EXACT) * POW2(POW2(rescaledScaleFactor(&((double*)params)[4], ((double*)params)[3], eta, ((double*)params)[1], ((double*)params)[2]), EXACT), EXACT);
 }
 
 //Geodesic Distances
@@ -403,9 +507,21 @@ inline double psi(double eta, void *params)
 //For use with GNU Scientific Library
 inline double embeddedZ1(double x, void *params)
 {
+	if (DEBUG) {
+		//No Null Pointers
+		assert (params != NULL);
+	}
+
 	GSL_EmbeddedZ1_Parameters *p = (GSL_EmbeddedZ1_Parameters*)params;
+
 	double a = p->a;
 	double alpha = p->alpha;
+	
+	if (DEBUG) {
+		//Variables in Correct Ranges
+		assert (a > 0.0);
+		assert (alpha > 0.0);
+	}
 
 	return SQRT(1.0 + POW2(static_cast<float>(a), EXACT) * x * POW2(static_cast<float>(alpha), EXACT) / (POW3(static_cast<float>(alpha), EXACT) + POW3(static_cast<float>(x), EXACT)), STL);
 }

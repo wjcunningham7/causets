@@ -383,7 +383,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m
 //O(xxx) Efficiency (revise this)
-bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, const float4 * const sc, const int &N_tar, const int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, const float4 * const sc, const int &N_tar, const int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No Null Pointers
@@ -396,21 +396,28 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		assert (dim == 3);
 		assert (manifold == DE_SITTER);
 		assert (a > 0.0);
+		assert (HALF_PI - zeta > 0.0);
 		assert (alpha > 0.0);
 	}
 
-	//Variable declarations go here
+	double *table;
+	double *params;
 	float4 test_node;
-	double x, rval;	
+	double k_in_theory, k_out_theory;
+	double d_size, x, rval;
 	float dt, dx;
+	long size = 0;
 	int k_in, k_out;
 	int i, j;
+
+	//Calculate theoretical values
+	bool theoretical = universe && verbose;
 
 	IntData idata = IntData();
 	//Modify these two parameters to trade off between speed and accuracy
 	idata.limit = 50;
 	idata.tol = 1e-4;
-	if (USE_GSL && universe)
+	if (universe && (USE_GSL || theoretical))
 		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 	stopwatchStart(&sMeasureDegreeField);
@@ -428,6 +435,16 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 			throw std::bad_alloc();
 		memset(out_degree_field, 0, N_df);
 		hostMemUsed += sizeof(int) * N_df;
+
+		if (theoretical) {
+			if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
+				return false;
+
+			params = (double*)malloc(size + sizeof(double) * 4);
+			if (params == NULL)
+				throw std::bad_alloc();
+			hostMemUsed += size + sizeof(double) * 4;
+		}
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -436,7 +453,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
 		printMemUsed("to Measure Degree Fields", hostMemUsed, devMemUsed);
-
+	
 	//Calculate eta_m
 	if (universe) {
 		if (USE_GSL) {
@@ -448,6 +465,32 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 			test_node.w = tauToEtaUniverseExact(tau_m, a, alpha);
 	} else
 		test_node.w = tauToEta(tau_m);
+	
+	if (theoretical) {	
+		d_size = static_cast<double>(size);
+		memcpy(params, &test_node.w, sizeof(double));
+		memcpy(params + 1, &a, sizeof(double));
+		memcpy(params + 2, &alpha, sizeof(double));
+		memcpy(params + 3, &d_size, sizeof(double));
+		memcpy(params + 4, table, size);
+
+		//Theoretical Average In-Degree
+		idata.lower = 0.0;
+		idata.upper = test_node.w;
+		k_in_theory = (4.0 * M_PI * delta * POW2(POW2(alpha, EXACT), EXACT) / 3.0) * integrate1D(&degreeFieldTheory, params, &idata, QAGS);
+
+		//Theoretical Average Out-Degree
+		idata.lower = test_node.w;
+		idata.upper = HALF_PI - zeta;
+		k_out_theory = (4.0 * M_PI * delta * POW2(POW2(alpha, EXACT), EXACT) / 3.0) * integrate1D(&degreeFieldTheory, params, &idata, QAGS);
+
+		free(params);
+		params = NULL;
+		hostMemUsed -= size + sizeof(double) * 4;
+
+		free(table);
+		table = NULL;
+	}
 
 	//Take N_df measurements of the fields
 	for (i = 0; i < N_df; i++) {
@@ -500,15 +543,25 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 	stopwatchStop(&sMeasureDegreeField);
 
-	if (USE_GSL && universe)
+	if (universe && (USE_GSL || theoretical))
 		gsl_integration_workspace_free(idata.workspace);
 
 	if (!bench) {
 		printf("\tCalculated Degree Field Values.\n");
 		printf_cyan();
 		printf("\t\tMeasurement Time: %f\n", tau_m);
-		printf("\t\tAverage In-Degree Field Value: %f\n", avg_idf);
-		printf("\t\tAverage Out-Degree Field Value: %f\n", avg_odf);
+		printf("\t\tAverage In-Degree Field: %f\n", avg_idf);
+		if (theoretical) {
+			printf_red();
+			printf("\t\t\tTheory: %f\n", k_in_theory);
+			printf_cyan();
+		}
+		printf("\t\tAverage Out-Degree Field: %f\n", avg_odf);
+		if (theoretical) {
+			printf_red();
+			printf("\t\t\tTheory: %f\n", k_out_theory);
+			printf_std();
+		}
 		printf_std();
 		fflush(stdout);
 	}
