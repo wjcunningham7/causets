@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=pdflatex 2013.10.9)  23 OCT 2014 15:52
+This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=pdflatex 2013.10.9)  26 OCT 2014 17:22
 entering extended mode
  %&-line parsing enabled.
 **causets.tex
@@ -447,7 +447,7 @@ File: figures/Rescaled_Average_Degree.jpg Graphic file (type jpg)
 
 <use figures/Rescaled_Average_Degree.jpg> [10 <./figures/Rescaled_Average_Degre
 e.jpg>] [11]
-Overfull \hbox (39.74797pt too wide) in paragraph at lines 385--390
+Overfull \hbox (39.74797pt too wide) in paragraph at lines 376--381
 \OT1/cmr/m/n/12 and we can find the scale fac-tor as a func-tion of con-for-mal
  time by us-ing $\OML/cmm/m/it/12 R [] \OT1/cmr/m/n/12 = \OML/cmm/m/it/12 R []$
 \OT1/cmr/m/n/12 .
@@ -469,7 +469,7 @@ File: figures/Matrix_Map.jpg Graphic file (type jpg)
 File: figures/avg_degrees.jpg Graphic file (type jpg)
 
 <use figures/avg_degrees.jpg>
-Overfull \hbox (42.39458pt too wide) in paragraph at lines 864--865
+Overfull \hbox (42.39458pt too wide) in paragraph at lines 857--858
  [][] 
  []
 
@@ -486,13 +486,13 @@ File: figures/Number_Components.jpg Graphic file (type jpg)
 File: figures/Giant_Component.jpg Graphic file (type jpg)
 
 <use figures/Giant_Component.jpg>
-Underfull \hbox (badness 3503) in paragraph at lines 1059--1059
+Underfull \hbox (badness 3503) in paragraph at lines 1052--1052
 []\OT1/cmr/m/n/10.95 FIG. 8. The size of the gi-ant com-po-nent in a sam-ple of
  1000 graphs. These
  []
 
 
-Underfull \hbox (badness 2197) in paragraph at lines 1059--1059
+Underfull \hbox (badness 2197) in paragraph at lines 1052--1052
 \OT1/cmr/m/n/10.95 were con-strained by the pa-ram-e-ters $\OML/cmm/m/it/10.95 
 N \OT1/cmr/m/n/10.95 = 10240$, $\OML/cmm/m/it/10.95 ^^\[] \OT1/cmr/m/n/10.95 = 
 4$, $\OML/cmm/m/it/10.95 a \OT1/cmr/m/n/10.95 = 1$, and $\OML/cmm/m/it/10.95 ^^
@@ -505,7 +505,7 @@ gures/Giant_Component.jpg>]
 File: figures/in_degrees.jpg Graphic file (type jpg)
 
 <use figures/in_degrees.jpg>
-Overfull \hbox (42.39458pt too wide) in paragraph at lines 1080--1081
+Overfull \hbox (42.39458pt too wide) in paragraph at lines 1073--1074
  [][] 
  []
 
@@ -513,7 +513,7 @@ Overfull \hbox (42.39458pt too wide) in paragraph at lines 1080--1081
 File: figures/out_degrees.jpg Graphic file (type jpg)
 
 <use figures/out_degrees.jpg>
-Overfull \hbox (42.39458pt too wide) in paragraph at lines 1090--1091
+Overfull \hbox (42.39458pt too wide) in paragraph at lines 1083--1084
  [][] 
  []
 
@@ -522,7 +522,7 @@ Overfull \hbox (42.39458pt too wide) in paragraph at lines 1090--1091
 File: figures/Embedding.jpg Graphic file (type jpg)
 
 <use figures/Embedding.jpg> [38 <./figures/Embedding.jpg>] [39]
-Overfull \hbox (61.69716pt too wide) in paragraph at lines 1287--1288
+Overfull \hbox (61.69716pt too wide) in paragraph at lines 1280--1281
 \OT1/cmtt/m/n/12 computing distance between two nodes $\OML/cmm/m/it/12 n[] \OT
 1/cmr/m/n/12 = (\OML/cmm/m/it/12 t[]; \OT1/cmr/m/n/12 (\OML/cmm/m/it/12 ^^R[]\O
 T1/cmr/m/n/12 )[]\OML/cmm/m/it/12 ; \OT1/cmr/m/n/12 (\OML/cmm/m/it/12 ^^R[]\OT1
@@ -535,7 +535,7 @@ T1/cmtt/m/n/12 ?
  []
 
 [40]
-Overfull \hbox (25.50249pt too wide) in paragraph at lines 1310--1312
+Overfull \hbox (25.50249pt too wide) in paragraph at lines 1303--1305
 \OT1/cmr/bx/n/12 [wc:  \OT1/cmtt/m/n/12 It seems that $\OML/cmm/m/it/12 T[] \OM
 S/cmsy/m/n/12 ^^Y \OT1/cmr/m/n/12 0$ \OT1/cmtt/m/n/12 and $\OML/cmm/m/it/12 S[]
  \OMS/cmsy/m/n/12 ^^Y \OT1/cmr/m/n/12 1$ \OT1/cmtt/m/n/12 and the network is es
@@ -543,31 +543,31 @@ sentially disconnected.
  []
 
 
-Overfull \hbox (6.05905pt too wide) in paragraph at lines 1310--1312
+Overfull \hbox (6.05905pt too wide) in paragraph at lines 1303--1305
 \OT1/cmtt/m/n/12 What is $[]$ in this case, maybe it is too small? We need to s
 ee how entries of
  []
 
 [41] [42]
-Underfull \hbox (badness 1199) in paragraph at lines 1388--1389
+Underfull \hbox (badness 1199) in paragraph at lines 1381--1382
 []\OT1/cmr/bx/n/12 [wc:  \OT1/cmtt/m/n/12 Before we start experiments with gree
 dy routing, we need to fix 2
  []
 
 
-Overfull \hbox (6.05905pt too wide) in paragraph at lines 1388--1389
+Overfull \hbox (6.05905pt too wide) in paragraph at lines 1381--1382
 \OT1/cmtt/m/n/12 things: 1) find for which values of parameters we can control 
 $[]$ in simulated
  []
 
 
-Overfull \hbox (6.05905pt too wide) in paragraph at lines 1388--1389
+Overfull \hbox (6.05905pt too wide) in paragraph at lines 1381--1382
 \OT1/cmtt/m/n/12 graphs, i.e. generate graphs with observed $[]$ close to the t
 arget one. First
  []
 
 
-Overfull \hbox (58.9337pt too wide) in paragraph at lines 1388--1389
+Overfull \hbox (58.9337pt too wide) in paragraph at lines 1381--1382
 \OT1/cmtt/m/n/12 step is to fix $\OML/cmm/m/it/12 N$\OT1/cmtt/m/n/12 , $\OML/cm
 m/m/it/12 ^^N$\OT1/cmtt/m/n/12 , and $\OML/cmm/m/it/12 a$\OT1/cmtt/m/n/12 , and
  to plot $\OMS/cmsy/m/n/12 h[]i$ \OT1/cmtt/m/n/12 and $\OMS/cmsy/m/n/12 hGi\OML
@@ -575,13 +575,13 @@ m/m/it/12 ^^N$\OT1/cmtt/m/n/12 , and $\OML/cmm/m/it/12 a$\OT1/cmtt/m/n/12 , and
  []
 
 
-Overfull \hbox (18.07022pt too wide) in paragraph at lines 1388--1389
+Overfull \hbox (18.07022pt too wide) in paragraph at lines 1381--1382
 \OT1/cmtt/m/n/12 can be estimated using, say 1000 realizations. 2) Fix the entr
 ies of confusion
  []
 
 
-Overfull \hbox (11.89522pt too wide) in paragraph at lines 1388--1389
+Overfull \hbox (11.89522pt too wide) in paragraph at lines 1381--1382
 \OT1/cmtt/m/n/12 matrix. It must be close to the identity matrix, otherwise, ou
 r embedding and
  []
@@ -610,7 +610,7 @@ ky/cm/cmti10.pfb></usr/share/texmf/fonts/type1/bluesky/cm/cmti12.pfb></usr/shar
 e/texmf/fonts/type1/bluesky/cm/cmtt10.pfb></usr/share/texmf/fonts/type1/bluesky
 /cm/cmtt12.pfb></usr/share/texmf/fonts/type1/public/cmex/fmex8.pfb></usr/share/
 texmf/fonts/type1/bluesky/ams/msbm10.pfb>
-Output written on causets.pdf (48 pages, 689332 bytes).
+Output written on causets.pdf (48 pages, 689725 bytes).
 PDF statistics:
  252 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 131072)
