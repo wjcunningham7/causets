@@ -26,7 +26,9 @@ samples=1
 for (( i=1; i<=${samples}; i++ ))
 do
   echo Trial $i of ${samples}
-  ./bin/CausalSet --universe --age 0.8 --alpha 2.0 --delta 100 --radius 1 --components --fields 0.1 --verbose -y
+  ./bin/CausalSet --universe --nodes 131072 --age 4.0 --delta 1 --radius 1.0 --fields 2.0 --verbose -y
+#  ./bin/CausalSet --universe --age 1.5 --alpha 2 --delta 20 --radius 2 --verbose -y --fields 1.2
+#  ./bin/CausalSet --universe --nodes 65536 --age 1.8 --delta 10 --radius 1 --verbose -y --fields 1.6
 done
 
 ######################################

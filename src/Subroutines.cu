@@ -93,8 +93,10 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 		}
 
 		//Check if Table is Insufficient
-		if (t_idx == (int)(!first))
+		if (t_idx == (int)(!first)) {
+			printf("%f\n", input);
 			throw CausetException("Values from lookup table do not include requested input.  Recreate table or change input.\n");
+		}
 
 		//Linear Interpolation
 		if (first)

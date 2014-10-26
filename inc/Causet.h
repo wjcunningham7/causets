@@ -136,7 +136,7 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), test(false), use_gpu(false), disp_network(false), print_network(false), universe(false), link(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), validate_embedding(false) {}
+	CausetFlags() : cc(CausetConflicts()), verbose(false), bench(false), yes(false), test(false), use_gpu(false), disp_network(false), print_network(false), universe(false), link(false), relink(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), validate_embedding(false) {}
 
 	CausetConflicts cc;		//Conflicting Parameters
 
@@ -144,7 +144,8 @@ struct CausetFlags {
 	bool disp_network;		//Plot Network using OpenGL
 	bool print_network;		//Print to File
 	bool universe;			//Use Universe's Tau Distribution
-	bool link;			//Link Nodes in Graph Identified by 'graphID'
+	bool link;			//Link Nodes after Generation
+	bool relink;			//Link Nodes in Graph Identified by 'graphID'
 	
 	bool calc_clustering;		//Find Clustering Coefficients
 	bool calc_components;		//Find Connected Components
@@ -305,7 +306,7 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 
 static bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed, const int &gpuID);
 
-static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf);
+static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link, const bool &relink);
 
 static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed);
 

@@ -365,16 +365,7 @@ We should find the expression~\eqref{eq:conformal_final} is equal to
 \end{equation}
 
 \noindent Note that the rescaled scale factor has been substituted in this expression so both are a function of rescaled time.
-A graphical comparison of the two expressions is shown in FIG XXXXX.
-
-
-
-
-
-
-
-
-
+When these functions are evaluated over a range of values (with the help of Mathematica) it is clear the two expressions are equal.
 We define the functions
 
 \begin{align}
@@ -411,15 +402,17 @@ Then, the average in- and out-degree should be
 
 \noindent The final result~\eqref{eq:alt_avg_deg} is evaluated by numerically evaluating a 2-D and a 1-D integral (the latter for normalization) and by utilizing the lookup table in the 2-D integration.
 Results are shown for the two methods below over a range of parameters.
-Note there is a discrepancy for $a \neq 1$ but this is being investigated.
+For these tests, the number of nodes is held constant at $N = 10240$ and the maximum rescaled time is held constant at $\tau_0 = 1.8$.
+First, the pseudoradius is held constant at $a = 1$ while $\alpha$ is varied and then subsequently $\alpha$ is held constant at $\alpha = 2$ while the pseudoradius $a$ is varied.
+The two methods agree closely for all of these constraints, and any small discrepancies are likely due to errors associated with numerical integration.
 
 \begin{center}
 \begin{tabular}{|c||c|c|c||c|c|c|}
   \hline
   & \multicolumn{3}{|c||}{$a = 1$} & \multicolumn{3}{|c|}{$\alpha = 2$} \\ \hline
-  & $\alpha = 1.435$ & $\alpha = 1.139$ & $\alpha = 0.839$ & $a = 0.9$ & $a = 1.2$ & $a = 1.4$ \\ \hline
-  $\bar{k}_K$ & 12.523 & 25.047 & 62.616 & 3.373 & 7.996 & 12.697 \\ \hline
-  $\bar{k}_W$ & 12.553 & 25.106 & 62.764 & 2.324 & 14.890 & 38.517 \\
+  & $\alpha = 0.8$ & $\alpha = 1.1$ & $\alpha = 1.4$ & $a = 0.8$ & $a = 1.1$ & $a = 1.4$ \\ \hline
+  $\bar{k}_K$ & 72.300 & 27.812 & 13.490 & 2.369 & 6.159 & 12.697 \\ \hline
+  $\bar{k}_W$ & 71.974 & 27.843 & 13.538 & 2.381 & 6.167 & 12.652 \\
   \hline
 \end{tabular}
 \end{center}

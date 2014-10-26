@@ -70,15 +70,15 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				if (t > MTAU)
 					network_properties->ratio = exp(3.0 * network_properties->tau0) / 4.0;
 				else
-					network_properties->ratio = POW2(SINH(1.5 * static_cast<float>(network_properties->tau0), STL), EXACT);
+					network_properties->ratio = POW2(SINH(1.5 * network_properties->tau0, STL), EXACT);
 				if (DEBUG) assert(network_properties->ratio > 0.0);
 				network_properties->omegaM = 1.0 / (network_properties->ratio + 1.0);
 				network_properties->omegaL = 1.0 - network_properties->omegaM;
 			} else if (network_properties->flags.cc.conflicts[1] == 0 || network_properties->flags.cc.conflicts[2] == 0 || network_properties->flags.cc.conflicts[3] == 0) {
 				//If k_tar != 0 solve for tau0 here
-				if (network_properties->k_tar != 0) {
+				if (network_properties->k_tar != 0.0) {
 					if (DEBUG)
-						assert (network_properties->delta != 0);
+						assert (network_properties->delta != 0.0);
 
 					Stopwatch sSolveTau0 = Stopwatch();
 					stopwatchStart(&sSolveTau0);
@@ -93,7 +93,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 					//Use Lookup Table
 					double *table;
-					long size = 0;
+					long size = 0L;
 					if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
 						return false;
 					network_properties->tau0 = lookupValue(table, size, NULL, &kappa2, true);
@@ -105,7 +105,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
 						network_properties->ratio = exp(3.0 * network_properties->tau0) / 4.0;
 					else
-						network_properties->ratio = POW2(SINH(1.5f * network_properties->tau0, STL), EXACT);
+						network_properties->ratio = POW2(SINH(1.5 * network_properties->tau0, STL), EXACT);
 					network_properties->omegaM = 1.0 / (network_properties->ratio + 1.0);
 					network_properties->omegaL = 1.0 - network_properties->omegaM;
 
@@ -116,14 +116,18 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				
 				if (network_properties->N_tar > 0 && network_properties->alpha > 0.0) {
 					//Solve for delta
-					//Add MTAU approximation here
-					network_properties->delta = 3.0 * network_properties->N_tar / (POW2(static_cast<float>(M_PI), EXACT) * POW3(static_cast<float>(network_properties->alpha), EXACT) * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0) * network_properties->a);
+					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
+						network_properties->delta = exp(LOG(6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->a * POW3(network_properties->alpha, EXACT)), STL) - 3.0 * network_properties->tau0);
+					else
+						network_properties->delta = 3.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->a * POW3(network_properties->alpha, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
 					if (DEBUG) assert (network_properties->delta > 0.0);
 				} else if (network_properties->N_tar == 0) {
 					//Solve for N_tar
-					//Add MTAU approximation here
 					if (DEBUG) assert (network_properties->alpha > 0.0);
-					network_properties->N_tar = static_cast<int>(POW2(static_cast<float>(M_PI), EXACT) * network_properties->delta * POW3(static_cast<float>(network_properties->alpha), EXACT) * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0) * network_properties->a / 3.0);
+					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
+						network_properties->N_tar = static_cast<int>(exp(LOG(6.0 / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * POW3(network_properties->alpha, EXACT)), EXACT) - 3.0 * network_properties->tau0));
+					else
+						network_properties->N_tar = static_cast<int>(POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * POW3(network_properties->alpha, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0) / 3.0);
 					if (DEBUG) assert (network_properties->N_tar > 0);
 				} else {
 					//Solve for alpha
@@ -131,7 +135,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
 						network_properties->alpha = exp(LOG(6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a), STL) / 3.0 - network_properties->tau0);
 					else
-						network_properties->alpha = static_cast<double>(POW(3.0 * network_properties->N_tar / (POW2(static_cast<float>(M_PI), EXACT) * network_properties->delta * (SINH(3.0 * static_cast<float>(network_properties->tau0), STL) - 3.0 * network_properties->tau0) * network_properties->a), (1.0 / 3.0), STL));
+						network_properties->alpha = POW(3.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0)), (1.0 / 3.0), STL);
 					if (DEBUG) assert (network_properties->alpha > 0.0);
 				}
 			}
@@ -145,7 +149,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
 				network_properties->rhoM = 4.0 * exp(-3.0 * network_properties->tau0) / POW2(network_properties->a, EXACT);
 			else
-				network_properties->rhoM = 1.0 / POW2(network_properties->a * SINH(1.5f * network_properties->tau0, STL), EXACT);
+				network_properties->rhoM = 1.0 / POW2(network_properties->a * SINH(1.5 * network_properties->tau0, STL), EXACT);
 			if (DEBUG) {
 				assert (network_properties->rhoL > 0.0);
 				assert (network_properties->rhoM > 0.0);
@@ -160,7 +164,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				assert (network_properties->alpha > 0.0);
 				assert (network_properties->ratio > 0.0);
 			}
-			network_properties->R0 = network_properties->alpha * POW(static_cast<float>(network_properties->ratio), 1.0f / 3.0f, STL);
+			network_properties->R0 = network_properties->alpha * POW(network_properties->ratio, 1.0 / 3.0, STL);
 			if (DEBUG) assert (network_properties->R0 > 0.0);
 			
 			if (network_properties->k_tar == 0.0) {
@@ -168,9 +172,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				/*printf("\tEstimating Expected Average Degrees.....\n");
 				double r0;
 				if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
-					r0 = POW(0.5f, 2.0f / 3.0f, STL) * exp(network_properties->tau0);
+					r0 = POW(0.5, 2.0 / 3.0, STL) * exp(network_properties->tau0);
 				else
-					r0 = POW(SINH(1.5f * network_properties->tau0, STL), 2.0f / 3.0f, STL);
+					r0 = POW(SINH(1.5 * network_properties->tau0, STL), 2.0 / 3.0, STL);
 
 				int nb = static_cast<int>(network->network_properties.flags.bench) * NBENCH;
 				int i;
@@ -178,9 +182,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				for (i = 0; i <= nb; i++) {
 					stopwatchStart(&cp->sCalcDegrees);
 					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
-						network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 16.0 * M_PI * exp(-3.0 * network_properties->tau0);
+						network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 16.0 * M_PI * exp(-3.0 * network_properties->tau0);
 					else
-						network_properties->k_tar = network_properties->delta * POW2(POW2(static_cast<float>(network_properties->a), EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 8.0 * M_PI / (SINH(3.0f * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
+						network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 8.0 * M_PI / (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
 					stopwatchStop(&cp->sCalcDegrees);
 				}
 
@@ -192,7 +196,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				
 				//Method 2 of 3: Lookup table to approximate method 1
 				double *table;
-				long size = 0;
+				long size = 0L;
 				if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
 					return false;
 				network_properties->k_tar = lookupValue(table, size, &network_properties->tau0, NULL, true) * network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT);
@@ -202,14 +206,14 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				free(table);
 
 				//DEBUG
-				//printf_red();
-				//printf("Kostia's Method: %f\n", network_properties->k_tar);
-				//printf_std();
-				//fflush(stdout);
+				/*printf_red();
+				printf("Kostia's Method: %f\n", network_properties->k_tar);
+				printf_std();
+				fflush(stdout);*/
 
 				//Method 3 of 3: Will's formulation
 				//double *table;
-				//long size = 0;
+				//long size = 0L;
 				/*if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
 					return false;
 
@@ -226,11 +230,17 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 				IntData idata = IntData();
 				idata.limit = 50;
-				idata.tol = 1e-4;
+				idata.tol = 1e-5;
 				idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 				idata.upper = network_properties->tau0 * network_properties->a;
-				double max_time = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) * network_properties->a / network_properties->alpha;
+
+				double *params2 = &network_properties->a;
+				double max_time = integrate1D(&tToEtaUniverse, (void*)params2, &idata, QAGS) / network_properties->alpha;
 				gsl_integration_workspace_free(idata.workspace);
+
+				//printf("Max Eta (Integration): %f\n", max_time);
+				//max_time = tauToEtaUniverseExact(network_properties->tau0, network_properties->a, network_properties->alpha);
+				//printf("Max Eta (Exact): %f\n", max_time);
 
 				network_properties->k_tar = integrate2D(&averageDegreeUniverse, 0.0, 0.0, max_time, max_time, params, network_properties->seed, 0);
 				network_properties->k_tar *= 4.0 * M_PI * network_properties->delta * POW2(POW2(network_properties->alpha, EXACT), EXACT);
@@ -248,10 +258,10 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				table = NULL;*/
 
 				//DEBUG
-				//printf_red();
-				//printf("Will's Method: %f\n", network_properties->k_tar);
-				//printf_std();
-				//fflush(stdout);
+				/*printf_red();
+				printf("Will's Method: %f\n", network_properties->k_tar);
+				printf_std();
+				fflush(stdout);*/
 			}
 			
 			//20% Buffer
@@ -477,8 +487,14 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 			idata.tol = 1e-4;
 			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 			idata.upper = tau0 * a;
-			zeta = HALF_PI - integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) * a / alpha;
+
+			double *param = (double*)malloc(sizeof(double));
+			param[0] = a;
+
+			zeta = HALF_PI - integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / alpha;
+
 			gsl_integration_workspace_free(idata.workspace);
+			free(param);
 		} else
 			//Exact Solution
 			zeta = HALF_PI - tauToEtaUniverseExact(tau0, a, alpha);
@@ -546,11 +562,16 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 	}
 
 	IntData idata = IntData();
+	double *param;
+
 	//Modify these two parameters to trade off between speed and accuracy
 	idata.limit = 50;
 	idata.tol = 1e-4;
-	if (USE_GSL && universe)
+
+	if (USE_GSL && universe) {
 		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+		param = (double*)malloc(sizeof(double));
+	}
 
 	stopwatchStart(&sGenerateNodes);
 
@@ -571,7 +592,7 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 			nodes.c.hc[i].y = x;
 
 			//CDF derived from PDF identified in (2) of [2]
-			nodes.c.hc[i].x = ATAN(ran2(&seed) / TAN(static_cast<float>(zeta), APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+			nodes.c.hc[i].x = ATAN(ran2(&seed) / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 			if (DEBUG) {
 				assert (nodes.c.hc[i].x > 0.0);
 				assert (nodes.c.hc[i].x < HALF_PI - zeta + 0.0000001);
@@ -615,7 +636,8 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 				if (USE_GSL) {
 					//Numerical Integration
 					idata.upper = nodes.id.tau[i] * a;
-					nodes.c.sc[i].w = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) * a / alpha;
+					param[0] = a;
+					nodes.c.sc[i].w = integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / alpha;
 				} else
 					//Exact Solution
 					nodes.c.sc[i].w = tauToEtaUniverseExact(nodes.id.tau[i], a, alpha);
@@ -630,7 +652,7 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 
 			//Sample Phi from (0, pi)
 			//For some reason the technique in [3] has not been producing the correct distribution...
-			//nodes.sc[i].y = 0.5 * (M_PI * ran2(&seed) + ACOS(static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			//nodes.sc[i].y = 0.5 * (M_PI * ran2(&seed) + ACOS(ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			x = HALF_PI;
 			rval = ran2(&seed);
 			if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
@@ -640,7 +662,7 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 			//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes.c.sc[i].y); fflush(stdout);
 
 			//Sample Chi from (0, pi)
-			nodes.c.sc[i].z = ACOS(1.0 - 2.0 * static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+			nodes.c.sc[i].z = ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 			if (DEBUG) assert (nodes.c.sc[i].z > 0.0 && nodes.c.sc[i].z < M_PI);
 			//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes.c.sc[i].z); fflush(stdout);
 		}
@@ -659,8 +681,10 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 
 	stopwatchStop(&sGenerateNodes);
 
-	if (USE_GSL && universe)
+	if (USE_GSL && universe) {
 		gsl_integration_workspace_free(idata.workspace);
+		free(param);
+	}
 
 	if (!bench) {
 		printf("\tNodes Successfully Generated.\n");

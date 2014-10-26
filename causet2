@@ -6,7 +6,7 @@
 # Northeastern University #
 ###########################
 
-#BSUB -J universe
+#BSUB -J univ2
 #BSUB -o /scratch/cunningham/causets2/causet.log
 #BSUB -e /scratch/cunningham/causets2/causet.err
 #BSUB -q par-gpu
@@ -28,6 +28,7 @@ cp $homedir/etc/deg_dist $work/etc/
 cp $homedir/etc/components $work/etc/
 cp $homedir/etc/clustering $work/etc/
 cp $homedir/etc/clust_dist $work/etc/
+cp $homedir/etc/fields $work/etc/
 cp $homedir/etc/migrate $work/etc/
 
 cp $homedir/etc/raduc_table.cset.bin $work/etc/
@@ -65,13 +66,13 @@ done
 
 # Do not edit above this
 
-nodes=10240
-samples=100
+nodes=131072
+samples=25
 
 for (( i=1; i<=${samples}; i++ ))
 do
   echo Trial $i of ${samples}
-  ./CausalSet --universe --age 1.5 --nodes $nodes --delta 10 --radius 1 --components --print --gpu --verbose -y --fields 1.0
+  ./CausalSet --universe --age 4.0 --nodes $nodes --delta 1.0 --radius 1.0 --print --verbose -y --gpu --link
 done
 
 # Do not edit below this

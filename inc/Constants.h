@@ -23,7 +23,7 @@
 #define USE_GSL true	//Use GNU Scientific Library for numerical integration
 
 //Debugging Flags
-#define DEBUG false	//Determines whether unit testing is in effect
+#define DEBUG true	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements
 
 #define NPRINT 1000	//Used for debugging statements inside loops

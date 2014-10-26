@@ -383,7 +383,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m
 //O(xxx) Efficiency (revise this)
-bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, const float4 * const sc, const int &N_tar, const int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, const float4 * const sc, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No Null Pointers
@@ -402,9 +402,10 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 	double *table;
 	double *params;
+	double *params2 = (double*)malloc(sizeof(double));
 	float4 test_node;
 	double k_in_theory, k_out_theory;
-	double d_size, x, rval;
+	double d_size/*, x, rval*/;
 	float dt, dx;
 	long size = 0;
 	int k_in, k_out;
@@ -413,10 +414,13 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 	//Calculate theoretical values
 	bool theoretical = universe && verbose;
 
+	//Modify number of samples
+	N_df = 1;
+
 	IntData idata = IntData();
 	//Modify these two parameters to trade off between speed and accuracy
 	idata.limit = 50;
-	idata.tol = 1e-4;
+	idata.tol = 1e-5;
 	if (universe && (USE_GSL || theoretical))
 		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
@@ -444,6 +448,10 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 			if (params == NULL)
 				throw std::bad_alloc();
 			hostMemUsed += size + sizeof(double) * 4;
+
+			params2 = (double*)malloc(sizeof(double));
+			if (params == NULL)
+				throw std::bad_alloc();
 		}
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
@@ -459,7 +467,9 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		if (USE_GSL) {
 			//Numerical Integration
 			idata.upper = tau_m * a;
-			test_node.w = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) * a / alpha;
+			params2[0] = a;
+			test_node.w = integrate1D(&tToEtaUniverse, (void*)params2, &idata, QAGS) / alpha;
+			free(params2);
 		} else
 			//Exact Solution
 			test_node.w = tauToEtaUniverseExact(tau_m, a, alpha);
@@ -488,14 +498,21 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		params = NULL;
 		hostMemUsed -= size + sizeof(double) * 4;
 
+		free(params2);
+		params2 = NULL;
+
 		free(table);
 		table = NULL;
 	}
 
 	//Take N_df measurements of the fields
 	for (i = 0; i < N_df; i++) {
+		test_node.x = 1.0;
+		test_node.y = 1.0;
+		test_node.z = 1.0;
+
 		//Sample Theta from (0, 2pi)
-		x = TWO_PI * ran2(&seed);
+		/*x = TWO_PI * ran2(&seed);
 		test_node.x = x;
 		if (DEBUG) assert (test_node.x > 0.0 && test_node.x < TWO_PI);
 
@@ -508,8 +525,8 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		if (DEBUG) assert (test_node.y > 0.0 && test_node.y < M_PI);
 
 		//Sample Chi from (0, pi)
-		test_node.z = ACOS(1.0 - 2.0 * static_cast<float>(ran2(&seed)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-		if (DEBUG) assert (test_node.z > 0.0 && test_node.z < M_PI);
+		test_node.z = ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+		if (DEBUG) assert (test_node.z > 0.0 && test_node.z < M_PI);*/
 
 		k_in = 0;
 		k_out = 0;

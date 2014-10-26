@@ -35,7 +35,7 @@ int main(int argc, char **argv)
 	if (!measureNetworkObservables(&network, &cp, &bm, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
 
 	//Print Results
-	if (network.network_properties.flags.bench && !printBenchmark(bm, network.network_properties.flags)) goto CausetExit;
+	if (network.network_properties.flags.bench && !printBenchmark(bm, network.network_properties.flags, network.network_properties.flags.link, network.network_properties.flags.relink)) goto CausetExit;
 	if (!network.network_properties.flags.bench) printMemUsed(NULL, resources.maxHostMemUsed, resources.maxDevMemUsed);
 	if (network.network_properties.flags.print_network && !printNetwork(network, cp, init_seed, resources.gpuID)) goto CausetExit;
 
@@ -71,7 +71,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":m:n:k:d:s:a:c:g:t:A:D:S:E:F:o:r:l:z:uvyCGTLh";
+	static const char *optString = ":m:n:k:d:s:a:c:g:t:A:D:S:E:F:o:r:l:z:uvyCGTLRh";
 	//Multi-character options
 	static const struct option longOpts[] = {
 		{ "manifold",	required_argument,	NULL, 'm' },
@@ -86,6 +86,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 		{ "components", no_argument,		NULL, 'G' },
 		{ "embedding",  required_argument,	NULL, 'E' },
 		{ "link",	no_argument,		NULL, 'L' },
+		{ "relink",	no_argument,		NULL, 'R' },
 		{ "fields",	required_argument,	NULL, 'F' },
 		{ "graph",	required_argument,	NULL, 'g' },
 		{ "universe",	no_argument,		NULL, 'u' },
@@ -189,6 +190,9 @@ static NetworkProperties parseArgs(int argc, char **argv)
 			case 'L':	//Flag for Reading Nodes (and not links) and Re-Linking
 				network_properties.flags.link = true;
 				break;
+			case 'R':	//Flag for Reading Nodes (and not links) and Re-Linking
+				network_properties.flags.relink = true;
+				break;
 			case 'F':	//Measure Degree Field with Test Nodes
 				network_properties.flags.calc_deg_field = true;
 				network_properties.tau_m = atof(optarg);
@@ -207,7 +211,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.tau0 <= 0.0)
 					throw CausetException("Invalid argument for 'age' parameter!\n");
 
-				network_properties.ratio = POW2(SINH(1.5f * network_properties.tau0, STL), EXACT);
+				network_properties.ratio = POW2(SINH(1.5 * network_properties.tau0, STL), EXACT);
 				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
 				network_properties.omegaL = 1.0 - network_properties.omegaM;
 
@@ -246,7 +250,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 
 				network_properties.omegaM = 1.0 - network_properties.omegaL;
 				network_properties.ratio = network_properties.omegaL / network_properties.omegaM;
-				network_properties.tau0 = (2.0 / 3.0) * ASINH(SQRT(static_cast<float>(network_properties.ratio), STL), STL, DEFAULT);
+				network_properties.tau0 = (2.0 / 3.0) * ASINH(SQRT(network_properties.ratio, STL), STL, DEFAULT);
 					
 				network_properties.flags.cc.conflicts[1]++;
 				network_properties.flags.cc.conflicts[2]++;
@@ -259,7 +263,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.ratio <= 0.0)
 					throw CausetException("Invalid argument for 'ratio' parameter!\n");
 
-				network_properties.tau0 = (2.0 / 3.0) * ASINH(SQRT(static_cast<float>(network_properties.ratio), STL), STL, DEFAULT);
+				network_properties.tau0 = (2.0 / 3.0) * ASINH(SQRT(network_properties.ratio, STL), STL, DEFAULT);
 				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
 				network_properties.omegaL = 1.0 - network_properties.omegaM;
 				
@@ -274,7 +278,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				if (network_properties.lambda <= 0.0)
 					throw CausetException("Invalid argument for 'lambda' parameter!\n");
 
-				network_properties.a = SQRT(3.0f / network_properties.lambda, STL);
+				network_properties.a = SQRT(3.0 / network_properties.lambda, STL);
 
 				network_properties.flags.cc.conflicts[0]++;
 
@@ -348,10 +352,12 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				printf("  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
 				printf("  -h, --help\t\tDisplay This Menu\n");
 				printf("  -k, --degrees\t\tExpected Average Degrees\t10-100\n");
+				printf("  -L, --link\t\tLink Nodes to Create Graph\n");
 				printf("  -l, --lambda\t\tCosmological Constant\t\t3.0\n");
 				printf("  -m, --manifold\tManifold\t\t\t[d]e sitter, [h]yperbolic\n");
 				printf("  -n, --nodes\t\tNumber of Nodes\t\t\t100-100000\n");
 				printf("  -o, --energy\t\tDark Energy Density\t\t0.73\n");
+				printf("  -R, --relink\t\tIgnore Pre-Existing Links\n");
 				printf("  -r, --ratio\t\tEnergy to Matter Ratio\t\t2.7\n");
 				printf("  -S, --success\t\tCalculate Success Ratio\t\t0.5\n");
 				printf("  -s, --seed\t\tRNG Seed\t\t\t18100L\n");
@@ -483,21 +489,23 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 	fflush(stdout);
 
 	//Identify edges as points connected by timelike intervals
-	for (i = 0; i <= nb; i++) {
-		if (network->network_properties.flags.use_gpu) {
-			if (!linkNodesGPU(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
-				return false;
-		} else {
-			if (!linkNodes(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
-				return false;
+	if (network->network_properties.flags.link) {
+		for (i = 0; i <= nb; i++) {
+			if (network->network_properties.flags.use_gpu) {
+				if (!linkNodesGPU(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+					return false;
+			} else {
+				if (!linkNodes(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+					return false;
+			}
 		}
-	}
 
-	if (nb) {
-		if (network->network_properties.flags.use_gpu)
-			bm->bLinkNodesGPU = cp->sLinkNodesGPU.elapsedTime / NBENCH;
-		else
-			bm->bLinkNodes = cp->sLinkNodes.elapsedTime / NBENCH;
+		if (nb) {
+			if (network->network_properties.flags.use_gpu)
+				bm->bLinkNodesGPU = cp->sLinkNodesGPU.elapsedTime / NBENCH;
+			else
+				bm->bLinkNodes = cp->sLinkNodes.elapsedTime / NBENCH;
+		}
 	}
 
 	printf("Task Completed.\n");
@@ -514,18 +522,30 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 		assert (bm != NULL);
 	}
 	
-	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio)
+	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio && !network->network_properties.flags.calc_deg_field)
 		return true;
 		
 	printf("\nCalculating Network Observables...\n");
 	fflush(stdout);
 
+	bool links_exist = network->network_properties.flags.link || network->network_properties.flags.relink;
 	int nb = static_cast<int>(network->network_properties.flags.bench) * NBENCH;
 	int i;
 
 	//Measure Clustering
 	if (network->network_properties.flags.calc_clustering) {
 		for (i = 0; i <= nb; i++) {
+			if (!links_exist) {
+				printf_red();
+				printf("\tCannot calculate clustering if links do not exist!\n");
+				printf("\tUse flag '--link' or '--relink' to generate links.\n\tSkipping this subroutine.\n");
+				printf_std();
+				fflush(stdout);
+
+				network->network_properties.flags.calc_clustering = false;
+				break;
+			}
+
 			if (!measureClustering(network->network_observables.clustering, network->nodes, network->edges, network->core_edge_exists, network->network_observables.average_clustering, network->network_properties.N_tar, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, cp->sMeasureClustering, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.calc_autocorr, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
@@ -537,6 +557,17 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 	//Measure Connectedness
 	if (network->network_properties.flags.calc_components) {
 		for (i = 0; i <= nb; i++) {
+			if (!links_exist) {
+				printf_red();
+				printf("\tCannot calculate connected components if links do not exist!\n");
+				printf("\tUse flag '--link' or '--relink' to generate links.\n\tSkipping this subroutine.\n");
+				printf_std();
+				fflush(stdout);
+
+				network->network_properties.flags.calc_components = false;
+				break;
+			}
+
 			if (!measureConnectedComponents(network->nodes, network->edges, network->network_properties.N_tar, network->network_observables.N_cc, network->network_observables.N_gcc, cp->sMeasureConnectedComponents, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
@@ -554,6 +585,17 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 	//Measure Success Ratio
 	if (network->network_properties.flags.calc_success_ratio) {
 		for (i = 0; i <= nb; i++) {
+			if (!links_exist) {
+				printf_red();
+				printf("\tCannot calculate success ratio if links do not exist!\n");
+				printf("\tUse flag '--link' or '--relink' to generate links.\n\tSkipping this subroutine.\n");
+				printf_std();
+				fflush(stdout);
+
+				network->network_properties.flags.calc_success_ratio = false;
+				break;
+			}
+
 			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
@@ -613,6 +655,7 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 		uint64_t *edges;
+		double *param = &network->network_properties.a;
 		char *delimeters;
 
 		uint64_t key;
@@ -691,7 +734,7 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 							if (network->network_properties.flags.universe) {
 								if (USE_GSL) {
 									idata.upper = network->nodes.id.tau[i] * network->network_properties.a;
-									network->nodes.c.sc[i].w = integrate1D(&tauToEtaUniverse, NULL, &idata, QAGS) / network->network_properties.alpha;
+									network->nodes.c.sc[i].w = integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / network->network_properties.alpha;
 								} else
 									network->nodes.c.sc[i].w = tauToEtaUniverseExact(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
 							} else
@@ -738,7 +781,7 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 		quicksort(network->nodes, network->network_properties.dim, network->network_properties.manifold, 0, network->network_properties.N_tar - 1);
 
 		//Re-Link Using linkNodes Subroutine
-		if (network->network_properties.manifold == DE_SITTER && network->network_properties.flags.link) {
+		if (network->network_properties.manifold == DE_SITTER && network->network_properties.flags.relink) {
 			if (network->network_properties.flags.use_gpu) {
 				if (!linkNodesGPU(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 					return false;
@@ -748,7 +791,8 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 			}
 
 			return true;
-		}
+		} else if (!network->network_properties.flags.link)
+			return true;
 
 		//Populate Hashmap
 		if (network->network_properties.manifold == HYPERBOLIC)
@@ -948,7 +992,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 			throw CausetException("Failed to open graph file!\n");
 		outputStream << "Causet Simulation\n";
 		if (network.network_properties.graphID == 0)
-			network.network_properties.graphID = (int)time(NULL);
+			network.network_properties.graphID = static_cast<int>(time(NULL));
 		outputStream << "Graph ID: " << network.network_properties.graphID << std::endl;
 
 		time_t rawtime;
@@ -962,6 +1006,8 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 		if (s == 0)
 			throw CausetException("Function 'strftime' failed to execute!\n");
 		outputStream << buffer << std::endl;
+
+		bool links_exist = network.network_properties.flags.link || network.network_properties.flags.relink;
 
 		if (network.network_properties.flags.universe) {
 			outputStream << "\nCauset Initial Parameters:" << std::endl;
@@ -980,10 +1026,12 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 			outputStream << "Alpha (alpha)\t\t\t\t" << network.network_properties.alpha << std::endl;
 			outputStream << "Scaling Factor (R0)\t\t\t" << network.network_properties.R0 << std::endl;
 
-			outputStream << "\nCauset Resulting Parameters:" << std::endl;
-			outputStream << "----------------------------" << std::endl;
-			outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_observables.N_res << std::endl;
-			outputStream << "Resulting Average Degrees (k_res)\t" << network.network_observables.k_res << std::endl;
+			if (links_exist) {
+				outputStream << "\nCauset Resulting Parameters:" << std::endl;
+				outputStream << "----------------------------" << std::endl;
+				outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_observables.N_res << std::endl;
+				outputStream << "Resulting Average Degrees (k_res)\t" << network.network_observables.k_res << std::endl;
+			}
 		} else {
 			outputStream << "\nCauset Input Parameters:" << std::endl;
 			outputStream << "------------------------" << std::endl;
@@ -993,43 +1041,41 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 
 			outputStream << "\nCauset Calculated Values:" << std::endl;
 			outputStream << "--------------------------" << std::endl;
-			outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_observables.N_res << std::endl;
-			outputStream << "Resulting Average Degrees (k_res)\t" << network.network_observables.k_res << std::endl;
-			outputStream << "    Incl. Isolated Nodes\t\t" << (network.network_observables.k_res * network.network_observables.N_res) / network.network_properties.N_tar << std::endl;
+			if (links_exist) {
+				outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_observables.N_res << std::endl;
+				outputStream << "Resulting Average Degrees (k_res)\t" << network.network_observables.k_res << std::endl;
+				outputStream << "    Incl. Isolated Nodes\t\t" << (network.network_observables.k_res * network.network_observables.N_res) / network.network_properties.N_tar << std::endl;
+			}
 			outputStream << "Maximum Conformal Time (eta_0)\t\t" << (HALF_PI - network.network_properties.zeta) << std::endl;
 			outputStream << "Maximum Rescaled Time (tau_0)  \t\t" << network.network_properties.tau0 << std::endl;
 		}
 
 		if (network.network_properties.flags.calc_clustering)
 			outputStream << "Average Clustering\t\t\t" << network.network_observables.average_clustering << std::endl;
-		else
-			outputStream << std::endl;
 
 		if (network.network_properties.flags.calc_components) {
 			outputStream << "Number of Connected Components\t\t" << network.network_observables.N_cc << std::endl;
 			outputStream << "Size of Giant Connected Component\t" << network.network_observables.N_gcc << std::endl;
-		} else
-			outputStream << std::endl << std::endl;
+		}
 
 		if (network.network_properties.flags.calc_success_ratio)
 			outputStream << "Success Ratio\t\t\t\t" << network.network_observables.success_ratio << std::endl;
-		else
-			outputStream << std::endl;
 
 		if (network.network_properties.flags.calc_deg_field) {
 			outputStream << "Degree Field Measurement Time\t\t" << network.network_properties.tau_m << std::endl;
 			outputStream << "Average In-Degree Field Value\t\t" << network.network_observables.avg_idf << std::endl;
 			outputStream << "Average Out-Degree Field Value\t\t" << network.network_observables.avg_odf << std::endl;
-		} else
-			outputStream << std::endl;
+		}
 
 		outputStream << "\nNetwork Analysis Results:" << std::endl;
 		outputStream << "-------------------------" << std::endl;
 		outputStream << "Node Position Data:\t\t\t" << "pos/" << network.network_properties.graphID << ".cset.pos.dat" << std::endl;
-		outputStream << "Node Edge Data:\t\t\t\t" << "edg/" << network.network_properties.graphID << ".cset.edg.dat" << std::endl;
-		outputStream << "Degree Distribution Data:\t\t" << "dst/" << network.network_properties.graphID << ".cset.dst.dat" << std::endl;
-		outputStream << "In-Degree Distribution Data:\t\t" << "idd/" << network.network_properties.graphID << ".cset.idd.dat" << std::endl;
-		outputStream << "Out-Degree Distribution Data:\t\t" << "odd/" << network.network_properties.graphID << ".cset.odd.dat" << std::endl;
+		if (links_exist) {
+			outputStream << "Node Edge Data:\t\t\t\t" << "edg/" << network.network_properties.graphID << ".cset.edg.dat" << std::endl;
+			outputStream << "Degree Distribution Data:\t\t" << "dst/" << network.network_properties.graphID << ".cset.dst.dat" << std::endl;
+			outputStream << "In-Degree Distribution Data:\t\t" << "idd/" << network.network_properties.graphID << ".cset.idd.dat" << std::endl;
+			outputStream << "Out-Degree Distribution Data:\t\t" << "odd/" << network.network_properties.graphID << ".cset.odd.dat" << std::endl;
+		}
 
 		if (network.network_properties.flags.calc_clustering) {
 			outputStream << "Clustering Coefficient Data:\t\t" << "cls/" << network.network_properties.graphID << ".cset.cls.dat" << std::endl;
@@ -1051,15 +1097,17 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 		outputStream << "--------------------------" << std::endl;
 		outputStream << "calcDegrees:         " << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
 		outputStream << "createNetwork:       " << cp.sCreateNetwork.elapsedTime << " sec" << std::endl;
-		if (network.network_properties.flags.use_gpu)
-			outputStream << "generateNodesGPU:    " << cp.sGenerateNodesGPU.elapsedTime << " sec" << std::endl;
-		else
+		//if (network.network_properties.flags.use_gpu)
+			//outputStream << "generateNodesGPU:    " << cp.sGenerateNodesGPU.elapsedTime << " sec" << std::endl;
+		//else
 			outputStream << "generateNodes:       " << cp.sGenerateNodes.elapsedTime << " sec" << std::endl;
 		outputStream << "quicksort:           " << cp.sQuicksort.elapsedTime << " sec" << std::endl;
-		if (network.network_properties.flags.use_gpu)
-			outputStream << "linkNodesGPU:        " << cp.sLinkNodesGPU.elapsedTime << " sec" << std::endl;
-		else
-			outputStream << "linkNodes:           " << cp.sLinkNodes.elapsedTime << " sec" << std::endl;
+		if (links_exist) {
+			if (network.network_properties.flags.use_gpu)
+				outputStream << "linkNodesGPU:        " << cp.sLinkNodesGPU.elapsedTime << " sec" << std::endl;
+			else
+				outputStream << "linkNodes:           " << cp.sLinkNodes.elapsedTime << " sec" << std::endl;
+		}
 
 		if (network.network_properties.flags.calc_clustering)
 			outputStream << "measureClustering:   " << cp.sMeasureClustering.elapsedTime << " sec" << std::endl;
@@ -1114,71 +1162,73 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 		dataStream.close();
 
 		int idx = 0;
-		sstm.str("");
-		sstm.clear();
-		sstm << "./dat/edg/" << network.network_properties.graphID << ".cset.edg.dat";
-		dataStream.open(sstm.str().c_str());
-		if (!dataStream.is_open())
-			throw CausetException("Failed to open edge list file!\n");
-		for (i = 0; i < network.network_properties.N_tar; i++) {
-			for (j = 0; j < network.nodes.k_out[i]; j++)
-				dataStream << i << " " << network.edges.future_edges[idx + j] << std::endl;
-			idx += network.nodes.k_out[i];
-		}
-		dataStream.flush();
-		dataStream.close();
+		if (links_exist) {
+			sstm.str("");
+			sstm.clear();
+			sstm << "./dat/edg/" << network.network_properties.graphID << ".cset.edg.dat";
+			dataStream.open(sstm.str().c_str());
+			if (!dataStream.is_open())
+				throw CausetException("Failed to open edge list file!\n");
+			for (i = 0; i < network.network_properties.N_tar; i++) {
+				for (j = 0; j < network.nodes.k_out[i]; j++)
+					dataStream << i << " " << network.edges.future_edges[idx + j] << std::endl;
+				idx += network.nodes.k_out[i];
+			}
+			dataStream.flush();
+			dataStream.close();
 
-		sstm.str("");
-		sstm.clear();
-		sstm << "./dat/dst/" << network.network_properties.graphID << ".cset.dst.dat";
-		dataStream.open(sstm.str().c_str());
-		if (!dataStream.is_open())
-			throw CausetException("Failed to open degree distribution file!\n");
-		int k_max = network.network_observables.N_res - 1;
-		for (k = 1; k <= k_max; k++) {
-			idx = 0;
-			for (i = 0; i < network.network_properties.N_tar; i++)
-				if (network.nodes.k_in[i] + network.nodes.k_out[i] == k)
-					idx++;
-			if (idx > 0)
-				dataStream << k << " " << idx << std::endl;
-		}
-		dataStream.flush();
-		dataStream.close();
+			sstm.str("");
+			sstm.clear();
+			sstm << "./dat/dst/" << network.network_properties.graphID << ".cset.dst.dat";
+			dataStream.open(sstm.str().c_str());
+			if (!dataStream.is_open())
+				throw CausetException("Failed to open degree distribution file!\n");
+			int k_max = network.network_observables.N_res - 1;
+			for (k = 1; k <= k_max; k++) {
+				idx = 0;
+				for (i = 0; i < network.network_properties.N_tar; i++)
+					if (network.nodes.k_in[i] + network.nodes.k_out[i] == k)
+						idx++;
+				if (idx > 0)
+					dataStream << k << " " << idx << std::endl;
+			}
+			dataStream.flush();
+			dataStream.close();
 
-		sstm.str("");
-		sstm.clear();
-		sstm << "./dat/idd/" << network.network_properties.graphID << ".cset.idd.dat";
-		dataStream.open(sstm.str().c_str());
-		if (!dataStream.is_open())
-			throw CausetException("Failed to open in-degree distribution file!\n");
-		for (k = 1; k <= k_max; k++) {
-			idx = 0;
-			for (i = 0; i < network.network_properties.N_tar; i++)
-				if (network.nodes.k_in[i] == k)
-					idx++;
-			if (idx > 0)
-				dataStream << k << " " << idx << std::endl;
-		}
-		dataStream.flush();
-		dataStream.close();
+			sstm.str("");
+			sstm.clear();
+			sstm << "./dat/idd/" << network.network_properties.graphID << ".cset.idd.dat";
+			dataStream.open(sstm.str().c_str());
+			if (!dataStream.is_open())
+				throw CausetException("Failed to open in-degree distribution file!\n");
+			for (k = 1; k <= k_max; k++) {
+				idx = 0;
+				for (i = 0; i < network.network_properties.N_tar; i++)
+					if (network.nodes.k_in[i] == k)
+						idx++;
+				if (idx > 0)
+					dataStream << k << " " << idx << std::endl;
+			}
+			dataStream.flush();
+			dataStream.close();
 
-		sstm.str("");
-		sstm.clear();
-		sstm << "./dat/odd/" << network.network_properties.graphID << ".cset.odd.dat";
-		dataStream.open(sstm.str().c_str());
-		if (!dataStream.is_open())
-			throw CausetException("Failed to open out-degree distribution file!\n");
-		for (k = 1; k <= k_max; k++) {
-			idx = 0;
-			for (i = 0; i < network.network_properties.N_tar; i++)
-				if (network.nodes.k_out[i] == k)
-					idx++;
-			if (idx > 0)
-				dataStream << k << " " << idx << std::endl;
+			sstm.str("");
+			sstm.clear();
+			sstm << "./dat/odd/" << network.network_properties.graphID << ".cset.odd.dat";
+			dataStream.open(sstm.str().c_str());
+			if (!dataStream.is_open())
+				throw CausetException("Failed to open out-degree distribution file!\n");
+			for (k = 1; k <= k_max; k++) {
+				idx = 0;
+				for (i = 0; i < network.network_properties.N_tar; i++)
+					if (network.nodes.k_out[i] == k)
+						idx++;
+				if (idx > 0)
+					dataStream << k << " " << idx << std::endl;
+			}
+			dataStream.flush();
+			dataStream.close();
 		}
-		dataStream.flush();
-		dataStream.close();
 
 		if (network.network_properties.flags.calc_clustering) {
 			sstm.str("");
@@ -1300,10 +1350,11 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 }
 
 //Print Benchmarking Data
-static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
+static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link, const bool &relink)
 {
 	//Print to File
 	FILE *f;
+	bool links_exist = link || relink;
 
 	try {
 		f = fopen("bench.log", "w");
@@ -1314,15 +1365,17 @@ static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
 		fprintf(f, "Times Averaged over %d Runs:\n", NBENCH);
 		fprintf(f, "\tcalcDegrees:\t\t%5.6f sec\n", bm.bCalcDegrees);
 		fprintf(f, "\tcreateNetwork:\t\t%5.6f sec\n", bm.bCreateNetwork);
-		if (cf.use_gpu)
-			fprintf(f, "\tgenerateNodesGPU:\t%5.6f sec\n", bm.bGenerateNodesGPU);
-		else
+		//if (cf.use_gpu)
+		//	fprintf(f, "\tgenerateNodesGPU:\t%5.6f sec\n", bm.bGenerateNodesGPU);
+		//else
 			fprintf(f, "\tgenerateNodes:\t\t%5.6f sec\n", bm.bGenerateNodes);
 		fprintf(f, "\tquicksort:\t\t%5.6f sec\n", bm.bQuicksort);
-		if (cf.use_gpu)
-			fprintf(f, "\tlinkNodesGPU:\t\t%5.6f sec\n", bm.bLinkNodesGPU);
-		else
-			fprintf(f, "\tlinkNodes:\t\t%5.6f sec\n", bm.bLinkNodes);
+		if (links_exist) {
+			if (cf.use_gpu)
+				fprintf(f, "\tlinkNodesGPU:\t\t%5.6f sec\n", bm.bLinkNodesGPU);
+			else
+				fprintf(f, "\tlinkNodes:\t\t%5.6f sec\n", bm.bLinkNodes);
+		}
 		if (cf.calc_clustering)
 			fprintf(f, "\tmeasureClustering:\t%5.6f sec\n", bm.bMeasureClustering);
 		if (cf.calc_components)
@@ -1347,15 +1400,17 @@ static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf)
 	printf("Time Averaged over %d Runs:\n", NBENCH);
 	printf("\tcalcDegrees:\t\t%5.6f sec\n", bm.bCalcDegrees);
 	printf("\tcreateNetwork:\t\t%5.6f sec\n", bm.bCreateNetwork);
-	if (cf.use_gpu)
-		printf("\tgenerateNodesGPU:\t%5.6f sec\n", bm.bGenerateNodesGPU);
-	else
+	//if (cf.use_gpu)
+	//	printf("\tgenerateNodesGPU:\t%5.6f sec\n", bm.bGenerateNodesGPU);
+	//else
 		printf("\tgenerateNodes:\t\t%5.6f sec\n", bm.bGenerateNodes);
 	printf("\tquicksort:\t\t%5.6f sec\n", bm.bQuicksort);
-	if (cf.use_gpu)
-		printf("\tlinkNodesGPU:\t\t%5.6f sec\n", bm.bLinkNodesGPU);
-	else
-		printf("\tlinkNodes:\t\t%5.6f sec\n", bm.bLinkNodes);
+	if (links_exist) {
+		if (cf.use_gpu)
+			printf("\tlinkNodesGPU:\t\t%5.6f sec\n", bm.bLinkNodesGPU);
+		else
+			printf("\tlinkNodes:\t\t%5.6f sec\n", bm.bLinkNodes);
+	}
 	if (cf.calc_clustering)
 		printf("\tmeasureClustering:\t%5.6f sec\n", bm.bMeasureClustering);
 	if (cf.calc_components)
