@@ -325,7 +325,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &link, const bool &relink, const bool &verbose, const bool &bench, const bool &yes)
 {
 	if (DEBUG) {
 		//Variables in correct ranges
@@ -338,6 +338,8 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 		assert (edge_buffer >= 0);
 	}
 
+	bool links_exist = link || relink;
+
 	if (verbose && !yes) {
 		//Estimate memory usage before allocating (update this for new data structures)
 		size_t mem = 0;
@@ -349,10 +351,12 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			mem += sizeof(int) * N_tar;
 		else if (manifold == DE_SITTER)
 			mem += sizeof(float) * N_tar;
-		mem += sizeof(int) * (N_tar << 1);
-		mem += sizeof(int) * 2 * (N_tar * k_tar / 2 + edge_buffer);
-		mem += sizeof(int) * (N_tar << 1);
-		mem += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);
+		if (links_exist) {
+			mem += sizeof(int) * (N_tar << 1);
+			mem += sizeof(int) * 2 * (N_tar * k_tar / 2 + edge_buffer);
+			mem += sizeof(int) * (N_tar << 1);
+			mem += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);
+		}
 
 		size_t dmem = 0;
 		if (use_gpu) {
@@ -360,8 +364,10 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 				dmem += sizeof(float4) * N_tar;
 			else if (dim == 1)
 				dmem += sizeof(float2) * N_tar;
-			dmem += sizeof(int) * 2 * (N_tar * k_tar / 2 + edge_buffer);
-			dmem += sizeof(int) * (N_tar << 2);
+			if (links_exist) {
+				dmem += sizeof(int) * 2 * (N_tar * k_tar / 2 + edge_buffer);
+				dmem += sizeof(int) * (N_tar << 2);
+			}
 		}
 
 		printMemUsed("for Network (Estimation)", mem, dmem);
@@ -404,50 +410,54 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			hostMemUsed += sizeof(float2) * N_tar;
 		}
 
-		nodes.k_in = (int*)malloc(sizeof(int) * N_tar);
-		if (nodes.k_in == NULL)
-			throw std::bad_alloc();
-		memset(nodes.k_in, 0, sizeof(int) * N_tar);
-		hostMemUsed += sizeof(int) * N_tar;
+		if (links_exist) {
+			nodes.k_in = (int*)malloc(sizeof(int) * N_tar);
+			if (nodes.k_in == NULL)
+				throw std::bad_alloc();
+			memset(nodes.k_in, 0, sizeof(int) * N_tar);
+			hostMemUsed += sizeof(int) * N_tar;
 
-		nodes.k_out = (int*)malloc(sizeof(int) * N_tar);
-		if (nodes.k_out == NULL)
-			throw std::bad_alloc();
-		memset(nodes.k_out, 0, sizeof(int) * N_tar);
-		hostMemUsed += sizeof(int) * N_tar;
+			nodes.k_out = (int*)malloc(sizeof(int) * N_tar);
+			if (nodes.k_out == NULL)
+				throw std::bad_alloc();
+			memset(nodes.k_out, 0, sizeof(int) * N_tar);
+			hostMemUsed += sizeof(int) * N_tar;
+		}
 
 		if (verbose)
 			printMemUsed("for Nodes", hostMemUsed, devMemUsed);
 
-		edges.past_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
-		if (edges.past_edges == NULL)
-			throw std::bad_alloc();
-		memset(edges.past_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
-		hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer);
+		if (links_exist) {
+			edges.past_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
+			if (edges.past_edges == NULL)
+				throw std::bad_alloc();
+			memset(edges.past_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
+			hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer);
 
-		edges.future_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
-		if (edges.future_edges == NULL)
-			throw std::bad_alloc();
-		memset(edges.future_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
-		hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer);
+			edges.future_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
+			if (edges.future_edges == NULL)
+				throw std::bad_alloc();
+			memset(edges.future_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
+			hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer);
 
-		edges.past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
-		if (edges.past_edge_row_start == NULL)
-			throw std::bad_alloc();
-		memset(edges.past_edge_row_start, 0, sizeof(int) * N_tar);
-		hostMemUsed += sizeof(int) * N_tar;
+			edges.past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
+			if (edges.past_edge_row_start == NULL)
+				throw std::bad_alloc();
+			memset(edges.past_edge_row_start, 0, sizeof(int) * N_tar);
+			hostMemUsed += sizeof(int) * N_tar;
+	
+			edges.future_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
+			if (edges.future_edge_row_start == NULL)
+				throw std::bad_alloc();
+			memset(edges.future_edge_row_start, 0, sizeof(int) * N_tar);
+			hostMemUsed += sizeof(int) * N_tar;
 
-		edges.future_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
-		if (edges.future_edge_row_start == NULL)
-			throw std::bad_alloc();
-		memset(edges.future_edge_row_start, 0, sizeof(int) * N_tar);
-		hostMemUsed += sizeof(int) * N_tar;
-
-		core_edge_exists = (bool*)malloc(sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT)));
-		if (core_edge_exists == NULL)
-			throw std::bad_alloc();
-		memset(core_edge_exists, 0, sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT)));
-		hostMemUsed += sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT));
+			core_edge_exists = (bool*)malloc(sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT)));
+			if (core_edge_exists == NULL)
+				throw std::bad_alloc();
+			memset(core_edge_exists, 0, sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT)));
+			hostMemUsed += sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT));
+		}
 
 		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 		if (verbose)
@@ -608,23 +618,26 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 			//and from PDF identified in (12) of [2] for universe  //
 			/////////////////////////////////////////////////////////
 
-			rval = ran2(&seed);
-			if (universe) {
-				x = 0.5;
-				if (tau0 > 1.8) {	//Determined by trial and error
-					if (!bisection(&solveTauUnivBisec, &x, 2000, 0.0, tau0, TOL, true, &tau0, &rval, NULL, NULL, NULL, NULL))
-						return false;
+			nodes.id.tau[i] = tau0 + 1.0;
+			do {
+				rval = ran2(&seed);
+				if (universe) {
+					x = 0.5;
+					if (tau0 > 1.8) {	//Determined by trial and error
+						if (!bisection(&solveTauUnivBisec, &x, 2000, 0.0, tau0, TOL, true, &tau0, &rval, NULL, NULL, NULL, NULL))
+							return false;
+					} else {
+						if (!newton(&solveTauUniverse, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
+							return false;
+					}
 				} else {
-					if (!newton(&solveTauUniverse, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
+					x = 3.5;
+					if (!newton(&solveTau, &x, 1000, TOL, &zeta, NULL, &rval, NULL, NULL, NULL))
 						return false;
 				}
-			} else {
-				x = 3.5;
-				if (!newton(&solveTau, &x, 1000, TOL, &zeta, NULL, &rval, NULL, NULL, NULL))
-					return false;
-			}
 
-			nodes.id.tau[i] = x;
+				nodes.id.tau[i] = x;
+			} while (nodes.id.tau[i] > tau0);
 
 			if (DEBUG) {
 				assert (nodes.id.tau[i] > 0.0);

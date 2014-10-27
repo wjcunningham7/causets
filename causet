@@ -74,7 +74,7 @@ samples=25
 for (( i=1; i<=${samples}; i++ ))
 do
   echo Trial $i of ${samples}
-  ./CausalSet --universe --age 4.0 --nodes $nodes --delta 1.0 --radius 1.0 --print --verbose -y --gpu --link
+  ./CausalSet --universe --age 0.9 --nodes $nodes --delta 150.0 --radius 1.0 --print --verbose -y --gpu --link
 done
 
 # Do not edit below this

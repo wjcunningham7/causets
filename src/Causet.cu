@@ -439,7 +439,7 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 
 	//Allocate memory needed by pointers
 	for (i = 0; i <= nb; i++) {
-		if (!createNetwork(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
+		if (!createNetwork(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 			return false;
 		if (nb)
 			destroyNetwork(network, hostMemUsed, devMemUsed);
@@ -706,7 +706,7 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 			return true;
 
 		//Allocate Memory	
-		if (!createNetwork(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
+		if (!createNetwork(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 			return false;
 
 		//Solve for eta0 and tau0 if DE_SITTER
@@ -1428,6 +1428,8 @@ static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const boo
 //Free Memory
 static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed)
 {
+	bool links_exist = network->network_properties.flags.link || network->network_properties.flags.relink;
+
 	if (network->network_properties.manifold == DE_SITTER) {
 		free(network->nodes.id.tau);
 		network->nodes.id.tau = NULL;
@@ -1448,33 +1450,35 @@ static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t 
 		hostMemUsed -= sizeof(float2) * network->network_properties.N_tar;
 	}
 
-	free(network->nodes.k_in);
-	network->nodes.k_in = NULL;
-	hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
+	if (links_exist) {
+		free(network->nodes.k_in);
+		network->nodes.k_in = NULL;
+		hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 
-	free(network->nodes.k_out);
-	network->nodes.k_out = NULL;
-	hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
+		free(network->nodes.k_out);
+		network->nodes.k_out = NULL;
+		hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 
-	free(network->edges.past_edges);
-	network->edges.past_edges = NULL;
-	hostMemUsed -= sizeof(int) * static_cast<unsigned int>(network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
+		free(network->edges.past_edges);
+		network->edges.past_edges = NULL;
+		hostMemUsed -= sizeof(int) * static_cast<unsigned int>(network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
 
-	free(network->edges.future_edges);
-	network->edges.future_edges = NULL;
-	hostMemUsed -= sizeof(int) * static_cast<unsigned int>(network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
+		free(network->edges.future_edges);
+		network->edges.future_edges = NULL;
+		hostMemUsed -= sizeof(int) * static_cast<unsigned int>(network->network_properties.N_tar * network->network_properties.k_tar / 2 + network->network_properties.edge_buffer);
 
-	free(network->edges.past_edge_row_start);
-	network->edges.past_edge_row_start = NULL;
-	hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
+		free(network->edges.past_edge_row_start);
+		network->edges.past_edge_row_start = NULL;
+		hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 
-	free(network->edges.future_edge_row_start);
-	network->edges.future_edge_row_start = NULL;
-	hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
+		free(network->edges.future_edge_row_start);
+		network->edges.future_edge_row_start = NULL;
+		hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 
-	free(network->core_edge_exists);
-	network->core_edge_exists = NULL;
-	hostMemUsed -= sizeof(bool) * static_cast<unsigned int>(POW2(network->network_properties.core_edge_fraction * network->network_properties.N_tar, EXACT));
+		free(network->core_edge_exists);
+		network->core_edge_exists = NULL;
+		hostMemUsed -= sizeof(bool) * static_cast<unsigned int>(POW2(network->network_properties.core_edge_fraction * network->network_properties.N_tar, EXACT));
+	}
 
 	if (network->network_properties.flags.bench)
 		return;

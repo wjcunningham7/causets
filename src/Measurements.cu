@@ -483,7 +483,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		memcpy(params + 2, &alpha, sizeof(double));
 		memcpy(params + 3, &d_size, sizeof(double));
 		memcpy(params + 4, table, size);
-
+	
 		//Theoretical Average In-Degree
 		idata.lower = 0.0;
 		idata.upper = test_node.w;
