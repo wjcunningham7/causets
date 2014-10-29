@@ -69,8 +69,7 @@ morekeywords={__global__, __device__, __shared__, threadIdx, blockIdx, blockDim,
 
 \newpage
 
-%%%%%%%%%%
-\begin{abstract}
+\section{Introduction}
 This project is a continuation of the work described in~\cite{ref:nc2012}.  
 We hypothesize that a spacetime with only dark energy has a structure which may be described by discrete events uniformly distributed across a de Sitter manifold.  
 Two events are connected if they share a causal relation - i.e. they lie within each other's light cones.  
@@ -86,8 +85,6 @@ Studying navigability alone requires addressing how to measure geodesic distance
 We attempt to solve this by embedding our universe in a higher spatial dimension, and we implement several validation tests to determine if this is a legitimate approach.
 We also would like to address the \textit{why now} problem:  why are the matter and dark energy densities currently the same order of magnitude?
 To study this we will look for special behaviors of the network when the rescaled time is set to unity.
-\end{abstract}
-
 %%%%%%%%%%
 \section{Background}
 %%%%%%%%%%
@@ -402,15 +399,17 @@ Then, the average in- and out-degree should be
 \noindent The average degree is found by adding these two expressions and integrating over the density function
 
 \begin{equation}
+\begin{split}
 \rho\left(\eta^\prime|\eta\right) &= \frac{R^4\left(\eta^\prime\right)}{\mathcal{N}_2\left(\eta\right)} \\
 \mathcal{N}_2\left(\eta\right) &= \int_0^\eta\!R^4\left(\eta^\prime\right)\,\mathrm d\eta^\prime
+\end{split}
 \end{equation}
 
 \noindent to obtain the desired result:
 
 \begin{equation}
 \label{eq:alt_avg_deg}
-\bar{k}\left(\eta_0,a,\alpha\right) &= \frac{4\pi\delta\alpha^8}{3\mathcal{N}_2}\int_0^{\eta_0}\int_0^{\eta_0}\,\abs{\eta^\prime - \eta^{\prime\prime}}^3 r^4\left(\eta^\prime\right)r^4\left(\eta^{\prime\prime}\right)\,\mathrm d\eta^\prime\,\mathrm d\eta^{\prime\prime}
+\bar{k}\left(\eta_0,a,\alpha\right) = \frac{4\pi\delta\alpha^8}{3\mathcal{N}_2}\int_0^{\eta_0}\int_0^{\eta_0}\,\abs{\eta^\prime - \eta^{\prime\prime}}^3 r^4\left(\eta^\prime\right)r^4\left(\eta^{\prime\prime}\right)\,\mathrm d\eta^\prime\,\mathrm d\eta^{\prime\prime}
 \end{equation}
 
 \noindent The final expression~\eqref{eq:alt_avg_deg} is evaluated by numerically evaluating a 2-D and a 1-D integral (the latter for normalization) and by utilizing the lookup table in the 2-D integration.
