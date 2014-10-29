@@ -1,0 +1,30 @@
+#!/bin/bash
+
+njobs=1
+
+if [ "$#" -eq 1 ]; then
+  njobs=$1
+fi
+
+if [ $njobs -lt 1 ] || [ $njobs -gt 4 ]; then
+  echo "Invalid number of jobs!"
+  exit 1
+fi
+
+flags="--universe --age 4.0 --nodes 65536 --delta 1 --radius 1 --print --verbose -y --gpu --link"
+
+bsub < [ ./lsf/causet < $flags ]
+
+if [ $njobs -gt 1 ]; then
+  bsub < ./lsf/causet2 < $flags
+fi
+
+if [ $njobs -gt 2 ]; then
+  bsub < ./lsf/causet3 < $flags
+fi
+
+if [ $njobs -gt 3 ]; then
+  bsub < ./lsf/causet4 < $flags
+fi
+
+echo "Submitted ${njobs} Jobs Successfully."

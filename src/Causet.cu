@@ -71,7 +71,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":A:a:Cc:D:d:E:F:Gg:hk:Ll:m:n:o:Rr:S:s:Tt:uvz:";
+	static const char *optString = ":A:a:Cc:D:d:E:F:Gg:hk:Ll:m:n:o:Rr:S:s:Tt:uvyz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
 		{ "alpha",	required_argument,	NULL, 'A' },

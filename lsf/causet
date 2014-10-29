@@ -14,6 +14,11 @@
 #BSUB -R span[ptile=32]
 #BSUB -cwd /scratch/cunningham/causets
 
+#if [ "$#" -ne 1 ]; then
+#  echo "Must specify flags for CausalSet program in LSF script!"
+#  exit 1
+#fi
+
 mkdir /scratch/cunningham
 mkdir /scratch/cunningham/causets/
 
@@ -67,14 +72,15 @@ done
 
 # Do not edit above this
 
-#nodes=10240
-nodes=131072
-samples=1
+nodes=65536
+#nodes=131072
+samples=25
 
 for (( i=1; i<=${samples}; i++ ))
 do
   echo Trial $i of ${samples}
-  ./CausalSet --universe --age 0.9 --nodes $nodes --delta 150.0 --radius 1.0 --print --verbose -y --gpu --link
+  ./CausalSet --universe --age 4.0 --nodes $nodes --delta 1 --radius 1 --print --verbose -y --gpu --link
+#  ./CausalSet $1
 done
 
 # Do not edit below this
