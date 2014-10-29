@@ -41,18 +41,18 @@ gcc_line = 0
 if (ctype == 1):
 	tar_line = 6
 	res_line = 12
-	cc_line = 18
-	gcc_line = 19
+	cc_line = 19
+	gcc_line = 20
 elif (ctype == 2):
 	tar_line = 6
 	res_line = 12
-	cc_line = 18
-	gcc_line = 19
+	cc_line = 19
+	gcc_line = 20
 elif (ctype == 3):
 	tar_line = 6
 	res_line = 22
-	cc_line = 25
-	gcc_line = 26
+	cc_line = 26
+	gcc_line = 27
 
 basedir = '/scratch/cunningham/causets/'
 files = glob.glob(basedir + 'dat/*.cset.out')

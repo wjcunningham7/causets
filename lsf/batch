@@ -1,0 +1,8 @@
+#!/bin/bash
+
+bsub < ./lsf/causet
+bsub < ./lsf/causet2
+bsub < ./lsf/causet3
+bsub < ./lsf/causet4
+
+echo 'Submitted 4 Jobs Successfully.'

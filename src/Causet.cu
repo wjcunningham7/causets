@@ -71,48 +71,137 @@ static NetworkProperties parseArgs(int argc, char **argv)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":m:n:k:d:s:a:c:g:t:A:D:S:E:F:o:r:l:z:uvyCGTLRh";
+	static const char *optString = ":A:a:Cc:D:d:E:F:Gg:hk:Ll:m:n:o:Rr:S:s:Tt:uvz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
+		{ "alpha",	required_argument,	NULL, 'A' },
+		{ "radius",	required_argument,	NULL, 'a' },
+		{ "clustering",	no_argument,		NULL, 'C' },
+		{ "core",	required_argument,	NULL, 'c' },
+		{ "delta",	required_argument,	NULL, 'D' },
+		{ "dim",	required_argument,	NULL, 'd' },
+		{ "embedding",  required_argument,	NULL, 'E' },
+		{ "fields",	required_argument,	NULL, 'F' },
+		{ "components", no_argument,		NULL, 'G' },
+		{ "graph",	required_argument,	NULL, 'g' },
+		{ "help", 	no_argument,		NULL, 'h' },
+		{ "degrees",	required_argument,	NULL, 'k' },
+		{ "link",	no_argument,		NULL, 'L' },
+		{ "lambda",	required_argument,	NULL, 'l' },
 		{ "manifold",	required_argument,	NULL, 'm' },
 		{ "nodes", 	required_argument,	NULL, 'n' },
-		{ "degrees",	required_argument,	NULL, 'k' },
-		{ "dim",	required_argument,	NULL, 'd' },
-		{ "seed",	required_argument,	NULL, 's' },
-		{ "radius",	required_argument,	NULL, 'a' },
-		{ "core",	required_argument,	NULL, 'c' },
-		{ "clustering",	no_argument,		NULL, 'C' },
-		{ "success",	required_argument,	NULL, 'S' },
-		{ "components", no_argument,		NULL, 'G' },
-		{ "embedding",  required_argument,	NULL, 'E' },
-		{ "link",	no_argument,		NULL, 'L' },
-		{ "relink",	no_argument,		NULL, 'R' },
-		{ "fields",	required_argument,	NULL, 'F' },
-		{ "graph",	required_argument,	NULL, 'g' },
-		{ "universe",	no_argument,		NULL, 'u' },
-		{ "age",	required_argument,	NULL, 't' },
-		{ "alpha",	required_argument,	NULL, 'A' },
-		{ "delta",	required_argument,	NULL, 'D' },
 		{ "energy",	required_argument,	NULL, 'o' },
+		{ "relink",	no_argument,		NULL, 'R' },
 		{ "ratio",	required_argument,	NULL, 'r' },
-		{ "lambda",	required_argument,	NULL, 'l' },
+		{ "success",	required_argument,	NULL, 'S' },
+		{ "seed",	required_argument,	NULL, 's' },
+		{ "test",	no_argument,		NULL, 'T' },
+		{ "age",	required_argument,	NULL, 't' },
+		{ "universe",	no_argument,		NULL, 'u' },
+		{ "verbose", 	no_argument, 		NULL, 'v' },
 		{ "zeta",	required_argument,	NULL, 'z' },
 
-		{ "help", 	no_argument,		NULL, 'h' },
-		{ "gpu", 	no_argument, 		NULL,  0  },
-		{ "display", 	no_argument, 		NULL,  0  },
-		{ "print", 	no_argument, 		NULL,  0  },
-		{ "verbose", 	no_argument, 		NULL, 'v' },
-		{ "test",	no_argument,		NULL, 'T' },
-		{ "benchmark",	no_argument,		NULL,  0  },
 		{ "autocorr",	no_argument,		NULL,  0  },
+		{ "benchmark",	no_argument,		NULL,  0  },
 		{ "conflicts",  no_argument,		NULL,  0  },
+		{ "display", 	no_argument, 		NULL,  0  },
+		{ "gpu", 	no_argument, 		NULL,  0  },
+		{ "print", 	no_argument, 		NULL,  0  },
 		{ NULL,		0,			0,     0  }
 	};
 
 	try {
 		while ((c = getopt_long(argc, argv, optString, longOpts, &longIndex)) != -1) {
 			switch (c) {
+			case 'A':	//Rescaled ratio of dark energy density to matter density
+				network_properties.alpha = atof(optarg);
+
+				if (network_properties.alpha <= 0.0)
+					throw CausetException("Invalid argument for 'alpha' parameter!\n");
+
+				network_properties.flags.cc.conflicts[4]++;
+				network_properties.flags.cc.conflicts[5]++;
+				network_properties.flags.cc.conflicts[6]++;
+
+				break;
+			case 'a':	//Pseudoradius
+				network_properties.a = atof(optarg);
+				
+				if (network_properties.a <= 0.0)
+					throw CausetException("Invalid argument for 'a' parameter!\n");
+
+				network_properties.lambda = 3.0 / POW2(network_properties.a, EXACT);
+
+				network_properties.flags.cc.conflicts[0]++;
+
+				break;
+			case 'C':	//Flag for calculating clustering
+				network_properties.flags.calc_clustering = true;
+				break;
+			case 'c':	//Core edge fraction (used for adjacency matrix)
+				network_properties.core_edge_fraction = atof(optarg);
+				if (network_properties.core_edge_fraction <= 0.0 || network_properties.core_edge_fraction >= 1.0)
+					throw CausetException("Invalid argument for 'c' parameter!\n");
+				break;
+			case 'D':	//Density of nodes
+				network_properties.delta = atof(optarg);
+
+				if (network_properties.delta <= 0.0)
+					throw CausetException("Invalid argument for 'delta' parameter!\n");
+
+				network_properties.flags.cc.conflicts[4]++;
+				network_properties.flags.cc.conflicts[5]++;
+				network_properties.flags.cc.conflicts[6]++;
+
+				break;
+			case 'd':	//Spatial dimensions
+				network_properties.dim = atoi(optarg);
+				if (!(atoi(optarg) == 1 || atoi(optarg) == 3))
+					throw CausetException("Invalid argument for 'dimension' parameter!\n");
+				break;
+			case 'E':	//Flag for Validating Embedding of 3+1 DS Manifold
+				network_properties.flags.validate_embedding = true;
+				network_properties.N_emb = atof(optarg);
+				if (network_properties.N_emb <= 0.0 || network_properties.N_emb > 1.0)
+					throw CausetException("Invalid argument for 'embedding' parameter!\n");
+				break;
+			case 'F':	//Measure Degree Field with Test Nodes
+				network_properties.flags.calc_deg_field = true;
+				network_properties.tau_m = atof(optarg);
+				break;
+			case 'G':	//Flag for Finding (Giant) Connected Component
+				network_properties.flags.calc_components = true;
+				break;
+			case 'g':	//Graph ID
+				network_properties.graphID = atoi(optarg);
+				if (network_properties.graphID <= 0)
+					throw CausetException("Invalid argument for 'Graph ID' parameter!\n");
+				break;
+			//case 'h' is located at the end
+			case 'k':	//Average expected degrees
+				network_properties.k_tar = atof(optarg);
+
+				if (network_properties.k_tar <= 0.0)
+					throw CausetException("Invalid argument for 'degrees' parameter!\n");
+
+				network_properties.flags.cc.conflicts[2]++;
+				network_properties.flags.cc.conflicts[3]++;
+				network_properties.flags.cc.conflicts[6]++;
+				break;
+			case 'L':	//Flag for Reading Nodes (and not links) and Re-Linking
+				network_properties.flags.link = true;
+				break;
+			case 'l':	//Cosmological constant
+				network_properties.lambda = atof(optarg);
+
+				if (network_properties.lambda <= 0.0)
+					throw CausetException("Invalid argument for 'lambda' parameter!\n");
+
+				network_properties.a = SQRT(3.0 / network_properties.lambda, STL);
+
+				network_properties.flags.cc.conflicts[0]++;
+
+				break;
 			case 'm':	//Manifold
 				if (!strcmp(optarg, "d"))
 					network_properties.manifold = DE_SITTER;
@@ -126,116 +215,6 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				network_properties.N_tar = atoi(optarg);
 				if (network_properties.N_tar <= 0)
 					throw CausetException("Invalid argument for 'nodes' parameter!\n");
-
-				network_properties.flags.cc.conflicts[4]++;
-				network_properties.flags.cc.conflicts[5]++;
-				network_properties.flags.cc.conflicts[6]++;
-
-				break;
-			case 'k':	//Average expected degrees
-				network_properties.k_tar = atof(optarg);
-
-				if (network_properties.k_tar <= 0.0)
-					throw CausetException("Invalid argument for 'degrees' parameter!\n");
-
-				network_properties.flags.cc.conflicts[2]++;
-				network_properties.flags.cc.conflicts[3]++;
-				network_properties.flags.cc.conflicts[6]++;
-				break;
-			case 'd':	//Spatial dimensions
-				network_properties.dim = atoi(optarg);
-				if (!(atoi(optarg) == 1 || atoi(optarg) == 3))
-					throw CausetException("Invalid argument for 'dimension' parameter!\n");
-				break;
-			case 's':	//Random seed
-				network_properties.seed = -1.0 * atol(optarg);
-				if (network_properties.seed >= 0.0L)
-					throw CausetException("Invalid argument for 'seed' parameter!\n");
-				break;
-			case 'a':	//Pseudoradius
-				network_properties.a = atof(optarg);
-				
-				if (network_properties.a <= 0.0)
-					throw CausetException("Invalid argument for 'a' parameter!\n");
-
-				network_properties.lambda = 3.0 / POW2(network_properties.a, EXACT);
-
-				network_properties.flags.cc.conflicts[0]++;
-
-				break;
-			case 'c':	//Core edge fraction (used for adjacency matrix)
-				network_properties.core_edge_fraction = atof(optarg);
-				if (network_properties.core_edge_fraction <= 0.0 || network_properties.core_edge_fraction >= 1.0)
-					throw CausetException("Invalid argument for 'c' parameter!\n");
-				break;
-			case 'C':	//Flag for calculating clustering
-				network_properties.flags.calc_clustering = true;
-				break;
-			case 'S':	//Flag for calculating success ratio
-				network_properties.flags.calc_success_ratio = true;
-				network_properties.flags.calc_components = true;
-				network_properties.N_sr = atof(optarg);
-				if (network_properties.N_sr <= 0.0 || network_properties.N_sr > 1.0)
-					throw CausetException("Invalid argument for 'success' parameter!\n");
-				break;
-			case 'G':	//Flag for Finding (Giant) Connected Component
-				network_properties.flags.calc_components = true;
-				break;
-			case 'E':	//Flag for Validating Embedding of 3+1 DS Manifold
-				network_properties.flags.validate_embedding = true;
-				network_properties.N_emb = atof(optarg);
-				if (network_properties.N_emb <= 0.0 || network_properties.N_emb > 1.0)
-					throw CausetException("Invalid argument for 'embedding' parameter!\n");
-				break;
-			case 'L':	//Flag for Reading Nodes (and not links) and Re-Linking
-				network_properties.flags.link = true;
-				break;
-			case 'R':	//Flag for Reading Nodes (and not links) and Re-Linking
-				network_properties.flags.relink = true;
-				break;
-			case 'F':	//Measure Degree Field with Test Nodes
-				network_properties.flags.calc_deg_field = true;
-				network_properties.tau_m = atof(optarg);
-				break;
-			case 'g':	//Graph ID
-				network_properties.graphID = atoi(optarg);
-				if (network_properties.graphID <= 0)
-					throw CausetException("Invalid argument for 'Graph ID' parameter!\n");
-				break;
-			case 'u':	//Flag for creating universe causet
-				network_properties.flags.universe = true;
-				break;
-			case 't':	//Age of universe
-				network_properties.tau0 = atof(optarg);
-
-				if (network_properties.tau0 <= 0.0)
-					throw CausetException("Invalid argument for 'age' parameter!\n");
-
-				network_properties.ratio = POW2(SINH(1.5 * network_properties.tau0, STL), EXACT);
-				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
-				network_properties.omegaL = 1.0 - network_properties.omegaM;
-
-				network_properties.flags.cc.conflicts[2]++;
-				network_properties.flags.cc.conflicts[3]++;
-				network_properties.flags.cc.conflicts[6]++;
-
-				break;
-			case 'A':	//Rescaled ratio of dark energy density to matter density
-				network_properties.alpha = atof(optarg);
-
-				if (network_properties.alpha <= 0.0)
-					throw CausetException("Invalid argument for 'alpha' parameter!\n");
-
-				network_properties.flags.cc.conflicts[4]++;
-				network_properties.flags.cc.conflicts[5]++;
-				network_properties.flags.cc.conflicts[6]++;
-
-				break;
-			case 'D':	//Density of nodes
-				network_properties.delta = atof(optarg);
-
-				if (network_properties.delta <= 0.0)
-					throw CausetException("Invalid argument for 'delta' parameter!\n");
 
 				network_properties.flags.cc.conflicts[4]++;
 				network_properties.flags.cc.conflicts[5]++;
@@ -257,6 +236,9 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				network_properties.flags.cc.conflicts[5]++;
 
 				break;
+			case 'R':	//Flag for Reading Nodes (and not links) and Re-Linking
+				network_properties.flags.relink = true;
+				break;
 			case 'r':	//Ratio of dark energy density to matter density
 				network_properties.ratio = atof(optarg);
 
@@ -272,49 +254,57 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				network_properties.flags.cc.conflicts[4]++;
 
 				break;
-			case 'l':	//Cosmological constant
-				network_properties.lambda = atof(optarg);
+			case 'S':	//Flag for calculating success ratio
+				network_properties.flags.calc_success_ratio = true;
+				network_properties.flags.calc_components = true;
+				network_properties.N_sr = atof(optarg);
+				if (network_properties.N_sr <= 0.0 || network_properties.N_sr > 1.0)
+					throw CausetException("Invalid argument for 'success' parameter!\n");
+				break;
+			case 's':	//Random seed
+				network_properties.seed = -1.0 * atol(optarg);
+				if (network_properties.seed >= 0.0L)
+					throw CausetException("Invalid argument for 'seed' parameter!\n");
+				break;
+			case 'T':	//Test parameters
+				network_properties.flags.test = true;
+				break;
+			case 't':	//Age of universe
+				network_properties.tau0 = atof(optarg);
 
-				if (network_properties.lambda <= 0.0)
-					throw CausetException("Invalid argument for 'lambda' parameter!\n");
+				if (network_properties.tau0 <= 0.0)
+					throw CausetException("Invalid argument for 'age' parameter!\n");
 
-				network_properties.a = SQRT(3.0 / network_properties.lambda, STL);
+				network_properties.ratio = POW2(SINH(1.5 * network_properties.tau0, STL), EXACT);
+				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
+				network_properties.omegaL = 1.0 - network_properties.omegaM;
 
-				network_properties.flags.cc.conflicts[0]++;
+				network_properties.flags.cc.conflicts[2]++;
+				network_properties.flags.cc.conflicts[3]++;
+				network_properties.flags.cc.conflicts[6]++;
 
 				break;
-			case 'z':	//Zeta
-				network_properties.zeta = atof(optarg);
-
-				if (network_properties.zeta == 0.0)
-					throw CausetException("Invalid argument for 'zeta' parameter!\n");
+			case 'u':	//Flag for creating universe causet
+				network_properties.flags.universe = true;
+				break;
 			case 'v':	//Verbose output
 				network_properties.flags.verbose = true;
 				break;
 			case 'y':	//Suppress user input
 				network_properties.flags.yes = true;
 				break;
-			case 'T':	//Test parameters
-				network_properties.flags.test = true;
-				break;
+			case 'z':	//Zeta
+				network_properties.zeta = atof(optarg);
+
+				if (network_properties.zeta == 0.0)
+					throw CausetException("Invalid argument for 'zeta' parameter!\n");
 			case 0:
-				if (!strcmp("gpu", longOpts[longIndex].name))
-					//Flag to use GPU accelerated routines
-					network_properties.flags.use_gpu = true;
-				else if (!strcmp("display", longOpts[longIndex].name)) {
-					//Flag to use OpenGL to display network
-					//network_properties.flags.disp_network = true;
-					printf("Display not supported:  Ignoring Flag.\n");
-					fflush(stdout);
-				} else if (!strcmp("print", longOpts[longIndex].name))
-					//Flag to print results to file in 'dat' folder
-					network_properties.flags.print_network = true;
+				if (!strcmp("autocorr", longOpts[longIndex].name))
+					//Flag to calculate autocorrelation of selected variables
+					network_properties.flags.calc_autocorr = true;
 				else if (!strcmp("benchmark", longOpts[longIndex].name))
 					//Flag to benchmark selected routines
 					network_properties.flags.bench = true;
-				else if (!strcmp("autocorr", longOpts[longIndex].name))
-					//Flag to calculate autocorrelation of selected variables
-					network_properties.flags.calc_autocorr = true;
 				else if (!strcmp("conflicts", longOpts[longIndex].name)) {
 					//Print conflicting parameters
 					printf("\nParameter Conflicts:\n");
@@ -328,7 +318,18 @@ static NetworkProperties parseArgs(int argc, char **argv)
 					printf(" > n, delta, alpha, age\n\n");
 					printf("Specifying any of these combinations will over-constrain the system!\n\n");
 					exit(EXIT_SUCCESS);
-				} else {
+				} else if (!strcmp("display", longOpts[longIndex].name)) {
+					//Flag to use OpenGL to display network
+					//network_properties.flags.disp_network = true;
+					printf("Display not supported:  Ignoring Flag.\n");
+					fflush(stdout);
+				} else if (!strcmp("gpu", longOpts[longIndex].name))
+					//Flag to use GPU accelerated routines
+					network_properties.flags.use_gpu = true;
+				else if (!strcmp("print", longOpts[longIndex].name))
+					//Flag to print results to file in 'dat' folder
+					network_properties.flags.print_network = true;
+				else {
 					//Unrecognized options
 					fprintf(stderr, "Option --%s is not recognized.\n", longOpts[longIndex].name);
 					exit(EXIT_FAILURE);
@@ -477,9 +478,12 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 		stopwatchStop(&cp->sQuicksort);
 	}
 
-	if (!nb)
+	if (!nb) {
 		printf("\tQuick Sort Successfully Performed.\n");
-	else {
+		printf_cyan();
+		printf("\t\tMinimum Rescaled Time:  %f\n", network->nodes.id.tau[0]);
+		printf_std();
+	} else {
 		bm->bGenerateNodes = cp->sGenerateNodes.elapsedTime / NBENCH;
 		bm->bQuicksort = cp->sQuicksort.elapsedTime / NBENCH;
 	}
@@ -1026,12 +1030,13 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 			outputStream << "Alpha (alpha)\t\t\t\t" << network.network_properties.alpha << std::endl;
 			outputStream << "Scaling Factor (R0)\t\t\t" << network.network_properties.R0 << std::endl;
 
+			outputStream << "\nCauset Resulting Parameters:" << std::endl;
+			outputStream << "----------------------------" << std::endl;
 			if (links_exist) {
-				outputStream << "\nCauset Resulting Parameters:" << std::endl;
-				outputStream << "----------------------------" << std::endl;
 				outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_observables.N_res << std::endl;
 				outputStream << "Resulting Average Degrees (k_res)\t" << network.network_observables.k_res << std::endl;
 			}
+			outputStream << "Minimum Rescaled Time\t\t\t" << network.nodes.id.tau[0] << std::endl;
 		} else {
 			outputStream << "\nCauset Input Parameters:" << std::endl;
 			outputStream << "------------------------" << std::endl;
@@ -1048,6 +1053,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 			}
 			outputStream << "Maximum Conformal Time (eta_0)\t\t" << (HALF_PI - network.network_properties.zeta) << std::endl;
 			outputStream << "Maximum Rescaled Time (tau_0)  \t\t" << network.network_properties.tau0 << std::endl;
+			outputStream << "Minimum Rescaled Time\t\t\t" << network.nodes.id.tau[0] << std::endl;
 		}
 
 		if (network.network_properties.flags.calc_clustering)
@@ -1066,6 +1072,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 			outputStream << "Average In-Degree Field Value\t\t" << network.network_observables.avg_idf << std::endl;
 			outputStream << "Average Out-Degree Field Value\t\t" << network.network_observables.avg_odf << std::endl;
 		}
+
 
 		outputStream << "\nNetwork Analysis Results:" << std::endl;
 		outputStream << "-------------------------" << std::endl;
@@ -1095,7 +1102,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 
 		outputStream << "\nAlgorithmic Performance:" << std::endl;
 		outputStream << "--------------------------" << std::endl;
-		outputStream << "calcDegrees:         " << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
+		//outputStream << "calcDegrees:         " << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
 		outputStream << "createNetwork:       " << cp.sCreateNetwork.elapsedTime << " sec" << std::endl;
 		//if (network.network_properties.flags.use_gpu)
 			//outputStream << "generateNodesGPU:    " << cp.sGenerateNodesGPU.elapsedTime << " sec" << std::endl;
@@ -1121,7 +1128,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 			outputStream << "measureDegreeField: " << cp.sMeasureDegreeField.elapsedTime << " sec" << std::endl;
 
 		stopwatchStop(&cp.sCauset);
-		outputStream << "Total Time:          " << cp.sCauset.elapsedTime << " sec" << std::endl;
+		outputStream << "\nTotal Time:          " << cp.sCauset.elapsedTime << " sec" << std::endl;
 		stopwatchStart(&cp.sCauset);
 
 		outputStream.flush();

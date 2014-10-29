@@ -70,8 +70,7 @@ morekeywords={__global__, __device__, __shared__, threadIdx, blockIdx, blockDim,
 \newpage
 
 %%%%%%%%%%
-\section{Introduction}
-%%%%%%%%%%
+\begin{abstract}
 This project is a continuation of the work described in~\cite{ref:nc2012}.  
 We hypothesize that a spacetime with only dark energy has a structure which may be described by discrete events uniformly distributed across a de Sitter manifold.  
 Two events are connected if they share a causal relation - i.e. they lie within each other's light cones.  
@@ -87,9 +86,10 @@ Studying navigability alone requires addressing how to measure geodesic distance
 We attempt to solve this by embedding our universe in a higher spatial dimension, and we implement several validation tests to determine if this is a legitimate approach.
 We also would like to address the \textit{why now} problem:  why are the matter and dark energy densities currently the same order of magnitude?
 To study this we will look for special behaviors of the network when the rescaled time is set to unity.
+\end{abstract}
 
 %%%%%%%%%%
-\section{Motivation}
+\section{Background}
 %%%%%%%%%%
 In recent years, experimental observations have made us increasingly certain that we live in a flat universe which is expanding at an accelerating rate.  
 The $\Lambda$CDM Model has provided a robust theoretical framework for describing the cosmological evolution of our universe, though it relies on six free parameters whose origins have not yet been elucidated.
@@ -265,7 +265,10 @@ The second is when the theoretical average degrees $\bar{k}$ is calculated, as d
 This requires the numerical evaluation of a 2-dimensional integral given by~\eqref{eq:kappa}, which is performed using the NINTLIB numerical library.  
 This uses Monte Carlo sampling over roughly half a million points to evaluate the integral. \par
 %%%%%%%%%%
-The derivation of~\eqref{eq:kappa} is straightforward (thanks to Kostia).
+\subsubsection{The Average Degree}
+%%%%%%%%%%
+\paragraph{Method 1: Rescaled Average Degree}
+The derivation of the rescaled average degree expression used in~\cite{ref:snc2012} is straightforward (thanks to Kostia).
 Since the rescaled scale factor $r\left(\tau\right) = \sinh^{\frac{2}{3}}\left(\frac{3}{2}\tau\right)$ is a monotonic function of $\tau$, we can use $r$ as a measure of time instead of $\tau$.
 
 \begin{equation}
@@ -279,12 +282,12 @@ r_0 &= \sinh^{\frac{2}{3}}\left(\frac{3}{2}\tau_0\right) \\
 \bar\kappa\left(r|r_0\right) &= \frac{\bar k\left(r|r_0\right)}{\delta a^4}
 \end{align}
 
-\noindent Since $\tau \sim \rho_\tau\left(\tau|\tau_0\right) = \frac{\sinh^2\left(\frac{3}{2}\tau\right)}{\mathcal{N}\left(\tau_0\right)}$ where the normalization factor $\mathcal{N}\left(\tau_0\right) = \frac{1}{6}\left(\sinh\left(3\tau_0\right) - 3\tau_0\right)$ is determined as a corollary, we find
+\noindent Since $\tau \sim \rho_\tau\left(\tau|\tau_0\right) = \frac{\sinh^2\left(\frac{3}{2}\tau\right)}{\mathcal{N}_1\left(\tau_0\right)}$ where the normalization factor $\mathcal{N}_1\left(\tau_0\right) = \frac{1}{6}\left(\sinh\left(3\tau_0\right) - 3\tau_0\right)$ is determined as a corollary, we find
 
 \begin{equation}
 \begin{split}
 \rho_r\left(r|r_0\right) &= \rho_\tau\left(\tau\left(r\right|\tau_0\right)\frac{\mathrm d\tau}{\mathrm dr}|_{\tau=\tau\left(r\right)} \\
- &= \frac{r^3}{\mathcal{N}\left(\tau_0\right)}\frac{\sqrt r}{\sqrt{1+r^3}}
+ &= \frac{r^3}{\mathcal{N}_1\left(\tau_0\right)}\frac{\sqrt r}{\sqrt{1+r^3}}
 \end{split}
 \end{equation}
 
@@ -305,10 +308,12 @@ r_0 &= \sinh^{\frac{2}{3}}\left(\frac{3}{2}\tau_0\right) \\
 
 \begin{equation}
 \label{eq:kappa}
-\bar\kappa\left(r_0\right) = \frac{4\pi}{3\mathcal{N}\left(\tau_0\right)}\int_0^{r_0} \! \int_0^{r_0} \frac{\abs{\zeta\left(x\right) - \zeta\left(r\right)}^3 x^2 r^2}{\sqrt{1+x^{-3}}\sqrt{1+r^{-3}}}\,\mathrm dx\,\mathrm dr
+\bar\kappa\left(r_0\right) = \frac{4\pi}{3\mathcal{N}_1\left(\tau_0\right)}\int_0^{r_0} \! \int_0^{r_0} \frac{\abs{\zeta\left(x\right) - \zeta\left(r\right)}^3 x^2 r^2}{\sqrt{1+x^{-3}}\sqrt{1+r^{-3}}}\,\mathrm dx\,\mathrm dr
 \end{equation}
 
-\noindent The relationship between $\kappa$ and $\tau_0$ is shown in Fig.~\ref{fig:kappa_tau}.
+\noindent This expression is evaluated numerically using 2-D Monte Carlo integration, and the Hypergeometric term in the integrand is evaluated using a Hypergeometric power series. \par
+%%%%%%%%%%
+The relationship between $\kappa$ and $\tau_0$ is shown in Fig.~\ref{fig:kappa_tau}.
 Since the function is monotonic in the interval it is easy to solve for $\tau_0$ when $\kappa$ is provided as an independent variable by taking advantage of a lookup table.  
 Currently it has a resolution of 0.001 and uses linear interpolation between these points.
 
@@ -319,6 +324,7 @@ Currently it has a resolution of 0.001 and uses linear interpolation between the
 \centering
 \end{figure}
 
+\paragraph{Method 2: Explicit Derivation}
 An alternative approach has also been studied to verify the integrity of this method.
 When the conformal time, scale factor, and expected average degree are rescaled in~\cite{ref:snc2012} it is not necessarily clear how the pseudoradius and scaling constant $\alpha$ could implicitly affect the results.
 To show the above method is correct, the expected average in-degree is calculated directly using
@@ -328,8 +334,8 @@ To show the above method is correct, the expected average in-degree is calculate
 \bar{k}_i\left(\eta^\prime|\eta\right) = \frac{4}{3}\pi\delta\int_{\eta^\prime}^\eta\!\left(\eta^{\prime\prime} - \eta^\prime\right)^3 R^4\left(\eta^{\prime\prime}\right)\,\mathrm d\eta^{\prime\prime}
 \end{equation}
 
-\noindent which can be recognized as (89) in~\cite{ref:snc2012}.
-
+\noindent which can be recognized as (89) in~\cite{ref:snc2012}. \par
+%%%%%%%%%%
 The primary difficulty in evaluating this expression is that we must find an analytical expression for the scale factor in terms of the conformal time.
 We know the scale factor in terms of cosmic (and therefore rescaled) time, and we know how to solve for a given conformal time from a given rescaled time (see~\eqref{eq:t_to_eta} and~\eqref{eq:scale_factor} for exact expressions) but we require an expression which has the form $R\left(\tau\left(\eta\right)\right)$ which involves inverting~\eqref{eq:t_to_eta}.
 With a little bit of math and a single lookup table this is possible. \par
@@ -356,7 +362,9 @@ This allows the expression to be simplified to
 \end{split}
 \end{equation}
 
-\noindent and so by using a lookup table we can return a value of $\tau$ for any given $\eta$.  
+\noindent and so by using a lookup table we can return a value of $\tau$ for any given $\eta$.
+To be clear, this expression is useful primarily because it allows us to calculate the conformal time by using a power series approximation, which is far faster than the previous method which uses numerical integration. \par
+%%%%%%%%%%
 As an intermediate check, let us confirm this alternative expression for conformal time is correct by comparing it to (91) in~\cite{ref:snc2012}.
 We should find the expression~\eqref{eq:conformal_final} is equal to
 
@@ -391,16 +399,21 @@ Then, the average in- and out-degree should be
 \bar{k}_o\left(\eta^\prime|\eta_0\right) &= \frac{4\pi\delta\alpha^4}{3}\int_0^{\eta^\prime}\!\left(\eta^\prime-\eta^{\prime\prime}\right)^3\sinh^{8/3}\left(\frac{3}{2}f^{-1}\left(g\left(\eta^{\prime\prime}, a, \alpha\right)\right)\right)\,\mathrm d\eta^{\prime\prime}
 \end{align}
 
-\noindent and the average degree is found by integrating over the density function
+\noindent The average degree is found by adding these two expressions and integrating over the density function
 
-\begin{align}
-\rho\left(\eta^\prime|\eta\right) &= \frac{R^4\left(\eta^\prime\right)}{\mathcal{N}\left(\eta\right)} \\
-\mathcal{N}\left(\eta\right) &= \int_0^\eta\!R^4\left(\eta^\prime\right)\,\mathrm d\eta^\prime \\
-\bar{k}\left(\eta_0\right) &= \int_0^{\eta_0}\!\left(\bar{k}_i\left(\eta^\prime|\eta_0\right) + \bar{k}_o\left(\eta^\prime|\eta_0\right)\right)\rho\left(\eta^\prime|\eta_0\right)\,\mathrm d\eta^\prime \\
-\bar{k}\left(\eta_0,a,\alpha\right) &= \frac{4\pi\delta\alpha^8}{3\mathcal{N}}\int_0^{\eta_0}\int_0^{\eta_0}\,\abs{\eta^\prime - \eta^{\prime\prime}}^3 r^4\left(\eta^\prime\right)r^4\left(\eta^{\prime\prime}\right)\,\mathrm d\eta^\prime\,\mathrm d\eta^{\prime\prime} \label{eq:alt_avg_deg}
-\end{align}
+\begin{equation}
+\rho\left(\eta^\prime|\eta\right) &= \frac{R^4\left(\eta^\prime\right)}{\mathcal{N}_2\left(\eta\right)} \\
+\mathcal{N}_2\left(\eta\right) &= \int_0^\eta\!R^4\left(\eta^\prime\right)\,\mathrm d\eta^\prime
+\end{equation}
 
-\noindent The final result~\eqref{eq:alt_avg_deg} is evaluated by numerically evaluating a 2-D and a 1-D integral (the latter for normalization) and by utilizing the lookup table in the 2-D integration.
+\noindent to obtain the desired result:
+
+\begin{equation}
+\label{eq:alt_avg_deg}
+\bar{k}\left(\eta_0,a,\alpha\right) &= \frac{4\pi\delta\alpha^8}{3\mathcal{N}_2}\int_0^{\eta_0}\int_0^{\eta_0}\,\abs{\eta^\prime - \eta^{\prime\prime}}^3 r^4\left(\eta^\prime\right)r^4\left(\eta^{\prime\prime}\right)\,\mathrm d\eta^\prime\,\mathrm d\eta^{\prime\prime}
+\end{equation}
+
+\noindent The final expression~\eqref{eq:alt_avg_deg} is evaluated by numerically evaluating a 2-D and a 1-D integral (the latter for normalization) and by utilizing the lookup table in the 2-D integration.
 Results are shown for the two methods below over a range of parameters.
 For these tests, the number of nodes is held constant at $N = 10240$ and the maximum rescaled time is held constant at $\tau_0 = 1.8$.
 First, the pseudoradius is held constant at $a = 1$ while $\alpha$ is varied and then subsequently $\alpha$ is held constant at $\alpha = 2$ while the pseudoradius $a$ is varied.
@@ -417,21 +430,6 @@ The two methods agree closely for all of these constraints, and any small discre
 \end{tabular}
 \end{center}
 
-\subsubsection{Memory}
-The next step requires allocating the data structures used to define a graph.  
-A graph is defined by the coordinates of its events as well as its adjacency list.  
-The list of coordinates takes 4 x 4 x N bytes at floating point precision.
-The number of in- and out-degrees associated with each node is also saved - these use 4 x N bytes each.
-Since edges are sparse it is more economical to use an adjacency list rather than an adjacency matrix.
-Both the past and future edges (associated with in- and out-degrees respectively) are saved so that any given node can be analyzed independent from the rest of the graph.  
-Each takes 4 x (N x $\bar k$ / 2) bytes.  
-Since the actual average number of edges for a graph may be above the average of the ensemble, a buffer of 20\% is added.
-Additionally, two indices pointing to locations in the adjacency lists are associated with each node to indicate where to start for a given node (the sparse pointers).
-These take 4 x N bytes each.
-Finally, a fraction of nodes indicated by the \textit{core\_edge\_ratio} parameter is allocated for an adjacency matrix so that subroutines looking for edges among the hubs (earliest events) do not suffer from long lookup times in the adjacency lists.  
-This by default is set to 1\%.
-Memory is allocated and deallocated in other locations in the code as well, such as in low-level GPU functions, but the memory segments described here represent the minimal requirement to store a single graph.
-Moreover, all of these variables remain active and accessible throughout the duration of the simulation and are not freed until the very end.
 %%%%%%%%%%
 \subsubsection{The Maximum Time}
 %%%%%%%%%%
@@ -643,6 +641,22 @@ V_p\left(\eta\right) &= \int_0^\eta \! \mathrm d\eta^\prime \, \int_0^{\eta-\eta
 
 \noindent so at this point it is easy to obtain the rescaled time for pure-energy graphs.
 %%%%%%%%%%
+\subsubsection{Memory}
+The next step requires allocating the data structures used to define a graph.  
+A graph is defined by the coordinates of its events as well as its adjacency list.  
+The list of coordinates takes 4 x 4 x N bytes at floating point precision.
+The number of in- and out-degrees associated with each node is also saved - these use 4 x N bytes each.
+Since edges are sparse it is more economical to use an adjacency list rather than an adjacency matrix.
+Both the past and future edges (associated with in- and out-degrees respectively) are saved so that any given node can be analyzed independent from the rest of the graph.  
+Each takes 4 x (N x $\bar k$ / 2) bytes.  
+Since the actual average number of edges for a graph may be above the average of the ensemble, a buffer of 20\% is added.
+Additionally, two indices pointing to locations in the adjacency lists are associated with each node to indicate where to start for a given node (the sparse pointers).
+These take 4 x N bytes each.
+Finally, a fraction of nodes indicated by the \textit{core\_edge\_ratio} parameter is allocated for an adjacency matrix so that subroutines looking for edges among the hubs (earliest events) do not suffer from long lookup times in the adjacency lists.  
+This by default is set to 1\%.
+Memory is allocated and deallocated in other locations in the code as well, such as in low-level GPU functions, but the memory segments described here represent the minimal requirement to store a single graph.
+Moreover, all of these variables remain active and accessible throughout the duration of the simulation and are not freed until the very end.
+%%%%%%%%%%
 \subsubsection{Generating Nodes}
 %%%%%%%%%%
 Generating the spacetime coordinates of the nodes is the next task.  
@@ -848,7 +862,18 @@ It is written in this manner because it is both easy to sort and it allows for c
 %results (plots)
 %validations
 %any conclusions
+%%%%%%%%%%
+\subsection{The Minimum Time}
+%%%%%%%%%%
+It is important to study the average minimum time generated in simulation for a given set of parameters because these nodes are the hubs.
+Though their creation is a rare process, they have a profound effect on many properties of the resulting graph.
+They affect the average degree, the connectivity, and the degree distributions.
+Because the addition or deletion of a single hub can greatly affect the structure of a graph, choosing too few nodes in simulation can undersample them and therefore skew results.
+Here we show a few examples of the minimum time for a few sets of parameters.
+
+%%%%%%%%%%
 \subsection{Average Degrees}
+%%%%%%%%%%
 We expect the expected average degrees of a network to be a Poissonian distribution about the mean value $\langle\bar{k}\rangle$.  
 Because points are scattered via a Poisson process, the fluctuations from the average degrees will be Poissonian in their form.
 We see the simulation results in Fig.~\ref{fig:avg_deg_uni} for several sets of parameters.

@@ -21,6 +21,7 @@ CUDA_HOME 	?= /shared/apps/cuda6.0
  
 GCC		?= /usr/bin/gcc
 CXX 		?= /usr/bin/g++
+MPI		?= /opt/ibm/platform_mpi/bin/mpicc
 GFOR		?= /usr/bin/gfortran
 NVCC 		?= $(CUDA_HOME)/bin/nvcc
 INCD 		 = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include -I $(INCDIR) -I $(LOCAL_DIR)/inc/
@@ -29,10 +30,17 @@ LIBS		 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PATH)/c
 CXXFLAGS	:= -O3 -g -Wall
 NVCCFLAGS 	:= -arch=sm_35 -m64 -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))'
 OMPFLAGS	:= -Xcompiler -fopenmp
+MPIFLAGS	:= -Xcompiler -Wno-deprecated
 USE_OMP		:= 0
+USE_MPI		:= 0
 	
 ifneq ($(USE_OMP), 0)
    	NVCCFLAGS += $(OMPFLAGS)
+endif
+
+ifneq ($(USE_MPI), 0)
+	CXX=$(MPI)
+	NVCCFLAGS += $(MPIFLAGS)
 endif
 
 CSOURCES	:= $(SRCDIR)/autocorr2.cpp

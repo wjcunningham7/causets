@@ -1,0 +1,85 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2014 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+#BSUB -J univ
+#BSUB -o /scratch/cunningham/causets/causet.log
+#BSUB -e /scratch/cunningham/causets/causet.err
+#BSUB -q par-gpu
+#BSUB -n 32
+#BSUB -R span[ptile=32]
+#BSUB -cwd /scratch/cunningham/causets
+
+mkdir /scratch/cunningham
+mkdir /scratch/cunningham/causets/
+
+work=/scratch/cunningham/causets
+homedir=/home/cunningham.wi/projects/causets
+
+cp $homedir/bin/CausalSet $work/
+
+mkdir $work/etc
+
+cp $homedir/etc/degrees $work/etc/
+cp $homedir/etc/deg_dist $work/etc/
+cp $homedir/etc/components $work/etc/
+cp $homedir/etc/clustering $work/etc/
+cp $homedir/etc/clust_dist $work/etc/
+cp $homedir/etc/fields $work/etc/
+cp $homedir/etc/migrate $work/etc/
+
+cp $homedir/etc/raduc_table.cset.bin $work/etc/
+cp $homedir/etc/ctuc_table.cset.bin $work/etc/
+
+mkdir $work/dat
+mkdir $work/dat/cdk
+mkdir $work/dat/cls
+mkdir $work/dat/dst
+mkdir $work/dat/edg
+mkdir $work/dat/emb
+mkdir $work/dat/emb/fp
+mkdir $work/dat/emb/tn
+mkdir $work/dat/idd
+mkdir $work/dat/idf
+mkdir $work/dat/odd
+mkdir $work/dat/odf
+mkdir $work/dat/pos
+mkdir $work/dat/ref
+
+# Do not edit below this
+
+cd $work
+tempfile1=hostlistrun
+tempfile2=hostlist-tcp
+echo $LSB_MCPU_HOSTS > $tempfile1
+declare -a hosts
+read -a hosts < ${tempfile1}
+for ((i=0; i<${#hosts[@]}; i += 2)) ;
+do
+	HOST=${hosts[$i]}
+	CORE=${hosts[(($i+1))]}
+	echo $HOST:$CORE >> $tempfile2
+done
+
+# Do not edit above this
+
+#nodes=10240
+nodes=131072
+samples=1
+
+for (( i=1; i<=${samples}; i++ ))
+do
+  echo Trial $i of ${samples}
+  ./CausalSet --universe --age 0.9 --nodes $nodes --delta 150.0 --radius 1.0 --print --verbose -y --gpu --link
+done
+
+# Do not edit below this
+
+rm $work/$tempfile1
+rm $work/$tempfile2
+
+# Do not edit above this

@@ -6,7 +6,7 @@
 # Northeastern University #
 ###########################
 
-# Computes the distribution and expectation value of the average clustering
+# Computes the distribution and expectation value of the minimum tau
 
 import glob
 import sys
@@ -14,7 +14,7 @@ import sys
 if (len(sys.argv) == 1):
 	sys.stdout.write('Must specify topology.\n')
 	sys.exit(1)
-elif (len(sys.argv) > 2):
+elif (len(sys.argv) > 3):
 	sys.stdout.write('Too many parameters specified.\n')
 	sys.exit(2)
 
@@ -30,41 +30,53 @@ if (ctype == 0):
 	sys.stdout.write('Invalid parameter.\n')
 	sys.exit(3)
 
-cline = 0
-if (ctype == 1):
-	cline = 18
-elif (ctype == 2):
-	cline = 18
-elif (ctype == 3):
-	cline = 25
+linked = 0
+if (len(sys.argv) == 3):
+	if (sys.argv[2] == 'true'):
+		linked = 1
+	elif (sys.argv[2] == 'false'):
+		linked = 0
+	else:
+		sys.stdout.write('Second parameter not recognized.\n')
+		sys.exit(4)
 
-basedir = '/scratch/cunningham/causets/'
+tline = 0
+if (ctype == 1):
+	tline = 0
+elif (ctype == 2):
+	tline = 0
+elif (ctype == 3):
+	tline = 22
+	if (int(linked) == 1):
+		tline += 2
+
+basedir = ''
 files = glob.glob(basedir + 'dat/*.cset.out')
 
 N = len(files)
-c = []
+t = []
 avg = 0
 
 for i in range(0,N):
-	c.append(0)
+	t.append(0)
 
 idx = 0
 for file in files:
 	f = open(file)
 	lines = f.readlines()
 
-	c[idx] = float(lines[cline].split()[2])
-	avg += c[idx]
+	t[idx] = float(lines[tline].split()[3])
+	avg += t[idx]
 	idx += 1
 
 	f.close()
 
 avg /= N
-sys.stdout.write('Average Clustering: %f\n' % avg)
+sys.stdout.write('Average Minimum Time: %f\n' % avg)
 
-f = open(basedir + 'dat/ref/average_c.cset.cls.ref','w')
+f = open(basedir + 'dat/ref/min_tau.cset.pos.ref','w')
 for i in range(0,N):
-	f.write(str(c[i]) + '\n')
+	f.write(str(t[i]) + '\n')
 f.close()
 
-sys.stdout.write('Completed CLS.\n')
+sys.stdout.write('Completed MIN.\n')
