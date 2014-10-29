@@ -796,7 +796,7 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 			try {
 				if (dx < dt) {
 					//if (i % NPRINT == 0) printf("%d %d\n", i, j); fflush(stdout);
-					edges.future_edges[++future_idx] = j;
+					edges.future_edges[future_idx++] = j;
 	
 					if (future_idx >= N_tar * k_tar / 2 + edge_buffer)
 						throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
@@ -835,8 +835,7 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 
 			for (k = 0; k < nodes.k_out[j]; k++) {
 				if (i == edges.future_edges[edges.future_edge_row_start[j]+k]) {
-					edges.past_edges[past_idx] = j;
-					past_idx++;
+					edges.past_edges[past_idx++] = j;
 				}
 			}
 		}
@@ -845,9 +844,6 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 		if (edges.past_edge_row_start[i] == past_idx)
 			edges.past_edge_row_start[i] = -1;
 	}
-
-	printf("Past Edges:   %d\n", past_idx);
-	printf("Future Edges: %d\n", future_idx);
 
 	//The quantities future_idx and past_idx should be equal
 	if (DEBUG) assert (future_idx == past_idx);
