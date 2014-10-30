@@ -11,49 +11,65 @@ OBJDIR		:= ./obj
 DATDIR		:= ./dat
 ETCDIR		:= ./etc
 
+ifneq (, $(findstring compute, $(HOSTNAME)))
 LOCAL_DIR	:= /home/cunningham.wi/local
+else ifneq (, $(findstring tiberius, $(HOSTNAME)))
+LOCAL_DIR	:= /usr/local
+else
+LOCAL_DIR	:= ~
+endif
 
 FASTSRC		:= $(LOCAL_DIR)/src/fastmath
- 
+
+ifneq (, $(findstring compute, $(HOSTNAME)))
 CUDA_SDK_PATH 	?= /shared/apps/cuda6.0/samples
 CUDA_HOME 	?= /shared/apps/cuda6.0
+else ifneq (, $(findstring tiberius, $(HOSTNAME)))
+CUDA_SDK_PATH	?= /usr/local/cuda-5.0/samples
+CUDA_HOME	?= /usr/local/cuda
+else
+CUDA_SDK_PATH	?= ~
+CUDA_HOME	?= ~
+endif
  
 GCC		?= /usr/bin/gcc
 CXX 		?= /usr/bin/g++
+ifneq (, $(findstring compute, $(HOSTNAME)))
 MPI		?= /opt/ibm/platform_mpi/bin/mpicc
+else ifneq (, $(findstring tiberius, $(HOSTNAME)))
+MPI		?= /usr/lib64/openmpi/bin/mpicc
+else
+MPI		?=
+endif
 GFOR		?= /usr/bin/gfortran
 NVCC 		?= $(CUDA_HOME)/bin/nvcc
-#COMPILER	?= $(CXX)
 
-INCD 		 = -I $(INCDIR) -I $(LOCAL_DIR)/inc/
+INCD 		 = -I $(INCDIR) -I $(LOCAL_DIR)/include/
 CUDA_INCD	 = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include
 LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas -lfastmath -lnint -lgomp -lprintcolor
 CUDA_LIBS	 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PATH)/common/lib -lcuda -lcudart
 
 CXXFLAGS	:= -O3 -g -Wall -x c++
-NVCCFLAGS 	:= -arch=sm_35 -m64 -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED
+NVCCFLAGS 	:= -m64 -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED
+ifneq (, $(findstring compute, $(HOSTNAME)))
+NVCCFLAGS += -arch=sm_35
+else ifneq (, $(findstring tiberius, $(HOSTNAME)))
+NVCCFLAGS += -arch=sm_30
+else
+endif
 OMPFLAGS	:=
 MPIFLAGS	:=
-#COMPILER_FLAGS	:= $(CXXFLAGS)
 
-USE_CUDA	:= 0
 USE_OMP		:= 0
 USE_MPI		:= 0
 
-ifneq ($(USE_CUDA), 0)
-#	COMPILER = $(NVCC)
-#	COMPILER_FLAGS = $(NVCCFLAGS)
-	INCD += $(CUDA_INCD)
-	LIBS += $(CUDA_LIBS)
-endif
-
 ifneq ($(USE_OMP), 0)
-   	OMP_FLAGS += -Xcompiler -fopenmp
+OMP_FLAGS += -Xcompiler -fopenmp
 endif
 
 ifneq ($(USE_MPI), 0)
-	CXX=$(MPI)
-	MPIFLAGS += -DMPI_ENABLED -Xcompiler -Wno-deprecated
+CXX=$(MPI)
+MPIFLAGS += -DMPI_ENABLED -Xcompiler -Wno-deprecated
 endif
 
 CSOURCES	:= $(SRCDIR)/autocorr2.cpp
