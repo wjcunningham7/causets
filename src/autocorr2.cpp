@@ -5,7 +5,7 @@
 
 #include "autocorr2.h"
 
-static void avglessi(int n, double x[], double xai[])
+void avglessi(int n, double x[], double xai[])
 {
 	int i1, i2;
 
@@ -26,7 +26,7 @@ static void avglessi(int n, double x[], double xai[])
 	}
 }
   
-static double get_mean(int n, double x[])
+double get_mean(int n, double x[])
 {
 	if (n <= 0)
 		fprintf(stderr, "bad n get_mean");
@@ -42,7 +42,7 @@ static double get_mean(int n, double x[])
 	return dum;
 }
 
-static double jackknife(int n, double xdot, double xai[])
+double jackknife(int n, double xdot, double xai[])
 {
 	int i;
 	double dumt, dums = 0.0;

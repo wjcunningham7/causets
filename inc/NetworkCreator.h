@@ -4,7 +4,9 @@
 #include <fastmath/FastNumInt.h>
 
 #include "Operations.h"
+#ifdef CUDA_ENABLED
 #include "NetworkCreator_GPU.h"
+#endif
 #include "Validate.h"
 
 /////////////////////////////

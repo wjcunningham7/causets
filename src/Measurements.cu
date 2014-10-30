@@ -228,7 +228,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	}
 
-	float dist, min_dist;
+	float dist = 0.0, min_dist = 0.0;
 	int loc, next;
 	int idx_a, idx_b;
 	int i, j, m;
@@ -401,17 +401,20 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 	}
 
 	double *table;
-	double *params;
-	double *params2 = (double*)malloc(sizeof(double));
 	float4 test_node;
-	double k_in_theory, k_out_theory;
 	double d_size/*, x, rval*/;
 	float dt, dx;
 	long size = 0;
 	int k_in, k_out;
 	int i, j;
 
+	//Numerical Integration Parameters
+	double *params = NULL;
+	double *params2 = (double*)malloc(sizeof(double));
+
 	//Calculate theoretical values
+	double k_in_theory = 0.0;
+	double k_out_theory = 0.0;
 	bool theoretical = universe && verbose;
 
 	//Modify number of samples

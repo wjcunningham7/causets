@@ -29,12 +29,14 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			return false;
 	}
 
+	#ifdef CUDA_ENABLED
 	//Optimize Parameters for GPU
 	if (network_properties->flags.use_gpu && network_properties->N_tar % (BLOCK_SIZE << 1)) {
 		printf("If you are using the GPU, set the target number of nodes (--nodes) to be a multiple of double the thread block size (%d)!\n", BLOCK_SIZE << 1);
 		fflush(stdout);
 		return false;
 	}
+	#endif
 
 	try {
 		if (network_properties->flags.universe) {
@@ -572,7 +574,7 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 	}
 
 	IntData idata = IntData();
-	double *param;
+	double *param = NULL;
 
 	//Modify these two parameters to trade off between speed and accuracy
 	idata.limit = 50;
@@ -738,7 +740,7 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 		assert (edge_buffer >= 0);
 	}
 
-	double dt, dx;
+	double dt = 0.0, dx = 0.0;
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
 	int future_idx = 0;
 	int past_idx = 0;

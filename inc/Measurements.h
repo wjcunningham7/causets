@@ -2,7 +2,9 @@
 #define MEASUREMENTS_H_
 
 #include "Operations.h"
+#ifdef CUDA_ENABLED
 #include "Operations_GPU.h"
+#endif
 #include "Validate.h"
 
 /////////////////////////////

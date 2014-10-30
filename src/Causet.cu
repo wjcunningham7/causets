@@ -22,9 +22,11 @@ int main(int argc, char **argv)
 
 	shrQAStart(argc, argv);
 
+	#ifdef CUDA_ENABLED
 	//Identify and Connect to GPU
 	if (network.network_properties.flags.use_gpu)
 		connectToGPU(&resources, argc, argv);
+	#endif
 
 	//Create Causal Set Graph	
 	if (network.network_properties.graphID == 0 && !initializeNetwork(&network, &cp, &bm, resources.cuContext, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
@@ -43,8 +45,10 @@ int main(int argc, char **argv)
 	destroyNetwork(&network, resources.hostMemUsed, resources.devMemUsed);
 
 	CausetSuccess:
+	#ifdef CUDA_ENABLED
 	//Release GPU
 	if (network.network_properties.flags.use_gpu) cuCtxDetach(resources.cuContext);
+	#endif
 
 	//Identify Potential Memory Leaks
 	success = !resources.hostMemUsed && !resources.devMemUsed;
@@ -54,14 +58,16 @@ int main(int argc, char **argv)
 	CausetExit:
 	//Exit Program
 	stopwatchStop(&cp.sCauset);
+	#ifdef CUDA_ENABLED
 	shrQAFinish(argc, (const char**)argv, success ? QA_PASSED : QA_FAILED);
+	#endif
 	printf("Time: %5.6f sec\n", cp.sCauset.elapsedTime);
 	printf("PROGRAM COMPLETED\n\n");
 	fflush(stdout);
 }
 
 //Parse Command Line Arguments
-static NetworkProperties parseArgs(int argc, char **argv)
+NetworkProperties parseArgs(int argc, char **argv)
 {
 	NetworkProperties network_properties = NetworkProperties();
 
@@ -323,10 +329,13 @@ static NetworkProperties parseArgs(int argc, char **argv)
 					//network_properties.flags.disp_network = true;
 					printf("Display not supported:  Ignoring Flag.\n");
 					fflush(stdout);
-				} else if (!strcmp("gpu", longOpts[longIndex].name))
+				} else if (!strcmp("gpu", longOpts[longIndex].name)) {
 					//Flag to use GPU accelerated routines
 					network_properties.flags.use_gpu = true;
-				else if (!strcmp("print", longOpts[longIndex].name))
+					#ifndef CUDA_ENABLED
+					throw CausetException("Recompile with 'make gpu' to use the --gpu flag!\n");
+					#endif
+				} else if (!strcmp("print", longOpts[longIndex].name))
 					//Flag to print results to file in 'dat' folder
 					network_properties.flags.print_network = true;
 				else {
@@ -375,7 +384,9 @@ static NetworkProperties parseArgs(int argc, char **argv)
 				printf("  --benchmark\t\tBenchmark Algorithms\n");
 				printf("  --conflicts\t\tShow Parameter Conflicts\n");
 				printf("  --display\t\tDisplay Graph\n");
+				#ifdef CUDA_ENABLED
 				printf("  --gpu\t\t\tUse GPU Acceleration\n");
+				#endif
 				printf("  --print\t\tPrint Results\n");
 				printf("\n");
 
@@ -411,7 +422,7 @@ static NetworkProperties parseArgs(int argc, char **argv)
 }
 
 //Handles all network generation and initialization procedures
-static bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
+bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -495,13 +506,17 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 	//Identify edges as points connected by timelike intervals
 	if (network->network_properties.flags.link) {
 		for (i = 0; i <= nb; i++) {
+			#ifdef CUDA_ENABLED
 			if (network->network_properties.flags.use_gpu) {
 				if (!linkNodesGPU(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 					return false;
 			} else {
+			#endif
 				if (!linkNodes(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 					return false;
+			#ifdef CUDA_ENABLED
 			}
+			#endif
 		}
 
 		if (nb) {
@@ -517,7 +532,7 @@ static bool initializeNetwork(Network * const network, CausetPerformance * const
 	return true;
 }
 
-static bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
+bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -630,7 +645,7 @@ static bool measureNetworkObservables(Network * const network, CausetPerformance
 //Reads the following files:
 //	-Node position data		(./dat/pos/*.cset.pos.dat)
 //	-Edge data			(./dat/edg/*.cset.edg.dat)
-static bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
+bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed)
 {
 	if (DEBUG) {
 		//No Null Pointers
@@ -667,7 +682,7 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 		int node_idx;
 		int i, j;
 		unsigned int e0, e1;
-		unsigned int idx0, idx1;
+		unsigned int idx0 = 0, idx1 = 0;
 		unsigned int tmp;
 
 		char d[] = " \t";
@@ -786,13 +801,17 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 
 		//Re-Link Using linkNodes Subroutine
 		if (network->network_properties.manifold == DE_SITTER && network->network_properties.flags.relink) {
+			#ifdef CUDA_ENABLED
 			if (network->network_properties.flags.use_gpu) {
 				if (!linkNodesGPU(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 					return false;
 			} else {
+			#endif
 				if (!linkNodes(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 					return false;
+			#ifdef CUDA_ENABLED
 			}
+			#endif
 
 			return true;
 		} else if (!network->network_properties.flags.link)
@@ -859,9 +878,9 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 				network->edges.future_edges[i] = idx1;
 				edges[i] = ((uint64_t)idx1) << 32 | ((uint64_t)idx0);
 			
-				if (idx0 != node_idx) {
+				if ((int)idx0 != node_idx) {
 					if (idx0 - node_idx > 1)
-						for(j = 0; j < idx0 - node_idx - 1; j++)
+						for(j = 0; j < (int)idx0 - node_idx - 1; j++)
 							network->edges.future_edge_row_start[idx0-j-1] = -1;
 					network->edges.future_edge_row_start[idx0] = i;
 					node_idx = idx0;
@@ -885,9 +904,9 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 				idx1 = key & 0x00000000FFFFFFFF;
 				network->edges.past_edges[i] = idx1;
 
-				if (idx0 != node_idx) {
+				if ((int)idx0 != node_idx) {
 					if (idx0 - node_idx > 1)
-						for (j = 0; j < idx0 - node_idx - 1; j++)
+						for (j = 0; j < (int)idx0 - node_idx - 1; j++)
 							network->edges.past_edge_row_start[idx0-j-1] = -1;
 					network->edges.past_edge_row_start[idx0] = i;
 					node_idx = idx0;
@@ -952,7 +971,7 @@ static bool loadNetwork(Network * const network, CausetPerformance * const cp, B
 }
 
 //Print to File
-static bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed, const int &gpuID)
+bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed, const int &gpuID)
 {
 	if (!network.network_properties.flags.print_network)
 		return false;
@@ -1357,7 +1376,7 @@ static bool printNetwork(Network &network, CausetPerformance &cp, const long &in
 }
 
 //Print Benchmarking Data
-static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link, const bool &relink)
+bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link, const bool &relink)
 {
 	//Print to File
 	FILE *f;
@@ -1433,7 +1452,7 @@ static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const boo
 }
 
 //Free Memory
-static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed)
+void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed)
 {
 	bool links_exist = network->network_properties.flags.link || network->network_properties.flags.relink;
 

@@ -16,8 +16,8 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 //Quicksort Algorithm
 void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, int high);
 void quicksort(uint64_t *edges, int low, int high);
-static void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, const int j);
-static void swap(uint64_t *edges, const int i, const int j);
+void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, const int j);
+void swap(uint64_t *edges, const int i, const int j);
 
 //Bisection Algorithm
 bool bisection(double (*solve)(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * p6), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6);

@@ -45,8 +45,8 @@ class autocorr2
 		void do_jackknife();
 };
 
-static void avglessi(int n, double x[], double xai[]);
-static double get_mean(int n, double x[]);
-static double jackknife(int n, double xdot, double xai[]);
+void avglessi(int n, double x[], double xai[]);
+double get_mean(int n, double x[]);
+double jackknife(int n, double xdot, double xai[]);
 
 #endif

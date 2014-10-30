@@ -68,7 +68,9 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 		printf("%d\n", edges.past_edge_row_start[i]);
 	fflush(stdout);
 
-	int next_future_idx, next_past_idx;
+	int next_future_idx = -1;
+	int next_past_idx = -1;
+
 	for (i = 0; i < max1; i++) {
 		printf("\nNode i: %d\n", i);
 

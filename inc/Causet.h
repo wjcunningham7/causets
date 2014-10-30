@@ -16,10 +16,14 @@
 
 //Other System Files
 #include <boost/unordered_map.hpp>
+#ifdef CUDA_ENABLED
 #include <cuda.h>
-#include <curand.h>
-#include <GL/freeglut.h>
-//#include <mpi.h>
+//#include <curand.h>
+#endif
+//#include <GL/freeglut.h>
+#ifdef MPI_ENABLED
+#include <mpi.h>
+#endif
 #ifdef _OPENMP
   #include <omp.h>
 #else
@@ -53,6 +57,21 @@
 //[3] Uniformly Distributed Random Unit Quaternions			    //
 //    mathproofs.blogspot.com/2005/05/uniformly-distributed-random-unit.html//
 //////////////////////////////////////////////////////////////////////////////
+
+#ifndef CUDA_ENABLED
+//Redefine CUDA data types
+
+struct __attribute__ (aligned(8)) float2 {
+	float x, y;
+};
+
+struct __attribute__ (aligned(16)) float4 {
+	float w, x, y, z;
+};
+
+typedef int CUcontext;
+
+#endif
 
 //Manifold Types
 enum Manifold {
@@ -288,27 +307,27 @@ class CausetException : public std::exception
 {
 	public:
 		CausetException() : msg("Unknown Error!") {}
-		explicit CausetException(char *_msg) : msg(_msg) {}
+		explicit CausetException(char const * _msg) : msg(_msg) {}
 		virtual ~CausetException() throw () {}
-		virtual const char* what() const throw () { return msg; }
+		virtual const char * what() const throw () { return msg; }
 
 	protected:
-		char *msg;
+		char const * msg;
 };
 
 //Function prototypes for those described in src/Causet.cu
-static NetworkProperties parseArgs(int argc, char **argv);
+NetworkProperties parseArgs(int argc, char **argv);
 
-static bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
 
-static bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
 
-static bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
 
-static bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed, const int &gpuID);
+bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed, const int &gpuID);
 
-static bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link, const bool &relink);
+bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link, const bool &relink);
 
-static void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed);
+void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed);
 
 #endif

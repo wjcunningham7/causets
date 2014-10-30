@@ -71,7 +71,7 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 	if (DEBUG) {
 		assert (table != NULL);
 		assert (size > 0);
-		assert (x == NULL ^ y == NULL);
+		assert ((x == NULL) ^ (y == NULL));
 	}
 	
 	//Identify which is being calculated
@@ -85,8 +85,8 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 	try {
 		//Identify Value in Table
 		//Assumes values are written (y, x)
-		for (i = (int)(!first); i < size / sizeof(double); i += 2) {
-			if (increasing && table[i] > input || !increasing && table[i] < input) {
+		for (i = (int)(!first); i < size / (int)sizeof(double); i += 2) {
+			if ((increasing && table[i] > input) || (!increasing && table[i] < input)) {
 				t_idx = i;
 				break;
 			}
@@ -126,7 +126,7 @@ void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, i
 	}
 
 	int i, j, k;
-	float key;
+	float key = 0.0;
 
 	if (low < high) {
 		k = (low + high) >> 1;
@@ -185,7 +185,7 @@ void quicksort(uint64_t *edges, int low, int high)
 }
 
 //Exchange two nodes
-static void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, const int j)
+void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, const int j)
 {
 	if (DEBUG) {
 		assert (dim == 1 || dim == 3);
@@ -216,7 +216,7 @@ static void swap(Node &nodes, const int &dim, const Manifold &manifold, const in
 }
 
 //Exchange two edges
-static void swap(uint64_t *edges, const int i, const int j)
+void swap(uint64_t *edges, const int i, const int j)
 {
 	uint64_t tmp = edges[i];
 	edges[i] = edges[j];
@@ -401,6 +401,6 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, int * const 
 	unsigned int i, j;
 	for (i = 0; i < buffer_size; i++)
 		for (j = 0; j < buffer_size; j++)
-			if (h_edges[i*buffer_size+j] && g_idx[0] < d_edges_size)
+			if (h_edges[i*buffer_size+j] && g_idx[0] < (int)d_edges_size)
 				edges[++g_idx[0]] = ((uint64_t)(x*buffer_size+i)) << 32 | ((uint64_t)(y*buffer_size+j));
 }

@@ -1,5 +1,7 @@
 #include "CuResources.h"
 
+#ifdef CUDA_ENABLED
+
 // This will output the proper CUDA error strings in the event that a CUDA host call returns an error
 void __checkCudaErrors(CUresult err, const char *file, const int line)
 {
@@ -22,8 +24,10 @@ void __getLastCudaError( const char *errorMessage, const char *file, const int l
 	}
 }
 
+#endif
+
 //Print the Total Memory to the Terminal
-void printMemUsed(char *chkPoint, size_t hostMem, size_t devMem)
+void printMemUsed(char const * chkPoint, size_t hostMem, size_t devMem)
 {
 	if (chkPoint != NULL)
 		printf("\nTotal Memory Used %s.........\n", chkPoint);
@@ -43,13 +47,13 @@ void printMemUsed(char *chkPoint, size_t hostMem, size_t devMem)
 		bytes = hostMem - (GBytes * pow(2.0, 30)) - (MBytes * pow(2.0, 20)) - (KBytes * pow(2.0, 10));
 
 	if (GBytes > 0)
-		printf("%i GB\t", GBytes);
+		printf("%zd GB\t", GBytes);
 	if (MBytes > 0)
-		printf("%i MB\t", MBytes);
+		printf("%zd MB\t", MBytes);
 	if (KBytes > 0)
-		printf("%i KB\t", KBytes);
+		printf("%zd KB\t", KBytes);
 	if (bytes  > 0)
-		printf("%i bytes\t", bytes);
+		printf("%zd bytes\t", bytes);
 	if (GBytes > 0 || MBytes > 0 || KBytes > 0 || bytes > 0)
 		printf(" [HOST]\n\n");
 	fflush(stdout);
@@ -65,13 +69,13 @@ void printMemUsed(char *chkPoint, size_t hostMem, size_t devMem)
 		bytes = devMem - (GBytes * pow(2.0, 30)) - (MBytes * pow(2.0, 20)) - (KBytes * pow(2.0, 10));
 
 	if (GBytes > 0)
-		printf("%i GB\t", GBytes);
+		printf("%zd GB\t", GBytes);
 	if (MBytes > 0)
-		printf("%i MB\t", MBytes);
+		printf("%zd MB\t", MBytes);
 	if (KBytes > 0)
-		printf("%i KB\t", KBytes);
+		printf("%zd KB\t", KBytes);
 	if (bytes  > 0)
-		printf("%i bytes\t", bytes);
+		printf("%zd bytes\t", bytes);
 	if (GBytes > 0 || MBytes > 0 || KBytes > 0 || bytes > 0)
 		printf("[DEVICE]\n\n");
 	fflush(stdout);
@@ -85,6 +89,8 @@ void memoryCheckpoint(const size_t &hostMemUsed, size_t &maxHostMemUsed, const s
 	if (devMemUsed > maxDevMemUsed)
 		maxDevMemUsed = devMemUsed;
 }
+
+#ifdef CUDA_ENABLED
 
 //Initialize connection to GPU
 void connectToGPU(Resources *resources, int argc, char **argv)
@@ -135,3 +141,5 @@ CUdevice findCudaDevice(int id)
 
     	return device;
 }
+
+#endif
