@@ -84,9 +84,9 @@ CEXTOBJS	:= $(patsubst $(FASTSRC)/%.cpp, $(OBJDIR)/%.o, $(CEXTSOURCES))
 CUDAOBJS	:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%_cu.o, $(CUDASOURCES))
 OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.o, $(SOURCES))
 
-all : $(COBJS) $(CEXTOBJS) $(OBJS) link
+all : $(COBJS) $(CEXTOBJS) $(CUDAOBJS) linkgpu bin
 
-gpu : $(COBJS) $(CEXTOBJS) $(CUDAOBJS) linkgpu bin
+cpu : $(COBJS) $(CEXTOBJS) $(OBJS) link
 
 $(COBJS) : | dirs
 

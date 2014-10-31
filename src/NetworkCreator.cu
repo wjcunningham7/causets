@@ -601,18 +601,18 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 		//if (i % NPRINT == 0) printf("Theta: %5.5f\n", x); fflush(stdout);
 
 		if (dim == 1) {
-			nodes.c.hc[i].y = x;
+			nodes.c.hc[i].y = static_cast<float>(x);
 
 			//CDF derived from PDF identified in (2) of [2]
-			nodes.c.hc[i].x = ATAN(ran2(&seed) / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+			nodes.c.hc[i].x = static_cast<float>(ATAN(ran2(&seed) / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			if (DEBUG) {
-				assert (nodes.c.hc[i].x > 0.0);
-				assert (nodes.c.hc[i].x < HALF_PI - zeta + 0.0000001);
+				assert (nodes.c.hc[i].x > 0.0f);
+				assert (nodes.c.hc[i].x < static_cast<float>(HALF_PI - zeta) + 0.0000001f);
 			}
 
-			nodes.id.tau[i] = etaToTau(nodes.c.hc[i].x);
+			nodes.id.tau[i] = static_cast<float>(etaToTau(static_cast<double>(nodes.c.hc[i].x)));
 		} else if (dim == 3) {
-			nodes.c.sc[i].x = x;
+			nodes.c.sc[i].x = static_cast<float>(x);
 
 			/////////////////////////////////////////////////////////
 			//~~~~~~~~~~~~~~~~~~~~~~~~~~~~T~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -620,7 +620,7 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 			//and from PDF identified in (12) of [2] for universe  //
 			/////////////////////////////////////////////////////////
 
-			nodes.id.tau[i] = tau0 + 1.0;
+			nodes.id.tau[i] = static_cast<float>(tau0) + 1.0f;
 			do {
 				rval = ran2(&seed);
 				if (universe) {
@@ -638,26 +638,26 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 						return false;
 				}
 
-				nodes.id.tau[i] = x;
-			} while (nodes.id.tau[i] > tau0);
+				nodes.id.tau[i] = static_cast<float>(x);
+			} while (nodes.id.tau[i] > static_cast<float>(tau0));
 
 			if (DEBUG) {
-				assert (nodes.id.tau[i] > 0.0);
-				assert (nodes.id.tau[i] < tau0);
+				assert (nodes.id.tau[i] > 0.0f);
+				assert (nodes.id.tau[i] < static_cast<float>(tau0));
 			}
 
 			//Save eta values as well
 			if (universe) {
 				if (USE_GSL) {
 					//Numerical Integration
-					idata.upper = nodes.id.tau[i] * a;
+					idata.upper = static_cast<double>(nodes.id.tau[i]) * a;
 					param[0] = a;
-					nodes.c.sc[i].w = integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / alpha;
+					nodes.c.sc[i].w = static_cast<float>(integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / alpha);
 				} else
 					//Exact Solution
-					nodes.c.sc[i].w = tauToEtaUniverseExact(nodes.id.tau[i], a, alpha);
+					nodes.c.sc[i].w = static_cast<float>(tauToEtaUniverseExact(nodes.id.tau[i], a, alpha));
 			} else
-				nodes.c.sc[i].w = tauToEta(nodes.id.tau[i]);
+				nodes.c.sc[i].w = static_cast<float>(tauToEta(static_cast<double>(nodes.id.tau[i])));
 				
 			////////////////////////////////////////////////////
 			//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
@@ -672,13 +672,13 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 			rval = ran2(&seed);
 			if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
 				return false;
-			nodes.c.sc[i].y = x;
-			if (DEBUG) assert (nodes.c.sc[i].y > 0.0 && nodes.c.sc[i].y < M_PI);
+			nodes.c.sc[i].y = static_cast<float>(x);
+			if (DEBUG) assert (nodes.c.sc[i].y > 0.0f && nodes.c.sc[i].y < static_cast<float>(M_PI));
 			//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes.c.sc[i].y); fflush(stdout);
 
 			//Sample Chi from (0, pi)
-			nodes.c.sc[i].z = ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-			if (DEBUG) assert (nodes.c.sc[i].z > 0.0 && nodes.c.sc[i].z < M_PI);
+			nodes.c.sc[i].z = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			if (DEBUG) assert (nodes.c.sc[i].z > 0.0f && nodes.c.sc[i].z < static_cast<float>(M_PI));
 			//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes.c.sc[i].z); fflush(stdout);
 		}
 		//if (i % NPRINT == 0) printf("eta: %E\n", nodes.c.sc[i].w);
@@ -740,7 +740,7 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 		assert (edge_buffer >= 0);
 	}
 
-	double dt = 0.0, dx = 0.0;
+	float dt = 0.0, dx = 0.0;
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
 	int future_idx = 0;
 	int past_idx = 0;
@@ -763,8 +763,8 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 				dt = nodes.c.sc[j].w - nodes.c.sc[i].w;
 			//if (i % NPRINT == 0) printf("dt: %.9f\n", dt); fflush(stdout);
 			if (DEBUG) {
-				assert (dt >= 0.0);
-				assert (dt <= HALF_PI - zeta);
+				assert (dt >= 0.0f);
+				assert (dt <= static_cast<float>(HALF_PI - zeta));
 			}
 
 			//////////////////////////////////////////
@@ -773,15 +773,15 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 
 			if (dim == 1) {
 				//Formula given on p. 2 of [2]
-				dx = M_PI - ABS(M_PI - ABS(nodes.c.hc[j].y - nodes.c.hc[i].y, STL), STL);
+				dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(nodes.c.hc[j].y - nodes.c.hc[i].y), STL), STL));
 			} else if (dim == 3) {
 				//Spherical Law of Cosines
-				dx = ACOS(sphProduct(nodes.c.sc[i], nodes.c.sc[j]), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(nodes.c.sc[i], nodes.c.sc[j])), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			}
 
 			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx); fflush(stdout);
 			//if (i % NPRINT == 0) printf("cos(dx): %.5f\n", cosf(dx)); fflush(stdout);
-			if (DEBUG) assert (dx >= 0.0 && dx <= M_PI);
+			if (DEBUG) assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {
@@ -822,7 +822,9 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 	}
 
 	edges.future_edge_row_start[N_tar-1] = -1;
+	printf_cyan();
 	printf("\t\tUndirected Links: %d\n", future_idx);
+	printf_std();
 	fflush(stdout);
 
 	//if (!printSpatialDistances(nodes, manifold, N_tar, dim)) return false;

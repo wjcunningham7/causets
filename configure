@@ -6,22 +6,23 @@
 # Northeastern University #
 ###########################
 
-mkdir bin
-mkdir dat
-mkdir dat/cdk
-mkdir dat/cls
-mkdir dat/dst
-mkdir dat/edg
-mkdir dat/emb
-mkdir dat/emb/fp
-mkdir dat/emb/tn
-mkdir dat/idd
-mkdir dat/idf
-mkdir dat/odd
-mkdir dat/odf
-mkdir dat/pos
-mkdir dat/ref
-mkdir net
-mkdir obj
+mkdir -p bin
+mkdir -p dat
+mkdir -p dat/cdk
+mkdir -p dat/cls
+mkdir -p dat/dst
+mkdir -p dat/edg
+mkdir -p dat/emb
+mkdir -p dat/emb/fp
+mkdir -p dat/emb/tn
+mkdir -p dat/idd
+mkdir -p dat/idf
+mkdir -p dat/odd
+mkdir -p dat/odf
+mkdir -p dat/pos
+mkdir -p dat/ref
+mkdir -p net
+mkdir -p obj
 
-mv etc/.README.dat dat/README
+cp etc/.README.dat dat/
+mv dat/.README.dat dat/README

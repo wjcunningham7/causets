@@ -25,7 +25,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 	}
 
 	float c_i, c_k, c_max;
-	float c_avg = 0.0;
+	float c_avg = 0.0f;
 	int i, j, k;
 
 	stopwatchStart(&sMeasureClustering);
@@ -59,13 +59,13 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 
 		//Ingore nodes of degree 0 and 1
 		if (nodes.k_in[i] + nodes.k_out[i] < 2) {
-			clustering[i] = 0;
+			clustering[i] = 0.0f;
 			continue;
 		}
 
-		c_i = 0.0;
+		c_i = 0.0f;
 		c_k = static_cast<float>((nodes.k_in[i] + nodes.k_out[i]));
-		c_max = c_k * (c_k - 1.0) / 2.0;
+		c_max = c_k * (c_k - 1.0f) / 2.0f;
 
 		//(1) Consider both neighbors in the past
 		if (edges.past_edge_row_start[i] != -1)
@@ -73,7 +73,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 				//3 < 2 < 1
 				for (k = 0; k < j; k++)
 					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.past_edges[edges.past_edge_row_start[i]+k], edges.past_edges[edges.past_edge_row_start[i]+j]))
-						c_i += 1.0;
+						c_i += 1.0f;
 
 		//(2) Consider both neighbors in the future
 		if (edges.future_edge_row_start[i] != -1)
@@ -81,7 +81,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 				//1 < 3 < 2
 				for (k = 0; k < j; k++)
 					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.future_edges[edges.future_edge_row_start[i]+k], edges.future_edges[edges.future_edge_row_start[i]+j]))
-						c_i += 1.0;
+						c_i += 1.0f;
 
 		//(3) Consider one neighbor in the past and one in the future
 		if (edges.past_edge_row_start[i] != -1 && edges.future_edge_row_start[i] != -1)
@@ -89,11 +89,11 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 				for (k = 0; k < nodes.k_in[i]; k++)
 					//3 < 1 < 2
 					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.past_edges[edges.past_edge_row_start[i]+k], edges.future_edges[edges.future_edge_row_start[i]+j]))
-						c_i += 1.0;
+						c_i += 1.0f;
 
-		if (DEBUG) assert (c_max > 0.0);
+		if (DEBUG) assert (c_max > 0.0f);
 		c_i = c_i / c_max;
-		if (DEBUG) assert (c_i <= 1.0);
+		if (DEBUG) assert (c_i <= 1.0f);
 
 		clustering[i] = c_i;
 		c_avg += c_i;
@@ -105,7 +105,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 	}
 
 	average_clustering = c_avg / N_deg2;
-	if (DEBUG) assert (average_clustering >= 0.0 && average_clustering <= 1.0);
+	if (DEBUG) assert (average_clustering >= 0.0f && average_clustering <= 1.0f);
 
 	stopwatchStop(&sMeasureClustering);
 
@@ -228,7 +228,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	}
 
-	float dist = 0.0, min_dist = 0.0;
+	float dist = 0.0f, min_dist = 0.0f;
 	int loc, next;
 	int idx_a, idx_b;
 	int i, j, m;
@@ -347,7 +347,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const bool * cons
 
 		PathSuccess:
 		if (loc == j) //{
-			success_ratio += 1.0;
+			success_ratio += 1.0f;
 			//printf("%d (S)\n", nodes.id.AS[loc]);
 		//} else
 		//	printf("(F)\n");
@@ -402,9 +402,10 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 	double *table;
 	float4 test_node;
+	double eta_m;
 	double d_size/*, x, rval*/;
 	float dt, dx;
-	long size = 0;
+	long size = 0L;
 	int k_in, k_out;
 	int i, j;
 
@@ -471,29 +472,33 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 			//Numerical Integration
 			idata.upper = tau_m * a;
 			params2[0] = a;
-			test_node.w = integrate1D(&tToEtaUniverse, (void*)params2, &idata, QAGS) / alpha;
+			eta_m = integrate1D(&tToEtaUniverse, (void*)params2, &idata, QAGS) / alpha;
 			free(params2);
 		} else
 			//Exact Solution
-			test_node.w = tauToEtaUniverseExact(tau_m, a, alpha);
+			eta_m = tauToEtaUniverseExact(tau_m, a, alpha);
 	} else
-		test_node.w = tauToEta(tau_m);
+		eta_m = tauToEta(tau_m);
+	test_node.w = static_cast<float>(eta_m);
 	
 	if (theoretical) {	
 		d_size = static_cast<double>(size);
-		memcpy(params, &test_node.w, sizeof(double));
+		memcpy(params, &eta_m, sizeof(double));
 		memcpy(params + 1, &a, sizeof(double));
 		memcpy(params + 2, &alpha, sizeof(double));
 		memcpy(params + 3, &d_size, sizeof(double));
 		memcpy(params + 4, table, size);
 	
+		idata.limit = 100;
+		idata.tol = 1e-4;
+	
 		//Theoretical Average In-Degree
 		idata.lower = 0.0;
-		idata.upper = test_node.w;
+		idata.upper = eta_m;
 		k_in_theory = (4.0 * M_PI * delta * POW2(POW2(alpha, EXACT), EXACT) / 3.0) * integrate1D(&degreeFieldTheory, params, &idata, QAGS);
 
 		//Theoretical Average Out-Degree
-		idata.lower = test_node.w;
+		idata.lower = eta_m;
 		idata.upper = HALF_PI - zeta;
 		k_out_theory = (4.0 * M_PI * delta * POW2(POW2(alpha, EXACT), EXACT) / 3.0) * integrate1D(&degreeFieldTheory, params, &idata, QAGS);
 
@@ -510,26 +515,26 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 	//Take N_df measurements of the fields
 	for (i = 0; i < N_df; i++) {
-		test_node.x = 1.0;
-		test_node.y = 1.0;
-		test_node.z = 1.0;
+		test_node.x = 1.0f;
+		test_node.y = 1.0f;
+		test_node.z = 1.0f;
 
 		//Sample Theta from (0, 2pi)
 		/*x = TWO_PI * ran2(&seed);
-		test_node.x = x;
-		if (DEBUG) assert (test_node.x > 0.0 && test_node.x < TWO_PI);
+		test_node.x = static_cast<float>(x);
+		if (DEBUG) assert (test_node.x > 0.0f && test_node.x < static_cast<float>(TWO_PI));
 
 		//Sample Phi from (0, pi)
 		x = HALF_PI;
 		rval = ran2(&seed);
 		if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
 			return false;
-		test_node.y = x;
-		if (DEBUG) assert (test_node.y > 0.0 && test_node.y < M_PI);
+		test_node.y = static_cast<float>(x);
+		if (DEBUG) assert (test_node.y > 0.0f && test_node.y < static_cast<float>(M_PI));
 
 		//Sample Chi from (0, pi)
-		test_node.z = ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-		if (DEBUG) assert (test_node.z > 0.0 && test_node.z < M_PI);*/
+		test_node.z = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+		if (DEBUG) assert (test_node.z > 0.0f && test_node.z < static_cast<float>(M_PI));*/
 
 		k_in = 0;
 		k_out = 0;
@@ -537,8 +542,8 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		//Compare test node to N_tar other nodes
 		for (j = 0; j < N_tar; j++) {
 			//Calculate sign of spacetime interval
-			dt = ABS(sc[j].w - test_node.w, STL);
-			dx = ACOS(sphProduct(sc[j], test_node), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+			dt = static_cast<float>(ABS(static_cast<double>(sc[j].w - test_node.w), STL));
+			dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(sc[j], test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 
 			if (dx < dt) {
 				//They are connected

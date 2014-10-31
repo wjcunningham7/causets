@@ -1,11 +1,5 @@
 #!/bin/bash
 
-###########################
-#(C) Will Cunningham 2014 #
-# Krioukov Research Group #
-# Northeastern University #
-###########################
-
 #BSUB -J univ
 #BSUB -o /scratch/cunningham/causets/causet.log
 #BSUB -e /scratch/cunningham/causets/causet.err
@@ -14,10 +8,30 @@
 #BSUB -R span[ptile=32]
 #BSUB -cwd /scratch/cunningham/causets
 
-#if [ "$#" -ne 1 ]; then
-#  echo "Must specify flags for CausalSet program in LSF script!"
-#  exit 1
-#fi
+###########################
+#(C) Will Cunningham 2014 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+if [ "$#" -ne 1 ]; then
+  echo "Must specify flags for CausalSet program in LSF script!"
+  exit 1
+fi
+
+CFLAGS=''
+
+while getopts :p: FLAG; do
+  case $FLAG in
+    p)
+      CFLAGS=$OPTARG
+      ;;
+    \?)
+      echo -e \\n"Option -${BOLD}$OPTARG${NORM} not recognized."
+      exit 2
+      ;;
+  esac
+done
 
 mkdir /scratch/cunningham
 mkdir /scratch/cunningham/causets/
@@ -80,8 +94,8 @@ samples=25
 for (( i=1; i<=${samples}; i++ ))
 do
   echo Trial $i of ${samples}
-  ./CausalSet --universe --age 4.0 --nodes $nodes --delta 1 --radius 1 --print --verbose -y --gpu --link
-#  ./CausalSet $1
+#  ./CausalSet --universe --age 4.0 --nodes $nodes --delta 1 --radius 1 --print --verbose -y --gpu --link
+  ./CausalSet $CFLAGS
 done
 
 # Do not edit below this

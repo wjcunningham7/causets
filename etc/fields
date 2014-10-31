@@ -11,8 +11,8 @@
 import glob
 import sys
 
-basedir = '/scratch/cunningham/causets/'
-#basedir = ''
+#basedir = '/scratch/cunningham/causets/'
+basedir = ''
 idf_files = glob.glob(basedir + 'dat/idf/*.cset.idf.dat')
 odf_files = glob.glob(basedir + 'dat/odf/*.cset.odf.dat')
 
@@ -50,14 +50,16 @@ else:
 	out_avg /= len(k_out_field)
 	sys.stdout.write('Average Out-Degree Field Value: %f\n' % out_avg)
 
-h = open(basedir + 'dat/ref/in_field.cset.deg.ref','w')
-for i in range(0,len(k_in_field)):
-	h.write(str(k_in_field[i]) + '\n')
-h.close()
+if len(k_in_field) != 0:
+	h = open(basedir + 'dat/ref/in_field.cset.deg.ref','w')
+	for i in range(0,len(k_in_field)):
+		h.write(str(k_in_field[i]) + '\n')
+	h.close()
 
-h = open(basedir + 'dat/ref/out_field.cset.deg.ref','w')
-for i in range(0,len(k_out_field)):
-	h.write(str(k_out_field[i]) + '\n')
-h.close()
+if len(k_out_field) != 0:
+	h = open(basedir + 'dat/ref/out_field.cset.deg.ref','w')
+	for i in range(0,len(k_out_field)):
+		h.write(str(k_out_field[i]) + '\n')
+	h.close()
 
 sys.stdout.write('Completed FLD.\n')
