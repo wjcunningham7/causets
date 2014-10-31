@@ -14,24 +14,28 @@
 # Northeastern University #
 ###########################
 
-if [ "$#" -ne 1 ]; then
-  echo "Must specify flags for CausalSet program in LSF script!"
-  exit 1
-fi
+CFLAGS="%flags%"
+#echo "value = ${CFLAGS[0]}"
+#echo "value2 = ${CFLAGS[1]}"
 
-CFLAGS=''
+#if [ "$#" -ne 1 ]; then
+#  echo "Must specify flags for CausalSet program in LSF script!"
+#  exit 1
+#fi
 
-while getopts :p: FLAG; do
-  case $FLAG in
-    p)
-      CFLAGS=$OPTARG
-      ;;
-    \?)
-      echo -e \\n"Option -${BOLD}$OPTARG${NORM} not recognized."
-      exit 2
-      ;;
-  esac
-done
+#CFLAGS=''
+
+#while getopts :p: FLAG; do
+#  case $FLAG in
+#    p)
+#      CFLAGS=$OPTARG
+#      ;;
+#    \?)
+#      echo -e \\n"Option -${BOLD}$OPTARG${NORM} not recognized."
+#      exit 2
+#      ;;
+#  esac
+#done
 
 mkdir /scratch/cunningham
 mkdir /scratch/cunningham/causets/
@@ -95,7 +99,8 @@ for (( i=1; i<=${samples}; i++ ))
 do
   echo Trial $i of ${samples}
 #  ./CausalSet --universe --age 4.0 --nodes $nodes --delta 1 --radius 1 --print --verbose -y --gpu --link
-  ./CausalSet $CFLAGS
+#  ./CausalSet $CFLAGS
+  ./CausalSet %flags%
 done
 
 # Do not edit below this

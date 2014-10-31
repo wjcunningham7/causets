@@ -11,20 +11,23 @@ if [ $njobs -lt 1 ] || [ $njobs -gt 4 ]; then
   exit 1
 fi
 
-flags="--universe --age 4.0 --nodes 65536 --delta 1 --radius 1 --print --verbose -y --gpu --link"
+flags="--universe --age 4.0 --nodes 10240 --delta 1 --radius 1 --print --verbose -y --gpu --link"
 
-bsub < ./lsf/causet -p $flags
+sed "s:%flags%:$flags:g" < lsf/causet | bsub
 
 if [ $njobs -gt 1 ]; then
-  bsub < ./lsf/causet2 -p $flags
+  sleep 1
+  sed "s:%flags%:$flags:g" < lsf/causet | bsub
 fi
 
 if [ $njobs -gt 2 ]; then
-  bsub < ./lsf/causet3 -p $flags
+  sleep 1
+  sed "s:%flags%:$flags:g" < lsf/causet | bsub
 fi
 
 if [ $njobs -gt 3 ]; then
-  bsub < ./lsf/causet4 -p $flags
+  sleep 1
+  sed "s:%flags%:$flags:g" < lsf/causet | bsub
 fi
 
-echo "Submitted ${njobs} Jobs Successfully."
+echo "Submitted ${njobs} Job(s) Successfully."
