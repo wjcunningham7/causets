@@ -44,6 +44,12 @@
 
 #define NBUFFERS 4	//Number of memory buffers used concurrently on GPU
 
+//Options for GPU Algorithms
+//See src/NetworkCreator_GPU.cu
+#define LINK_NODES_GPU_V2 false		//Set to false for now (not debugged)
+
+#define GEN_ADJ_LISTS_GPU_V2 false	//Set to false for now (not debugged)
+
 #endif
 
 #endif

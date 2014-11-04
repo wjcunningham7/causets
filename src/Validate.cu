@@ -239,3 +239,132 @@ bool printValues(const Node &nodes, const int num_vals, const char *filename, co
 
 	return true;
 }
+
+bool printDegrees(const Node &nodes, const int num_vals, const char *filename_in, const char *filename_out)
+{
+	if (DEBUG) {
+		assert (nodes.k_in != NULL);
+		assert (nodes.k_out != NULL);
+		assert (filename_in != NULL);
+		assert (filename_out != NULL);
+		assert (num_vals > 0);
+	}
+
+	try {
+		std::ofstream outputStream_in;
+		outputStream_in.open(filename_in);
+		if (!outputStream_in.is_open())
+			throw CausetException("Failed to open in-degree file in 'printDegrees' function!\n");
+
+		std::ofstream outputStream_out;
+		outputStream_out.open(filename_out);
+		if (!outputStream_out.is_open())
+			throw CausetException("Failed to open out-degree file in 'printDegrees' function!\n");
+
+		int i;
+		for (i = 0; i < num_vals; i++) {
+			outputStream_in << nodes.k_in[i] << std::endl;
+			outputStream_out << nodes.k_out[i] << std::endl;
+		}
+
+		outputStream_in.flush();
+		outputStream_in.close();
+
+		outputStream_out.flush();
+		outputStream_out.close();
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		return false;
+	}
+
+	return true;
+}
+
+bool printEdgeLists(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future)
+{
+	if (DEBUG) {
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (filename_past != NULL);
+		assert (filename_future != NULL);
+		assert (num_vals > 0);
+	}
+
+	try {
+		std::ofstream outputStream_past;
+		outputStream_past.open(filename_past);
+		if (!outputStream_past.is_open())
+			throw CausetException("Failed to open past-edge file in 'printEdgeLists' function!\n");
+
+		std::ofstream outputStream_future;
+		outputStream_future.open(filename_future);
+		if (!outputStream_future.is_open())
+			throw CausetException("Failed to open future-edges file in 'printEdgeLists' function!\n");
+
+		int i;
+		for (i = 0; i < num_vals; i++) {
+			outputStream_past << edges.past_edges[i] << std::endl;
+			outputStream_future << edges.future_edges[i] << std::endl;
+		}
+
+		outputStream_past.flush();
+		outputStream_past.close();
+
+		outputStream_future.flush();
+		outputStream_future.close();
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		return false;
+	}
+
+	return true;
+}
+
+bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future)
+{
+	if (DEBUG) {
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
+		assert (filename_past != NULL);
+		assert (filename_future != NULL);
+		assert (num_vals > 0);
+	}
+
+	try {
+		std::ofstream outputStream_past;
+		outputStream_past.open(filename_past);
+		if (!outputStream_past.is_open())
+			throw CausetException("Failed to open past-edge-pointer file in 'printEdgeLists' function!\n");
+
+		std::ofstream outputStream_future;
+		outputStream_future.open(filename_future);
+		if (!outputStream_future.is_open())
+			throw CausetException("Failed to open future-edge-pointer file in 'printEdgeLists' function!\n");
+
+		int i;
+		for (i = 0; i < num_vals; i++) {
+			outputStream_past << edges.past_edge_row_start[i] << std::endl;
+			outputStream_future << edges.future_edge_row_start[i] << std::endl;
+		}
+
+		outputStream_past.flush();
+		outputStream_past.close();
+
+		outputStream_future.flush();
+		outputStream_future.close();
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		return false;
+	}
+
+	return true;
+}

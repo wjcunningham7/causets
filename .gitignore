@@ -2,4 +2,6 @@ dat/**
 bin/*
 obj/*
 net/**
+debug/**
 matlab/**
+core*

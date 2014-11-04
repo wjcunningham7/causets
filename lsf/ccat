@@ -1,73 +1,53 @@
 #!/bin/bash
 
-causets1=/scratch/cunningham/causets
-causets2=/scratch/cunningham/causets2
-causets3=/scratch/cunningham/causets3
-causets4=/scratch/cunningham/causets4
+njobs=0
+start_idx=1
 
-if [ ! -d $causets1 ]; then
-  echo "Primary folder does not exist!"
+if [ "$#" -lt 1 ]; then
+  echo "Specify the number of jobs to concatenate!"
   exit 1
 fi
 
-mv $causets1/etc/data_keys.cset.key $causets1/etc/data_keys1.cset.key
+njobs=$1
 
-if [ -d $causets2/dat ]; then
-  mv $causets2/dat/*.cset.out $causets1/dat/
-  mv $causets2/dat/cdk/*.dat $causets1/dat/cdk/
-  mv $causets2/dat/cls/*.dat $causets1/dat/cls/
-  mv $causets2/dat/dst/*.dat $causets1/dat/dst/
-  mv $causets2/dat/edg/*.dat $causets1/dat/edg/
-  mv $causets2/dat/emb/*.dat $causets1/dat/emb/
-  mv $causets2/dat/emb/fp/*.dat $causets1/dat/emb/fp/
-  mv $causets2/dat/emb/tn/*.dat $causets1/dat/emb/tn/
-  mv $causets2/dat/idd/*.dat $causets1/dat/idd/
-  mv $causets2/dat/idf/*.dat $causets1/dat/idf/
-  mv $causets2/dat/odd/*.dat $causets1/dat/odd/
-  mv $causets2/dat/odf/*.dat $causets1/dat/odf/
-  mv $causets2/dat/pos/*.dat $causets1/dat/pos/
-
-  mv $causets2/etc/data_keys.cset.key $causets1/etc/data_keys2.cset.key
+if [ "$#" -eq 2 ]; then
+  start_idx=$2
 fi
 
-if [ -d $causets3/dat ]; then
-  mv $causets3/dat/*.cset.out $causets1/dat/
-  mv $causets3/dat/cdk/*.dat $causets1/dat/cdk/
-  mv $causets3/dat/cls/*.dat $causets1/dat/cls/
-  mv $causets3/dat/dst/*.dat $causets1/dat/dst/
-  mv $causets3/dat/edg/*.dat $causets1/dat/edg/
-  mv $causets3/dat/emb/*.dat $causets1/dat/emb/
-  mv $causets3/dat/emb/fp/*.dat $causets1/dat/emb/fp/
-  mv $causets3/dat/emb/tn/*.dat $causets1/dat/emb/tn/
-  mv $causets3/dat/idd/*.dat $causets1/dat/idd/
-  mv $causets3/dat/idf/*.dat $causets1/dat/idf/
-  mv $causets3/dat/odd/*.dat $causets1/dat/odd/
-  mv $causets3/dat/odf/*.dat $causets1/dat/odf/
-  mv $causets3/dat/pos/*.dat $causets1/dat/pos/
+homedir=/home/cunningham.wi/projects/causets
+sdir=/scratch/cunningham
+cdir=$sdir/causets
+mkdir -p $cdir
+$homedir/etc/mkdat $cdir
+cp -r $homedir/etc $cdir/
 
-  mv $causets3/etc/data_keys.cset.key $causets1/etc/data_keys3.cset.key
-fi
+for (( i=$start_idx; i<=$njobs; i++ )); do
+  job=$sdir/causet$i
+  if [ ! -d $job ]; then
+    echo "Folder ${job} does not exist!"
+    exit 2
+  fi
 
-if [ -d $causets4/dat ]; then
-  mv $causets4/dat/*.cset.out $causets1/dat/
-  mv $causets4/dat/cdk/*.dat $causets1/dat/cdk/
-  mv $causets4/dat/cls/*.dat $causets1/dat/cls/
-  mv $causets4/dat/dst/*.dat $causets1/dat/dst/
-  mv $causets4/dat/edg/*.dat $causets1/dat/edg/
-  mv $causets4/dat/emb/*.dat $causets1/dat/emb/
-  mv $causets4/dat/emb/fp/*.dat $causets1/dat/emb/fp/
-  mv $causets4/dat/emb/tn/*.dat $causets1/dat/emb/tn/
-  mv $causets4/dat/idd/*.dat $causets1/dat/idd/
-  mv $causets4/dat/idf/*.dat $causets1/dat/idf/
-  mv $causets4/dat/odd/*.dat $causets1/dat/odd/
-  mv $causets4/dat/odf/*.dat $causets1/dat/odf/
-  mv $causets4/dat/pos/*.dat $causets1/dat/pos/
+  mv $job/dat/*.cset.out $cdir/dat/ 2> /dev/null
+  mv $job/dat/cdk/*.dat $cdir/dat/cdk/ 2> /dev/null
+  mv $job/dat/cls/*.dat $cdir/dat/cls/ 2> /dev/null
+  mv $job/dat/dst/*.dat $cdir/dat/dst/ 2> /dev/null
+  mv $job/dat/edg/*.dat $cdir/dat/edg/ 2> /dev/null
+  mv $job/dat/emb/*.dat $cdir/dat/emb/ 2> /dev/null
+  mv $job/dat/emb/fp/*.dat $cdir/dat/emb/fp/ 2> /dev/null
+  mv $job/dat/emb/tn/*.dat $cdir/dat/emb/tn/ 2> /dev/null
+  mv $job/dat/idd/*.dat $cdir/dat/idd/ 2> /dev/null
+  mv $job/dat/idf/*.dat $cdir/dat/idf/ 2> /dev/null
+  mv $job/dat/odd/*.dat $cdir/dat/odd/ 2> /dev/null
+  mv $job/dat/odf/*.dat $cdir/dat/odf/ 2> /dev/null
+  mv $job/dat/pos/*.dat $cdir/dat/pos/ 2> /dev/null
+  mv $job/etc/data_keys.cset.key $cdir/etc/data_keys$i.cset.key 2> /dev/null
+done
 
-  mv $causets4/etc/data_keys.cset.key $causets1/etc/data_keys4.cset.key
-fi
+cat $cdir/etc/data_keys* > $cdir/etc/final_data_keys.cset.key
+rm $cdir/etc/data_keys*
+mv $cdir/etc/final_data_keys.cset.key $cdir/etc/data_keys.key
 
-cat $causets1/etc/data_keys* > $causets1/etc/data_keys.cset.key
-
-rm -rf $causets2
-rm -rf $causets3
-rm -rf $causets4
+#for (( i=$start_idx; i<=$njobs; i++ )); do
+#  rm -rf $sdir/causet$i
+#done

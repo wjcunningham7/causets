@@ -1,33 +1,70 @@
 #!/bin/bash
 
+###########################
+#(C) Will Cunningham 2014 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# The number of jobs to run in parallel in separate nodes
 njobs=1
 
-if [ "$#" -eq 1 ]; then
-  njobs=$1
-fi
+# The job ID offset (used for naming directories)
+jobstart=1
 
-if [ $njobs -lt 1 ] || [ $njobs -gt 4 ]; then
-  echo "Invalid number of jobs!"
-  exit 1
-fi
+# The number of samples to run serially on a single node
+nsamples=1
 
-flags="--universe --age 4.0 --nodes 10240 --delta 1 --radius 1 --print --verbose -y --gpu --link"
+# The flags to pass to the CausalSet program
+flags="--universe --age 4.0 --nodes 10240 --delta 1 --radius 1 --print --link"
 
-sed "s:%flags%:$flags:g" < lsf/causet | bsub
+# Parse command line parameters
+OPTIONS=`getopt -o j:J:s:f:h -l njobs:,start:,nsamples:,flags: -n 'cbat' -- "$@"`
+eval set -- "$OPTIONS"
 
-if [ $njobs -gt 1 ]; then
+while true ; do
+  case "$1" in
+    -j|--njobs)
+      case "$2" in
+        "") shift 2 ;;
+        *) njobs=$2 ; shift 2 ;;
+      esac ;;
+    -J|--start)
+      case "$2" in
+        "") shift 2 ;;
+        *) jobstart=$2 ; shift 2 ;;
+      esac ;;
+    -s|--nsamples)
+      case "$2" in
+        "") shift 2 ;;
+        *) nsamples=$2 ; shift 2 ;;
+      esac ;;
+    -f|--flags)
+      case "$2" in
+        "") shift 2 ;;
+        *) flags=$2 ; shift 2 ;;
+      esac ;;
+    -h)
+      echo "Usage: cbat [OPTION]..." ;
+      echo "Send CausalSet jobs to par-gpu LSF queue on Discovery cluster." ;
+      echo "" ;
+      echo "  -j, --njobs      number of jobs to run in parallel on separate nodes" ;
+      echo "  -J, --start      job ID offset, used for naming directories" ;
+      echo "  -s, --nsamples   number of samples to run serially on a single node" ;
+      echo "  -f, --flags      flags to pass to CausalSet program" ;
+      echo "  -h               display this help and exit" ;
+      echo "" ;
+      echo "Report cbat bugs to w.cunningham@neu.edu" ;
+      echo "GitHub repository home page: <https://github.com/wjcunningham7/causets>" ;
+      exit 0 ;;
+    --) shift ; break ;;
+    *) echo "Internal error!" ; exit 1 ;;
+  esac
+done
+
+for (( i=${jobstart}; i<=${njobs}+${jobstart}-1; i++ )); do
+  sed "s:%flags%:$flags:g;s:%jobID%:$i:g;s:%nsamples%:$nsamples:g" < lsf/causet | bsub
   sleep 1
-  sed "s:%flags%:$flags:g" < lsf/causet | bsub
-fi
-
-if [ $njobs -gt 2 ]; then
-  sleep 1
-  sed "s:%flags%:$flags:g" < lsf/causet | bsub
-fi
-
-if [ $njobs -gt 3 ]; then
-  sleep 1
-  sed "s:%flags%:$flags:g" < lsf/causet | bsub
-fi
+done
 
 echo "Submitted ${njobs} Job(s) Successfully."

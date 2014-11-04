@@ -1,12 +1,12 @@
 #!/bin/bash
 
-#BSUB -J univ
-#BSUB -o /scratch/cunningham/causets/causet.log
-#BSUB -e /scratch/cunningham/causets/causet.err
+#BSUB -J CS-Job%jobID%
+#BSUB -o /scratch/cunningham/causet%jobID%/causet%jobID%.log
+#BSUB -e /scratch/cunningham/causet%jobID%/causet%jobID%.err
 #BSUB -q par-gpu
 #BSUB -n 32
 #BSUB -R span[ptile=32]
-#BSUB -cwd /scratch/cunningham/causets
+#BSUB -cwd /scratch/cunningham/causet%jobID%
 
 ###########################
 #(C) Will Cunningham 2014 #
@@ -14,38 +14,15 @@
 # Northeastern University #
 ###########################
 
-CFLAGS="%flags%"
-#echo "value = ${CFLAGS[0]}"
-#echo "value2 = ${CFLAGS[1]}"
+mkdir -p /scratch/cunningham
+mkdir -p /scratch/cunningham/causet%jobID%/
 
-#if [ "$#" -ne 1 ]; then
-#  echo "Must specify flags for CausalSet program in LSF script!"
-#  exit 1
-#fi
-
-#CFLAGS=''
-
-#while getopts :p: FLAG; do
-#  case $FLAG in
-#    p)
-#      CFLAGS=$OPTARG
-#      ;;
-#    \?)
-#      echo -e \\n"Option -${BOLD}$OPTARG${NORM} not recognized."
-#      exit 2
-#      ;;
-#  esac
-#done
-
-mkdir /scratch/cunningham
-mkdir /scratch/cunningham/causets/
-
-work=/scratch/cunningham/causets
+work=/scratch/cunningham/causet%jobID%
 homedir=/home/cunningham.wi/projects/causets
 
 cp $homedir/bin/CausalSet $work/
 
-mkdir $work/etc
+mkdir -p $work/etc
 
 cp $homedir/etc/degrees $work/etc/
 cp $homedir/etc/deg_dist $work/etc/
@@ -59,20 +36,9 @@ cp $homedir/etc/min_tau $work/etc/
 cp $homedir/etc/raduc_table.cset.bin $work/etc/
 cp $homedir/etc/ctuc_table.cset.bin $work/etc/
 
-mkdir $work/dat
-mkdir $work/dat/cdk
-mkdir $work/dat/cls
-mkdir $work/dat/dst
-mkdir $work/dat/edg
-mkdir $work/dat/emb
-mkdir $work/dat/emb/fp
-mkdir $work/dat/emb/tn
-mkdir $work/dat/idd
-mkdir $work/dat/idf
-mkdir $work/dat/odd
-mkdir $work/dat/odf
-mkdir $work/dat/pos
-mkdir $work/dat/ref
+cp $homedir/etc/mkdat $work/etc/
+
+$homedir/etc/mkdat $work
 
 # Do not edit below this
 
@@ -91,16 +57,10 @@ done
 
 # Do not edit above this
 
-nodes=65536
-#nodes=131072
-samples=25
-
-for (( i=1; i<=${samples}; i++ ))
-do
-  echo Trial $i of ${samples}
-#  ./CausalSet --universe --age 4.0 --nodes $nodes --delta 1 --radius 1 --print --verbose -y --gpu --link
-#  ./CausalSet $CFLAGS
-  ./CausalSet %flags%
+for (( i=1; i<=%nsamples%; i++ )); do
+  echo "Starting Trial ${i} of %nsamples%"
+  ./CausalSet %flags% &> CausalSet_Job-%jobID%_Sample-$i.log &
+  sleep 1
 done
 
 # Do not edit below this

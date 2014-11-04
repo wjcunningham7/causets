@@ -19,4 +19,10 @@ bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const 
 
 bool printValues(const Node &nodes, const int num_vals, const char *filename, const char *coord);
 
+bool printDegrees(const Node &nodes, const int num_vals, const char *filename_in, const char *filename_out);
+
+bool printEdgeLists(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future);
+
+bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future);
+
 #endif

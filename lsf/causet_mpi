@@ -67,13 +67,12 @@ done
 
 # Do not edit above this
 
-#nodes=10240
-nodes=131072
+nodes=10240
 samples=1
 
 for (( i=1; i<=${samples}; i++ ))
 do
-  echo Trial $i of ${samples}
+  echo "Trial ${i} of ${samples}"
   mpirun -np 4 -prot -TCP -lsf CausalSet --universe --age 0.9 --nodes $nodes --delta 150.0 --radius 1.0 --print --verbose -y --gpu --link
 done
 

@@ -4,6 +4,10 @@
 # Northeastern University #
 ###########################
 
+#####################
+# Local Directories #
+#####################
+
 BINDIR		:= ./bin
 INCDIR		:= ./inc
 SRCDIR		:= ./src
@@ -16,10 +20,14 @@ LOCAL_DIR	:= /home/cunningham.wi/local
 else ifneq (, $(findstring tiberius, $(HOSTNAME)))
 LOCAL_DIR	:= /usr/local
 else
-LOCAL_DIR	:= ~
+$(error Hostname not recognized!)
 endif
 
 FASTSRC		:= $(LOCAL_DIR)/src/fastmath
+
+#############################
+# CUDA Resource Directories #
+#############################
 
 ifneq (, $(findstring compute, $(HOSTNAME)))
 CUDA_SDK_PATH 	?= /shared/apps/cuda6.0/samples
@@ -28,10 +36,13 @@ else ifneq (, $(findstring tiberius, $(HOSTNAME)))
 CUDA_SDK_PATH	?= /usr/local/cuda-5.0/samples
 CUDA_HOME	?= /usr/local/cuda
 else
-CUDA_SDK_PATH	?= ~
-CUDA_HOME	?= ~
+$(error Hostname not recognized!)
 endif
- 
+
+#############
+# Compilers #
+#############
+
 GCC		?= /usr/bin/gcc
 CXX 		?= /usr/bin/g++
 ifneq (, $(findstring compute, $(HOSTNAME)))
@@ -39,15 +50,23 @@ MPI		?= /opt/ibm/platform_mpi/bin/mpicc
 else ifneq (, $(findstring tiberius, $(HOSTNAME)))
 MPI		?= /usr/lib64/openmpi/bin/mpicc
 else
-MPI		?=
+$(error Hostname not recognized!)
 endif
 GFOR		?= /usr/bin/gfortran
 NVCC 		?= $(CUDA_HOME)/bin/nvcc
+
+#########################
+# Headers and Libraries #
+#########################
 
 INCD 		 = -I $(INCDIR) -I $(LOCAL_DIR)/include/
 CUDA_INCD	 = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include
 LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas -lfastmath -lnint -lgomp -lprintcolor
 CUDA_LIBS	 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PATH)/common/lib -lcuda -lcudart
+
+##################
+# Compiler Flags #
+##################
 
 CXXFLAGS	:= -O3 -g -Wall -x c++
 NVCCFLAGS 	:= -m64 -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED
@@ -72,6 +91,10 @@ CXX=$(MPI)
 MPIFLAGS += -DMPI_ENABLED -Xcompiler -Wno-deprecated
 endif
 
+###############
+# Source Code #
+###############
+
 CSOURCES	:= $(SRCDIR)/autocorr2.cpp
 CEXTSOURCES	:= $(FASTSRC)/ran2.cpp $(FASTSRC)/stopwatch.cpp
 CUDASOURCES	:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines_GPU.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Operations_GPU.cu $(SRCDIR)/NetworkCreator_GPU.cu $(SRCDIR)/Validate.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements.cu
@@ -79,33 +102,46 @@ SOURCES		:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines.c
 FSOURCES1	:= $(SRCDIR)/ds3.F
 FSOURCES2	:= $(SRCDIR)/Matter_Dark_Energy_downscaled.f
 
+################
+# Object Files #
+################
+
 COBJS		:= $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(CSOURCES))
 CEXTOBJS	:= $(patsubst $(FASTSRC)/%.cpp, $(OBJDIR)/%.o, $(CEXTSOURCES))
 CUDAOBJS	:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%_cu.o, $(CUDASOURCES))
 OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.o, $(SOURCES))
 
-all : $(COBJS) $(CEXTOBJS) $(CUDAOBJS) linkgpu bin
+###################################
+# Top-Level Compilation Sequences #
+###################################
+
+all : gpu
 
 cpu : $(COBJS) $(CEXTOBJS) $(OBJS) link
+
+gpu : $(COBJS) $(CEXTOBJS) $(CUDAOBJS) linkgpu bin
+
+######################
+# Source Compilation #
+######################
 
 $(COBJS) : | dirs
 
 $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<
 
-dirs : objdir bindir
-
-objdir :
-	mkdir -p $(OBJDIR)
-
 $(OBJDIR)/%.o : $(FASTSRC)/%.cpp
+	$(CXX) $(CXXFLAGS) -c $(INCD) -o $@ $<
+
+$(OBJDIR)/%.o : $(SRCDIR)/%.cu
 	$(CXX) $(CXXFLAGS) -c $(INCD) -o $@ $<
 
 $(OBJDIR)/%_cu.o : $(SRCDIR)/%.cu
 	$(NVCC) $(NVCCFLAGS) -dc $(INCD) $(CUDA_INCD) -o $@ $<
 
-$(OBJDIR)/%.o : $(SRCDIR)/%.cu
-	$(CXX) $(CXXFLAGS) -c $(INCD) -o $@ $<
+##################
+# Object Linkage #
+##################
 
 link :
 	$(CXX) -o $(BINDIR)/CausalSet $(OBJDIR)/*.o $(LIBS)
@@ -113,11 +149,16 @@ link :
 linkgpu : 
 	$(NVCC) $(NVCCFLAGS) -dlink $(OBJDIR)/*_cu.o -o $(OBJDIR)/linked.o
 
+###################
+# Binary Creation #
+###################
+
 bin : $(COBJS) $(CEXTOBJS) $(CUDAOBJS)
 	$(CXX) -o $(BINDIR)/CausalSet $(OBJDIR)/*.o $(INCD) $(CUDA_INCD) $(LIBS) $(CUDA_LIBS)
 
-bindir : 
-	mkdir -p $(BINDIR)
+#######################
+# Fortran Compilation #
+#######################
 
 fortran : bindir fortran1 fortran2
 
@@ -126,6 +167,24 @@ fortran1 : $(FSOURCES1)
 
 fortran2 : $(FSOURCES2)
 	$(GFOR) $(FSOURCES2) -o $(BINDIR)/universe
+
+######################
+# Directory Creation #
+######################
+
+dirs : objdir bindir
+
+objdir :
+	mkdir -p $(OBJDIR)
+
+bindir : 
+	mkdir -p $(BINDIR)
+
+######################
+# Cleaning Sequences #
+######################
+
+cleanall : clean cleanscratch cleandata
 
 clean : cleanbin cleanobj cleanlog
 

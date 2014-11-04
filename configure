@@ -7,20 +7,7 @@
 ###########################
 
 mkdir -p bin
-mkdir -p dat
-mkdir -p dat/cdk
-mkdir -p dat/cls
-mkdir -p dat/dst
-mkdir -p dat/edg
-mkdir -p dat/emb
-mkdir -p dat/emb/fp
-mkdir -p dat/emb/tn
-mkdir -p dat/idd
-mkdir -p dat/idf
-mkdir -p dat/odd
-mkdir -p dat/odf
-mkdir -p dat/pos
-mkdir -p dat/ref
+etc/mkdat
 mkdir -p net
 mkdir -p obj
 
