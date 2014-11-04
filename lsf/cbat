@@ -16,7 +16,7 @@ jobstart=1
 nsamples=1
 
 # The flags to pass to the CausalSet program
-flags="--universe --age 4.0 --nodes 10240 --delta 1 --radius 1 --print --link"
+flags="--universe --age 4.0 --nodes 10240 --delta 1 --radius 1 --print --link --gpu"
 
 # Parse command line parameters
 OPTIONS=`getopt -o j:J:s:f:h -l njobs:,start:,nsamples:,flags: -n 'cbat' -- "$@"`

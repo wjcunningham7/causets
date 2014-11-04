@@ -65,7 +65,7 @@ __global__ void GenerateAdjacencyLists_v2(float4 *nodes0, float4 *nodes1, int *k
 				atomicAdd(&k_out[i*THREAD_SIZE+k], n[0][k]);
 }
 
-__global__ void GenerateAdjacencyLists(float4 *nodes, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width)
+__global__ void GenerateAdjacencyLists_v1(float4 *nodes, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width)
 {
 	///////////////////////////////////////
 	// Identify Node Pair with Thread ID //
@@ -288,7 +288,7 @@ bool linkNodesGPU_v2(const Node &nodes, Edge &edges, bool * const &core_edge_exi
 		if (!generateLists_v2(nodes, h_edges, g_idx, N_tar, d_edges_size, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
 			return false;
 	} else {
-		if (!generateLists(nodes, h_edges, g_idx, N_tar, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
+		if (!generateLists_v1(nodes, h_edges, g_idx, N_tar, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
 			return false;
 	}
 
@@ -653,7 +653,7 @@ bool linkNodesGPU_v2(const Node &nodes, Edge &edges, bool * const &core_edge_exi
 	return true;
 }
 
-bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v1(const Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (edges.past_edges != NULL);
@@ -753,7 +753,7 @@ bool linkNodesGPU(const Node &nodes, Edge &edges, bool * const &core_edge_exists
 	stopwatchStart(&sGenAdjList);
 
 	//Execute Kernel
-	GenerateAdjacencyLists<<<blocks_per_grid_GAL, threads_per_block_GAL>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar >> 1);
+	GenerateAdjacencyLists_v1<<<blocks_per_grid_GAL, threads_per_block_GAL>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar >> 1);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
 
 	//Synchronize
@@ -1303,7 +1303,7 @@ bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g
 }
 
 //NOTE: This subroutine has not been fully debugged
-bool generateLists(const Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
 {
 	if (DEBUG) {
 		//No Null Pointers

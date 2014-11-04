@@ -24,7 +24,8 @@ if (N < 0):
 	sys.stdout.write('Invalid argument.\n')
 	sys.exit(3)
 
-basedir = '/scratch/cunningham/causets/'
+#basedir = '/scratch/cunningham/causets/'
+basedir = ''
 cdk_files = glob.glob(basedir + 'dat/cdk/*.cset.cdk.dat')
 c = []
 

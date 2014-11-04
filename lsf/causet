@@ -59,7 +59,7 @@ done
 
 for (( i=1; i<=%nsamples%; i++ )); do
   echo "Starting Trial ${i} of %nsamples%"
-  ./CausalSet %flags% &> CausalSet_Job-%jobID%_Sample-$i.log &
+  ./CausalSet %flags% &> CausalSet_Job-%jobID%_Sample-$i.log
   sleep 1
 done
 

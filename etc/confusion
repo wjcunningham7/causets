@@ -11,7 +11,8 @@
 import glob
 import sys
 
-basedir = '/scratch/cunningham/causets/'
+#basedir = '/scratch/cunningham/causets/'
+basedir = ''
 cfiles = glob.glob(basedir + 'dat/emb/*.cset.emb.dat')
 tnfiles = glob.glob(basedir + 'dat/emb/tn/*.cset.emb_tn.dat')
 

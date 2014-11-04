@@ -24,7 +24,8 @@ if (N < 0):
 	sys.stdout.write('Invalid argument.\n')
 	sys.exit(3)
 
-basedir = '/scratch/cunningham/causets/'
+#basedir = '/scratch/cunningham/causets/'
+basedir = ''
 idd_files = glob.glob(basedir + 'dat/idd/*.cset.idd.dat')
 odd_files = glob.glob(basedir + 'dat/odd/*.cset.odd.dat')
 

@@ -54,7 +54,8 @@ elif (ctype == 3):
 	cc_line = 26
 	gcc_line = 27
 
-basedir = '/scratch/cunningham/causets/'
+#basedir = '/scratch/cunningham/causets/'
+basedir = ''
 files = glob.glob(basedir + 'dat/*.cset.out')
 
 N = len(files)

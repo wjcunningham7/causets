@@ -38,7 +38,8 @@ elif (ctype == 2):
 elif (ctype == 3):
 	cline = 25
 
-basedir = '/scratch/cunningham/causets/'
+#basedir = '/scratch/cunningham/causets/'
+basedir = ''
 files = glob.glob(basedir + 'dat/*.cset.out')
 
 N = len(files)
