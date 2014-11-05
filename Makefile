@@ -15,9 +15,12 @@ OBJDIR		:= ./obj
 DATDIR		:= ./dat
 ETCDIR		:= ./etc
 
-ifneq (, $(findstring compute, $(HOSTNAME)))
-LOCAL_DIR	:= /home/cunningham.wi/local
-else ifneq (, $(findstring tiberius, $(HOSTNAME)))
+host1		:= compute
+host2		:= tiberius
+
+ifneq (, $(findstring $(host1), $(HOSTNAME)))
+LOCAL_DIR	:= /home/$(USER)/local
+else ifneq (, $(findstring $(host2), $(HOSTNAME)))
 LOCAL_DIR	:= /usr/local
 else
 $(error Hostname not recognized!)
@@ -29,10 +32,10 @@ FASTSRC		:= $(LOCAL_DIR)/src/fastmath
 # CUDA Resource Directories #
 #############################
 
-ifneq (, $(findstring compute, $(HOSTNAME)))
+ifneq (, $(findstring $(host1), $(HOSTNAME)))
 CUDA_SDK_PATH 	?= /shared/apps/cuda6.0/samples
 CUDA_HOME 	?= /shared/apps/cuda6.0
-else ifneq (, $(findstring tiberius, $(HOSTNAME)))
+else ifneq (, $(findstring $(host2), $(HOSTNAME)))
 CUDA_SDK_PATH	?= /usr/local/cuda-5.0/samples
 CUDA_HOME	?= /usr/local/cuda
 else
@@ -45,9 +48,9 @@ endif
 
 GCC		?= /usr/bin/gcc
 CXX 		?= /usr/bin/g++
-ifneq (, $(findstring compute, $(HOSTNAME)))
+ifneq (, $(findstring $(host1), $(HOSTNAME)))
 MPI		?= /opt/ibm/platform_mpi/bin/mpicc
-else ifneq (, $(findstring tiberius, $(HOSTNAME)))
+else ifneq (, $(findstring $(host2), $(HOSTNAME)))
 MPI		?= /usr/lib64/openmpi/bin/mpicc
 else
 $(error Hostname not recognized!)
@@ -70,9 +73,9 @@ CUDA_LIBS	 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PAT
 
 CXXFLAGS	:= -O3 -g -Wall -x c++
 NVCCFLAGS 	:= -m64 -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED
-ifneq (, $(findstring compute, $(HOSTNAME)))
+ifneq (, $(findstring $(host1), $(HOSTNAME)))
 NVCCFLAGS += -arch=sm_35
-else ifneq (, $(findstring tiberius, $(HOSTNAME)))
+else ifneq (, $(findstring $(host2), $(HOSTNAME)))
 NVCCFLAGS += -arch=sm_30
 else
 endif
