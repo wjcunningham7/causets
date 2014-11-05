@@ -402,5 +402,6 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, int * const 
 	for (i = 0; i < buffer_size; i++)
 		for (j = 0; j < buffer_size; j++)
 			if (h_edges[i*buffer_size+j] && g_idx[0] < (int)d_edges_size)
-				edges[++g_idx[0]] = ((uint64_t)(x*buffer_size+i)) << 32 | ((uint64_t)(y*buffer_size+j));
+				//edges[++g_idx[0]] = ((uint64_t)(x*buffer_size+i)) << 32 | ((uint64_t)(y*buffer_size+j));
+				edges[g_idx[0]++] = ((uint64_t)(x*buffer_size+i)) << 32 | ((uint64_t)(y*buffer_size+j));
 }

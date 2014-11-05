@@ -14,37 +14,45 @@ __global__ void GenerateAdjacencyLists_v2(float4 *nodes0, float4 *nodes1, int *k
 	float4 n0, n1;
 
 	unsigned int tid = threadIdx.y;
-	unsigned int i = blockIdx.x;
-	unsigned int j = blockDim.y * blockIdx.y + threadIdx.y;
+	//Index 'i' marks the row and 'j' marks the column
+	unsigned int i = blockDim.y * blockIdx.y + threadIdx.y;
+	unsigned int j = blockIdx.x;
 	unsigned int k;
 
+	//Each thread compares 1 node in 'nodes0' to 'THREAD_SIZE' nodes in 'nodes1'
 	if (!tid)
 		for (k = 0; k < THREAD_SIZE; k++)
-			shr_n1[k] = nodes1[i*THREAD_SIZE+k];
+			shr_n1[k] = nodes1[j*THREAD_SIZE+k];
 	__syncthreads();
 
 	float dt[THREAD_SIZE];
 	float dx[THREAD_SIZE];
 
 	for (k = 0; k < THREAD_SIZE; k++) {
-		if (!diag || j < i * THREAD_SIZE + k) {
-			n0 = nodes0[j];
+		if (!diag || i < j * THREAD_SIZE + k) {
+			//Identify nodes to compare
+			n0 = nodes0[i];
 			n1 = shr_n1[k];
 
+			//Identify spacetime interval
 			dt[k] = n1.w - n0.w;
 			dx[k] = acosf(sphProduct_GPU(n0, n1));
 		}
 	}
 
 	bool edge[THREAD_SIZE];
-	int in = 0;
+	int out = 0;
 	for (k = 0; k < THREAD_SIZE; k++) {
-		edge[k] = (!diag || j < i * THREAD_SIZE + k) && dx[k] < dt[k];
+		//Mark if edge is present (register memory)
+		edge[k] = (!diag || i < j * THREAD_SIZE + k) && dx[k] < dt[k];
+		//Copy to shared memory to prepare for reduction
 		n[tid][k] = (int)edge[k];
-		in += (int)edge[k];
+		//Identify number of out-degrees found by a single thread
+		out += (int)edge[k];
 	}
 	__syncthreads();
 
+	//Reduction algorithm (used to optimize atomic operations below)
 	int stride;
 	for (stride = 1; stride < BLOCK_SIZE; stride <<= 1) {
 		if (!(tid % (stride << 1)))
@@ -53,16 +61,21 @@ __global__ void GenerateAdjacencyLists_v2(float4 *nodes0, float4 *nodes1, int *k
 		__syncthreads();
 	}
 
-	//Write values to global memory
-	for (k = 0; k < THREAD_SIZE; k++)
-		if (!diag || j < i * THREAD_SIZE + k)
-			edges[(i*THREAD_SIZE+k)*blockDim.y*gridDim.y+j] = edge[k];
-	atomicAdd(&k_in[j], in);
+	//Global Memory Operations
 
+	//Write edges to global memory
+	for (k = 0; k < THREAD_SIZE; k++)
+		if (!diag || i < j * THREAD_SIZE + k)
+			edges[(i*THREAD_SIZE*gridDim.x)+(j*THREAD_SIZE)+k] = edge[k];
+
+	//Write out-degrees
+	atomicAdd(&k_out[i], out);
+
+	//Wrtie in-degrees
 	if (!tid)
 		for (k = 0; k < THREAD_SIZE; k++)
-			if (!diag || j < i * THREAD_SIZE + k)
-				atomicAdd(&k_out[i*THREAD_SIZE+k], n[0][k]);
+			if (!diag || i < j * THREAD_SIZE + k)
+				atomicAdd(&k_in[j*THREAD_SIZE+k], n[0][k]);
 }
 
 __global__ void GenerateAdjacencyLists_v1(float4 *nodes, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width)
@@ -77,11 +90,6 @@ __global__ void GenerateAdjacencyLists_v1(float4 *nodes, uint64_t *edges, int *k
 	__shared__ int n_c[BLOCK_SIZE];
 	float4 node0_ab, node0_c, node1_ab, node1_c;
 
-	//unsigned int tid = threadIdx.x;
-	//unsigned int i = blockIdx.y;
-	//unsigned int j = blockDim.x * blockIdx.x + threadIdx.x;
-
-	//New Indices (Alpha Test)
 	unsigned int tid = threadIdx.y;
 	unsigned int i = blockIdx.x;
 	unsigned int j = blockDim.y * blockIdx.y + threadIdx.y;
@@ -209,7 +217,6 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-//NOTE: This subroutine has not been fully debugged
 bool linkNodesGPU_v2(const Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
@@ -622,14 +629,14 @@ bool linkNodesGPU_v2(const Node &nodes, Edge &edges, bool * const &core_edge_exi
 	}
 	
 	//Print Results
-	if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
+	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
 	if (!printEdgeLists(edges, *g_idx, "past-edges_GPU_v2.cset.dbg.dat", "future-edges_GPU_v2.cset.dbg.dat")) return false;
 	if (!printEdgeListPointers(edges, N_tar, "past-edge-pointers_GPU_v2.cset.dbg.dat", "future-edge-pointers_GPU_v2.cset.dbg.dat")) return false;
 	printf_red();
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);*/
 
 	//Free Host Memory
 	free(g_idx);
@@ -1117,7 +1124,6 @@ bool linkNodesGPU_v1(const Node &nodes, Edge &edges, bool * const &core_edge_exi
 }
 
 //Uses multiple buffers and asynchronous operations
-//NOTE: This subroutine has not been fully debugged
 bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
 {
 	if (DEBUG) {
@@ -1198,7 +1204,7 @@ bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g
 	//Stopwatch gtest = Stopwatch();
 	//stopwatchStart(&gtest);
 
-	//Adjacency matrix block C and non-diagonal blocks of AB
+	//Index 'i' marks the row and 'j' marks the column
 	for (i = 0; i < 2 * GROUP_SIZE; i++) {
 		for (j = 0; j < 2 * GROUP_SIZE / NBUFFERS; j++) {
 			#ifdef _OPENMP
@@ -1237,15 +1243,15 @@ bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g
 			#endif
 
 			for (m = 0; m < NBUFFERS; m++) {
-				if (!((j * NBUFFERS + m) % (2 * GROUP_SIZE + 1)))
+				if (i > j * NBUFFERS + m)
 					continue;
 
 				//Synchronize
 				checkCudaErrors(cuStreamSynchronize(stream[m]));
 
 				//Read Data from Buffers
-				readDegrees(nodes.k_in, h_k_in[m], i, mthread_size);
-				readDegrees(nodes.k_out, h_k_out[m], j*NBUFFERS+m, mthread_size);
+				readDegrees(nodes.k_in, h_k_in[m], j*NBUFFERS+m, mthread_size);
+				readDegrees(nodes.k_out, h_k_out[m], i, mthread_size);
 				readEdges(edges, h_edges[m], g_idx, d_edges_size, mthread_size, i, j*NBUFFERS+m);
 			}				
 		}
@@ -1302,7 +1308,6 @@ bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g
 	return true;
 }
 
-//NOTE: This subroutine has not been fully debugged
 bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
 {
 	if (DEBUG) {
@@ -1414,7 +1419,7 @@ bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g
 	//printf_std();
 	//fflush(stdout);
 
-	//Block C and non-diagonal groups of block AB
+	//Index 'i' marks the row and 'j' marks the column
 	for (i = 0; i < 2 * GROUP_SIZE; i++) {
 		for (j = 0; j < 2 * GROUP_SIZE; j++) {
 			if (i > j)
@@ -1447,11 +1452,9 @@ bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g
 			checkCudaErrors(cuCtxSynchronize());
 
 			//Transfer data from buffers
+			readDegrees(nodes.k_in, h_k_in, j, mthread_size);
+			readDegrees(nodes.k_out, h_k_out, i, mthread_size);
 			readEdges(edges, h_edges, g_idx, d_edges_size, mthread_size, i, j);
-			readDegrees(nodes.k_in, h_k_in, i, mthread_size);
-			readDegrees(nodes.k_out, h_k_out, j, mthread_size);
-			//readDegrees(nodes.k_in, h_k_out, i, mthread_size);
-			//readDegrees(nodes.k_out, h_k_in, j, mthread_size);
 
 			//Clear Device Memory
 			checkCudaErrors(cuMemsetD8(d_edges, 0, m_edges_size));

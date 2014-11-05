@@ -86,13 +86,16 @@ USE_OMP		:= 0
 USE_MPI		:= 0
 
 ifneq ($(USE_OMP), 0)
-OMP_FLAGS += -Xcompiler -fopenmp
+OMPFLAGS += -Xcompiler -fopenmp
 endif
 
 ifneq ($(USE_MPI), 0)
 CXX=$(MPI)
 MPIFLAGS += -DMPI_ENABLED -Xcompiler -Wno-deprecated
 endif
+
+CXXFLAGS += $(MPIFLAGS)
+NVCCFLAGS += $(OMPFLAGS) $(MPIFLAGS)
 
 ###############
 # Source Code #
