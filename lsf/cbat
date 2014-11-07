@@ -18,8 +18,20 @@ nsamples=1
 # The flags to pass to the CausalSet program
 flags="--universe --age 4.0 --nodes 10240 --delta 1 --radius 1 --print --link --gpu"
 
+# LSF queue
+queue="par-gpu"
+
+# Number of Cores
+ncores=1
+
 # Parse command line parameters
-OPTIONS=`getopt -o j:J:s:f:h -l njobs:,start:,nsamples:,flags: -n 'cbat' -- "$@"`
+OPTIONS=`getopt -o j:J:s:f:q:c:h -l njobs:,start:,nsamples:,flags:,queue:,ncores:,'help' -n 'cbat' -- "$@"`
+
+if [ $? -ne 0 ] ; then
+  echo "Unrecognized option. Try running with --help flag." >&2
+  exit 1
+fi
+
 eval set -- "$OPTIONS"
 
 while true ; do
@@ -44,26 +56,38 @@ while true ; do
         "") shift 2 ;;
         *) flags=$2 ; shift 2 ;;
       esac ;;
-    -h)
-      echo "Usage: cbat [OPTION]..." ;
-      echo "Send CausalSet jobs to par-gpu LSF queue on Discovery cluster." ;
-      echo "" ;
-      echo "  -j, --njobs      number of jobs to run in parallel on separate nodes" ;
-      echo "  -J, --start      job ID offset, used for naming directories" ;
-      echo "  -s, --nsamples   number of samples to run serially on a single node" ;
-      echo "  -f, --flags      flags to pass to CausalSet program" ;
-      echo "  -h               display this help and exit" ;
-      echo "" ;
-      echo "Report cbat bugs to w.cunningham@neu.edu" ;
-      echo "GitHub repository home page: <https://github.com/wjcunningham7/causets>" ;
+    -q|--queue)
+      case "$2" in
+        "") shift 2 ;;
+        *) queue=$2 ; shift 2 ;;
+      esac ;;
+    -c|--ncores)
+      case "$2" in
+        "") shift 2 ;;
+        *) ncores=$2 ; shift 2 ;;
+      esac ;;
+    -h|--help)
+      echo "Usage: cbat [OPTION]..."
+      echo "Send CausalSet jobs to par-gpu LSF queue on Discovery cluster."
+      echo ""
+      echo "  -j, --njobs      number of jobs to run in parallel on separate nodes"
+      echo "  -J, --start      job ID offset, used for naming directories"
+      echo "  -s, --nsamples   number of samples to run serially on a single node"
+      echo "  -f, --flags      flags to pass to CausalSet program"
+      echo "  -q, --queue      LSF queue"
+      echo "  -c, --ncores     number of cores requested"
+      echo "  -h, --help       display this help and exit"
+      echo ""
+      echo "Report cbat bugs to w.cunningham@neu.edu"
+      echo "GitHub repository home page: <https://github.com/wjcunningham7/causets>"
       exit 0 ;;
     --) shift ; break ;;
-    *) echo "Internal error!" ; exit 1 ;;
+    *) echo "Internal error!" ; exit 2 ;;
   esac
 done
 
 for (( i=${jobstart}; i<=${njobs}+${jobstart}-1; i++ )); do
-  sed "s:%flags%:$flags:g;s:%jobID%:$i:g;s:%nsamples%:$nsamples:g" < lsf/causet | bsub
+  sed "s:%flags%:$flags:g;s:%jobID%:$i:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g" < lsf/causet | bsub
   sleep 1
 done
 

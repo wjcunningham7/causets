@@ -3,9 +3,9 @@
 #BSUB -J CS-Job%jobID%
 #BSUB -o /scratch/cunningham/causet%jobID%/causet%jobID%.log
 #BSUB -e /scratch/cunningham/causet%jobID%/causet%jobID%.err
-#BSUB -q par-gpu
-#BSUB -n 32
-#BSUB -R span[ptile=32]
+#BSUB -q %queue%
+#BSUB -n %ncores%
+#BSUB -R span[ptile=%ncores%]
 #BSUB -cwd /scratch/cunningham/causet%jobID%
 
 ###########################
@@ -59,7 +59,7 @@ done
 
 for (( i=1; i<=%nsamples%; i++ )); do
   echo "Starting Trial ${i} of %nsamples%"
-  ./CausalSet %flags% &> CausalSet_Job-%jobID%_Sample-$i.log
+  ./CausalSet %flags% > CausalSet_Job-%jobID%_Sample-$i.log
   sleep 1
 done
 
