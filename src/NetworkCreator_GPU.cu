@@ -286,7 +286,7 @@ bool linkNodesGPU_v2(const Node &nodes, const Edge &edges, bool * const &core_ed
 
 	//Decode Adjacency Lists
 	stopwatchStart(&sDecodeLists);
-	if (!decodeLists(edges, h_edges, g_idx, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
+	if (!decodeLists_v1(edges, h_edges, g_idx, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
 		return false;
 	stopwatchStop(&sDecodeLists);
 
@@ -541,7 +541,7 @@ bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g
 }
 
 //Decode past and future edge lists using Bitonic Sort
-bool decodeLists(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (edges.past_edges != NULL);
@@ -555,6 +555,8 @@ bool decodeLists(const Edge &edges, const uint64_t * const h_edges, const int * 
 	CUdeviceptr d_edges;
 	CUdeviceptr d_past_edges, d_future_edges;
 	int j, k;
+
+	printMemUsed("at Checkpoint 1", hostMemUsed, devMemUsed);
 
 	//Allocate Global Device Memory
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
@@ -579,6 +581,8 @@ bool decodeLists(const Edge &edges, const uint64_t * const h_edges, const int * 
 			checkCudaErrors(cuCtxSynchronize());
 		}
 	}
+
+	printMemUsed("at Checkpoint 2", hostMemUsed, devMemUsed);
 
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * d_edges_size));

@@ -764,13 +764,17 @@ bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const 
 		assert (universe);	//Just for now
 	}
 
-	uint64_t stride = (uint64_t)N_tar * (N_tar - 1) / (static_cast<uint64_t>(N_emb) << 1);
+	uint64_t stride = static_cast<uint64_t>(static_cast<double>(N_tar) * (N_tar - 1) / (N_emb * 2));
+	uint64_t npairs = static_cast<uint64_t>(N_emb);
 	uint64_t vec_idx;
 	uint64_t k;
 	int do_map;
 	int i, j;
 
 	stopwatchStart(&sValidateEmbedding);
+
+	//printf("Number of paths to test: %" PRIu64 "\n", static_cast<uint64_t>(N_emb));
+	//printf("Stride: %" PRIu64 "\n", stride);
 
 	try {
 		evd.confusion = (double*)malloc(sizeof(double) * 4);
@@ -779,17 +783,17 @@ bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const 
 		memset(evd.confusion, 0, sizeof(double) * 4);
 		hostMemUsed += sizeof(double) * 4;
 
-		evd.tn = (float*)malloc(sizeof(float) * (static_cast<uint64_t>(N_emb) << 1));
+		evd.tn = (float*)malloc(sizeof(float) * npairs * 2);
 		if (evd.tn == NULL)
 			throw std::bad_alloc();
-		memset(evd.tn, 0, sizeof(float) * (static_cast<uint64_t>(N_emb) << 1));
-		hostMemUsed += sizeof(float) * (static_cast<uint64_t>(N_emb) << 1);
+		memset(evd.tn, 0, sizeof(float) * npairs * 2);
+		hostMemUsed += sizeof(float) * npairs * 2;
 
-		evd.fp = (float*)malloc(sizeof(float) * (static_cast<uint64_t>(N_emb) << 1));
+		evd.fp = (float*)malloc(sizeof(float) * npairs * 2);
 		if (evd.fp == NULL)
 			throw std::bad_alloc();
-		memset(evd.fp, 0, sizeof(float) * (static_cast<uint64_t>(N_emb) << 1));
-		hostMemUsed += sizeof(float) * (static_cast<uint64_t>(N_emb) << 1);
+		memset(evd.fp, 0, sizeof(float) * npairs * 2);
+		hostMemUsed += sizeof(float) * npairs * 2;
 
 		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 		if (verbose)
@@ -799,7 +803,7 @@ bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const 
 		return false;
 	}
 
-	for (k = 0; k < static_cast<uint64_t>(N_emb); k++) {
+	for (k = 0; k < npairs; k++) {
 		vec_idx = k * stride + 1;
 		i = static_cast<int>(vec_idx / (N_tar - 1));
 		j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
@@ -813,9 +817,12 @@ bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const 
 		distanceDS(&evd, nodes.c.sc[i], nodes.id.tau[i], nodes.c.sc[j], nodes.id.tau[j], dim, manifold, a, alpha, universe);
 	}
 
+	//Number of timelike distances in 4-D native FLRW spacetime
+	double A1T = static_cast<double>(N_res * k_res / 2);
+	//Number of spacelike distances in 4-D native FLRW spacetime
+	double A1S = static_cast<double>(N_tar) * (N_tar - 1) / 2 - A1T;
+
 	//Normalize
-	float A1T = N_res * k_res / 2;
-	double A1S = N_tar * (N_tar - 1) / 2 - A1T;
 	evd.confusion[0] /= A1S;
 	evd.confusion[1] /= A1T;
 	evd.confusion[2] /= A1T;
@@ -823,7 +830,7 @@ bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const 
 
 	stopwatchStop(&sValidateEmbedding);
 
-	printf("\tCalcuated Confusion Matrix.\n");
+	printf("\tCalculated Confusion Matrix.\n");
 	printf_cyan();
 	printf("\t\tTrue  Positives: %f\n", evd.confusion[0]);
 	printf("\t\tFalse Negatives: %f\n", evd.confusion[1]);

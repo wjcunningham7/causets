@@ -6,6 +6,8 @@
 #include <exception>
 #include <fstream>
 #include <getopt.h>
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
 #include <iostream>
 #include <limits>
 #include <math.h>

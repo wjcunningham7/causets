@@ -639,7 +639,7 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 				}
 
 				nodes.id.tau[i] = static_cast<float>(x);
-			} while (nodes.id.tau[i] > static_cast<float>(tau0));
+			} while (nodes.id.tau[i] >= static_cast<float>(tau0));
 
 			if (DEBUG) {
 				assert (nodes.id.tau[i] > 0.0f);
