@@ -24,9 +24,9 @@ bool linkNodesGPU_v1(const Node &nodes, const Edge &edges, bool * const &core_ed
 bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose);
 #endif
 
-bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const int &N_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose);
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose);
 
-bool printValues(const Node &nodes, const int num_vals, const char *filename, const char *coord);
+bool printValues(Node &nodes, const int num_vals, const char *filename, const char *coord);
 
 bool printDegrees(const Node &nodes, const int num_vals, const char *filename_in, const char *filename_out);
 

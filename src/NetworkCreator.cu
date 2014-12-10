@@ -399,17 +399,35 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 		}
 
 		if (dim == 3) {
-			nodes.c.sc = (float4*)malloc(sizeof(float4) * N_tar);
-			if (nodes.c.sc == NULL)
+			nodes.crd = Coordinate4D();
+
+			nodes.crd.w() = (float*)malloc(sizeof(float) * N_tar);
+			nodes.crd.x() = (float*)malloc(sizeof(float) * N_tar);
+			nodes.crd.y() = (float*)malloc(sizeof(float) * N_tar);
+			nodes.crd.z() = (float*)malloc(sizeof(float) * N_tar);
+
+			if (nodes.crd.w() == NULL || nodes.crd.x() == NULL || nodes.crd.y() == NULL || nodes.crd.z() == NULL)
 				throw std::bad_alloc();
-			memset(nodes.c.sc, 0, sizeof(float4) * N_tar);
-			hostMemUsed += sizeof(float4) * N_tar;
+
+			memset(nodes.crd.w(), 0, sizeof(float) * N_tar);
+			memset(nodes.crd.x(), 0, sizeof(float) * N_tar);
+			memset(nodes.crd.y(), 0, sizeof(float) * N_tar);
+			memset(nodes.crd.z(), 0, sizeof(float) * N_tar);
+
+			hostMemUsed += sizeof(float) * N_tar * 4;
 		} else if (dim == 1) {
-			nodes.c.hc = (float2*)malloc(sizeof(float2) * N_tar);
-			if (nodes.c.hc == NULL)
+			nodes.crd = Coordinate2D();
+
+			nodes.crd.x() = (float*)malloc(sizeof(float) * N_tar);
+			nodes.crd.y() = (float*)malloc(sizeof(float) * N_tar);
+
+			if (nodes.crd.x() == NULL || nodes.crd.y() == NULL)
 				throw std::bad_alloc();
-			memset(nodes.c.hc, 0, sizeof(float2) * N_tar);
-			hostMemUsed += sizeof(float2) * N_tar;
+
+			memset(nodes.crd.x(), 0, sizeof(float) * N_tar);
+			memset(nodes.crd.y(), 0, sizeof(float) * N_tar);
+
+			hostMemUsed += sizeof(float) * N_tar * 2;
 		}
 
 		if (links_exist) {
@@ -557,7 +575,7 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//Values are in correct ranges
@@ -601,18 +619,18 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 		//if (i % NPRINT == 0) printf("Theta: %5.5f\n", x); fflush(stdout);
 
 		if (dim == 1) {
-			nodes.c.hc[i].y = static_cast<float>(x);
+			nodes.crd.y(i) = static_cast<float>(x);
 
 			//CDF derived from PDF identified in (2) of [2]
-			nodes.c.hc[i].x = static_cast<float>(ATAN(ran2(&seed) / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			nodes.crd.x(i) = static_cast<float>(ATAN(ran2(&seed) / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			if (DEBUG) {
-				assert (nodes.c.hc[i].x > 0.0f);
-				assert (nodes.c.hc[i].x < static_cast<float>(HALF_PI - zeta) + 0.0000001f);
+				assert (nodes.crd.x(i) > 0.0f);
+				assert (nodes.crd.x(i) < static_cast<float>(HALF_PI - zeta) + 0.0000001f);
 			}
 
-			nodes.id.tau[i] = static_cast<float>(etaToTau(static_cast<double>(nodes.c.hc[i].x)));
+			nodes.id.tau[i] = static_cast<float>(etaToTau(static_cast<double>(nodes.crd.x(i))));
 		} else if (dim == 3) {
-			nodes.c.sc[i].x = static_cast<float>(x);
+			nodes.crd.x(i) = static_cast<float>(x);
 
 			/////////////////////////////////////////////////////////
 			//~~~~~~~~~~~~~~~~~~~~~~~~~~~~T~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -652,12 +670,12 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 					//Numerical Integration
 					idata.upper = static_cast<double>(nodes.id.tau[i]) * a;
 					param[0] = a;
-					nodes.c.sc[i].w = static_cast<float>(integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / alpha);
+					nodes.crd.w(i) = static_cast<float>(integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / alpha);
 				} else
 					//Exact Solution
-					nodes.c.sc[i].w = static_cast<float>(tauToEtaUniverseExact(nodes.id.tau[i], a, alpha));
+					nodes.crd.w(i) = static_cast<float>(tauToEtaUniverseExact(nodes.id.tau[i], a, alpha));
 			} else
-				nodes.c.sc[i].w = static_cast<float>(tauToEta(static_cast<double>(nodes.id.tau[i])));
+				nodes.crd.w(i) = static_cast<float>(tauToEta(static_cast<double>(nodes.id.tau[i])));
 				
 			////////////////////////////////////////////////////
 			//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
@@ -667,21 +685,21 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 
 			//Sample Phi from (0, pi)
 			//For some reason the technique in [3] has not been producing the correct distribution...
-			//nodes.sc[i].y = 0.5 * (M_PI * ran2(&seed) + ACOS(ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			//nodes.crd.y(i) = 0.5 * (M_PI * ran2(&seed) + ACOS(ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			x = HALF_PI;
 			rval = ran2(&seed);
 			if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
 				return false;
-			nodes.c.sc[i].y = static_cast<float>(x);
-			if (DEBUG) assert (nodes.c.sc[i].y > 0.0f && nodes.c.sc[i].y < static_cast<float>(M_PI));
+			nodes.crd.y(i) = static_cast<float>(x);
+			if (DEBUG) assert (nodes.crd.y(i) > 0.0f && nodes.crd.y(i) < static_cast<float>(M_PI));
 			//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes.c.sc[i].y); fflush(stdout);
 
 			//Sample Chi from (0, pi)
-			nodes.c.sc[i].z = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-			if (DEBUG) assert (nodes.c.sc[i].z > 0.0f && nodes.c.sc[i].z < static_cast<float>(M_PI));
-			//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes.c.sc[i].z); fflush(stdout);
+			nodes.crd.z(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			if (DEBUG) assert (nodes.crd.z(i) > 0.0f && nodes.crd.z(i) < static_cast<float>(M_PI));
+			//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes.crd.z(i)); fflush(stdout);
 		}
-		//if (i % NPRINT == 0) printf("eta: %E\n", nodes.c.sc[i].w);
+		//if (i % NPRINT == 0) printf("eta: %E\n", nodes.crd.w(i));
 		//if (i % NPRINT == 0) printf("tau: %E\n", nodes.id.tau[i]);
 	}
 
@@ -719,7 +737,7 @@ bool generateNodes(const Node &nodes, const int &N_tar, const float &k_tar, cons
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -761,9 +779,9 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 			//Apply Causal Condition (Light Cone)
 			//Assume nodes are already temporally ordered
 			if (dim == 1)
-				dt = nodes.c.hc[j].x - nodes.c.hc[i].x;
+				dt = nodes.crd.x(j) - nodes.crd.x(i);
 			else if (dim == 3)
-				dt = nodes.c.sc[j].w - nodes.c.sc[i].w;
+				dt = nodes.crd.w(j) - nodes.crd.w(i);
 			//if (i % NPRINT == 0) printf("dt: %.9f\n", dt); fflush(stdout);
 			if (DEBUG) {
 				assert (dt >= 0.0f);
@@ -776,10 +794,10 @@ bool linkNodes(const Node &nodes, Edge &edges, bool * const &core_edge_exists, c
 
 			if (dim == 1) {
 				//Formula given on p. 2 of [2]
-				dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(nodes.c.hc[j].y - nodes.c.hc[i].y), STL), STL));
+				dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(nodes.crd.y(j) - nodes.crd.y(i)), STL), STL));
 			} else if (dim == 3) {
 				//Spherical Law of Cosines
-				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(nodes.c.sc[i], nodes.c.sc[j])), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(nodes.crd.getFloat4(i), nodes.crd.getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			}
 
 			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx); fflush(stdout);

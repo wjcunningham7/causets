@@ -217,7 +217,7 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(const Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (edges.past_edges != NULL);
@@ -367,10 +367,15 @@ bool linkNodesGPU_v2(const Node &nodes, const Edge &edges, bool * const &core_ed
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
 {
 	if (DEBUG) {
-		assert (nodes.c.sc != NULL);
+		assert (nodes.crd.getDim() == 4);
+		assert (!nodes.crd.isNull());
+		assert (nodes.crd.w() != NULL);
+		assert (nodes.crd.x() != NULL);
+		assert (nodes.crd.y() != NULL);
+		assert (nodes.crd.z() != NULL);
 		assert (nodes.k_in != NULL);
 		assert (nodes.k_out != NULL);
 		assert (edges != NULL);
@@ -464,8 +469,8 @@ bool generateLists_v2(const Node &nodes, uint64_t * const &edges, int * const &g
 					checkCudaErrors(cuMemsetD8Async(d_edges[m], 0, m_edges_size, stream[m]));					
 			
 					//Transfer Nodes to Device Buffers
-					checkCudaErrors(cuMemcpyHtoDAsync(d_nodes0[m], nodes.c.sc + i * mthread_size, sizeof(float4) * mthread_size, stream[m]));
-					checkCudaErrors(cuMemcpyHtoDAsync(d_nodes1[m], nodes.c.sc + (j*NBUFFERS+m) * mthread_size, sizeof(float4) * mthread_size, stream[m]));
+					//checkCudaErrors(cuMemcpyHtoDAsync(d_nodes0[m], nodes.c.sc + i * mthread_size, sizeof(float4) * mthread_size, stream[m]));
+					//checkCudaErrors(cuMemcpyHtoDAsync(d_nodes1[m], nodes.c.sc + (j*NBUFFERS+m) * mthread_size, sizeof(float4) * mthread_size, stream[m]));
 
 					//Execute Kernel
 					GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float4*)d_nodes0[m], (float4*)d_nodes1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], diag);

@@ -179,7 +179,7 @@ bool linkNodesGPU_v1(const Node &nodes, const Edge &edges, bool * const &core_ed
 		printMemUsed("for Parallel Node Linking", hostMemUsed, devMemUsed);
 
 	//Copy Memory from Host to Device
-	checkCudaErrors(cuMemcpyHtoD(d_nodes, nodes.c.sc, sizeof(float4) * N_tar));
+	//checkCudaErrors(cuMemcpyHtoD(d_nodes, nodes.c.sc, sizeof(float4) * N_tar));
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_edges, 0, d_edges_size << 1));
@@ -567,7 +567,7 @@ bool linkNodesGPU_v1(const Node &nodes, const Edge &edges, bool * const &core_ed
 bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
 {
 	if (DEBUG) {
-		assert (nodes.c.sc != NULL);
+		//assert (nodes.crd.w() != NULL);
 		assert (nodes.k_in != NULL);
 		assert (nodes.k_out != NULL);
 		assert (edges != NULL);
@@ -679,8 +679,8 @@ bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g
 			diag = (unsigned int)(i == j);
 
 			//Copy node values to device buffers
-			checkCudaErrors(cuMemcpyHtoD(d_nodes0, nodes.c.sc + i * mthread_size, sizeof(float4) * mthread_size));
-			checkCudaErrors(cuMemcpyHtoD(d_nodes1, nodes.c.sc + j * mthread_size, sizeof(float4) * mthread_size));
+			//checkCudaErrors(cuMemcpyHtoD(d_nodes0, nodes.c.sc + i * mthread_size, sizeof(float4) * mthread_size));
+			//checkCudaErrors(cuMemcpyHtoD(d_nodes1, nodes.c.sc + j * mthread_size, sizeof(float4) * mthread_size));
 
 			//Synchronize
 			checkCudaErrors(cuCtxSynchronize());
@@ -755,7 +755,7 @@ bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g
 
 //Generate confusion matrix for geodesic distances in universe with matter
 //Save matrix values as well as d_theta and d_eta to file
-bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const int &N_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (N_tar > 0);
@@ -814,7 +814,7 @@ bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const 
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
-		distanceDS(&evd, nodes.c.sc[i], nodes.id.tau[i], nodes.c.sc[j], nodes.id.tau[j], dim, manifold, a, alpha, universe);
+		distanceDS(&evd, nodes.crd.getFloat4(i), nodes.id.tau[i], nodes.crd.getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe);
 	}
 
 	//Number of timelike distances in 4-D native FLRW spacetime
@@ -850,7 +850,7 @@ bool validateEmbedding(EVData &evd, const Node &nodes, const Edge &edges, const 
 
 //Write Node Coordinates to File
 //O(num_vals) Efficiency
-bool printValues(const Node &nodes, const int num_vals, const char *filename, const char *coord)
+bool printValues(Node &nodes, const int num_vals, const char *filename, const char *coord)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -872,14 +872,14 @@ bool printValues(const Node &nodes, const int num_vals, const char *filename, co
 			if (strcmp(coord, "tau") == 0)
 				outputStream << nodes.id.tau[i] << std::endl;
 			else if (strcmp(coord, "eta") == 0)
-				outputStream << nodes.c.sc[i].w << std::endl;
-				//outputStream << nodes.c.hc[i].x << std::endl;
+				outputStream << nodes.crd.w(i) << std::endl;
+				//outputStream << nodes.crd.x(i) << std::endl;
 			else if (strcmp(coord, "theta") == 0)
-				outputStream << nodes.c.sc[i].x << std::endl;
+				outputStream << nodes.crd.x(i) << std::endl;
 			else if (strcmp(coord, "phi") == 0)
-				outputStream << nodes.c.sc[i].y << std::endl;
+				outputStream << nodes.crd.y(i) << std::endl;
 			else if (strcmp(coord, "chi") == 0)
-				outputStream << nodes.c.sc[i].z << std::endl;
+				outputStream << nodes.crd.z(i) << std::endl;
 			else
 				throw CausetException("Unrecognized value in 'coord' parameter!\n");
 		}

@@ -431,7 +431,7 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 	}
 
 	#ifdef _OPENMP
-		printf("\t[ *** OPENMP MODULE ACTIVE *** ]\n\n");
+	printf("\t[ *** OPENMP MODULE ACTIVE *** ]\n\n");
 	#endif
 	
 	int nb = static_cast<int>(network->network_properties.flags.bench) * NBENCH;
@@ -630,7 +630,8 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 	//Measure Degree Fields
 	if (network->network_properties.flags.calc_deg_field) {
 		for (i = 0; i <= nb; i++) {
-			if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.c.sc, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.delta, network->network_properties.seed, cp->sMeasureDegreeField, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			//if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.c.sc, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.delta, network->network_properties.seed, cp->sMeasureDegreeField, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.crd, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.delta, network->network_properties.seed, cp->sMeasureDegreeField, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
 
@@ -749,46 +750,46 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 
 				if (network->network_properties.manifold == DE_SITTER) {
 					if (network->network_properties.dim == 1) {
-						network->nodes.c.hc[i].x = atof(strtok((char*)line.c_str(), delimeters));
-						network->nodes.c.hc[i].y = atof(strtok(NULL, delimeters));
+						network->nodes.crd.x(i) = atof(strtok((char*)line.c_str(), delimeters));
+						network->nodes.crd.y(i) = atof(strtok(NULL, delimeters));
 					} else if (network->network_properties.dim == 3) {
 						if (network->network_properties.flags.universe) {
 							network->nodes.id.tau[i] = atof(strtok((char*)line.c_str(), delimeters));
 							if (network->network_properties.flags.universe) {
 								if (USE_GSL) {
 									idata.upper = network->nodes.id.tau[i] * network->network_properties.a;
-									network->nodes.c.sc[i].w = integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / network->network_properties.alpha;
+									network->nodes.crd.w(i) = integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / network->network_properties.alpha;
 								} else
-									network->nodes.c.sc[i].w = tauToEtaUniverseExact(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
+									network->nodes.crd.w(i) = tauToEtaUniverseExact(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
 							} else
-								network->nodes.c.sc[i].w = tauToEta(network->nodes.id.tau[i]);
+								network->nodes.crd.w(i) = tauToEta(network->nodes.id.tau[i]);
 						} else {
-							network->nodes.c.sc[i].w = atof(strtok((char*)line.c_str(), delimeters));
-							network->nodes.id.tau[i] = etaToTau(network->nodes.c.sc[i].w);
+							network->nodes.crd.w(i) = atof(strtok((char*)line.c_str(), delimeters));
+							network->nodes.id.tau[i] = etaToTau(network->nodes.crd.w(i));
 						}
-						network->nodes.c.sc[i].x = atof(strtok(NULL, delimeters));
-						network->nodes.c.sc[i].y = atof(strtok(NULL, delimeters));
-						network->nodes.c.sc[i].z = atof(strtok(NULL, delimeters));
+						network->nodes.crd.x(i) = atof(strtok(NULL, delimeters));
+						network->nodes.crd.y(i) = atof(strtok(NULL, delimeters));
+						network->nodes.crd.z(i) = atof(strtok(NULL, delimeters));
 					}
 				} else if (network->network_properties.manifold == HYPERBOLIC) {
 					network->nodes.id.AS[i] = atoi(strtok((char*)line.c_str(), delimeters));
-					network->nodes.c.hc[i].y = atof(strtok(NULL, delimeters));
-					network->nodes.c.hc[i].x = atof(strtok(NULL, delimeters));
+					network->nodes.crd.x(i) = atof(strtok(NULL, delimeters));
+					network->nodes.crd.y(i) = atof(strtok(NULL, delimeters));
 				}
 
 				if (network->network_properties.dim == 1) {
-					if (network->nodes.c.hc[i].x < 0.0)
+					if (network->nodes.crd.x(i) < 0.0)
 						throw CausetException("Invalid value parsed for 'eta/r' in node position file!\n");
-					if (network->nodes.c.hc[i].y <= 0.0 || network->nodes.c.hc[i].y >= TWO_PI)
+					if (network->nodes.crd.y(i) <= 0.0 || network->nodes.crd.y(i) >= TWO_PI)
 						throw CausetException("Invalid value for 'theta' in node position file!\n");
 				} else if (network->network_properties.dim == 3 && network->network_properties.manifold == DE_SITTER) {
-					//if (network->nodes.c.sc[i].w <= 0.0 || network->nodes.c.sc[i].w >= HALF_PI)
+					//if (network->nodes.crd.w(i) <= 0.0 || network->nodes.crd.w(i) >= HALF_PI)
 					//	throw CausetException("Invalid value for 'eta' in node position file!\n");
-					if (network->nodes.c.sc[i].x <= 0.0 || network->nodes.c.sc[i].x >= TWO_PI)
+					if (network->nodes.crd.x(i) <= 0.0 || network->nodes.crd.x(i) >= TWO_PI)
 						throw CausetException("Invalid value for 'theta' in node position file!\n");
-					if (network->nodes.c.sc[i].y <= 0.0 || network->nodes.c.sc[i].y >= M_PI)
+					if (network->nodes.crd.y(i) <= 0.0 || network->nodes.crd.y(i) >= M_PI)
 						throw CausetException("Invalid value for 'phi' in node position file!\n");
-					if (network->nodes.c.sc[i].z <= 0.0 || network->nodes.c.sc[i].z >= M_PI)
+					if (network->nodes.crd.z(i) <= 0.0 || network->nodes.crd.z(i) >= M_PI)
 						throw CausetException("Invalid value for 'chi' in node position file!\n");
 				}
 			}
@@ -1185,12 +1186,12 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 					if (network.network_properties.flags.universe)
 						dataStream << network.nodes.id.tau[i];
 					else
-						dataStream << network.nodes.c.sc[i].w;
-					dataStream << " " << network.nodes.c.sc[i].x << " " << network.nodes.c.sc[i].y << " " << network.nodes.c.sc[i].z;
+						dataStream << network.nodes.crd.w(i);
+					dataStream << " " << network.nodes.crd.x(i) << " " << network.nodes.crd.y(i) << " " << network.nodes.crd.z(i);
 				} else if (network.network_properties.dim == 1)
-					dataStream << network.nodes.c.hc[i].x;
+					dataStream << network.nodes.crd.x(i);
 			} else if (network.network_properties.manifold == HYPERBOLIC)
-				dataStream << network.nodes.id.AS[i] << " " << network.nodes.c.hc[i].y << " " << network.nodes.c.hc[i].x;
+				dataStream << network.nodes.id.AS[i] << " " << network.nodes.crd.y(i) << " " << network.nodes.crd.x(i);
 			dataStream << std::endl;
 		}
 		dataStream.flush();
@@ -1476,13 +1477,27 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 	}
 
 	if (network->network_properties.dim == 3) {
-		free(network->nodes.c.sc);
-		network->nodes.c.sc = NULL;
-		hostMemUsed -= sizeof(float4) * network->network_properties.N_tar;
+		free(network->nodes.crd.w());
+		network->nodes.crd.w() = NULL;
+
+		free(network->nodes.crd.x());
+		network->nodes.crd.x() = NULL;
+
+		free(network->nodes.crd.y());
+		network->nodes.crd.y() = NULL;
+
+		free(network->nodes.crd.z());
+		network->nodes.crd.z() = NULL;
+
+		hostMemUsed -= sizeof(float) * network->network_properties.N_tar * 4;
 	} else if (network->network_properties.dim == 1) {
-		free(network->nodes.c.hc);
-		network->nodes.c.hc = NULL;
-		hostMemUsed -= sizeof(float2) * network->network_properties.N_tar;
+		free(network->nodes.crd.x());
+		network->nodes.crd.x() = NULL;
+
+		free(network->nodes.crd.y());
+		network->nodes.crd.y() = NULL;
+
+		hostMemUsed -= sizeof(float) * network->network_properties.N_tar * 2;
 	}
 
 	if (links_exist) {

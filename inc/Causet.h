@@ -81,17 +81,127 @@ enum Manifold {
 	HYPERBOLIC
 };
 
-//Node Coordinates
-union Coord {
-	Coord() { memset(this, 0, sizeof(Coord)); }
+//These coordinate data structures are important because they allow
+//the data to be coalesced (physically adjacent), and this can improve the
+//speed of global memory reads on the GPU by a factor of 8 or 16.  Further,
+//it provides a way for higher-dimensional nodes to be added easily at
+//a later date.
 
-	float4 *sc;			//Stored as (eta, theta, phi, chi) for 3+1 DS
+//Abstract N-Dimensional Vertex Coordinate
+//This should not be instantiated by itself
+struct Coordinate {
+	Coordinate() : points(NULL), ndim(0), zero(0.0), null_ptr(NULL) {};
+	Coordinate(int _ndim) : ndim(_ndim), zero(0.0), null_ptr(NULL) { points = new float*[_ndim]; }
+	virtual ~Coordinate() { delete [] this->points; }
 
-	float2 *hc;			//Stored as (r, theta) for HYPERBOLIC
-					//Stored as (eta, theta) for 1+1 DS
+public:
+	int getDim() { return ndim; }
+	bool isNull() { return points == NULL; }
+
+	//These functions should not be accessed through this structure.  They
+	//should be accessed through inherited structures to avoid SLICING.
+	//These virtual definitions are used to indicate bugs in the code,
+	//usually when a structure is passed by value instead of by reference
+
+	float zero;
+	virtual float & v(unsigned int idx) { return zero; }
+	virtual float & w(unsigned int idx) { return zero; }
+	virtual float & x(unsigned int idx) { return zero; }
+	virtual float & y(unsigned int idx) { return zero; }
+	virtual float & z(unsigned int idx) { return zero; }
+
+	float *null_ptr;
+	virtual float *& v() { return null_ptr; }
+	virtual float *& w() { return null_ptr; }
+	virtual float *& x() { return null_ptr; }
+	virtual float *& y() { return null_ptr; }
+	virtual float *& z() { return null_ptr; }
+
+	virtual float2 getFloat2(unsigned int idx) { return make_float2(0.0f, 0.0f); }
+	virtual float4 getFloat4(unsigned int idx) { return make_float4(0.0f, 0.0f, 0.0f, 0.0f); }
+
+protected:
+	float **points;
+	int ndim;
+};
+
+//2-Dimensional Vertex Coordinate
+struct Coordinate2D : virtual public Coordinate {
+	Coordinate2D() : Coordinate(2) {}
+	Coordinate2D(float *_x, float *_y) : Coordinate(2) {
+		this->points[0] = _x;
+		this->points[1] = _y;
+	}
+
+	//Access element as c.x(index)
+	float & x(unsigned int idx) { return this->points[0][idx]; }
+	float & y(unsigned int idx) { return this->points[1][idx]; }
+
+	//Access pointer as c.x()
+	float *& x() { return this->points[0]; }
+	float *& y() { return this->points[1]; }
+
+	//Return compressed value
+	float2 getFloat2(unsigned int idx) { return make_float2(this->points[0][idx], this->points[1][idx]); }
+
+	//Access pointer as c[0]
+	//Keeping this for my own reference but don't use this style for now	
+	//float * operator [] (unsigned int i) const { return this->points[i]; }
+	//float *& operator [] (unsigned int i) { return this->points[i]; }
+};
+
+//4-Dimensional Vertex Coordinate
+struct Coordinate4D : virtual public Coordinate {
+	Coordinate4D() : Coordinate(4) {}
+	Coordinate4D(float *_w, float *_x, float *_y, float *_z) : Coordinate(4) {
+		this->points[0] = _w;
+		this->points[1] = _x;
+		this->points[2] = _y;
+		this->points[3] = _z;
+	}
+
+	float & w(unsigned int idx) { return this->points[0][idx]; }
+	float & x(unsigned int idx) { return this->points[1][idx]; }
+	float & y(unsigned int idx) { return this->points[2][idx]; }
+	float & z(unsigned int idx) { return this->points[3][idx]; }
+
+	float *& w() { return this->points[0]; }
+	float *& x() { return this->points[1]; }
+	float *& y() { return this->points[2]; }
+	float *& z() { return this->points[3]; }
+
+	float4 getFloat4(unsigned int idx) { return make_float4(this->points[0][idx], this->points[1][idx], this->points[2][idx], this->points[3][idx]); }
+};
+
+//5-Dimensional Vertex Coordinate
+struct Coordinate5D : virtual public Coordinate {
+	Coordinate5D() : Coordinate(5) {}
+	Coordinate5D(float *_v, float *_w, float *_x, float *_y, float *_z) : Coordinate(5) {
+		this->points[0] = _v;
+		this->points[1] = _w;
+		this->points[2] = _x;
+		this->points[3] = _y;
+		this->points[4] = _z;
+	}
+
+	float & v(unsigned int idx) { return this->points[0][idx]; }
+	float & w(unsigned int idx) { return this->points[1][idx]; }
+	float & x(unsigned int idx) { return this->points[2][idx]; }
+	float & y(unsigned int idx) { return this->points[3][idx]; }
+	float & z(unsigned int idx) { return this->points[4][idx]; }
+
+	float *& v() { return this->points[0]; }
+	float *& w() { return this->points[1]; }
+	float *& x() { return this->points[2]; }
+	float *& y() { return this->points[3]; }
+	float *& z() { return this->points[4]; }
 };
 
 //Node ID
+//This is a bit of a messy hack to deal with extra variables
+//in both causal sets and hyperbolic models which don't fit elsewhere.
+//So the 'id' of a causal set node is said to be its rescaled time,
+//and the 'id' of a hyperbolic node is its AS identification number.
 union ID {
 	ID() { memset(this, 0, sizeof(ID)); }
 
@@ -101,18 +211,19 @@ union ID {
 
 //Minimal unique properties of a node
 struct Node {
-	Node() : id(ID()), c(Coord()), k_in(NULL), k_out(NULL), cc_id(NULL) {}
+	Node() : crd(Coordinate()), id(ID()), k_in(NULL), k_out(NULL), cc_id(NULL) {}
 
 	//Node Identifiers
+	Coordinate crd;	//Assign a derived type to this.  This is a generalized
+			//method of creating an N-dimensional node.
 	ID id;
-	Coord c;
 
 	//HashMap for HYPERBOLIC
 	boost::unordered_map<int, int> AS_idx;
 
 	//Number of Neighbors
-	int *k_in;
-	int *k_out;
+	int *k_in;	//In-Degrees
+	int *k_out;	//Out-Degrees
 
 	//Connected Component ID
 	int *cc_id;
@@ -300,6 +411,8 @@ struct Benchmark {
 
 //Used for GSL Integration
 struct GSL_EmbeddedZ1_Parameters {
+	GSL_EmbeddedZ1_Parameters() {}
+
 	double a;
 	double alpha;
 };
@@ -307,14 +420,14 @@ struct GSL_EmbeddedZ1_Parameters {
 //Custom exception class used in this program
 class CausetException : public std::exception
 {
-	public:
-		CausetException() : msg("Unknown Error!") {}
-		explicit CausetException(char const * _msg) : msg(_msg) {}
-		virtual ~CausetException() throw () {}
-		virtual const char * what() const throw () { return msg; }
+public:
+	CausetException() : msg("Unknown Error!") {}
+	explicit CausetException(char const * _msg) : msg(_msg) {}
+	virtual ~CausetException() throw () {}
+	virtual const char * what() const throw () { return msg; }
 
-	protected:
-		char const * msg;
+protected:
+	char const * msg;
 };
 
 //Function prototypes for those described in src/Causet.cu

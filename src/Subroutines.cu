@@ -132,16 +132,16 @@ void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, i
 		k = (low + high) >> 1;
 		swap(nodes, dim, manifold, low, k);
 		if (dim == 1)
-			key = nodes.c.hc[low].x;
+			key = nodes.crd.x(low);
 		else if (dim == 3)
-			key = nodes.c.sc[low].w;
+			key = nodes.crd.w(low);
 		i = low + 1;
 		j = high;
 
 		while (i <= j) {
-			while ((i <= high) && ((dim == 3 ? nodes.c.sc[i].w : nodes.c.hc[i].x) <= key))
+			while ((i <= high) && ((dim == 3 ? nodes.crd.w(i) : nodes.crd.x(i)) <= key))
 				i++;
-			while ((j >= low) && ((dim == 3 ? nodes.c.sc[j].w : nodes.c.hc[j].x) > key))
+			while ((j >= low) && ((dim == 3 ? nodes.crd.w(j) : nodes.crd.x(j)) > key))
 				j--;
 			if (i < j)
 				swap(nodes, dim, manifold, i, j);
@@ -195,13 +195,25 @@ void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, co
 	}
 
 	if (dim == 1) {
-		float2 hc = nodes.c.hc[i];
-		nodes.c.hc[i] = nodes.c.hc[j];
-		nodes.c.hc[j] = hc;
+		float2 hc = nodes.crd.getFloat2(i);
+
+		nodes.crd.x(i) = nodes.crd.x(j);
+		nodes.crd.y(i) = nodes.crd.y(j);
+
+		nodes.crd.x(j) = hc.x;
+		nodes.crd.y(j) = hc.y;
 	} else if (dim == 3) {
-		float4 sc = nodes.c.sc[i];
-		nodes.c.sc[i] = nodes.c.sc[j];
-		nodes.c.sc[j] = sc;
+		float4 sc = nodes.crd.getFloat4(i);
+
+		nodes.crd.w(i) = nodes.crd.w(j);
+		nodes.crd.x(i) = nodes.crd.x(j);
+		nodes.crd.y(i) = nodes.crd.y(j);
+		nodes.crd.z(i) = nodes.crd.z(j);
+
+		nodes.crd.w(j) = sc.w;
+		nodes.crd.x(j) = sc.x;
+		nodes.crd.y(j) = sc.y;
+		nodes.crd.z(j) = sc.z;
 	}
 
 	if (manifold == DE_SITTER) {
