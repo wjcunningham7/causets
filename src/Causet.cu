@@ -1,5 +1,6 @@
 #include "NetworkCreator.h"
 #include "Measurements.h"
+#include "test.h"
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
@@ -9,6 +10,8 @@
 
 int main(int argc, char **argv)
 {
+	//test();
+
 	//Initialize Data Structures
 	CausetPerformance cp = CausetPerformance();
 	stopwatchStart(&cp.sCauset);
@@ -77,7 +80,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":A:a:Cc:D:d:E:F:Gg:hk:Ll:m:n:o:Rr:S:s:Tt:uvyz:";
+	static const char *optString = ":A:a:Cc:D:d:E:F:Gg:hk:Ll:m:n:o:Rr:S:s:Tt:uvxyz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
 		{ "alpha",	required_argument,	NULL, 'A' },
@@ -105,10 +108,12 @@ NetworkProperties parseArgs(int argc, char **argv)
 		{ "age",	required_argument,	NULL, 't' },
 		{ "universe",	no_argument,		NULL, 'u' },
 		{ "verbose", 	no_argument, 		NULL, 'v' },
+		{ "maxchi",	required_argument,	NULL, 'x' },
 		{ "zeta",	required_argument,	NULL, 'z' },
 
 		{ "autocorr",	no_argument,		NULL,  0  },
 		{ "benchmark",	no_argument,		NULL,  0  },
+		{ "compact",	no_argument,		NULL,  0  },
 		{ "conflicts",  no_argument,		NULL,  0  },
 		{ "display", 	no_argument, 		NULL,  0  },
 		{ "gpu", 	no_argument, 		NULL,  0  },
@@ -296,6 +301,9 @@ NetworkProperties parseArgs(int argc, char **argv)
 			case 'v':	//Verbose output
 				network_properties.flags.verbose = true;
 				break;
+			case 'x':	//Size of spatial slice
+				network_properties.chi_max = atof(optarg);
+				break;
 			case 'y':	//Suppress user input
 				network_properties.flags.yes = true;
 				break;
@@ -311,6 +319,9 @@ NetworkProperties parseArgs(int argc, char **argv)
 				else if (!strcmp("benchmark", longOpts[longIndex].name))
 					//Flag to benchmark selected routines
 					network_properties.flags.bench = true;
+				else if (!strcmp("compact", longOpts[longIndex].name))
+					//Flag to use compactification of radial coordinate
+					network_properties.flags.compact = true;
 				else if (!strcmp("conflicts", longOpts[longIndex].name)) {
 					//Print conflicting parameters
 					printf("\nParameter Conflicts:\n");
@@ -375,6 +386,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				printf("  -t, --age\t\tRescaled Age of Universe\t0.85\n");
 				printf("  -u, --universe\tUniverse Causet\n");
 				printf("  -v, --verbose\t\tVerbose Output\n");
+				printf("  -x, --maxchi\t\tSize of Spatial Slice\t100\n");
 				printf("  -y\t\t\tSuppress User Queries\n");
 				printf("  -z, --zeta\t\tHyperbolic Curvature\t\t1.0\n");
 				printf("\n");
@@ -382,6 +394,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				printf("Flag:\t\t\tPurpose:\n");
 				printf("  --autocorr\t\tCalculate Autocorrelations\n");
 				printf("  --benchmark\t\tBenchmark Algorithms\n");
+				printf("  --compact\t\tUse Compactification of Radial Coordinate\n");
 				printf("  --conflicts\t\tShow Parameter Conflicts\n");
 				printf("  --display\t\tDisplay Graph\n");
 				#ifdef CUDA_ENABLED
@@ -630,7 +643,6 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 	//Measure Degree Fields
 	if (network->network_properties.flags.calc_deg_field) {
 		for (i = 0; i <= nb; i++) {
-			//if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.c.sc, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.delta, network->network_properties.seed, cp->sMeasureDegreeField, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 			if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.crd, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.delta, network->network_properties.seed, cp->sMeasureDegreeField, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
@@ -750,46 +762,46 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 
 				if (network->network_properties.manifold == DE_SITTER) {
 					if (network->network_properties.dim == 1) {
-						network->nodes.crd.x(i) = atof(strtok((char*)line.c_str(), delimeters));
-						network->nodes.crd.y(i) = atof(strtok(NULL, delimeters));
+						network->nodes.crd->x(i) = atof(strtok((char*)line.c_str(), delimeters));
+						network->nodes.crd->y(i) = atof(strtok(NULL, delimeters));
 					} else if (network->network_properties.dim == 3) {
 						if (network->network_properties.flags.universe) {
 							network->nodes.id.tau[i] = atof(strtok((char*)line.c_str(), delimeters));
 							if (network->network_properties.flags.universe) {
 								if (USE_GSL) {
 									idata.upper = network->nodes.id.tau[i] * network->network_properties.a;
-									network->nodes.crd.w(i) = integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / network->network_properties.alpha;
+									network->nodes.crd->w(i) = integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / network->network_properties.alpha;
 								} else
-									network->nodes.crd.w(i) = tauToEtaUniverseExact(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
+									network->nodes.crd->w(i) = tauToEtaUniverseExact(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
 							} else
-								network->nodes.crd.w(i) = tauToEta(network->nodes.id.tau[i]);
+								network->nodes.crd->w(i) = tauToEta(network->nodes.id.tau[i]);
 						} else {
-							network->nodes.crd.w(i) = atof(strtok((char*)line.c_str(), delimeters));
-							network->nodes.id.tau[i] = etaToTau(network->nodes.crd.w(i));
+							network->nodes.crd->w(i) = atof(strtok((char*)line.c_str(), delimeters));
+							network->nodes.id.tau[i] = etaToTau(network->nodes.crd->w(i));
 						}
-						network->nodes.crd.x(i) = atof(strtok(NULL, delimeters));
-						network->nodes.crd.y(i) = atof(strtok(NULL, delimeters));
-						network->nodes.crd.z(i) = atof(strtok(NULL, delimeters));
+						network->nodes.crd->x(i) = atof(strtok(NULL, delimeters));
+						network->nodes.crd->y(i) = atof(strtok(NULL, delimeters));
+						network->nodes.crd->z(i) = atof(strtok(NULL, delimeters));
 					}
 				} else if (network->network_properties.manifold == HYPERBOLIC) {
 					network->nodes.id.AS[i] = atoi(strtok((char*)line.c_str(), delimeters));
-					network->nodes.crd.x(i) = atof(strtok(NULL, delimeters));
-					network->nodes.crd.y(i) = atof(strtok(NULL, delimeters));
+					network->nodes.crd->x(i) = atof(strtok(NULL, delimeters));
+					network->nodes.crd->y(i) = atof(strtok(NULL, delimeters));
 				}
 
 				if (network->network_properties.dim == 1) {
-					if (network->nodes.crd.x(i) < 0.0)
+					if (network->nodes.crd->x(i) < 0.0)
 						throw CausetException("Invalid value parsed for 'eta/r' in node position file!\n");
-					if (network->nodes.crd.y(i) <= 0.0 || network->nodes.crd.y(i) >= TWO_PI)
+					if (network->nodes.crd->y(i) <= 0.0 || network->nodes.crd->y(i) >= TWO_PI)
 						throw CausetException("Invalid value for 'theta' in node position file!\n");
 				} else if (network->network_properties.dim == 3 && network->network_properties.manifold == DE_SITTER) {
-					//if (network->nodes.crd.w(i) <= 0.0 || network->nodes.crd.w(i) >= HALF_PI)
+					//if (network->nodes.crd->w(i) <= 0.0 || network->nodes.crd->w(i) >= HALF_PI)
 					//	throw CausetException("Invalid value for 'eta' in node position file!\n");
-					if (network->nodes.crd.x(i) <= 0.0 || network->nodes.crd.x(i) >= TWO_PI)
+					if (network->nodes.crd->x(i) <= 0.0 || network->nodes.crd->x(i) >= TWO_PI)
 						throw CausetException("Invalid value for 'theta' in node position file!\n");
-					if (network->nodes.crd.y(i) <= 0.0 || network->nodes.crd.y(i) >= M_PI)
+					if (network->nodes.crd->y(i) <= 0.0 || network->nodes.crd->y(i) >= M_PI)
 						throw CausetException("Invalid value for 'phi' in node position file!\n");
-					if (network->nodes.crd.z(i) <= 0.0 || network->nodes.crd.z(i) >= M_PI)
+					if (network->nodes.crd->z(i) <= 0.0 || network->nodes.crd->z(i) >= M_PI)
 						throw CausetException("Invalid value for 'chi' in node position file!\n");
 				}
 			}
@@ -1133,10 +1145,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 		outputStream << "--------------------------" << std::endl;
 		//outputStream << "calcDegrees:         " << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
 		outputStream << "createNetwork:       " << cp.sCreateNetwork.elapsedTime << " sec" << std::endl;
-		//if (network.network_properties.flags.use_gpu)
-			//outputStream << "generateNodesGPU:    " << cp.sGenerateNodesGPU.elapsedTime << " sec" << std::endl;
-		//else
-			outputStream << "generateNodes:       " << cp.sGenerateNodes.elapsedTime << " sec" << std::endl;
+		outputStream << "generateNodes:       " << cp.sGenerateNodes.elapsedTime << " sec" << std::endl;
 		outputStream << "quicksort:           " << cp.sQuicksort.elapsedTime << " sec" << std::endl;
 		if (links_exist) {
 			if (network.network_properties.flags.use_gpu)
@@ -1186,12 +1195,12 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 					if (network.network_properties.flags.universe)
 						dataStream << network.nodes.id.tau[i];
 					else
-						dataStream << network.nodes.crd.w(i);
-					dataStream << " " << network.nodes.crd.x(i) << " " << network.nodes.crd.y(i) << " " << network.nodes.crd.z(i);
+						dataStream << network.nodes.crd->w(i);
+					dataStream << " " << network.nodes.crd->x(i) << " " << network.nodes.crd->y(i) << " " << network.nodes.crd->z(i);
 				} else if (network.network_properties.dim == 1)
-					dataStream << network.nodes.crd.x(i);
+					dataStream << network.nodes.crd->x(i);
 			} else if (network.network_properties.manifold == HYPERBOLIC)
-				dataStream << network.nodes.id.AS[i] << " " << network.nodes.crd.y(i) << " " << network.nodes.crd.x(i);
+				dataStream << network.nodes.id.AS[i] << " " << network.nodes.crd->y(i) << " " << network.nodes.crd->x(i);
 			dataStream << std::endl;
 		}
 		dataStream.flush();
@@ -1477,25 +1486,25 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 	}
 
 	if (network->network_properties.dim == 3) {
-		free(network->nodes.crd.w());
-		network->nodes.crd.w() = NULL;
+		free(network->nodes.crd->w());
+		network->nodes.crd->w() = NULL;
 
-		free(network->nodes.crd.x());
-		network->nodes.crd.x() = NULL;
+		free(network->nodes.crd->x());
+		network->nodes.crd->x() = NULL;
 
-		free(network->nodes.crd.y());
-		network->nodes.crd.y() = NULL;
+		free(network->nodes.crd->y());
+		network->nodes.crd->y() = NULL;
 
-		free(network->nodes.crd.z());
-		network->nodes.crd.z() = NULL;
+		free(network->nodes.crd->z());
+		network->nodes.crd->z() = NULL;
 
 		hostMemUsed -= sizeof(float) * network->network_properties.N_tar * 4;
 	} else if (network->network_properties.dim == 1) {
-		free(network->nodes.crd.x());
-		network->nodes.crd.x() = NULL;
+		free(network->nodes.crd->x());
+		network->nodes.crd->x() = NULL;
 
-		free(network->nodes.crd.y());
-		network->nodes.crd.y() = NULL;
+		free(network->nodes.crd->y());
+		network->nodes.crd->y() = NULL;
 
 		hostMemUsed -= sizeof(float) * network->network_properties.N_tar * 2;
 	}

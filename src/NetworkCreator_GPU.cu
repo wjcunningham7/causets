@@ -6,9 +6,12 @@
 // Northeastern University //
 /////////////////////////////
 
-__global__ void GenerateAdjacencyLists_v2(float4 *nodes0, float4 *nodes1, int *k_in, int *k_out, bool *edges, int diag)
+__global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float *z0, float *w1, float *x1, float *y1, float *z1, int *k_in, int *k_out, bool *edges, int diag)
 {
-	__shared__ float4 shr_n1[THREAD_SIZE];
+	__shared__ float shr_w1[THREAD_SIZE];
+	__shared__ float shr_x1[THREAD_SIZE];
+	__shared__ float shr_y1[THREAD_SIZE];
+	__shared__ float shr_z1[THREAD_SIZE];
 	__shared__ int n[BLOCK_SIZE][THREAD_SIZE];
 
 	float4 n0, n1;
@@ -20,9 +23,14 @@ __global__ void GenerateAdjacencyLists_v2(float4 *nodes0, float4 *nodes1, int *k
 	unsigned int k;
 
 	//Each thread compares 1 node in 'nodes0' to 'THREAD_SIZE' nodes in 'nodes1'
-	if (!tid)
-		for (k = 0; k < THREAD_SIZE; k++)
-			shr_n1[k] = nodes1[j*THREAD_SIZE+k];
+	if (!tid) {
+		for (k = 0; k < THREAD_SIZE; k++) {
+			shr_w1[k] = w1[j*THREAD_SIZE+k];
+			shr_x1[k] = x1[j*THREAD_SIZE+k];
+			shr_y1[k] = y1[j*THREAD_SIZE+k];
+			shr_z1[k] = z1[j*THREAD_SIZE+k];
+		}
+	}
 	__syncthreads();
 
 	float dt[THREAD_SIZE];
@@ -31,8 +39,15 @@ __global__ void GenerateAdjacencyLists_v2(float4 *nodes0, float4 *nodes1, int *k
 	for (k = 0; k < THREAD_SIZE; k++) {
 		if (!diag || i < j * THREAD_SIZE + k) {
 			//Identify nodes to compare
-			n0 = nodes0[i];
-			n1 = shr_n1[k];
+			n0.w = w0[i];
+			n0.x = x0[i];
+			n0.y = y0[i];
+			n0.z = z0[i];
+
+			n1.w = shr_w1[k];
+			n1.x = shr_x1[k];
+			n1.y = shr_y1[k];
+			n1.z = shr_z1[k];
 
 			//Identify spacetime interval
 			dt[k] = n1.w - n0.w;
@@ -78,13 +93,16 @@ __global__ void GenerateAdjacencyLists_v2(float4 *nodes0, float4 *nodes1, int *k
 				atomicAdd(&k_in[j*THREAD_SIZE+k], n[0][k]);
 }
 
-__global__ void GenerateAdjacencyLists_v1(float4 *nodes, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width)
+__global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width)
 {
 	///////////////////////////////////////
 	// Identify Node Pair with Thread ID //
 	///////////////////////////////////////
 
-	__shared__ float4 shr_node0_c;
+	__shared__ float shr_w0_c;
+	__shared__ float shr_x0_c;
+	__shared__ float shr_y0_c;
+	__shared__ float shr_z0_c;
 	__shared__ int n_a[BLOCK_SIZE];
 	__shared__ int n_b[BLOCK_SIZE];
 	__shared__ int n_c[BLOCK_SIZE];
@@ -105,17 +123,35 @@ __global__ void GenerateAdjacencyLists_v1(float4 *nodes, uint64_t *edges, int *k
 	unsigned int i_c = i;
 	unsigned int j_c = j + width;
 
-	if (!tid)
-		shr_node0_c = nodes[i_c];
+	if (!tid) {
+		shr_w0_c = w[i_c];
+		shr_x0_c = x[i_c];
+		shr_y0_c = y[i_c];
+		shr_z0_c = z[i_c];
+	}
 	__syncthreads();
 
 	float dt_ab = 0.0f, dt_c = 0.0f, dx_ab = 0.0f, dx_c = 0.0f;
 	if (j < width) {
-		node0_c = shr_node0_c;
-		node1_c = nodes[j_c];
+		node0_c.w = shr_w0_c;
+		node0_c.x = shr_x0_c;
+		node0_c.y = shr_y0_c;
+		node0_c.z = shr_z0_c;
 
-		node0_ab = do_map ? nodes[i_ab] : node0_c;
-		node1_ab = !j ? node0_ab : nodes[j_ab];
+		node1_c.w = w[j_c];
+		node1_c.x = x[j_c];
+		node1_c.y = y[j_c];
+		node1_c.z = z[j_c];
+
+		node0_ab.w = do_map ? w[i_ab] : node0_c.w;
+		node0_ab.x = do_map ? x[i_ab] : node0_c.x;
+		node0_ab.y = do_map ? y[i_ab] : node0_c.y;
+		node0_ab.z = do_map ? z[i_ab] : node0_c.z;
+
+		node1_ab.w = !j ? node0_ab.w : w[j_ab];
+		node1_ab.x = !j ? node0_ab.x : x[j_ab];
+		node1_ab.y = !j ? node0_ab.y : y[j_ab];
+		node1_ab.z = !j ? node0_ab.z : z[j_ab];
 
 		//////////////////////////////////
 		// Identify Causal Relationship //
@@ -220,6 +256,12 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
+		assert (nodes.crd->getDim() == 4);
+		assert (!nodes.crd->isNull());
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+		assert (nodes.crd->z() != NULL);
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (edges.past_edge_row_start != NULL);
@@ -370,12 +412,12 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
 {
 	if (DEBUG) {
-		assert (nodes.crd.getDim() == 4);
-		assert (!nodes.crd.isNull());
-		assert (nodes.crd.w() != NULL);
-		assert (nodes.crd.x() != NULL);
-		assert (nodes.crd.y() != NULL);
-		assert (nodes.crd.z() != NULL);
+		assert (nodes.crd->getDim() == 4);
+		assert (!nodes.crd->isNull());
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+		assert (nodes.crd->z() != NULL);
 		assert (nodes.k_in != NULL);
 		assert (nodes.k_out != NULL);
 		assert (edges != NULL);
@@ -392,8 +434,16 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 	int *h_k_out[NBUFFERS];
 	bool *h_edges[NBUFFERS];
 
-	CUdeviceptr d_nodes0[NBUFFERS];
-	CUdeviceptr d_nodes1[NBUFFERS];
+	CUdeviceptr d_w0[NBUFFERS];
+	CUdeviceptr d_x0[NBUFFERS];
+	CUdeviceptr d_y0[NBUFFERS];
+	CUdeviceptr d_z0[NBUFFERS];
+
+	CUdeviceptr d_w1[NBUFFERS];
+	CUdeviceptr d_x1[NBUFFERS];
+	CUdeviceptr d_y1[NBUFFERS];
+	CUdeviceptr d_z1[NBUFFERS];
+
 	CUdeviceptr d_k_in[NBUFFERS];
 	CUdeviceptr d_k_out[NBUFFERS];
 	CUdeviceptr d_edges[NBUFFERS];
@@ -421,11 +471,17 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 		checkCudaErrors(cuMemHostAlloc((void**)&h_edges[i], sizeof(bool) * m_edges_size, CU_MEMHOSTALLOC_PORTABLE));
 		hostMemUsed += sizeof(bool) * m_edges_size;
 
-		checkCudaErrors(cuMemAlloc(&d_nodes0[i], sizeof(float4) * mthread_size));
-		devMemUsed += sizeof(float4) * mthread_size;
+		checkCudaErrors(cuMemAlloc(&d_w0[i], sizeof(float) * mthread_size));
+		checkCudaErrors(cuMemAlloc(&d_x0[i], sizeof(float) * mthread_size));
+		checkCudaErrors(cuMemAlloc(&d_y0[i], sizeof(float) * mthread_size));
+		checkCudaErrors(cuMemAlloc(&d_z0[i], sizeof(float) * mthread_size));
+		devMemUsed += sizeof(float) * mthread_size * 4;
 
-		checkCudaErrors(cuMemAlloc(&d_nodes1[i], sizeof(float4) * mthread_size));
-		devMemUsed += sizeof(float4) * mthread_size;
+		checkCudaErrors(cuMemAlloc(&d_w1[i], sizeof(float) * mthread_size));
+		checkCudaErrors(cuMemAlloc(&d_x1[i], sizeof(float) * mthread_size));
+		checkCudaErrors(cuMemAlloc(&d_y1[i], sizeof(float) * mthread_size));
+		checkCudaErrors(cuMemAlloc(&d_z1[i], sizeof(float) * mthread_size));
+		devMemUsed += sizeof(float) * mthread_size * 4;
 
 		checkCudaErrors(cuMemAlloc(&d_k_in[i], sizeof(int) * mthread_size));
 		devMemUsed += sizeof(int) * mthread_size;
@@ -469,11 +525,18 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 					checkCudaErrors(cuMemsetD8Async(d_edges[m], 0, m_edges_size, stream[m]));					
 			
 					//Transfer Nodes to Device Buffers
-					//checkCudaErrors(cuMemcpyHtoDAsync(d_nodes0[m], nodes.c.sc + i * mthread_size, sizeof(float4) * mthread_size, stream[m]));
-					//checkCudaErrors(cuMemcpyHtoDAsync(d_nodes1[m], nodes.c.sc + (j*NBUFFERS+m) * mthread_size, sizeof(float4) * mthread_size, stream[m]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_w0[m], nodes.crd->w() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_x0[m], nodes.crd->x() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_y0[m], nodes.crd->y() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_z0[m], nodes.crd->z() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
+
+					checkCudaErrors(cuMemcpyHtoDAsync(d_w1[m], nodes.crd->w() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_x1[m], nodes.crd->x() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_y1[m], nodes.crd->y() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_z1[m], nodes.crd->z() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
 
 					//Execute Kernel
-					GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float4*)d_nodes0[m], (float4*)d_nodes1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], diag);
+					GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], diag);
 					getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
 
 					//Copy Memory to Host Buffers
@@ -514,13 +577,33 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 		h_edges[i] = NULL;
 		hostMemUsed -= sizeof(bool) * m_edges_size;
 
-		cuMemFree(d_nodes0[i]);
-		d_nodes0[i] = NULL;
-		devMemUsed -= sizeof(float4) * mthread_size;
+		cuMemFree(d_w0[i]);
+		d_w0[i] = NULL;
 
-		cuMemFree(d_nodes1[i]);
-		d_nodes1[i] = NULL;
-		devMemUsed -= sizeof(float4) * mthread_size;
+		cuMemFree(d_x0[i]);
+		d_x0[i] = NULL;
+
+		cuMemFree(d_y0[i]);
+		d_y0[i] = NULL;
+
+		cuMemFree(d_z0[i]);
+		d_z0[i] = NULL;
+
+		devMemUsed -= sizeof(float) * mthread_size * 4;
+
+		cuMemFree(d_w1[i]);
+		d_w1[i] = NULL;
+
+		cuMemFree(d_x1[i]);
+		d_x1[i] = NULL;
+
+		cuMemFree(d_y1[i]);
+		d_y1[i] = NULL;
+
+		cuMemFree(d_z1[i]);
+		d_z1[i] = NULL;
+
+		devMemUsed -= sizeof(float) * mthread_size * 4;
 
 		cuMemFree(d_k_in[i]);
 		d_k_in[i] = NULL;
@@ -561,7 +644,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 	CUdeviceptr d_past_edges, d_future_edges;
 	int j, k;
 
-	printMemUsed("at Checkpoint 1", hostMemUsed, devMemUsed);
+	//printMemUsed("at Checkpoint 1", hostMemUsed, devMemUsed);
 
 	//Allocate Global Device Memory
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
@@ -587,7 +670,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 		}
 	}
 
-	printMemUsed("at Checkpoint 2", hostMemUsed, devMemUsed);
+	//printMemUsed("at Checkpoint 2", hostMemUsed, devMemUsed);
 
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * d_edges_size));
@@ -602,6 +685,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 	//CUDA Grid Specifications
 	unsigned int gridx_decode = static_cast<unsigned int>(ceil(static_cast<float>(*g_idx) / BLOCK_SIZE));
+	//printf("Grid X Decode: %u\n", gridx_decode);
 	dim3 blocks_per_grid_decode(gridx_decode, 1, 1);
 
 	//Execute Kernel

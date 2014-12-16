@@ -90,11 +90,11 @@ enum Manifold {
 //Abstract N-Dimensional Vertex Coordinate
 //This should not be instantiated by itself
 struct Coordinate {
-	Coordinate() : points(NULL), ndim(0), zero(0.0), null_ptr(NULL) {};
-	Coordinate(int _ndim) : ndim(_ndim), zero(0.0), null_ptr(NULL) { points = new float*[_ndim]; }
-	virtual ~Coordinate() { delete [] this->points; }
+	Coordinate(int _ndim) : ndim(_ndim), zero(0.0), null_ptr(NULL) {
+		points = new float*[_ndim];
+	}
+	virtual ~Coordinate() { delete [] this->points; this->points = NULL; }
 
-public:
 	int getDim() { return ndim; }
 	bool isNull() { return points == NULL; }
 
@@ -111,29 +111,37 @@ public:
 	virtual float & z(unsigned int idx) { return zero; }
 
 	float *null_ptr;
-	virtual float *& v() { return null_ptr; }
-	virtual float *& w() { return null_ptr; }
-	virtual float *& x() { return null_ptr; }
-	virtual float *& y() { return null_ptr; }
-	virtual float *& z() { return null_ptr; }
+	virtual float *& v(void) { return null_ptr; }
+	virtual float *& w(void) { return null_ptr; }
+	virtual float *& x(void) { return null_ptr; }
+	virtual float *& y(void) { return null_ptr; }
+	virtual float *& z(void) { return null_ptr; }
 
 	virtual float2 getFloat2(unsigned int idx) { return make_float2(0.0f, 0.0f); }
+	virtual void setFloat2(float2 val, unsigned int idx) {}
 	virtual float4 getFloat4(unsigned int idx) { return make_float4(0.0f, 0.0f, 0.0f, 0.0f); }
+	virtual void setFloat4(float4 val, unsigned int idx) {}
 
 protected:
 	float **points;
+
+private:
 	int ndim;
 };
 
 //2-Dimensional Vertex Coordinate
-struct Coordinate2D : virtual public Coordinate {
-	Coordinate2D() : Coordinate(2) {}
+struct Coordinate2D : Coordinate {
+	Coordinate2D() : Coordinate(2) {
+		this->points[0] = NULL;
+		this->points[1] = NULL;
+	}
+
 	Coordinate2D(float *_x, float *_y) : Coordinate(2) {
 		this->points[0] = _x;
 		this->points[1] = _y;
 	}
 
-	//Access element as c.x(index)
+	//Access and mutate element as c.x(index)
 	float & x(unsigned int idx) { return this->points[0][idx]; }
 	float & y(unsigned int idx) { return this->points[1][idx]; }
 
@@ -142,7 +150,17 @@ struct Coordinate2D : virtual public Coordinate {
 	float *& y() { return this->points[1]; }
 
 	//Return compressed value
-	float2 getFloat2(unsigned int idx) { return make_float2(this->points[0][idx], this->points[1][idx]); }
+	float2 getFloat2(unsigned int idx) {
+		float2 f;
+		f.x = this->points[0][idx];
+		f.y = this->points[1][idx];
+		return f;
+	}
+
+	void setFloat2(float2 val, unsigned int idx) {
+		this->points[0][idx] = val.x;
+		this->points[1][idx] = val.y;
+	}
 
 	//Access pointer as c[0]
 	//Keeping this for my own reference but don't use this style for now	
@@ -151,9 +169,15 @@ struct Coordinate2D : virtual public Coordinate {
 };
 
 //4-Dimensional Vertex Coordinate
-struct Coordinate4D : virtual public Coordinate {
-	Coordinate4D() : Coordinate(4) {}
-	Coordinate4D(float *_w, float *_x, float *_y, float *_z) : Coordinate(4) {
+struct Coordinate4D : Coordinate {
+	Coordinate4D() : Coordinate(4) {
+		this->points[0] = NULL;
+		this->points[1] = NULL;
+		this->points[2] = NULL;
+		this->points[3] = NULL;
+	}
+
+	Coordinate4D(float *& _w, float *& _x, float *& _y, float *& _z) : Coordinate(4) {
 		this->points[0] = _w;
 		this->points[1] = _x;
 		this->points[2] = _y;
@@ -170,12 +194,33 @@ struct Coordinate4D : virtual public Coordinate {
 	float *& y() { return this->points[2]; }
 	float *& z() { return this->points[3]; }
 
-	float4 getFloat4(unsigned int idx) { return make_float4(this->points[0][idx], this->points[1][idx], this->points[2][idx], this->points[3][idx]); }
+	float4 getFloat4(unsigned int idx) {
+		float4 f;
+		f.w = this->points[0][idx];
+		f.x = this->points[1][idx];
+		f.y = this->points[2][idx];
+		f.z = this->points[3][idx];
+		return f;
+	}
+
+	void setFloat4(float4 val, unsigned int idx) {
+		this->points[0][idx] = val.w;
+		this->points[1][idx] = val.x;
+		this->points[2][idx] = val.y;
+		this->points[3][idx] = val.z;
+	}
 };
 
 //5-Dimensional Vertex Coordinate
-struct Coordinate5D : virtual public Coordinate {
-	Coordinate5D() : Coordinate(5) {}
+struct Coordinate5D : Coordinate {
+	Coordinate5D() : Coordinate(5) {
+		this->points[0] = NULL;
+		this->points[1] = NULL;
+		this->points[2] = NULL;
+		this->points[3] = NULL;
+		this->points[4] = NULL;
+	}
+
 	Coordinate5D(float *_v, float *_w, float *_x, float *_y, float *_z) : Coordinate(5) {
 		this->points[0] = _v;
 		this->points[1] = _w;
@@ -211,11 +256,11 @@ union ID {
 
 //Minimal unique properties of a node
 struct Node {
-	Node() : crd(Coordinate()), id(ID()), k_in(NULL), k_out(NULL), cc_id(NULL) {}
+	Node() : crd(NULL), id(ID()), k_in(NULL), k_out(NULL), cc_id(NULL) {}
 
 	//Node Identifiers
-	Coordinate crd;	//Assign a derived type to this.  This is a generalized
-			//method of creating an N-dimensional node.
+	Coordinate *crd;	//Assign a derived type to this.  This is a generalized
+				//method of creating an N-dimensional node.
 	ID id;
 
 	//HashMap for HYPERBOLIC
@@ -269,17 +314,19 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), universe(false), link(false), relink(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), validate_embedding(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), link(false), relink(false), universe(false), compact(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), validate_embedding(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	CausetConflicts cc;		//Conflicting Parameters
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
 	bool disp_network;		//Plot Network using OpenGL
 	bool print_network;		//Print to File
-	bool universe;			//Use Universe's Tau Distribution
 	bool link;			//Link Nodes after Generation
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
 	
+	bool universe;			//Use Universe's Tau Distribution
+	bool compact;			//Use Compactification of Radial Coordinate
+
 	bool calc_clustering;		//Find Clustering Coefficients
 	bool calc_components;		//Find Connected Components
 	bool calc_success_ratio;	//Find Success Ratio
@@ -296,7 +343,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), dim(3), manifold(DE_SITTER), a(1.0), lambda(3.0), zeta(1.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0) {}
+	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), dim(3), manifold(DE_SITTER), a(1.0), lambda(3.0), zeta(1.0), chi_max(100.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0) {}
 
 	CausetFlags flags;
 
@@ -315,6 +362,7 @@ struct NetworkProperties {
 	double lambda;			//Cosmological Constant
 	double zeta;			//Pi/2 - Eta_0
 
+	double chi_max;			//Size of the Spatial Slice
 	double tau0;			//Rescaled Age of Universe
 	double alpha;			//Rescaled Ratio of Matter Density to Dark Energy Density
 	double delta;			//Node Density

@@ -613,15 +613,15 @@ inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, 
 			else {
 				//True Negative
 				evd->confusion[2] += 1.0;
-				evd->tn[evd->tn_idx++] = d_eta;
-				evd->tn[evd->tn_idx++] = d_theta;
+				evd->tn[evd->tn_idx++] = static_cast<float>(d_eta);
+				evd->tn[evd->tn_idx++] = static_cast<float>(d_theta);
 			}
 		} else {	//Actual Space-Like
 			if (signature < 0) {
 				//False Positive
 				evd->confusion[3] += 1.0;
-				evd->fp[evd->fp_idx++] = d_eta;
-				evd->tn[evd->fp_idx++] = d_theta;
+				evd->fp[evd->fp_idx++] = static_cast<float>(d_eta);
+				evd->tn[evd->fp_idx++] = static_cast<float>(d_theta);
 			} else
 				//True Positive (both spacelike)
 				evd->confusion[0] += 1.0;

@@ -36,7 +36,7 @@
 //CUDA Flags
 #define BLOCK_SIZE 128	//Number of threads per block
 
-#define GROUP_SIZE 16	//Number of block groups per grid dimension
+#define GROUP_SIZE 8	//Number of block groups per grid dimension
 			//Increase this by a power of 2 if too much GPU memory is
 			//requested in the generateLists() algorithm
 

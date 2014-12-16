@@ -104,15 +104,20 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 }
 
 #ifdef CUDA_ENABLED
-bool linkNodesGPU_v1(const Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
+		assert (nodes.crd->getDim() == 4);
+		assert (!nodes.crd->isNull());
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);	
+		assert (nodes.crd->z() != NULL);
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
-
 		assert (N_tar > 0);
 		assert (k_tar > 0);
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
@@ -130,7 +135,10 @@ bool linkNodesGPU_v1(const Node &nodes, const Edge &edges, bool * const &core_ed
 	Stopwatch sDecode2 = Stopwatch();
 	Stopwatch sProps = Stopwatch();
 
-	CUdeviceptr d_nodes;
+	CUdeviceptr d_w;
+	CUdeviceptr d_x;
+	CUdeviceptr d_y;
+	CUdeviceptr d_z;
 	CUdeviceptr d_edges;
 	CUdeviceptr d_past_edges, d_future_edges;
 	CUdeviceptr d_past_edge_row_start, d_future_edge_row_start;
@@ -158,8 +166,11 @@ bool linkNodesGPU_v1(const Node &nodes, const Edge &edges, bool * const &core_ed
 	}
 
 	//Allocate Global Device Memory
-	checkCudaErrors(cuMemAlloc(&d_nodes, sizeof(float4) * N_tar));
-	devMemUsed += sizeof(float4) * N_tar;
+	checkCudaErrors(cuMemAlloc(&d_w, sizeof(float) * N_tar));
+	checkCudaErrors(cuMemAlloc(&d_x, sizeof(float) * N_tar));
+	checkCudaErrors(cuMemAlloc(&d_y, sizeof(float) * N_tar));
+	checkCudaErrors(cuMemAlloc(&d_z, sizeof(float) * N_tar));
+	devMemUsed += sizeof(float) * N_tar * 4;
 
 	size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar / 2 + edge_buffer)));
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
@@ -179,7 +190,10 @@ bool linkNodesGPU_v1(const Node &nodes, const Edge &edges, bool * const &core_ed
 		printMemUsed("for Parallel Node Linking", hostMemUsed, devMemUsed);
 
 	//Copy Memory from Host to Device
-	//checkCudaErrors(cuMemcpyHtoD(d_nodes, nodes.c.sc, sizeof(float4) * N_tar));
+	checkCudaErrors(cuMemcpyHtoD(d_w, nodes.crd->w(), sizeof(float) * N_tar));
+	checkCudaErrors(cuMemcpyHtoD(d_x, nodes.crd->x(), sizeof(float) * N_tar));
+	checkCudaErrors(cuMemcpyHtoD(d_y, nodes.crd->y(), sizeof(float) * N_tar));
+	checkCudaErrors(cuMemcpyHtoD(d_z, nodes.crd->z(), sizeof(float) * N_tar));
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_edges, 0, d_edges_size << 1));
@@ -201,7 +215,7 @@ bool linkNodesGPU_v1(const Node &nodes, const Edge &edges, bool * const &core_ed
 	stopwatchStart(&sGenAdjList);
 
 	//Execute Kernel
-	GenerateAdjacencyLists_v1<<<blocks_per_grid_GAL, threads_per_block_GAL>>>((float4*)d_nodes, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar >> 1);
+	GenerateAdjacencyLists_v1<<<blocks_per_grid_GAL, threads_per_block_GAL>>>((float*)d_w, (float*)d_x, (float*)d_y, (float*)d_z, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar >> 1);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
 
 	//Synchronize
@@ -215,10 +229,20 @@ bool linkNodesGPU_v1(const Node &nodes, const Edge &edges, bool * const &core_ed
 	checkCudaErrors(cuCtxSynchronize());
 
 	//Free Device Memory
-	cuMemFree(d_nodes);
-	d_nodes = NULL;
-	devMemUsed -= sizeof(float4) * N_tar;
-	
+	cuMemFree(d_w);
+	d_w = NULL;
+
+	cuMemFree(d_x);
+	d_x = NULL;
+
+	cuMemFree(d_y);
+	d_y = NULL;
+
+	cuMemFree(d_z);
+	d_z = NULL;
+
+	devMemUsed -= sizeof(float) * N_tar * 4;
+
 	cuMemFree(d_g_idx);
 	d_g_idx = NULL;
 	devMemUsed -= sizeof(int);
@@ -564,20 +588,25 @@ bool linkNodesGPU_v1(const Node &nodes, const Edge &edges, bool * const &core_ed
 	return true;
 }
 
-bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
 {
 	if (DEBUG) {
-		//assert (nodes.crd.w() != NULL);
+		assert (nodes.crd->getDim() == 4);
+		assert (!nodes.crd->isNull());
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+		assert (nodes.crd->z() != NULL);
 		assert (nodes.k_in != NULL);
 		assert (nodes.k_out != NULL);
 		assert (edges != NULL);
 		assert (g_idx != NULL);
-
 		assert (N_tar > 0);
 	}
 
 	//Temporary Buffers
-	CUdeviceptr d_nodes0, d_nodes1;
+	CUdeviceptr d_w0, d_x0, d_y0, d_z0;
+	CUdeviceptr d_w1, d_x1, d_y1, d_z1;
 	CUdeviceptr d_k_in, d_k_out;
 	CUdeviceptr d_edges;
 
@@ -631,13 +660,17 @@ bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g
 	}
 	
 	//Allocate Node Buffers on Device
-	checkCudaErrors(cuMemAlloc(&d_nodes0, sizeof(float4) * mthread_size));
-	checkCudaErrors(cuMemsetD32(d_nodes0, 0, 4 * mthread_size));
-	devMemUsed += sizeof(float4) * mthread_size;
+	checkCudaErrors(cuMemAlloc(&d_w0, sizeof(float) * mthread_size));
+	checkCudaErrors(cuMemAlloc(&d_x0, sizeof(float) * mthread_size));
+	checkCudaErrors(cuMemAlloc(&d_y0, sizeof(float) * mthread_size));
+	checkCudaErrors(cuMemAlloc(&d_z0, sizeof(float) * mthread_size));
+	devMemUsed += sizeof(float) * mthread_size * 4;
 
-	checkCudaErrors(cuMemAlloc(&d_nodes1, sizeof(float4) * mthread_size));
-	checkCudaErrors(cuMemsetD32(d_nodes1, 0, 4 * mthread_size));
-	devMemUsed += sizeof(float4) * mthread_size;
+	checkCudaErrors(cuMemAlloc(&d_w1, sizeof(float) * mthread_size));
+	checkCudaErrors(cuMemAlloc(&d_x1, sizeof(float) * mthread_size));
+	checkCudaErrors(cuMemAlloc(&d_y1, sizeof(float) * mthread_size));
+	checkCudaErrors(cuMemAlloc(&d_z1, sizeof(float) * mthread_size));
+	devMemUsed += sizeof(float) * mthread_size * 4;
 
 	//Allocate Degree Buffers on Device
 	checkCudaErrors(cuMemAlloc(&d_k_in, sizeof(int) * mthread_size));
@@ -679,14 +712,21 @@ bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g
 			diag = (unsigned int)(i == j);
 
 			//Copy node values to device buffers
-			//checkCudaErrors(cuMemcpyHtoD(d_nodes0, nodes.c.sc + i * mthread_size, sizeof(float4) * mthread_size));
-			//checkCudaErrors(cuMemcpyHtoD(d_nodes1, nodes.c.sc + j * mthread_size, sizeof(float4) * mthread_size));
+			checkCudaErrors(cuMemcpyHtoD(d_w0, nodes.crd->w() + i * mthread_size, sizeof(float) * mthread_size));
+			checkCudaErrors(cuMemcpyHtoD(d_x0, nodes.crd->x() + i * mthread_size, sizeof(float) * mthread_size));
+			checkCudaErrors(cuMemcpyHtoD(d_y0, nodes.crd->y() + i * mthread_size, sizeof(float) * mthread_size));
+			checkCudaErrors(cuMemcpyHtoD(d_z0, nodes.crd->z() + i * mthread_size, sizeof(float) * mthread_size));
+
+			checkCudaErrors(cuMemcpyHtoD(d_w1, nodes.crd->w() + j * mthread_size, sizeof(float) * mthread_size));
+			checkCudaErrors(cuMemcpyHtoD(d_x1, nodes.crd->x() + j * mthread_size, sizeof(float) * mthread_size));
+			checkCudaErrors(cuMemcpyHtoD(d_y1, nodes.crd->y() + j * mthread_size, sizeof(float) * mthread_size));
+			checkCudaErrors(cuMemcpyHtoD(d_z1, nodes.crd->z() + j * mthread_size, sizeof(float) * mthread_size));
 
 			//Synchronize
 			checkCudaErrors(cuCtxSynchronize());
 
 			//Execute Kernel
-			GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block>>>((float4*)d_nodes0, (float4*)d_nodes1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, diag);
+			GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, diag);
 			getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
 
 			//Synchronize
@@ -717,13 +757,33 @@ bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g
 		}
 	}
 
-	cuMemFree(d_nodes0);
-	d_nodes0 = NULL;
-	devMemUsed -= sizeof(float4) * mthread_size;
+	cuMemFree(d_w0);
+	d_w0 = NULL;
 
-	cuMemFree(d_nodes1);
-	d_nodes1 = NULL;
-	devMemUsed -= sizeof(float4) * mthread_size;
+	cuMemFree(d_x0);
+	d_x0 = NULL;
+
+	cuMemFree(d_y0);
+	d_y0 = NULL;
+
+	cuMemFree(d_z0);
+	d_z0 = NULL;
+
+	devMemUsed -= sizeof(float) * mthread_size * 4;
+
+	cuMemFree(d_w1);
+	d_w1 = NULL;
+
+	cuMemFree(d_x1);
+	d_x1 = NULL;
+
+	cuMemFree(d_y1);
+	d_y1 = NULL;
+
+	cuMemFree(d_z1);
+	d_z1 = NULL;
+
+	devMemUsed -= sizeof(float) * mthread_size * 4;
 
 	cuMemFree(d_k_in);
 	d_k_in = NULL;
@@ -758,6 +818,12 @@ bool generateLists_v1(const Node &nodes, uint64_t * const &edges, int * const &g
 bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose)
 {
 	if (DEBUG) {
+		assert (nodes.crd->getDim() == 4);
+		assert (!nodes.crd->isNull());
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+		assert (nodes.crd->z() != NULL);
 		assert (N_tar > 0);
 		assert (dim == 3);
 		assert (manifold == DE_SITTER);
@@ -814,7 +880,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
-		distanceDS(&evd, nodes.crd.getFloat4(i), nodes.id.tau[i], nodes.crd.getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe);
+		distanceDS(&evd, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe);
 	}
 
 	//Number of timelike distances in 4-D native FLRW spacetime
@@ -872,14 +938,14 @@ bool printValues(Node &nodes, const int num_vals, const char *filename, const ch
 			if (strcmp(coord, "tau") == 0)
 				outputStream << nodes.id.tau[i] << std::endl;
 			else if (strcmp(coord, "eta") == 0)
-				outputStream << nodes.crd.w(i) << std::endl;
-				//outputStream << nodes.crd.x(i) << std::endl;
+				outputStream << nodes.crd->w(i) << std::endl;
+				//outputStream << nodes.crd->x(i) << std::endl;
 			else if (strcmp(coord, "theta") == 0)
-				outputStream << nodes.crd.x(i) << std::endl;
+				outputStream << nodes.crd->x(i) << std::endl;
 			else if (strcmp(coord, "phi") == 0)
-				outputStream << nodes.crd.y(i) << std::endl;
+				outputStream << nodes.crd->y(i) << std::endl;
 			else if (strcmp(coord, "chi") == 0)
-				outputStream << nodes.crd.z(i) << std::endl;
+				outputStream << nodes.crd->z(i) << std::endl;
 			else
 				throw CausetException("Unrecognized value in 'coord' parameter!\n");
 		}

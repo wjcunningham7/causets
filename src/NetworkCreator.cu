@@ -343,33 +343,37 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 	bool links_exist = link || relink;
 
 	if (verbose && !yes) {
-		//Estimate memory usage before allocating (update this for new data structures)
+		//Estimate memory usage before allocating
 		size_t mem = 0;
 		if (dim == 3)
-			mem += sizeof(float4) * N_tar;
+			mem += sizeof(float) * N_tar << 2;	//For Coordinate4D
 		else if (dim == 1)
-			mem += sizeof(float2) * N_tar;
+			mem += sizeof(float) * N_tar << 1;	//For Coordinate2D
 		if (manifold == HYPERBOLIC)
-			mem += sizeof(int) * N_tar;
+			mem += sizeof(int) * N_tar;		//For AS
 		else if (manifold == DE_SITTER)
-			mem += sizeof(float) * N_tar;
+			mem += sizeof(float) * N_tar;		//For tau
 		if (links_exist) {
-			mem += sizeof(int) * (N_tar << 1);
-			mem += sizeof(int) * 2 * (N_tar * k_tar / 2 + edge_buffer);
-			mem += sizeof(int) * (N_tar << 1);
-			mem += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);
+			mem += sizeof(int) * (N_tar << 1);	//For k_in and k_out
+			mem += sizeof(int) * (N_tar * k_tar / 2 + edge_buffer) * 2;	//For edge lists
+			mem += sizeof(int) * (N_tar << 1);	//For edge list pointers
+			mem += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);	//For adjacency list
 		}
 
 		size_t dmem = 0;
 		if (use_gpu) {
-			if (dim == 3)
-				dmem += sizeof(float4) * N_tar;
-			else if (dim == 1)
-				dmem += sizeof(float2) * N_tar;
-			if (links_exist) {
-				dmem += sizeof(int) * 2 * (N_tar * k_tar / 2 + edge_buffer);
-				dmem += sizeof(int) * (N_tar << 2);
-			}
+			size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar / 2 + edge_buffer)));
+			mem += sizeof(uint64_t) * d_edges_size;	//For encoded edge list
+			mem += sizeof(int);			//For g_idx
+
+			size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * GROUP_SIZE)));
+			size_t mthread_size = mblock_size * BLOCK_SIZE;
+			size_t m_edges_size = mthread_size * mthread_size;
+			mem += sizeof(int) * mthread_size * NBUFFERS << 1;		//For k_in and k_out buffers (host)
+			mem += sizeof(bool) * m_edges_size * NBUFFERS;			//For adjacency matrix buffers (host)
+			dmem += sizeof(float) * mthread_size * 4 * NBUFFERS << 1;	//For 4-D coordinate buffers
+			dmem += sizeof(int) * mthread_size * NBUFFERS << 1;		//For k_in and k_out buffers (device)
+			dmem += sizeof(bool) * m_edges_size * NBUFFERS;			//For adjacency matrix buffers (device)
 		}
 
 		printMemUsed("for Network (Estimation)", mem, dmem);
@@ -399,33 +403,33 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 		}
 
 		if (dim == 3) {
-			nodes.crd = Coordinate4D();
+			nodes.crd = new Coordinate4D();
 
-			nodes.crd.w() = (float*)malloc(sizeof(float) * N_tar);
-			nodes.crd.x() = (float*)malloc(sizeof(float) * N_tar);
-			nodes.crd.y() = (float*)malloc(sizeof(float) * N_tar);
-			nodes.crd.z() = (float*)malloc(sizeof(float) * N_tar);
+			nodes.crd->w() = (float*)malloc(sizeof(float) * N_tar);
+			nodes.crd->x() = (float*)malloc(sizeof(float) * N_tar);
+			nodes.crd->y() = (float*)malloc(sizeof(float) * N_tar);
+			nodes.crd->z() = (float*)malloc(sizeof(float) * N_tar);
 
-			if (nodes.crd.w() == NULL || nodes.crd.x() == NULL || nodes.crd.y() == NULL || nodes.crd.z() == NULL)
+			if (nodes.crd->w() == NULL || nodes.crd->x() == NULL || nodes.crd->y() == NULL || nodes.crd->z() == NULL)
 				throw std::bad_alloc();
 
-			memset(nodes.crd.w(), 0, sizeof(float) * N_tar);
-			memset(nodes.crd.x(), 0, sizeof(float) * N_tar);
-			memset(nodes.crd.y(), 0, sizeof(float) * N_tar);
-			memset(nodes.crd.z(), 0, sizeof(float) * N_tar);
+			memset(nodes.crd->w(), 0, sizeof(float) * N_tar);
+			memset(nodes.crd->x(), 0, sizeof(float) * N_tar);
+			memset(nodes.crd->y(), 0, sizeof(float) * N_tar);
+			memset(nodes.crd->z(), 0, sizeof(float) * N_tar);
 
 			hostMemUsed += sizeof(float) * N_tar * 4;
 		} else if (dim == 1) {
-			nodes.crd = Coordinate2D();
+			nodes.crd = new Coordinate2D();
 
-			nodes.crd.x() = (float*)malloc(sizeof(float) * N_tar);
-			nodes.crd.y() = (float*)malloc(sizeof(float) * N_tar);
+			nodes.crd->x() = (float*)malloc(sizeof(float) * N_tar);
+			nodes.crd->y() = (float*)malloc(sizeof(float) * N_tar);
 
-			if (nodes.crd.x() == NULL || nodes.crd.y() == NULL)
+			if (nodes.crd->x() == NULL || nodes.crd->y() == NULL)
 				throw std::bad_alloc();
 
-			memset(nodes.crd.x(), 0, sizeof(float) * N_tar);
-			memset(nodes.crd.y(), 0, sizeof(float) * N_tar);
+			memset(nodes.crd->x(), 0, sizeof(float) * N_tar);
+			memset(nodes.crd->y(), 0, sizeof(float) * N_tar);
 
 			hostMemUsed += sizeof(float) * N_tar * 2;
 		}
@@ -579,12 +583,18 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 {
 	if (DEBUG) {
 		//Values are in correct ranges
+		assert (!nodes.crd->isNull());
 		assert (N_tar > 0);
 		assert (k_tar > 0.0);
 		assert (dim == 1 || dim == 3);
 		assert (manifold == DE_SITTER);
 		assert (a > 0.0);
 		if (universe) {
+			assert (nodes.crd->getDim() == 4);
+			assert (nodes.crd->w() != NULL);
+			assert (nodes.crd->x() != NULL);
+			assert (nodes.crd->y() != NULL);
+			assert (nodes.crd->z() != NULL);
 			assert (dim == 3);
 			assert (tau0 > 0.0);
 		} else
@@ -619,18 +629,19 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 		//if (i % NPRINT == 0) printf("Theta: %5.5f\n", x); fflush(stdout);
 
 		if (dim == 1) {
-			nodes.crd.y(i) = static_cast<float>(x);
+			nodes.crd->y(i) = static_cast<float>(x);
 
 			//CDF derived from PDF identified in (2) of [2]
-			nodes.crd.x(i) = static_cast<float>(ATAN(ran2(&seed) / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			nodes.crd->x(i) = static_cast<float>(ATAN(ran2(&seed) / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			if (DEBUG) {
-				assert (nodes.crd.x(i) > 0.0f);
-				assert (nodes.crd.x(i) < static_cast<float>(HALF_PI - zeta) + 0.0000001f);
+				assert (nodes.crd->x(i) > 0.0f);
+				//assert (nodes.crd->x(i) < static_cast<float>(HALF_PI - zeta) + 0.0000001f);
+				assert (nodes.crd->x(i) < static_cast<float>(HALF_PI - zeta));
 			}
 
-			nodes.id.tau[i] = static_cast<float>(etaToTau(static_cast<double>(nodes.crd.x(i))));
+			nodes.id.tau[i] = static_cast<float>(etaToTau(static_cast<double>(nodes.crd->x(i))));
 		} else if (dim == 3) {
-			nodes.crd.x(i) = static_cast<float>(x);
+			nodes.crd->x(i) = static_cast<float>(x);
 
 			/////////////////////////////////////////////////////////
 			//~~~~~~~~~~~~~~~~~~~~~~~~~~~~T~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -639,7 +650,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			/////////////////////////////////////////////////////////
 
 			nodes.id.tau[i] = static_cast<float>(tau0) + 1.0f;
-			do {
+			//do {
 				rval = ran2(&seed);
 				if (universe) {
 					x = 0.5;
@@ -657,7 +668,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 				}
 
 				nodes.id.tau[i] = static_cast<float>(x);
-			} while (nodes.id.tau[i] >= static_cast<float>(tau0));
+			//} while (nodes.id.tau[i] >= static_cast<float>(tau0));
 
 			if (DEBUG) {
 				assert (nodes.id.tau[i] > 0.0f);
@@ -670,12 +681,17 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 					//Numerical Integration
 					idata.upper = static_cast<double>(nodes.id.tau[i]) * a;
 					param[0] = a;
-					nodes.crd.w(i) = static_cast<float>(integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / alpha);
+					nodes.crd->w(i) = static_cast<float>(integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / alpha);
 				} else
 					//Exact Solution
-					nodes.crd.w(i) = static_cast<float>(tauToEtaUniverseExact(nodes.id.tau[i], a, alpha));
+					nodes.crd->w(i) = static_cast<float>(tauToEtaUniverseExact(nodes.id.tau[i], a, alpha));
 			} else
-				nodes.crd.w(i) = static_cast<float>(tauToEta(static_cast<double>(nodes.id.tau[i])));
+				nodes.crd->w(i) = static_cast<float>(tauToEta(static_cast<double>(nodes.id.tau[i])));
+
+			if (DEBUG) {
+				assert (nodes.crd->w(i) > 0.0);
+				assert (nodes.crd->w(i) < tauToEtaUniverseExact(tau0, a, alpha));
+			}
 				
 			////////////////////////////////////////////////////
 			//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
@@ -685,21 +701,21 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 			//Sample Phi from (0, pi)
 			//For some reason the technique in [3] has not been producing the correct distribution...
-			//nodes.crd.y(i) = 0.5 * (M_PI * ran2(&seed) + ACOS(ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			//nodes.crd->y(i) = 0.5 * (M_PI * ran2(&seed) + ACOS(ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			x = HALF_PI;
 			rval = ran2(&seed);
 			if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
 				return false;
-			nodes.crd.y(i) = static_cast<float>(x);
-			if (DEBUG) assert (nodes.crd.y(i) > 0.0f && nodes.crd.y(i) < static_cast<float>(M_PI));
-			//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes.c.sc[i].y); fflush(stdout);
+			nodes.crd->y(i) = static_cast<float>(x);
+			if (DEBUG) assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));
+			//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes.crd->y(i)); fflush(stdout);
 
 			//Sample Chi from (0, pi)
-			nodes.crd.z(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-			if (DEBUG) assert (nodes.crd.z(i) > 0.0f && nodes.crd.z(i) < static_cast<float>(M_PI));
-			//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes.crd.z(i)); fflush(stdout);
+			nodes.crd->z(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			if (DEBUG) assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < static_cast<float>(M_PI));
+			//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes.crd->z(i)); fflush(stdout);
 		}
-		//if (i % NPRINT == 0) printf("eta: %E\n", nodes.crd.w(i));
+		//if (i % NPRINT == 0) printf("eta: %E\n", nodes.crd->w(i));
 		//if (i % NPRINT == 0) printf("tau: %E\n", nodes.id.tau[i]);
 	}
 
@@ -741,6 +757,7 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 {
 	if (DEBUG) {
 		//No null pointers
+		assert (!nodes.crd->isNull());
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (edges.past_edge_row_start != NULL);
@@ -753,6 +770,11 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 		assert (dim == 1 || dim == 3);
 		assert (manifold == DE_SITTER);
 		if (universe) {
+			assert (nodes.crd->getDim() == 4);
+			assert (nodes.crd->w() != NULL);
+			assert (nodes.crd->x() != NULL);
+			assert (nodes.crd->y() != NULL);
+			assert (nodes.crd->z() != NULL);
 			assert (dim == 3);
 			assert (alpha > 0.0);
 		}
@@ -779,9 +801,9 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 			//Apply Causal Condition (Light Cone)
 			//Assume nodes are already temporally ordered
 			if (dim == 1)
-				dt = nodes.crd.x(j) - nodes.crd.x(i);
+				dt = nodes.crd->x(j) - nodes.crd->x(i);
 			else if (dim == 3)
-				dt = nodes.crd.w(j) - nodes.crd.w(i);
+				dt = nodes.crd->w(j) - nodes.crd->w(i);
 			//if (i % NPRINT == 0) printf("dt: %.9f\n", dt); fflush(stdout);
 			if (DEBUG) {
 				assert (dt >= 0.0f);
@@ -794,10 +816,10 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 
 			if (dim == 1) {
 				//Formula given on p. 2 of [2]
-				dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(nodes.crd.y(j) - nodes.crd.y(i)), STL), STL));
+				dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(nodes.crd->y(j) - nodes.crd->y(i)), STL), STL));
 			} else if (dim == 3) {
 				//Spherical Law of Cosines
-				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(nodes.crd.getFloat4(i), nodes.crd.getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			}
 
 			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx); fflush(stdout);
