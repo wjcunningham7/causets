@@ -811,6 +811,119 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 
 	return true;
 }
+
+//Decode past and future edge lists using Bitonic Sort
+bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+{
+	if (DEBUG) {
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (h_edges != NULL);
+		assert (g_idx != NULL);
+
+		assert (d_edges_size > 0);
+	}
+
+	CUdeviceptr d_edges;
+	CUdeviceptr d_past_edges, d_future_edges;
+	int j, k;
+
+	//printMemUsed("at Checkpoint 1", hostMemUsed, devMemUsed);
+
+	//Allocate Global Device Memory
+	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
+	devMemUsed += sizeof(uint64_t) * d_edges_size;
+
+	//Copy Memory from Host to Device
+	checkCudaErrors(cuMemcpyHtoD(d_edges, h_edges, sizeof(uint64_t) * d_edges_size));
+
+	//Synchronize
+	checkCudaErrors(cuCtxSynchronize());
+
+	//CUDA Grid Specifications
+	unsigned int gridx_bitonic = d_edges_size / BLOCK_SIZE;
+	dim3 threads_per_block(BLOCK_SIZE, 1, 1);
+	dim3 blocks_per_grid_bitonic(gridx_bitonic, 1, 1);
+
+	//Execute Kernel
+	for (k = 2; k <= d_edges_size; k <<= 1) {
+		for (j = k >> 1; j > 0; j >>= 1) {
+			BitonicSort<<<blocks_per_grid_bitonic, threads_per_block>>>((uint64_t*)d_edges, j, k);
+			getLastCudaError("Kernel 'Subroutines_GPU.BitonicSort' Failed to Execute!\n");
+			checkCudaErrors(cuCtxSynchronize());
+		}
+	}
+
+	//printMemUsed("at Checkpoint 2", hostMemUsed, devMemUsed);
+
+	//Allocate Device Memory
+	checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * d_edges_size));
+	devMemUsed += sizeof(int) * d_edges_size;
+
+	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	if (verbose)
+		printMemUsed("for Bitonic Sorting", hostMemUsed, devMemUsed);
+
+	//Initialize Memory on Device
+	checkCudaErrors(cuMemsetD32(d_future_edges, 0, d_edges_size));
+
+	//CUDA Grid Specifications
+	unsigned int gridx_decode = static_cast<unsigned int>(ceil(static_cast<float>(*g_idx) / BLOCK_SIZE));
+	//printf("Grid X Decode: %u\n", gridx_decode);
+	dim3 blocks_per_grid_decode(gridx_decode, 1, 1);
+
+	//Execute Kernel
+	DecodeFutureEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_future_edges, *g_idx, d_edges_size - *g_idx);
+	getLastCudaError("Kernel 'NetworkCreator_GPU.DecodeFutureEdges' Failed to Execute!\n");
+
+	//Synchronize
+	checkCudaErrors(cuCtxSynchronize());
+
+	//Copy Memory from Device to Host
+	checkCudaErrors(cuMemcpyDtoH(edges.future_edges, d_future_edges, sizeof(int) * *g_idx));
+
+	//Free Device Memory
+	cuMemFree(d_future_edges);
+	d_future_edges = NULL;
+	devMemUsed -= sizeof(int) * d_edges_size;
+
+	//Resort Edges with New Encoding
+	for (k = 2; k <= d_edges_size; k <<= 1) {
+		for (j = k >> 1; j > 0; j >>= 1) {
+			BitonicSort<<<blocks_per_grid_bitonic, threads_per_block>>>((uint64_t*)d_edges, j, k);
+			getLastCudaError("Kernel 'Subroutines_GPU.BitonicSort' Failed to Execute!\n");
+			checkCudaErrors(cuCtxSynchronize());
+		}
+	}
+
+	//Allocate Device Memory
+	checkCudaErrors(cuMemAlloc(&d_past_edges, sizeof(int) * d_edges_size));
+	devMemUsed += sizeof(int) * d_edges_size;
+
+	//Initialize Memory on Device
+	checkCudaErrors(cuMemsetD32(d_past_edges, 0, d_edges_size));
+
+	//Execute Kernel
+	DecodePastEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_past_edges, *g_idx, d_edges_size - *g_idx);
+	getLastCudaError("Kernel 'NetworkCreator_GPU.DecodePastEdges' Failed to Execute!\n");
+
+	//Synchronize
+	checkCudaErrors(cuCtxSynchronize());
+
+	//Copy Memory from Device to Host
+	checkCudaErrors(cuMemcpyDtoH(edges.past_edges, d_past_edges, sizeof(int) * *g_idx));
+	
+	//Free Device Memory
+	cuMemFree(d_edges);
+	d_edges = NULL;
+	devMemUsed -= sizeof(uint64_t) * d_edges_size;
+
+	cuMemFree(d_past_edges);
+	d_past_edges = NULL;
+	devMemUsed -= sizeof(int) * d_edges_size;
+
+	return true;
+}
 #endif
 
 //Generate confusion matrix for geodesic distances in universe with matter

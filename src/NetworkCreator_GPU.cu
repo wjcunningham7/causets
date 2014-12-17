@@ -328,8 +328,13 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	//Decode Adjacency Lists
 	stopwatchStart(&sDecodeLists);
-	if (!decodeLists_v1(edges, h_edges, g_idx, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
-		return false;
+	if (DECODE_LISTS_GPU_V2) {
+		if (!decodeLists_v2(edges, h_edges, g_idx, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
+			return false;
+	} else {
+		if (!decodeLists_v1(edges, h_edges, g_idx, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
+			return false;
+	}
 	stopwatchStop(&sDecodeLists);
 
 	//Free Host Memory
@@ -629,7 +634,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 }
 
 //Decode past and future edge lists using Bitonic Sort
-bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (edges.past_edges != NULL);
@@ -637,14 +642,24 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 		assert (h_edges != NULL);
 		assert (g_idx != NULL);
 
+		assert (*g_idx > 0);
 		assert (d_edges_size > 0);
 	}
 
 	CUdeviceptr d_edges;
 	CUdeviceptr d_past_edges, d_future_edges;
-	int j, k;
+	int cpy_size;
+	int i, j, k;
 
-	//printMemUsed("at Checkpoint 1", hostMemUsed, devMemUsed);
+	size_t g_mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(*g_idx) / (BLOCK_SIZE * GROUP_SIZE)));
+	size_t g_mthread_size = g_mblock_size * BLOCK_SIZE;
+
+	//DEBUG
+	//printf_red();
+	//printf("G_MBLOCK SIZE:  %zu\n", g_mblock_size);
+	//printf("G_MTHREAD_SIZE: %zu\n", g_mthread_size);
+	//printf_std();
+	//fflush(stdout);
 
 	//Allocate Global Device Memory
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
@@ -670,38 +685,38 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 		}
 	}
 
-	//printMemUsed("at Checkpoint 2", hostMemUsed, devMemUsed);
-
 	//Allocate Device Memory
-	checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * d_edges_size));
-	devMemUsed += sizeof(int) * d_edges_size;
+	checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * g_mthread_size));
+	devMemUsed += sizeof(int) * g_mthread_size;
 
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
 		printMemUsed("for Bitonic Sorting", hostMemUsed, devMemUsed);
 
-	//Initialize Memory on Device
-	checkCudaErrors(cuMemsetD32(d_future_edges, 0, d_edges_size));
-
 	//CUDA Grid Specifications
-	unsigned int gridx_decode = static_cast<unsigned int>(ceil(static_cast<float>(*g_idx) / BLOCK_SIZE));
-	//printf("Grid X Decode: %u\n", gridx_decode);
+	unsigned int gridx_decode = static_cast<unsigned int>(ceil(static_cast<float>(g_mthread_size) / BLOCK_SIZE));
 	dim3 blocks_per_grid_decode(gridx_decode, 1, 1);
 
-	//Execute Kernel
-	DecodeFutureEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_future_edges, *g_idx, d_edges_size - *g_idx);
-	getLastCudaError("Kernel 'NetworkCreator_GPU.DecodeFutureEdges' Failed to Execute!\n");
+	for (i = 0; i < GROUP_SIZE; i++) {
+		//Clear Device Buffers
+		checkCudaErrors(cuMemsetD32(d_future_edges, 0, g_mthread_size));
 
-	//Synchronize
-	checkCudaErrors(cuCtxSynchronize());
+		//Execute Kernel
+		DecodeFutureEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_future_edges, *g_idx - i * g_mthread_size, d_edges_size - (*g_idx - i * g_mthread_size));
+		getLastCudaError("Kernel 'NetworkCreator_GPU.DecodeFutureEdges' Failed to Execute!\n");
 
-	//Copy Memory from Device to Host
-	checkCudaErrors(cuMemcpyDtoH(edges.future_edges, d_future_edges, sizeof(int) * *g_idx));
+		//Synchronize
+		checkCudaErrors(cuCtxSynchronize());
+
+		//Copy Memory from Device to Host
+		cpy_size = *g_idx - static_cast<int>(i * g_mthread_size) >= 0 ? g_mthread_size : static_cast<int>(i * g_mthread_size) - *g_idx;
+		checkCudaErrors(cuMemcpyDtoH(edges.future_edges + i * g_mthread_size, d_future_edges, sizeof(int) * cpy_size));
+	}
 
 	//Free Device Memory
 	cuMemFree(d_future_edges);
 	d_future_edges = NULL;
-	devMemUsed -= sizeof(int) * d_edges_size;
+	devMemUsed -= sizeof(int) * g_mthread_size;
 
 	//Resort Edges with New Encoding
 	for (k = 2; k <= d_edges_size; k <<= 1) {
@@ -713,30 +728,33 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 	}
 
 	//Allocate Device Memory
-	checkCudaErrors(cuMemAlloc(&d_past_edges, sizeof(int) * d_edges_size));
-	devMemUsed += sizeof(int) * d_edges_size;
+	checkCudaErrors(cuMemAlloc(&d_past_edges, sizeof(int) * g_mthread_size));
+	devMemUsed += sizeof(int) * g_mthread_size;
 
-	//Initialize Memory on Device
-	checkCudaErrors(cuMemsetD32(d_past_edges, 0, d_edges_size));
+	for (i = 0; i < GROUP_SIZE; i++) {
+		//Clear Device Buffers
+		checkCudaErrors(cuMemsetD32(d_past_edges, 0, g_mthread_size));
 
-	//Execute Kernel
-	DecodePastEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_past_edges, *g_idx, d_edges_size - *g_idx);
-	getLastCudaError("Kernel 'NetworkCreator_GPU.DecodePastEdges' Failed to Execute!\n");
+		//Execute Kernel
+		DecodePastEdges<<<blocks_per_grid_decode, threads_per_block>>>((uint64_t*)d_edges, (int*)d_past_edges, *g_idx - i * g_mthread_size, d_edges_size - (*g_idx - i * g_mthread_size));
+		getLastCudaError("Kernel 'NetworkCreator_GPU.DecodePastEdges' Failed to Execute!\n");
 
-	//Synchronize
-	checkCudaErrors(cuCtxSynchronize());
+		//Synchronize
+		checkCudaErrors(cuCtxSynchronize());
 
-	//Copy Memory from Device to Host
-	checkCudaErrors(cuMemcpyDtoH(edges.past_edges, d_past_edges, sizeof(int) * *g_idx));
-	
+		//Copy Memory from Device to Host
+		cpy_size = *g_idx - static_cast<int>(i * g_mthread_size) >= 0 ? g_mthread_size : static_cast<int>(i * g_mthread_size) - *g_idx;
+		checkCudaErrors(cuMemcpyDtoH(edges.past_edges + i * g_mthread_size, d_past_edges, sizeof(int) * cpy_size));
+	}
+
 	//Free Device Memory
+	cuMemFree(d_past_edges);
+	d_past_edges = NULL;
+	devMemUsed -= sizeof(int) * g_mthread_size;
+
 	cuMemFree(d_edges);
 	d_edges = NULL;
 	devMemUsed -= sizeof(uint64_t) * d_edges_size;
-
-	cuMemFree(d_past_edges);
-	d_past_edges = NULL;
-	devMemUsed -= sizeof(int) * d_edges_size;
 
 	return true;
 }
