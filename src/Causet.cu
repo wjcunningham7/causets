@@ -386,7 +386,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 				printf("  -t, --age\t\tRescaled Age of Universe\t0.85\n");
 				printf("  -u, --universe\tUniverse Causet\n");
 				printf("  -v, --verbose\t\tVerbose Output\n");
-				printf("  -x, --maxchi\t\tSize of Spatial Slice\t100\n");
+				printf("  -x, --maxchi\t\tSize of Spatial Slice\t\t100\n");
 				printf("  -y\t\t\tSuppress User Queries\n");
 				printf("  -z, --zeta\t\tHyperbolic Curvature\t\t1.0\n");
 				printf("\n");

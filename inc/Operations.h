@@ -47,6 +47,8 @@ inline double zetaPrime4D(const double &x)
 	return (3.0 * (COS(5.0 * x, APPROX ? FAST : STL) - 32.0 * (M_PI - 2.0 * x) * _sinx3) + COS(x, APPROX ? FAST : STL) * (84.0 - 72.0 * _lncscx) + COS(3.0 * x, APPROX ? FAST : STL) * (24.0 * _lncscx - 31.0)) / (-4.0 * M_PI * _sinx4 * _cosx3 * POW3((2.0 + _cscx2), EXACT));
 }
 
+//BEGIN COMPACT EQUATIONS
+
 inline double tau0(const double &x, const int &N_tar, const double &alpha, const double &delta, const double &a)
 {
 	return SINH(3.0 * x, APPROX ? FAST : STL) - 3.0 * (x + static_cast<double>(N_tar) / (POW2(M_PI, EXACT) * delta * a * POW(alpha, 3.0, EXACT)));
@@ -56,6 +58,8 @@ inline double tau0Prime(const double &x)
 {
 	return 3.0 * (COSH(3.0 * x, APPROX ? FAST : STL) - 1.0);
 }
+
+//END COMPACT EQUATIONS
 
 inline double tau4D(const double &x, const double &zeta, const double &rval)
 {
@@ -115,6 +119,8 @@ inline double solveZeta(const double &x, const double * const p1, const double *
 		-1.0 * zeta4D(x, *p5, *p4) / zetaPrime4D(x));
 }
 
+//BEGIN COMPACT EQUATIONS
+
 //Returns tau0 Residual
 //Used in Universe Causet
 inline double solveTau0(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
@@ -135,6 +141,8 @@ inline double solveTau0(const double &x, const double * const p1, const double *
 
 	return (-1.0 * tau0(x, *p5, *p1, *p2, *p3) / tau0Prime(x));
 }
+
+//END COMPACT EQUATIONS
 
 //Returns tau Residual
 //Used in 3+1 Causet
@@ -219,6 +227,8 @@ inline double _2F1_r(const double &r, void * const param)
 	return -1.0 / POW3(r, EXACT);
 }
 
+//BEGIN COMPACT EQUATIONS
+
 //De Sitter Spatial Lengths
 
 //X1 Coordinate of de Sitter Metric
@@ -253,6 +263,8 @@ inline float sphProduct(const float4 &sc0, const float4 &sc1)
 	       X3(sc0.y, sc0.z, sc0.x) * X3(sc1.y, sc1.z, sc1.x) +
 	       X4(sc0.y, sc0.z, sc0.x) * X4(sc1.y, sc1.z, sc1.x);
 }
+
+//END COMPACT EQUATIONS
 
 //Temporal Transformations
 
@@ -367,9 +379,6 @@ inline double xi(double &r)
 inline double rescaledDegreeUniverse(int dim, double x[], double *params)
 {
 	if (DEBUG) {
-		//No Null Pointers
-		assert (params != NULL);
-
 		//Variables in Correct Ranges
 		assert (dim > 0);
 		assert (x[0] > 0.0);
@@ -506,6 +515,8 @@ inline double degreeFieldTheory(double eta, void *params)
 	return POW3(ABS(((double*)params)[0] - eta, STL), EXACT) * POW2(POW2(rescaledScaleFactor(&((double*)params)[4], ((double*)params)[3], eta, ((double*)params)[1], ((double*)params)[2]), EXACT), EXACT);
 }
 
+//BEGIN COMPACT EQUATIONS
+
 //Geodesic Distances
 
 //Embedded Z1 Coordinate
@@ -630,6 +641,8 @@ inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, 
 
 	return distance;
 }
+
+//END COMPACT EQUATIONS
 
 //Returns the hyperbolic distance between two nodes
 //O(xxx) Efficiency (revise this)

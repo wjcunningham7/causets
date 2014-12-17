@@ -40,7 +40,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 	try {
 		if (network_properties->flags.universe) {
-			//Check for conflicting topologies
+			//Check for conflicting topological parameters
 			if (network_properties->dim == 1 || network_properties->manifold != DE_SITTER)
 				throw CausetException("Universe causet must be 3+1 DS topology!\n");
 				
@@ -61,11 +61,16 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					assert (network_properties->delta > 0.0);
 				}
 
+				//BEGIN COMPACT EQUATIONS
+
 				double t = 6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * POW3(network_properties->alpha, EXACT));
 				if (t > MTAU)
 					x = LOG(t, STL) / 3.0;
 				else if (!newton(&solveTau0, &x, 10000, TOL, &network_properties->alpha, &network_properties->delta, &network_properties->a, NULL, &network_properties->N_tar, NULL))
 					return false;
+
+				//END COMPACT EQUATIONS
+
 				network_properties->tau0 = x;
 				if (DEBUG) assert (network_properties->tau0 > 0.0);
 
@@ -89,9 +94,6 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					printf("\tEstimating Age of Universe.....\n");
 					double kappa1 = network_properties->k_tar / network_properties->delta;
 					double kappa2 = kappa1 / POW2(POW2(network_properties->a, EXACT), EXACT);
-					//printf_red();
-					//printf("kappa2: %f\n", kappa2);
-					//printf_std();
 
 					//Use Lookup Table
 					double *table;
@@ -116,6 +118,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					printf("\tCompleted.\n");
 				}
 				
+				//BEGIN COMPACT EQUATIONS
+				//Add these 3 to Operations.h
+
 				if (network_properties->N_tar > 0 && network_properties->alpha > 0.0) {
 					//Solve for delta
 					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
@@ -140,6 +145,8 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 						network_properties->alpha = POW(3.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0)), (1.0 / 3.0), STL);
 					if (DEBUG) assert (network_properties->alpha > 0.0);
 				}
+
+				//END COMPACT EQUATIONS
 			}
 
 			//Solve for Rescaled Densities
@@ -170,100 +177,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			if (DEBUG) assert (network_properties->R0 > 0.0);
 			
 			if (network_properties->k_tar == 0.0) {
-				//Method 1 of 3: Use Monte Carlo integration to evaluate Kostia's formula
-				/*printf("\tEstimating Expected Average Degrees.....\n");
-				double r0;
-				if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
-					r0 = POW(0.5, 2.0 / 3.0, STL) * exp(network_properties->tau0);
-				else
-					r0 = POW(SINH(1.5 * network_properties->tau0, STL), 2.0 / 3.0, STL);
-
-				int nb = static_cast<int>(network->network_properties.flags.bench) * NBENCH;
-				int i;
-
-				for (i = 0; i <= nb; i++) {
-					stopwatchStart(&cp->sCalcDegrees);
-					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
-						network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 16.0 * M_PI * exp(-3.0 * network_properties->tau0);
-					else
-						network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, network_properties->seed, 0) * 8.0 * M_PI / (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
-					stopwatchStop(&cp->sCalcDegrees);
-				}
-
-				if (nb)
-					bm->bCalcDegrees = cp->sCalcDegrees.elapsedTime / NBENCH;
-
-				printf("\t\tExecution Time: %5.6f sec\n", cp->sCalcDegrees.elapsedTime);
-				printf("\t\tCompleted.\n");*/
-				
-				//Method 2 of 3: Lookup table to approximate method 1
-				double *table;
-				long size = 0L;
-				if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
+				int method = 1;	//Use lookup table
+				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->a, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, cp->sCalcDegrees, bm->bCalcDegrees, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network_properties->flags.verbose, network_properties->flags.bench, method))
 					return false;
-				network_properties->k_tar = lookupValue(table, size, &network_properties->tau0, NULL, true) * network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT);
-				//Check for NaN
-				if (network_properties->k_tar != network_properties->k_tar)
-					return false;
-				free(table);
-
-				//DEBUG
-				/*printf_red();
-				printf("Kostia's Method: %f\n", network_properties->k_tar);
-				printf_std();
-				fflush(stdout);*/
-
-				//Method 3 of 3: Will's formulation
-				//double *table;
-				//long size = 0L;
-				/*if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
-					return false;
-
-				double *params = (double*)malloc(size + sizeof(double) * 3);
-				if (params == NULL)
-					throw std::bad_alloc();
-				hostMemUsed += size + sizeof(double) * 3;
-
-				double d_size = static_cast<double>(size);
-				memcpy(params, &network_properties->a, sizeof(double));
-				memcpy(params + 1, &network_properties->alpha, sizeof(double));
-				memcpy(params + 2, &d_size, sizeof(double));
-				memcpy(params + 3, table, size);
-
-				IntData idata = IntData();
-				idata.limit = 50;
-				idata.tol = 1e-5;
-				idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-				idata.upper = network_properties->tau0 * network_properties->a;
-
-				double *params2 = &network_properties->a;
-				double max_time = integrate1D(&tToEtaUniverse, (void*)params2, &idata, QAGS) / network_properties->alpha;
-				gsl_integration_workspace_free(idata.workspace);
-
-				//printf("Max Eta (Integration): %f\n", max_time);
-				//max_time = tauToEtaUniverseExact(network_properties->tau0, network_properties->a, network_properties->alpha);
-				//printf("Max Eta (Exact): %f\n", max_time);
-
-				network_properties->k_tar = integrate2D(&averageDegreeUniverse, 0.0, 0.0, max_time, max_time, params, network_properties->seed, 0);
-				network_properties->k_tar *= 4.0 * M_PI * network_properties->delta * POW2(POW2(network_properties->alpha, EXACT), EXACT);
-		
-				idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-				idata.upper = max_time;
-				network_properties->k_tar /= (3.0 * integrate1D(&psi, params, &idata, QAGS));
-				gsl_integration_workspace_free(idata.workspace);
-
-				free(params);
-				params = NULL;
-				hostMemUsed -= size + sizeof(double) * 3;
-
-				free(table);
-				table = NULL;*/
-
-				//DEBUG
-				/*printf_red();
-				printf("Will's Method: %f\n", network_properties->k_tar);
-				printf_std();
-				fflush(stdout);*/
 			}
 			
 			//20% Buffer
@@ -320,6 +236,140 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 	} catch (std::exception e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__,  e.what(), __LINE__);
 		return false;
+	}
+
+	return true;
+}
+
+//Calculate Expected Average Degree
+//See Causal Set Notes for detailed explanation of methods
+bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alpha, const double &delta, long &seed, Stopwatch &sCalcDegrees, double &bCalcDegrees, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench, const int method)
+{
+	if (DEBUG) {
+		//Variables in correct ranges
+		assert (a > 0.0);
+		assert (tau0 > 0.0);
+		assert (alpha > 0.0);
+		assert (delta > 0.0);
+		assert (method == 0 || method == 1 || method == 2);
+	}
+
+	printf("Estimating Expected Average Degree...\n");
+	fflush(stdout);
+
+	double *table;
+	long size = 0L;
+
+	int nb = static_cast<int>(bench) * NBENCH;
+	int i;
+
+	if (method == 0) {
+		//Method 1 of 3: Use Monte Carlo integration to evaluate Kostia's formula
+		double r0;
+		if (tau0 > LOG(MTAU, STL) / 3.0)
+			r0 = POW(0.5, 2.0 / 3.0, STL) * exp(tau0);
+		else
+			r0 = POW(SINH(1.5 * tau0, STL), 2.0 / 3.0, STL);
+
+		for (i = 0; i <= nb; i++) {
+			stopwatchStart(&sCalcDegrees);
+			if (tau0 > LOG(MTAU, STL) / 3.0)
+				k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, seed, 0) * 16.0 * M_PI * exp(-3.0 * tau0);
+			else
+				k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, seed, 0) * 8.0 * M_PI / (SINH(3.0 * tau0, STL) - 3.0 * tau0);
+			stopwatchStop(&sCalcDegrees);
+		}	
+	} else if (method == 1) {
+		//Method 2 of 3: Lookup table to approximate method 1
+		if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
+			return false;
+
+		k_tar = lookupValue(table, size, &tau0, NULL, true) * delta * POW2(POW2(a, EXACT), EXACT);
+		for (i = 0; i <= nb; i++) {
+			stopwatchStart(&sCalcDegrees);
+			lookupValue(table, size, &tau0, NULL, true);
+			stopwatchStop(&sCalcDegrees);
+		}	
+
+		//Check for NaN
+		if (k_tar != k_tar)
+			return false;
+
+		free(table);
+		table = NULL;
+	} else if (method == 2) {
+		//Method 3 of 3: Will's formulation
+		if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
+			return false;
+
+		double *params = (double*)malloc(size + sizeof(double) * 3);
+		if (params == NULL)
+			throw std::bad_alloc();
+		hostMemUsed += size + sizeof(double) * 3;
+
+		double d_size = static_cast<double>(size);
+		memcpy(params, &a, sizeof(double));
+		memcpy(params + 1, &alpha, sizeof(double));
+		memcpy(params + 2, &d_size, sizeof(double));
+		memcpy(params + 3, table, size);
+
+		IntData idata = IntData();
+		idata.limit = 50;
+		idata.tol = 1e-5;
+		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+		idata.upper = tau0 * a;
+
+		double *params2 = &a;
+		double max_time = integrate1D(&tToEtaUniverse, (void*)params2, &idata, QAGS) / alpha;
+
+		for (i = 0; i <= nb; i++) {
+			stopwatchStart(&sCalcDegrees);
+			integrate1D(&tToEtaUniverse, (void*)params2, &idata, QAGS);
+			stopwatchStop(&sCalcDegrees);
+		}
+
+		gsl_integration_workspace_free(idata.workspace);
+
+		k_tar = integrate2D(&averageDegreeUniverse, 0.0, 0.0, max_time, max_time, params, seed, 0);
+		k_tar *= 4.0 * M_PI * delta * POW2(POW2(alpha, EXACT), EXACT);
+
+		for (i = 0; i <= nb; i++) {
+			stopwatchStart(&sCalcDegrees);
+			integrate2D(&averageDegreeUniverse, 0.0, 0.0, max_time, max_time, params, seed, 0);
+			stopwatchStop(&sCalcDegrees);
+		}
+		
+		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+		idata.upper = max_time;
+		k_tar /= (3.0 * integrate1D(&psi, params, &idata, QAGS));
+
+		for (i = 0; i <= nb; i++) {
+			stopwatchStart(&sCalcDegrees);
+			integrate1D(&psi, params, &idata, QAGS);
+			stopwatchStop(&sCalcDegrees);
+		}
+
+		gsl_integration_workspace_free(idata.workspace);
+
+		free(params);
+		params = NULL;
+		hostMemUsed -= size + sizeof(double) * 3;
+
+		free(table);
+		table = NULL;
+	}
+
+	if (nb)
+		bCalcDegrees = sCalcDegrees.elapsedTime / NBENCH;
+
+	if (!bench) {
+		printf("\tExpected Average Degree Successfully Calculated.\n");
+		fflush(stdout);
+	}
+
+	if (verbose) {
+		printf("\t\tExecution Time: %5.6f sec\n", sCalcDegrees.elapsedTime);
+		fflush(stdout);
 	}
 
 	return true;
@@ -403,7 +453,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 		}
 
 		if (dim == 3) {
-			nodes.crd = new Coordinate4D();
+			nodes.crd = new Coordinates4D();
 
 			nodes.crd->w() = (float*)malloc(sizeof(float) * N_tar);
 			nodes.crd->x() = (float*)malloc(sizeof(float) * N_tar);
@@ -420,7 +470,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 
 			hostMemUsed += sizeof(float) * N_tar * 4;
 		} else if (dim == 1) {
-			nodes.crd = new Coordinate2D();
+			nodes.crd = new Coordinates2D();
 
 			nodes.crd->x() = (float*)malloc(sizeof(float) * N_tar);
 			nodes.crd->y() = (float*)malloc(sizeof(float) * N_tar);
@@ -650,25 +700,23 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			/////////////////////////////////////////////////////////
 
 			nodes.id.tau[i] = static_cast<float>(tau0) + 1.0f;
-			//do {
-				rval = ran2(&seed);
-				if (universe) {
-					x = 0.5;
-					if (tau0 > 1.8) {	//Determined by trial and error
-						if (!bisection(&solveTauUnivBisec, &x, 2000, 0.0, tau0, TOL, true, &tau0, &rval, NULL, NULL, NULL, NULL))
-							return false;
-					} else {
-						if (!newton(&solveTauUniverse, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
-							return false;
-					}
+			rval = ran2(&seed);
+			if (universe) {
+				x = 0.5;
+				if (tau0 > 1.8) {	//Determined by trial and error
+					if (!bisection(&solveTauUnivBisec, &x, 2000, 0.0, tau0, TOL, true, &tau0, &rval, NULL, NULL, NULL, NULL))
+						return false;
 				} else {
-					x = 3.5;
-					if (!newton(&solveTau, &x, 1000, TOL, &zeta, NULL, &rval, NULL, NULL, NULL))
+					if (!newton(&solveTauUniverse, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
 						return false;
 				}
+			} else {
+				x = 3.5;
+				if (!newton(&solveTau, &x, 1000, TOL, &zeta, NULL, &rval, NULL, NULL, NULL))
+					return false;
+			}
 
-				nodes.id.tau[i] = static_cast<float>(x);
-			//} while (nodes.id.tau[i] >= static_cast<float>(tau0));
+			nodes.id.tau[i] = static_cast<float>(x);
 
 			if (DEBUG) {
 				assert (nodes.id.tau[i] > 0.0f);
@@ -700,8 +748,6 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			////////////////////////////////////////////////////
 
 			//Sample Phi from (0, pi)
-			//For some reason the technique in [3] has not been producing the correct distribution...
-			//nodes.crd->y(i) = 0.5 * (M_PI * ran2(&seed) + ACOS(ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			x = HALF_PI;
 			rval = ran2(&seed);
 			if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
@@ -710,10 +756,14 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			if (DEBUG) assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));
 			//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes.crd->y(i)); fflush(stdout);
 
+			//BEGIN COMPACT EQUATIONS
+
 			//Sample Chi from (0, pi)
 			nodes.crd->z(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			if (DEBUG) assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < static_cast<float>(M_PI));
 			//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes.crd->z(i)); fflush(stdout);
+
+			//END COMPACT EQUATIONS
 		}
 		//if (i % NPRINT == 0) printf("eta: %E\n", nodes.crd->w(i));
 		//if (i % NPRINT == 0) printf("tau: %E\n", nodes.id.tau[i]);
@@ -818,8 +868,12 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 				//Formula given on p. 2 of [2]
 				dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(nodes.crd->y(j) - nodes.crd->y(i)), STL), STL));
 			} else if (dim == 3) {
+				//BEGIN COMPACT EQUATIONS
+
 				//Spherical Law of Cosines
 				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+
+				//END COMPACT EQUATIONS
 			}
 
 			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx); fflush(stdout);

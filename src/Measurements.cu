@@ -383,7 +383,7 @@ bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m
 //O(xxx) Efficiency (revise this)
-bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinate *& c, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No Null Pointers
@@ -547,6 +547,8 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		//Compare test node to N_tar other nodes
 		float4 newNode;
 		for (j = 0; j < N_tar; j++) {
+			//BEGIN COMPACT EQUATIONS
+
 			//Calculate sign of spacetime interval
 			newNode.w = c->w(j);
 			newNode.x = c->x(j);
@@ -557,6 +559,8 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 			//dt = static_cast<float>(ABS(static_cast<double>(c->w(j) - test_node.w), STL));
 			//dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(newNode, test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+
+			//END COMPACT EQUATIONS
 
 			if (dx < dt) {
 				//They are connected

@@ -18,7 +18,7 @@ void test()
 	printf("\t%p\n", x);
 	printf("\t%p\n", y);
 
-	Coordinate *c = new Coordinate2D();
+	Coordinates *c = new Coordinates2D();
 	//c->x(x);
 	//c->y(y);
 	c->x() = x;

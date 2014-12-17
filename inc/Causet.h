@@ -89,11 +89,11 @@ enum Manifold {
 
 //Abstract N-Dimensional Vertex Coordinate
 //This should not be instantiated by itself
-struct Coordinate {
-	Coordinate(int _ndim) : ndim(_ndim), zero(0.0), null_ptr(NULL) {
+struct Coordinates {
+	Coordinates(int _ndim) : ndim(_ndim), zero(0.0), null_ptr(NULL) {
 		points = new float*[_ndim];
 	}
-	virtual ~Coordinate() { delete [] this->points; this->points = NULL; }
+	virtual ~Coordinates() { delete [] this->points; this->points = NULL; }
 
 	int getDim() { return ndim; }
 	bool isNull() { return points == NULL; }
@@ -130,13 +130,13 @@ private:
 };
 
 //2-Dimensional Vertex Coordinate
-struct Coordinate2D : Coordinate {
-	Coordinate2D() : Coordinate(2) {
+struct Coordinates2D : Coordinates {
+	Coordinates2D() : Coordinates(2) {
 		this->points[0] = NULL;
 		this->points[1] = NULL;
 	}
 
-	Coordinate2D(float *_x, float *_y) : Coordinate(2) {
+	Coordinates2D(float *_x, float *_y) : Coordinates(2) {
 		this->points[0] = _x;
 		this->points[1] = _y;
 	}
@@ -169,15 +169,15 @@ struct Coordinate2D : Coordinate {
 };
 
 //4-Dimensional Vertex Coordinate
-struct Coordinate4D : Coordinate {
-	Coordinate4D() : Coordinate(4) {
+struct Coordinates4D : Coordinates {
+	Coordinates4D() : Coordinates(4) {
 		this->points[0] = NULL;
 		this->points[1] = NULL;
 		this->points[2] = NULL;
 		this->points[3] = NULL;
 	}
 
-	Coordinate4D(float *& _w, float *& _x, float *& _y, float *& _z) : Coordinate(4) {
+	Coordinates4D(float *& _w, float *& _x, float *& _y, float *& _z) : Coordinates(4) {
 		this->points[0] = _w;
 		this->points[1] = _x;
 		this->points[2] = _y;
@@ -212,8 +212,8 @@ struct Coordinate4D : Coordinate {
 };
 
 //5-Dimensional Vertex Coordinate
-struct Coordinate5D : Coordinate {
-	Coordinate5D() : Coordinate(5) {
+struct Coordinates5D : Coordinates {
+	Coordinates5D() : Coordinates(5) {
 		this->points[0] = NULL;
 		this->points[1] = NULL;
 		this->points[2] = NULL;
@@ -221,7 +221,7 @@ struct Coordinate5D : Coordinate {
 		this->points[4] = NULL;
 	}
 
-	Coordinate5D(float *_v, float *_w, float *_x, float *_y, float *_z) : Coordinate(5) {
+	Coordinates5D(float *_v, float *_w, float *_x, float *_y, float *_z) : Coordinates(5) {
 		this->points[0] = _v;
 		this->points[1] = _w;
 		this->points[2] = _x;
@@ -259,7 +259,7 @@ struct Node {
 	Node() : crd(NULL), id(ID()), k_in(NULL), k_out(NULL), cc_id(NULL) {}
 
 	//Node Identifiers
-	Coordinate *crd;	//Assign a derived type to this.  This is a generalized
+	Coordinates *crd;	//Assign a derived type to this.  This is a generalized
 				//method of creating an N-dimensional node.
 	ID id;
 

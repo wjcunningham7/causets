@@ -6,6 +6,8 @@
 // Northeastern University //
 /////////////////////////////
 
+//BEGIN COMPACT EQUATIONS
+
 __device__ float X1_GPU(const float &phi)
 {
 	return cosf(phi);
@@ -33,3 +35,5 @@ __device__ float sphProduct_GPU(const float4 &sc0, const float4 &sc1)
 	       X3_GPU(sc0.y, sc0.z, sc0.x) * X3_GPU(sc1.y, sc1.z, sc1.x) +
 	       X4_GPU(sc0.y, sc0.z, sc0.x) * X4_GPU(sc1.y, sc1.z, sc1.x);
 }
+
+//END COMPACT EQUATIONS

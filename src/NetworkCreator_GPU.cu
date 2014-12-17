@@ -49,9 +49,13 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 			n1.y = shr_y1[k];
 			n1.z = shr_z1[k];
 
+			//BEGIN COMPACT EQUATIONS
+
 			//Identify spacetime interval
 			dt[k] = n1.w - n0.w;
 			dx[k] = acosf(sphProduct_GPU(n0, n1));
+
+			//END COMPACT EQUATIONS
 		}
 	}
 
@@ -161,9 +165,13 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 		dt_ab = node1_ab.w - node0_ab.w;
 		dt_c  = node1_c.w  - node0_c.w;
 
+		//BEGIN COMPACT EQUATIONS
+
 		//Calculate dx
 		dx_ab = acosf(sphProduct_GPU(node0_ab, node1_ab));
 		dx_c = acosf(sphProduct_GPU(node0_c, node1_c));
+
+		//END COMPACT EQUATIONS
 	}
 
 	//Reduction in Shared Memory
