@@ -47,11 +47,16 @@ inline double zetaPrime4D(const double &x)
 	return (3.0 * (COS(5.0 * x, APPROX ? FAST : STL) - 32.0 * (M_PI - 2.0 * x) * _sinx3) + COS(x, APPROX ? FAST : STL) * (84.0 - 72.0 * _lncscx) + COS(3.0 * x, APPROX ? FAST : STL) * (24.0 * _lncscx - 31.0)) / (-4.0 * M_PI * _sinx4 * _cosx3 * POW3((2.0 + _cscx2), EXACT));
 }
 
-//BEGIN COMPACT EQUATIONS
+//BEGIN COMPACT EQUATIONS (Completed)
 
-inline double tau0(const double &x, const int &N_tar, const double &alpha, const double &delta, const double &a)
+inline double tau0Compact(const double &x, const int &N_tar, const double &alpha, const double &delta, const double &a)
 {
-	return SINH(3.0 * x, APPROX ? FAST : STL) - 3.0 * (x + static_cast<double>(N_tar) / (POW2(M_PI, EXACT) * delta * a * POW(alpha, 3.0, EXACT)));
+	return SINH(3.0 * x, APPROX ? FAST : STL) - 3.0 * (x + static_cast<double>(N_tar) / (POW2(M_PI, EXACT) * delta * a * POW3(alpha, EXACT)));
+}
+
+inline double tau0Flat(const double &x, const int &N_tar, const double &alpha, const double &delta, const double &a, const double &chi_max)
+{
+	return SINH(3.0 * x, APPROX ? FAST : STL) - 3.0 * (x + static_cast<double>(N_tar) / (1.5 * M_PI * delta * a * POW3(alpha * chi_max, EXACT)));
 }
 
 inline double tau0Prime(const double &x)
@@ -115,11 +120,11 @@ inline double solveZeta(const double &x, const double * const p1, const float * 
 		-1.0 * zeta4D(x, p3[0], p2[0]) / zetaPrime4D(x));
 }
 
-//BEGIN COMPACT EQUATIONS
+//BEGIN COMPACT EQUATIONS (Completed)
 
 //Returns tau0 Residual
 //Used in Universe Causet
-inline double solveTau0(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solveTau0Compact(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	if (DEBUG) {
 		assert (p1 != NULL);
@@ -130,7 +135,22 @@ inline double solveTau0(const double &x, const double * const p1, const float * 
 		assert (p3[0] > 0);	//N_tar
 	}
 
-	return (-1.0 * tau0(x, p3[0], p1[0], p1[1], p1[2]) / tau0Prime(x));
+	return (-1.0 * tau0Compact(x, p3[0], p1[0], p1[1], p1[2]) / tau0Prime(x));
+}
+
+inline double solveTau0Flat(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	if (DEBUG) {
+		assert (p1 != NULL);
+		assert (p3 != NULL);
+		assert (p1[0] > 0.0);	//alpha
+		assert (p1[1] > 0.0);	//delta
+		assert (p1[2] > 0.0);	//a
+		assert (p1[3] > 0.0);	//chi_max
+		assert (p3[0] > 0);	//N_tar
+	}
+
+	return (-1.0 * tau0Flat(x, p3[0], p1[0], p1[1], p1[2], p1[3]) / tau0Prime(x));
 }
 
 //END COMPACT EQUATIONS
@@ -186,6 +206,137 @@ inline double solvePhi(const double &x, const double * const p1, const float * c
 	return (-1.0 * phi4D(x, p1[0]) / phiPrime4D(x));
 }
 
+//Functions used for solving constraints in NetworkCreator.cu/initVars()
+
+inline double solveDeltaCompact(const int &N_tar, const double &a, const double &tau0, const double &alpha)
+{
+	if (DEBUG) {
+		assert (N_tar > 0);
+		assert (a > 0.0);
+		assert (tau0 > 0.0);
+		assert (alpha > 0.0);
+	}
+
+	double delta;
+	if (tau0 > LOG(MTAU, STL) / 3.0)
+		delta = exp(LOG(6.0 * N_tar / (POW2(M_PI, EXACT) * a * POW3(alpha, EXACT)), STL) - 3.0 * tau0);
+	else
+		delta = 3.0 * N_tar / (POW2(M_PI, EXACT) * a * POW3(alpha, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
+
+	if (DEBUG)
+		assert (delta > 0.0);
+
+	return delta;
+}
+
+inline double solveDeltaFlat(const int &N_tar, const double &a, const double &chi_max, const double &tau0, const double &alpha)
+{
+	if (DEBUG) {
+		assert (N_tar > 0);
+		assert (a > 0.0);
+		assert (chi_max > 0.0);
+		assert (tau0 > 0.0);
+		assert (alpha > 0.0);
+	}
+
+	double delta;
+	if (tau0 > LOG(MTAU, STL) / 3.0)
+		delta = exp(LOG(9.0 * N_tar / (M_PI * a * POW3(alpha * chi_max, EXACT)), STL) - 3.0 * tau0);
+	else
+		delta = 9.0 * N_tar / (2.0 * M_PI * a * POW3(alpha * chi_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
+
+	if (DEBUG)
+		assert (delta > 0.0);
+
+	return delta;
+}
+
+inline int solveNtarCompact(const double &a, const double &tau0, const double &alpha, const double &delta)
+{
+	if (DEBUG) {
+		assert (a > 0.0);
+		assert (tau0 > 0.0);
+		assert (alpha > 0.0);
+		assert (delta > 0.0);
+	}
+
+	int N_tar;
+	if (tau0 > LOG(MTAU, STL) / 3.0)
+		N_tar = static_cast<int>(exp(LOG(6.0 / (POW2(M_PI, EXACT) * delta * a * POW3(alpha, EXACT)), EXACT) - 3.0 * tau0));
+	else
+		N_tar = static_cast<int>(POW2(M_PI, EXACT) * delta * a * POW3(alpha, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0) / 3.0);
+
+	if (DEBUG)
+		assert (N_tar > 0);
+
+	return N_tar;
+}
+
+inline int solveNtarFlat(const double &a, const double &chi_max, const double &tau0, const double &alpha, const double &delta)
+{
+	if (DEBUG) {
+		assert (a > 0.0);
+		assert (chi_max > 0.0);
+		assert (tau0 > 0.0);
+		assert (alpha > 0.0);
+		assert (delta > 0.0);
+	}
+
+	int N_tar;
+	if (tau0 > LOG(MTAU, STL) / 3.0)
+		N_tar = static_cast<int>(exp(LOG(9.0 / (M_PI * delta * a * POW3(alpha * chi_max, EXACT)), EXACT) - 3.0 * tau0));
+	else
+		N_tar = static_cast<int>(2.0 * M_PI * delta * a * POW3(alpha * chi_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0) / 9.0);
+
+	if (DEBUG)
+		assert (N_tar > 0);
+
+	return N_tar;
+}
+
+inline double solveAlphaCompact(const int &N_tar, const double &a, const double &tau0, const double &delta)
+{
+	if (DEBUG) {
+		assert (N_tar > 0);
+		assert (a > 0.0);
+		assert (tau0 > 0.0);
+		assert (delta > 0.0);
+	}
+
+	double alpha;
+	if (tau0 > LOG(MTAU, STL) / 3.0)
+		alpha = exp(LOG(6.0 * N_tar / (POW2(M_PI, EXACT) * delta * a), STL) / 3.0 - tau0);
+	else
+		alpha = POW(3.0 * N_tar / (POW2(M_PI, EXACT) * delta * a * (SINH(3.0 * tau0, STL) - 3.0 * tau0)), (1.0 / 3.0), STL);
+
+	if (DEBUG)
+		assert (alpha > 0.0);
+
+	return alpha;
+}
+
+inline double solveAlphaFlat(const int &N_tar, const double &a, const double &chi_max, const double &tau0, const double &delta)
+{
+	if (DEBUG) {
+		assert (N_tar > 0);
+		assert (a > 0.0);
+		assert (chi_max > 0.0);
+		assert (tau0 > 0.0);
+		assert (delta > 0.0);
+	}
+
+	double alpha;
+	if (tau0 > LOG(MTAU, STL) / 3.0)
+		alpha = exp(LOG(9.0 * N_tar / (M_PI * delta * a), STL) / 3.0 - tau0);
+	else
+		alpha = POW(9.0 * N_tar / (2.0 * M_PI * delta * a * (SINH(3.0 * tau0, STL) - 3.0 * tau0)), (1.0 / 3.0), STL);
+
+	if (DEBUG)
+		assert (alpha > 0.0);
+
+	return alpha;
+}
+
 //Math Functions for Gauss Hypergeometric Function
 
 //This is used to solve for a more exact solution than the one provided
@@ -210,36 +361,64 @@ inline double _2F1_r(const double &r, void * const param)
 //De Sitter Spatial Lengths
 
 //X1 Coordinate of de Sitter Metric
-inline float X1(const float &phi)
+inline float X1_SPH(const float &phi)
 {
 	return static_cast<float>(COS(phi, APPROX ? FAST : STL));
 }
 
 //X2 Coordinate of de Sitter Metric
-inline float X2(const float &phi, const float &chi)
+inline float X2_SPH(const float &phi, const float &chi)
 {
 	return static_cast<float>(SIN(phi, APPROX ? FAST : STL) * COS(chi, APPROX ? FAST : STL));
 }
 
 //X3 Coordinate of de Sitter Metric
-inline float X3(const float &phi, const float &chi, const float &theta)
+inline float X3_SPH(const float &phi, const float &chi, const float &theta)
 {
 	return static_cast<float>(SIN(phi, APPROX ? FAST : STL) * SIN(chi, APPROX ? FAST : STL) * COS(theta, APPROX ? FAST : STL));
 }
 
 //X4 Coordinate of de Sitter Metric
-inline float X4(const float &phi, const float &chi, const float &theta)
+inline float X4_SPH(const float &phi, const float &chi, const float &theta)
 {
 	return static_cast<float>(SIN(phi, APPROX ? FAST : STL) * SIN(chi, APPROX ? FAST : STL) * SIN(theta, APPROX ? FAST : STL));
 }
 
+//X Coordinate from Spherical Basis
+inline float X_FLAT(const float &phi, const float &chi, const float &theta)
+{
+	return static_cast<float>(chi * COS(theta, APPROX ? FAST : STL) * SIN(phi, APPROX ? FAST : STL));
+}
+
+//Y Coordinate from Spherical Basis
+inline float Y_FLAT(const float &phi, const float &chi, const float &theta)
+{
+	return static_cast<float>(chi * SIN(theta, APPROX ? FAST : STL) * SIN(phi, APPROX ? FAST : STL));
+}
+
+//Z Coordinate from Spherical Basis
+inline float Z_FLAT(const float &phi, const float &chi)
+{
+	return static_cast<float>(chi * COS(phi, APPROX ? FAST : STL));
+}
+
 //Spherical Inner Product
+//Returns angle between two points on unit sphere
 inline float sphProduct(const float4 &sc0, const float4 &sc1)
 {
-	return X1(sc0.y) * X1(sc1.y) +
-	       X2(sc0.y, sc0.z) * X2(sc1.y, sc1.z) +
-	       X3(sc0.y, sc0.z, sc0.x) * X3(sc1.y, sc1.z, sc1.x) +
-	       X4(sc0.y, sc0.z, sc0.x) * X4(sc1.y, sc1.z, sc1.x);
+	return X1_SPH(sc0.y) * X1_SPH(sc1.y) +
+	       X2_SPH(sc0.y, sc0.z) * X2_SPH(sc1.y, sc1.z) +
+	       X3_SPH(sc0.y, sc0.z, sc0.x) * X3_SPH(sc1.y, sc1.z, sc1.x) +
+	       X4_SPH(sc0.y, sc0.z, sc0.x) * X4_SPH(sc1.y, sc1.z, sc1.x);
+}
+
+//Flat Inner Product
+//Returns distance squared
+inline float flatProduct(const float4 &sc0, const float4 &sc1)
+{
+	return POW2(X_FLAT(sc0.y, sc0.z, sc0.x) - X_FLAT(sc1.y, sc1.z, sc1.x), EXACT) +
+	       POW2(Y_FLAT(sc0.y, sc0.z, sc0.x) - X_FLAT(sc1.y, sc1.z, sc1.x), EXACT) +
+	       POW2(Z_FLAT(sc0.y, sc0.z) - Z_FLAT(sc1.y, sc1.z), EXACT);
 }
 
 //END COMPACT EQUATIONS
@@ -490,10 +669,13 @@ inline double embeddedZ1(double x, void *params)
 	if (DEBUG)
 		assert (params != NULL);
 
-	GSL_EmbeddedZ1_Parameters *p = (GSL_EmbeddedZ1_Parameters*)params;
+	//GSL_EmbeddedZ1_Parameters *p = (GSL_EmbeddedZ1_Parameters*)params;
+	double *p = (double*)params;
 
-	double a = p->a;
-	double alpha = p->alpha;
+	//double a = p->a;
+	//double alpha = p->alpha;
+	double a = p[0];
+	double alpha = p[1];
 	
 	if (DEBUG) {
 		assert (a > 0.0);
@@ -506,14 +688,16 @@ inline double embeddedZ1(double x, void *params)
 //Returns the de Sitter distance between two nodes
 //Modify this to handle 3+1 DS without matter!
 //O(xxx) Efficiency (revise this)
-inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe)
+inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe, const bool &compact)
 {
 	if (DEBUG) {
+		assert (evd != NULL);
 		assert (dim == 3);
 		assert (manifold == DE_SITTER);
 		assert (a > 0.0);
 		if (universe)
 			assert (alpha > 0.0);
+		assert (compact);
 	}
 
 	//Check if they are the same node
@@ -530,9 +714,9 @@ inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, 
 		IntData idata = IntData();
 		idata.tol = 1e-5;
 
-		GSL_EmbeddedZ1_Parameters p;
-		p.a = a;
-		p.alpha = alpha;
+		double p[2];
+		p[0] = a;
+		p[1] = alpha;
 
 		//Solve for z1 in Rotated Plane
 		double power = 2.0 / 3.0;
@@ -541,9 +725,9 @@ inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, 
 
 		//Use Numerical Integration for z0
 		idata.upper = z1_a;
-		z0_a = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
+		z0_a = integrate1D(&embeddedZ1, (void*)p, &idata, QNG);
 		idata.upper = z1_b;
-		z0_b = integrate1D(&embeddedZ1, (void*)&p, &idata, QNG);
+		z0_b = integrate1D(&embeddedZ1, (void*)p, &idata, QNG);
 	} else {
 		z0_a = a * SINH(tau_a, APPROX ? FAST : STL);
 		z0_b = a * SINH(tau_b, APPROX ? FAST : STL);

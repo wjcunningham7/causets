@@ -54,36 +54,51 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			//Solve for constrained parameters
 			if (network_properties->flags.cc.conflicts[1] == 0 && network_properties->flags.cc.conflicts[2] == 0 && network_properties->flags.cc.conflicts[3] == 0) {
 				//Solve for tau0, ratio, omegaM, and omegaL
-				double x = 0.5;
 				if (DEBUG) {
 					assert (network_properties->N_tar > 0);
 					assert (network_properties->alpha > 0.0);
 					assert (network_properties->delta > 0.0);
 				}
 
-				//BEGIN COMPACT EQUATIONS
+				//BEGIN COMPACT EQUATIONS (Completed)
 
-				double t = 6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * POW3(network_properties->alpha, EXACT));
-				double p1[3];
+				double p1[4];
+				double t;
+				double x = 0.5;
+
 				p1[0] = network_properties->alpha;
 				p1[1] = network_properties->delta;
 				p1[2] = network_properties->a;
 
-				if (t > MTAU)
-					x = LOG(t, STL) / 3.0;
-				else if (!newton(&solveTau0, &x, 10000, TOL, p1, NULL, &network_properties->N_tar))
-					return false;
+				if (network_properties->flags.compact) {
+					t = 6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * POW3(network_properties->alpha, EXACT));
+					if (t > MTAU)
+						x = LOG(t, STL) / 3.0;
+					else if (!newton(&solveTau0Compact, &x, 10000, TOL, p1, NULL, &network_properties->N_tar))
+						return false;
+				} else {
+					p1[3] = network_properties->chi_max;
+					t = 9.0 * network_properties->N_tar / (M_PI * network_properties->delta * network_properties->a * POW3(network_properties->alpha * network_properties->chi_max, EXACT));
+					if (t > MTAU)
+						x = LOG(t, STL) / 3.0;
+					else if (!newton(&solveTau0Flat, &x, 10000, TOL, p1, NULL, &network_properties->N_tar))
+						return false;
+				}
 
 				//END COMPACT EQUATIONS
 
 				network_properties->tau0 = x;
-				if (DEBUG) assert (network_properties->tau0 > 0.0);
+				if (DEBUG)
+					assert (network_properties->tau0 > 0.0);
 
 				if (t > MTAU)
 					network_properties->ratio = exp(3.0 * network_properties->tau0) / 4.0;
 				else
 					network_properties->ratio = POW2(SINH(1.5 * network_properties->tau0, STL), EXACT);
-				if (DEBUG) assert(network_properties->ratio > 0.0);
+
+				if (DEBUG)
+					assert(network_properties->ratio > 0.0);
+
 				network_properties->omegaM = 1.0 / (network_properties->ratio + 1.0);
 				network_properties->omegaL = 1.0 - network_properties->omegaM;
 			} else if (network_properties->flags.cc.conflicts[1] == 0 || network_properties->flags.cc.conflicts[2] == 0 || network_properties->flags.cc.conflicts[3] == 0) {
@@ -115,6 +130,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 						network_properties->ratio = exp(3.0 * network_properties->tau0) / 4.0;
 					else
 						network_properties->ratio = POW2(SINH(1.5 * network_properties->tau0, STL), EXACT);
+
 					network_properties->omegaM = 1.0 / (network_properties->ratio + 1.0);
 					network_properties->omegaL = 1.0 - network_properties->omegaM;
 
@@ -123,32 +139,26 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					printf("\tCompleted.\n");
 				}
 				
-				//BEGIN COMPACT EQUATIONS
-				//Add these 3 to Operations.h
+				//BEGIN COMPACT EQUATIONS (Completed)
 
 				if (network_properties->N_tar > 0 && network_properties->alpha > 0.0) {
 					//Solve for delta
-					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
-						network_properties->delta = exp(LOG(6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->a * POW3(network_properties->alpha, EXACT)), STL) - 3.0 * network_properties->tau0);
+					if (network_properties->flags.compact)
+						network_properties->delta = solveDeltaCompact(network_properties->N_tar, network_properties->a, network_properties->tau0, network_properties->alpha);
 					else
-						network_properties->delta = 3.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->a * POW3(network_properties->alpha, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
-					if (DEBUG) assert (network_properties->delta > 0.0);
+						network_properties->delta = solveDeltaFlat(network_properties->N_tar, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha);
 				} else if (network_properties->N_tar == 0) {
 					//Solve for N_tar
-					if (DEBUG) assert (network_properties->alpha > 0.0);
-					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
-						network_properties->N_tar = static_cast<int>(exp(LOG(6.0 / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * POW3(network_properties->alpha, EXACT)), EXACT) - 3.0 * network_properties->tau0));
+					if (network_properties->flags.compact)
+						network_properties->N_tar = solveNtarCompact(network_properties->a, network_properties->tau0, network_properties->alpha, network_properties->delta);
 					else
-						network_properties->N_tar = static_cast<int>(POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * POW3(network_properties->alpha, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0) / 3.0);
-					if (DEBUG) assert (network_properties->N_tar > 0);
+						network_properties->N_tar = solveNtarFlat(network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha, network_properties->delta);
 				} else {
 					//Solve for alpha
-					if (DEBUG) assert (network_properties->N_tar > 0);
-					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
-						network_properties->alpha = exp(LOG(6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a), STL) / 3.0 - network_properties->tau0);
+					if (network_properties->flags.compact)
+						network_properties->alpha = solveAlphaCompact(network_properties->N_tar, network_properties->a, network_properties->tau0, network_properties->delta);
 					else
-						network_properties->alpha = POW(3.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0)), (1.0 / 3.0), STL);
-					if (DEBUG) assert (network_properties->alpha > 0.0);
+						network_properties->alpha = solveAlphaFlat(network_properties->N_tar, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->delta);
 				}
 
 				//END COMPACT EQUATIONS
@@ -159,11 +169,14 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				assert (network_properties->a > 0.0);
 				assert (network_properties->tau0 > 0.0);
 			}
+
 			network_properties->rhoL = 1.0 / POW2(network_properties->a, EXACT);
+
 			if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
 				network_properties->rhoM = 4.0 * exp(-3.0 * network_properties->tau0) / POW2(network_properties->a, EXACT);
 			else
 				network_properties->rhoM = 1.0 / POW2(network_properties->a * SINH(1.5 * network_properties->tau0, STL), EXACT);
+
 			if (DEBUG) {
 				assert (network_properties->rhoL > 0.0);
 				assert (network_properties->rhoM > 0.0);
@@ -178,7 +191,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				assert (network_properties->alpha > 0.0);
 				assert (network_properties->ratio > 0.0);
 			}
+
 			network_properties->R0 = network_properties->alpha * POW(network_properties->ratio, 1.0 / 3.0, STL);
+
 			if (DEBUG) assert (network_properties->R0 > 0.0);
 			
 			if (network_properties->k_tar == 0.0) {
@@ -189,7 +204,6 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			
 			//20% Buffer
 			network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
-			//printf("Edge Buffer: %d\n", network_properties->edge_buffer);
 
 			//Adjacency matrix not implemented in GPU algorithms
 			if (network_properties->flags.use_gpu)
@@ -230,6 +244,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 		//Check other parameters if applicable
 		if (network_properties->flags.validate_embedding)
 			network_properties->N_emb *= static_cast<uint64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
+
 		if (network_properties->flags.calc_success_ratio)
 			network_properties->N_sr *= static_cast<uint64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
 	} catch (CausetException c) {
@@ -638,7 +653,7 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//Values are in correct ranges
@@ -655,6 +670,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			assert (nodes.crd->y() != NULL);
 			assert (nodes.crd->z() != NULL);
 			assert (dim == 3);
+			assert (chi_max > 0.0);
 			assert (tau0 > 0.0);
 		} else
 			assert (zeta > 0.0 && zeta < HALF_PI);
@@ -694,7 +710,6 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			nodes.crd->x(i) = static_cast<float>(ATAN(ran2(&seed) / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			if (DEBUG) {
 				assert (nodes.crd->x(i) > 0.0f);
-				//assert (nodes.crd->x(i) < static_cast<float>(HALF_PI - zeta) + 0.0000001f);
 				assert (nodes.crd->x(i) < static_cast<float>(HALF_PI - zeta));
 			}
 
@@ -717,7 +732,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			if (universe) {
 				x = 0.5;
 				p1[0] = tau0;
-				if (tau0 > 1.8) {	//Determined by trial and error
+				if (tau0 > 1.8) {	//Cutoff of 1.8 determined by trial and error
 					if (!bisection(&solveTauUnivBisec, &x, 2000, 0.0, tau0, TOL, true, p1, NULL, NULL))
 						return false;
 				} else {
@@ -762,20 +777,29 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			//Phi given by [3]				  //
 			////////////////////////////////////////////////////
 
+			//BEGIN COMPACT EQUATIONS (Completed)
+
 			//Sample Phi from (0, pi)
-			x = HALF_PI;
-			rval = ran2(&seed);
-			if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL))
-				return false;
-			nodes.crd->y(i) = static_cast<float>(x);
+			if (compact) {
+				x = HALF_PI;
+				rval = ran2(&seed);
+				if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL))
+					return false;
+				nodes.crd->y(i) = static_cast<float>(x);
+			} else
+				nodes.crd->y(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			if (DEBUG) assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));
 			//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes.crd->y(i)); fflush(stdout);
 
-			//BEGIN COMPACT EQUATIONS
-
-			//Sample Chi from (0, pi)
-			nodes.crd->z(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-			if (DEBUG) assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < static_cast<float>(M_PI));
+			if (compact) {
+				//Sample Chi from (0, pi)
+				nodes.crd->z(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+				if (DEBUG) assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < static_cast<float>(M_PI));
+			} else {
+				//Sample Chi from (0, chi_max)
+				nodes.crd->z(i) = static_cast<float>(ran2(&seed) * chi_max);
+				if (DEBUG) assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < static_cast<float>(chi_max));
+			}
 			//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes.crd->z(i)); fflush(stdout);
 
 			//END COMPACT EQUATIONS
@@ -818,7 +842,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -883,10 +907,15 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 				//Formula given on p. 2 of [2]
 				dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(nodes.crd->y(j) - nodes.crd->y(i)), STL), STL));
 			} else if (dim == 3) {
-				//BEGIN COMPACT EQUATIONS
+				//BEGIN COMPACT EQUATIONS (Completed)
 
-				//Spherical Law of Cosines
-				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+				if (compact) {
+					//Spherical Law of Cosines
+					dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+				} else {
+					//Distance on Flat Spacetime
+					dx = static_cast<float>(SQRT(static_cast<double>(flatProduct(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? BITWISE : STL));
+				}
 
 				//END COMPACT EQUATIONS
 			}

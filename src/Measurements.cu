@@ -209,7 +209,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No Null Pointers
@@ -303,7 +303,7 @@ bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core
 						goto PathSuccess;
 					}
 					if (manifold == DE_SITTER)
-						dist = distanceDS(NULL, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe);
+						dist = distanceDS(NULL, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
 					else if (manifold == HYPERBOLIC)
 						dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 					//printf("\t\tDistance: %f\n", dist);
@@ -324,7 +324,7 @@ bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core
 						goto PathSuccess;
 					}
 					if (manifold == DE_SITTER)
-						dist = distanceDS(NULL, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe);
+						dist = distanceDS(NULL, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
 					else if (manifold == HYPERBOLIC)
 						dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 					//printf("\t\tDistance: %f\n", dist);
@@ -383,7 +383,7 @@ bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m
 //O(xxx) Efficiency (revise this)
-bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench)
+bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No Null Pointers
@@ -545,27 +545,24 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		k_out = 0;
 
 		//Compare test node to N_tar other nodes
-		float4 newNode;
+		float4 new_node;
 		for (j = 0; j < N_tar; j++) {
-			//BEGIN COMPACT EQUATIONS
+			//BEGIN COMPACT EQUATIONS (Completed)
 
 			//Calculate sign of spacetime interval
-			newNode.w = c->w(j);
-			newNode.x = c->x(j);
-			newNode.y = c->y(j);
-			newNode.z = c->z(j);	
+			new_node = c->getFloat4(j);
 			dt = static_cast<float>(ABS(static_cast<double>(c->w(j) - test_node.w), STL));
-			dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(newNode, test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 
-			//dt = static_cast<float>(ABS(static_cast<double>(c->w(j) - test_node.w), STL));
-			//dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(newNode, test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			if (compact)
+				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(new_node, test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			else
+				dx = static_cast<float>(SQRT(static_cast<double>(flatProduct(new_node, test_node)), APPROX ? BITWISE : STL));
 
 			//END COMPACT EQUATIONS
 
 			if (dx < dt) {
 				//They are connected
-				if (newNode.w < test_node.w)
-				//if (sc[j].w < test_node.w)
+				if (new_node.w < test_node.w)
 					k_in++;
 				else
 					k_out++;

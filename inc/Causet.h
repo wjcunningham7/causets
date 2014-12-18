@@ -457,14 +457,6 @@ struct Benchmark {
 	double bMeasureDegreeField;
 };
 
-//Used for GSL Integration
-struct GSL_EmbeddedZ1_Parameters {
-	GSL_EmbeddedZ1_Parameters() {}
-
-	double a;
-	double alpha;
-};
-
 //Custom exception class used in this program
 class CausetException : public std::exception
 {

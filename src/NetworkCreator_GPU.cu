@@ -6,7 +6,7 @@
 // Northeastern University //
 /////////////////////////////
 
-__global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float *z0, float *w1, float *x1, float *y1, float *z1, int *k_in, int *k_out, bool *edges, int diag)
+__global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float *z0, float *w1, float *x1, float *y1, float *z1, int *k_in, int *k_out, bool *edges, int diag, bool compact)
 {
 	__shared__ float shr_w1[THREAD_SIZE];
 	__shared__ float shr_x1[THREAD_SIZE];
@@ -49,11 +49,15 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 			n1.y = shr_y1[k];
 			n1.z = shr_z1[k];
 
-			//BEGIN COMPACT EQUATIONS
+			//BEGIN COMPACT EQUATIONS (Completed)
 
 			//Identify spacetime interval
 			dt[k] = n1.w - n0.w;
-			dx[k] = acosf(sphProduct_GPU(n0, n1));
+
+			if (compact)
+				dx[k] = acosf(sphProduct_GPU(n0, n1));
+			else
+				dx[k] = sqrtf(flatProduct_GPU(n0, n1));
 
 			//END COMPACT EQUATIONS
 		}
@@ -97,7 +101,7 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 				atomicAdd(&k_in[j*THREAD_SIZE+k], n[0][k]);
 }
 
-__global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width)
+__global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width, bool compact)
 {
 	///////////////////////////////////////
 	// Identify Node Pair with Thread ID //
@@ -165,11 +169,16 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 		dt_ab = node1_ab.w - node0_ab.w;
 		dt_c  = node1_c.w  - node0_c.w;
 
-		//BEGIN COMPACT EQUATIONS
+		//BEGIN COMPACT EQUATIONS (Completed)
 
 		//Calculate dx
-		dx_ab = acosf(sphProduct_GPU(node0_ab, node1_ab));
-		dx_c = acosf(sphProduct_GPU(node0_c, node1_c));
+		if (compact) {
+			dx_ab = acosf(sphProduct_GPU(node0_ab, node1_ab));
+			dx_c = acosf(sphProduct_GPU(node0_c, node1_c));
+		} else {
+			dx_ab = sqrtf(flatProduct_GPU(node0_ab, node1_ab));
+			dx_c = sqrtf(flatProduct_GPU(node0_c, node1_c));
+		}
 
 		//END COMPACT EQUATIONS
 	}
@@ -261,7 +270,7 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -315,10 +324,10 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	stopwatchStart(&sGenAdjList);
 	if (GEN_ADJ_LISTS_GPU_V2) {
-		if (!generateLists_v2(nodes, h_edges, g_idx, N_tar, d_edges_size, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
+		if (!generateLists_v2(nodes, h_edges, g_idx, N_tar, d_edges_size, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, compact, verbose))
 			return false;
 	} else {
-		if (!generateLists_v1(nodes, h_edges, g_idx, N_tar, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
+		if (!generateLists_v1(nodes, h_edges, g_idx, N_tar, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, compact, verbose))
 			return false;
 	}
 	stopwatchStop(&sGenAdjList);
@@ -422,7 +431,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -549,7 +558,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 					checkCudaErrors(cuMemcpyHtoDAsync(d_z1[m], nodes.crd->z() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
 
 					//Execute Kernel
-					GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], diag);
+					GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], diag, compact);
 					getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
 
 					//Copy Memory to Host Buffers
