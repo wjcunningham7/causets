@@ -227,9 +227,10 @@ void swap(uint64_t *edges, const int i, const int j)
 
 //Bisection Method
 //Use when Newton-Raphson fails
-bool bisection(double (*solve)(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
+bool bisection(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG) assert (solve != NULL);
+	if (DEBUG)
+		assert (solve != NULL);
 
 	double res = 1.0;
 	double a = lower;
@@ -244,7 +245,7 @@ bool bisection(double (*solve)(const double &x, const double * const p1, const d
 		*x = (b + a) / 2;
 		while (ABS(res, STL) > tol && iter < max_iter) {
 			//Residual Value
-			res = (*solve)(*x, p1, p2, p3, p4, p5, p6);
+			res = (*solve)(*x, p1, p2, p3);
 			//printf("res:   %.16e\n\n", res);
 
 			//Check for NaN
@@ -288,9 +289,10 @@ bool bisection(double (*solve)(const double &x, const double * const p1, const d
 
 //Newton-Raphson Method
 //Solves Transcendental Equations
-bool newton(double (*solve)(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6), double *x, const int max_iter, const double tol, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
+bool newton(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double tol, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG) assert (solve != NULL);
+	if (DEBUG)
+		assert (solve != NULL);
 
 	double res = 1.0;
 	double x1;
@@ -299,7 +301,7 @@ bool newton(double (*solve)(const double &x, const double * const p1, const doub
 	try {
 		while (ABS(res, STL) > tol && iter < max_iter) {
 			//Residual Value
-			res = (*solve)(*x, p1, p2, p3, p4, p5, p6);
+			res = (*solve)(*x, p1, p2, p3);
 			//printf("res: %E\n", res);
 
 			//Check for NaN

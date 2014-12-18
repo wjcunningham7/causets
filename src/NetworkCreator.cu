@@ -64,9 +64,14 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				//BEGIN COMPACT EQUATIONS
 
 				double t = 6.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * network_properties->delta * network_properties->a * POW3(network_properties->alpha, EXACT));
+				double p1[3];
+				p1[0] = network_properties->alpha;
+				p1[1] = network_properties->delta;
+				p1[2] = network_properties->a;
+
 				if (t > MTAU)
 					x = LOG(t, STL) / 3.0;
-				else if (!newton(&solveTau0, &x, 10000, TOL, &network_properties->alpha, &network_properties->delta, &network_properties->a, NULL, &network_properties->N_tar, NULL))
+				else if (!newton(&solveTau0, &x, 10000, TOL, p1, NULL, &network_properties->N_tar))
 					return false;
 
 				//END COMPACT EQUATIONS
@@ -600,7 +605,11 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 		if (dim == 1)
 			x = HALF_PI - 0.0001;
 
-		if (!newton(&solveZeta, &x, 10000, TOL, NULL, NULL, NULL, &k_tar, &N_tar, &dim))
+		int p3[2];
+		p3[0] = N_tar;
+		p3[1] = dim;
+
+		if (!newton(&solveZeta, &x, 10000, TOL, NULL, &k_tar, p3))
 			return false;
 
 		if (dim == 1)
@@ -701,18 +710,24 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 			nodes.id.tau[i] = static_cast<float>(tau0) + 1.0f;
 			rval = ran2(&seed);
+
+			double p1[2];
+			p1[1] = rval;
+
 			if (universe) {
 				x = 0.5;
+				p1[0] = tau0;
 				if (tau0 > 1.8) {	//Determined by trial and error
-					if (!bisection(&solveTauUnivBisec, &x, 2000, 0.0, tau0, TOL, true, &tau0, &rval, NULL, NULL, NULL, NULL))
+					if (!bisection(&solveTauUnivBisec, &x, 2000, 0.0, tau0, TOL, true, p1, NULL, NULL))
 						return false;
 				} else {
-					if (!newton(&solveTauUniverse, &x, 1000, TOL, &tau0, &rval, NULL, NULL, NULL, NULL)) 
+					if (!newton(&solveTauUniverse, &x, 1000, TOL, p1, NULL, NULL))
 						return false;
 				}
 			} else {
 				x = 3.5;
-				if (!newton(&solveTau, &x, 1000, TOL, &zeta, NULL, &rval, NULL, NULL, NULL))
+				p1[0] = zeta;
+				if (!newton(&solveTau, &x, 1000, TOL, p1, NULL, NULL))
 					return false;
 			}
 
@@ -750,7 +765,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			//Sample Phi from (0, pi)
 			x = HALF_PI;
 			rval = ran2(&seed);
-			if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL, NULL, NULL, NULL)) 
+			if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL))
 				return false;
 			nodes.crd->y(i) = static_cast<float>(x);
 			if (DEBUG) assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));

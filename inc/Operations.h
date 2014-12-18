@@ -100,112 +100,90 @@ inline double phiPrime4D(const double &x)
 
 //Returns zeta Residual
 //Used in 1+1 and 3+1 Causets
-inline double solveZeta(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
+inline double solveZeta(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	if (DEBUG) {
-		//No null pointers
-		assert (p4 != NULL);	//k_tar
-		assert (p5 != NULL);	//N_tar
-		assert (p6 != NULL);	//dim
-
-		//Variables in the correct ranges
-		assert (*p4 > 0.0);
-		assert (*p5 > 0);
-		assert (*p6 == 1 || *p6 == 3);
+		assert (p2 != NULL);
+		assert (p3 != NULL);
+		assert (p2[0] > 0.0f);			//k_tar
+		assert (p3[0] > 0);			//N_tar
+		assert (p3[1] == 1 || p3[1] == 3);	//dim
 	}
 
-	return ((*p6 == 1) ?
-		-1.0 * eta02D(x, *p5, *p4) / eta0Prime2D(x) :
-		-1.0 * zeta4D(x, *p5, *p4) / zetaPrime4D(x));
+	return ((p3[1] == 1) ?
+		-1.0 * eta02D(x, p3[0], p2[0]) / eta0Prime2D(x) :
+		-1.0 * zeta4D(x, p3[0], p2[0]) / zetaPrime4D(x));
 }
 
 //BEGIN COMPACT EQUATIONS
 
 //Returns tau0 Residual
 //Used in Universe Causet
-inline double solveTau0(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
+inline double solveTau0(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	if (DEBUG) {
-		//No null pointers
-		assert (p1 != NULL);	//alpha
-		assert (p2 != NULL);	//delta
-		assert (p3 != NULL);	//a
-		assert (p5 != NULL);	//N_tar
-
-		//Variables in the correct ranges
-		assert (*p1 > 0.0);
-		assert (*p2 > 0.0);
-		assert (*p3 > 0.0);
-		assert (*p5 > 0);
+		assert (p1 != NULL);
+		assert (p3 != NULL);
+		assert (p1[0] > 0.0);	//alpha
+		assert (p1[1] > 0.0);	//delta
+		assert (p1[2] > 0.0);	//a
+		assert (p3[0] > 0);	//N_tar
 	}
 
-	return (-1.0 * tau0(x, *p5, *p1, *p2, *p3) / tau0Prime(x));
+	return (-1.0 * tau0(x, p3[0], p1[0], p1[1], p1[2]) / tau0Prime(x));
 }
 
 //END COMPACT EQUATIONS
 
 //Returns tau Residual
 //Used in 3+1 Causet
-inline double solveTau(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
+inline double solveTau(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	if (DEBUG) {
-		//No null pointers
-		assert (p1 != NULL);	//zeta
-		assert (p3 != NULL);	//rval
-
-		//Variables in the correct ranges
-		assert (*p1 > 0.0 && *p1 < HALF_PI);
-		assert (*p3 > 0.0 && *p3 < 1.0);
+		assert (p1 != NULL);
+		assert (p1[0] > 0.0 && p1[0] < HALF_PI);	//zeta
+		assert (p1[1] > 0.0 && p1[1] < 1.0);		//rval
 	}
 
-	return (-1.0 * tau4D(x, *p1, *p3) / tauPrime4D(x, *p1));
+	return (-1.0 * tau4D(x, p1[0], p1[1]) / tauPrime4D(x, p1[0]));
 }
 
 //Returns tau Residual
 //Used in Universe Causet
-inline double solveTauUniverse(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
+inline double solveTauUniverse(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	if (DEBUG) {
-		//No null pointers
-		assert (p1 != NULL);	//tau0
-		assert (p2 != NULL);	//rval
-
-		//Variables in the correct ranges
-		assert (*p1 > 0.0);
-		assert (*p2 > 0.0 && *p2 < 1.0);
+		assert (p1 != NULL);
+		assert (p1[0] > 0.0);			//tau0
+		assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
 	}
 
-	return (-1.0 * tauUniverse(x, *p1, *p2) / tauPrimeUniverse(x, *p1));
+	return (-1.0 * tauUniverse(x, p1[0], p1[1]) / tauPrimeUniverse(x, p1[0]));
 }
 
 //Returns tau Residual in Bisection Algorithm
 //Used in Universe Causet
-inline double solveTauUnivBisec(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
+inline double solveTauUnivBisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	if (DEBUG) {
-		assert (p1 != NULL);	//tau0
-		assert (p2 != NULL);	//rval
-
-		assert (*p1 > 0.0);
-		assert (*p2 > 0.0 && *p2 < 1.0);
+		assert (p1 != NULL);
+		assert (p1[0] > 0.0);			//tau0
+		assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
 	}
 
-	return tauUniverse(x, *p1, *p2);
+	return tauUniverse(x, p1[0], p1[1]);
 }
 
 //Returns phi Residual
 //Used in 3+1 and Universe Causets
-inline double solvePhi(const double &x, const double * const p1, const double * const p2, const double * const p3, const float * const p4, const int * const p5, const int * const p6)
+inline double solvePhi(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	if (DEBUG) {
-		//No null pointers
-		assert (p1 != NULL);	//rval
-
-		//Variables in correct ranges
-		assert (*p1 > 0.0 && *p1 < 1.0);
+		assert (p1 != NULL);
+		assert (p1[0] > 0.0 && p1[0] < 1.0);	//rval
 	}
 
-	return (-1.0 * phi4D(x, *p1) / phiPrime4D(x));
+	return (-1.0 * phi4D(x, p1[0]) / phiPrime4D(x));
 }
 
 //Math Functions for Gauss Hypergeometric Function
@@ -306,7 +284,6 @@ inline double tToEtaUniverse(double t, void *params)
 inline double tauToEtaUniverseExact(const double &tau, const double &a, const double &alpha)
 {
 	if (DEBUG) {
-		//Parameters in Correct Ranges
 		assert (tau > 0.0);
 		assert (a > 0.0);
 		assert (alpha > 0.0);
@@ -332,7 +309,6 @@ inline double tauToEtaUniverseExact(const double &tau, const double &a, const do
 inline double etaToTauUniverse(const double &eta, const double &a, const double &alpha)
 {
 	if (DEBUG) {
-		//Parameters in Correct Ranges
 		assert (eta > 0.0);
 		assert (a > 0.0);
 		assert (alpha > 0.0);
@@ -379,7 +355,6 @@ inline double xi(double &r)
 inline double rescaledDegreeUniverse(int dim, double x[], double *params)
 {
 	if (DEBUG) {
-		//Variables in Correct Ranges
 		assert (dim > 0);
 		assert (x[0] > 0.0);
 		assert (x[1] > 0.0);
@@ -405,10 +380,7 @@ inline double rescaledDegreeUniverse(int dim, double x[], double *params)
 inline double rescaledScaleFactor(double *table, double size, double eta, double a, double alpha)
 {
 	if (DEBUG) {
-		//No Null Pointers
 		assert (table != NULL);
-
-		//Variables in Correct Ranges
 		assert (size > 0.0);
 		assert (eta > 0.0);
 		assert (a > 0.0);
@@ -445,10 +417,7 @@ inline double rescaledScaleFactor(double *table, double size, double eta, double
 inline double averageDegreeUniverse(int dim, double x[], double *params)
 {
 	if (DEBUG) {
-		//No Null Pointers
 		assert (params != NULL);
-
-		//Variables in Correct Ranges
 		assert (dim > 0);
 		assert (x[0] > 0.0);
 		assert (x[1] > 0.0);
@@ -480,10 +449,7 @@ inline double averageDegreeUniverse(int dim, double x[], double *params)
 inline double psi(double eta, void *params)
 {
 	if (DEBUG) {
-		//No Null Pointers
 		assert (params != NULL);
-
-		//Variables in Correct Ranges
 		assert (eta > 0.0);
 	}
 
@@ -499,10 +465,7 @@ inline double psi(double eta, void *params)
 inline double degreeFieldTheory(double eta, void *params)
 {
 	if (DEBUG) {
-		//No Null Pointers
 		assert (params != NULL);
-
-		//Variables in Correct Ranges
 		assert (eta > 0.0);
 	}
 
@@ -524,10 +487,8 @@ inline double degreeFieldTheory(double eta, void *params)
 //For use with GNU Scientific Library
 inline double embeddedZ1(double x, void *params)
 {
-	if (DEBUG) {
-		//No Null Pointers
+	if (DEBUG)
 		assert (params != NULL);
-	}
 
 	GSL_EmbeddedZ1_Parameters *p = (GSL_EmbeddedZ1_Parameters*)params;
 
@@ -535,7 +496,6 @@ inline double embeddedZ1(double x, void *params)
 	double alpha = p->alpha;
 	
 	if (DEBUG) {
-		//Variables in Correct Ranges
 		assert (a > 0.0);
 		assert (alpha > 0.0);
 	}
@@ -549,7 +509,6 @@ inline double embeddedZ1(double x, void *params)
 inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe)
 {
 	if (DEBUG) {
-		//Parameters in Correct Ranges
 		assert (dim == 3);
 		assert (manifold == DE_SITTER);
 		assert (a > 0.0);
