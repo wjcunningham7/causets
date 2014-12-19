@@ -120,7 +120,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		assert (core_edge_exists != NULL);
 		assert (N_tar > 0);
 		assert (k_tar > 0);
-		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 		assert (edge_buffer >= 0);
 	}
 
@@ -588,7 +588,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	return true;
 }
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -600,8 +600,10 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 		assert (nodes.k_in != NULL);
 		assert (nodes.k_out != NULL);
 		assert (edges != NULL);
+		assert (core_edge_exists != NULL);
 		assert (g_idx != NULL);
 		assert (N_tar > 0);
+		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	}
 
 	//Temporary Buffers
@@ -616,6 +618,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 
 	unsigned int i, j;
 	unsigned int diag;
+	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 
 	//Thread blocks are grouped into "mega" blocks
 	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * GROUP_SIZE)));
@@ -745,7 +748,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 			//Transfer data from buffers
 			readDegrees(nodes.k_in, h_k_in, j, mthread_size);
 			readDegrees(nodes.k_out, h_k_out, i, mthread_size);
-			readEdges(edges, h_edges, g_idx, d_edges_size, mthread_size, i, j);
+			readEdges(edges, h_edges, core_edge_exists, g_idx, core_limit, d_edges_size, mthread_size, i, j);
 
 			//Clear Device Memory
 			checkCudaErrors(cuMemsetD8(d_edges, 0, m_edges_size));

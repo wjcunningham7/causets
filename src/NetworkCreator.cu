@@ -206,7 +206,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
 
 			//Adjacency matrix not implemented in GPU algorithms
-			if (network_properties->flags.use_gpu)
+			if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2)
 				network_properties->core_edge_fraction = 0.0;
 				
 			printf("\n");
@@ -1007,9 +1007,9 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	}
 
 	if (DEBUG) {
-		assert (N_res > 0);
-		assert (N_deg2 > 0);
-		assert (k_res > 0.0);
+		assert (N_res >= 0);
+		assert (N_deg2 >= 0);
+		assert (k_res >= 0.0);
 	}
 
 	k_res /= N_res;

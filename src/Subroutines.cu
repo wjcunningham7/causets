@@ -375,6 +375,19 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 //Breadth First Search
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements)
 {
+	if (DEBUG) {
+		assert (nodes.k_in != NULL);
+		assert (nodes.k_out != NULL);
+		assert (nodes.cc_id != NULL);
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
+		assert (index >= 0);
+		assert (id >= 0);
+		assert (elements >= 0);
+	}
+
 	int ps = edges.past_edge_row_start[index];
 	int fs = edges.future_edge_row_start[index];
 	int i;
@@ -395,16 +408,41 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 
 void readDegrees(int * const &degrees, const int * const h_k, const int &index, const size_t &offset_size)
 {
+	if (DEBUG) {
+		assert (degrees != NULL);
+		assert (h_k != NULL);
+		assert (index >= 0);
+	}
+
 	unsigned int i;
 	for (i = 0; i < offset_size; i++)
 		degrees[index*offset_size+i] += h_k[i];
 }
 
-void readEdges(uint64_t * const &edges, const bool * const h_edges, int * const &g_idx, const size_t &d_edges_size, const size_t &buffer_size, const int x, const int y)
+void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const core_edge_exists, int * const &g_idx, const int &core_limit, const size_t &d_edges_size, const size_t &buffer_size, const int x, const int y)
 {
+	if (DEBUG) {
+		assert (edges != NULL);
+		assert (h_edges != NULL);
+		assert (core_edge_exists != NULL);
+		assert (g_idx != NULL);
+		assert (*g_idx >= 0);
+		assert (core_limit >= 0);
+		assert (x >= 0);
+		assert (y >= 0);
+		assert (x <= y);
+	}
+
 	unsigned int i, j;
-	for (i = 0; i < buffer_size; i++)
-		for (j = 0; j < buffer_size; j++)
-			if (h_edges[i*buffer_size+j] && g_idx[0] < (int)d_edges_size)
+	for (i = 0; i < buffer_size; i++) {
+		for (j = 0; j < buffer_size; j++) {
+			if (h_edges[i*buffer_size+j] && g_idx[0] < (int)d_edges_size) {
 				edges[g_idx[0]++] = ((uint64_t)(x*buffer_size+i)) << 32 | ((uint64_t)(y*buffer_size+j));
+				if (x*buffer_size+i < core_limit && y*buffer_size+j < core_limit) {
+					core_edge_exists[(x*buffer_size+i)*core_limit+y*buffer_size+j] = true;
+					core_edge_exists[(y*buffer_size+j)*core_limit+x*buffer_size+i] = true;
+				}
+			}
+		}
+	}
 }

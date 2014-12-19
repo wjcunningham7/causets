@@ -1014,7 +1014,11 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 		else
 			sstm << "CPU_";
 		if (network.network_properties.flags.universe) {
-			sstm << "U_";
+			sstm << "U";
+			if (network.network_properties.flags.compact)
+				sstm << "C_";
+			else
+				sstm << "F_";
 			sstm << network.network_properties.tau0 << "_";
 			sstm << network.network_properties.alpha << "_";
 			sstm << network.network_properties.a << "_";
@@ -1143,7 +1147,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 
 		outputStream << "\nAlgorithmic Performance:" << std::endl;
 		outputStream << "--------------------------" << std::endl;
-		//outputStream << "calcDegrees:         " << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
+		outputStream << "calcDegrees:         " << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
 		outputStream << "createNetwork:       " << cp.sCreateNetwork.elapsedTime << " sec" << std::endl;
 		outputStream << "generateNodes:       " << cp.sGenerateNodes.elapsedTime << " sec" << std::endl;
 		outputStream << "quicksort:           " << cp.sQuicksort.elapsedTime << " sec" << std::endl;

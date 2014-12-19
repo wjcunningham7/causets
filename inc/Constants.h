@@ -48,7 +48,7 @@
 //See src/NetworkCreator_GPU.cu
 #define LINK_NODES_GPU_V2 true
 
-#define GEN_ADJ_LISTS_GPU_V2 false
+#define GEN_ADJ_LISTS_GPU_V2 true
 
 #define DECODE_LISTS_GPU_V2 true
 

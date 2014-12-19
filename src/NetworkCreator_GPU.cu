@@ -284,10 +284,9 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
-
 		assert (N_tar > 0);
 		assert (k_tar > 0);
-		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 		assert (edge_buffer >= 0);
 	}
 
@@ -324,10 +323,10 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	stopwatchStart(&sGenAdjList);
 	if (GEN_ADJ_LISTS_GPU_V2) {
-		if (!generateLists_v2(nodes, h_edges, g_idx, N_tar, d_edges_size, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, compact, verbose))
+		if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, compact, verbose))
 			return false;
 	} else {
-		if (!generateLists_v1(nodes, h_edges, g_idx, N_tar, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, compact, verbose))
+		if (!generateLists_v1(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, compact, verbose))
 			return false;
 	}
 	stopwatchStop(&sGenAdjList);
@@ -431,7 +430,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, const int &N_tar, const size_t &d_edges_size, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -443,9 +442,10 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 		assert (nodes.k_in != NULL);
 		assert (nodes.k_out != NULL);
 		assert (edges != NULL);
+		assert (core_edge_exists != NULL);
 		assert (g_idx != NULL);
-
 		assert (N_tar > 0);
+		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	}
 
 	//CUDA Streams
@@ -472,6 +472,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 
 	unsigned int i, j, m;
 	unsigned int diag;
+	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 	
 	//Thread blocks are grouped into "mega" blocks
 	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * GROUP_SIZE)));
@@ -580,7 +581,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, int * const &g_idx, 
 				//Read Data from Buffers
 				readDegrees(nodes.k_in, h_k_in[m], j*NBUFFERS+m, mthread_size);
 				readDegrees(nodes.k_out, h_k_out[m], i, mthread_size);
-				readEdges(edges, h_edges[m], g_idx, d_edges_size, mthread_size, i, j*NBUFFERS+m);
+				readEdges(edges, h_edges[m], core_edge_exists, g_idx, core_limit, d_edges_size, mthread_size, i, j*NBUFFERS+m);
 			}				
 		}
 	}
@@ -672,11 +673,14 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 	size_t g_mthread_size = g_mblock_size * BLOCK_SIZE;
 
 	//DEBUG
-	//printf_red();
-	//printf("G_MBLOCK SIZE:  %zu\n", g_mblock_size);
-	//printf("G_MTHREAD_SIZE: %zu\n", g_mthread_size);
-	//printf_std();
-	//fflush(stdout);
+	/*printf_red();
+	printf("G_IDX:          %d\n", *g_idx);
+	printf("BLOCK_SIZE:     %d\n", BLOCK_SIZE);
+	printf("GROUP_SIZE:     %d\n", GROUP_SIZE);
+	printf("G_MBLOCK_SIZE:  %zu\n", g_mblock_size);
+	printf("G_MTHREAD_SIZE: %zu\n", g_mthread_size);
+	printf_std();
+	fflush(stdout);*/
 
 	//Allocate Global Device Memory
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
@@ -726,8 +730,14 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 		checkCudaErrors(cuCtxSynchronize());
 
 		//Copy Memory from Device to Host
-		cpy_size = *g_idx - static_cast<int>(i * g_mthread_size) >= 0 ? g_mthread_size : static_cast<int>(i * g_mthread_size) - *g_idx;
+		if (*g_idx > g_mthread_size)
+			cpy_size = *g_idx - static_cast<int>(i * g_mthread_size) >= 0 ? g_mthread_size : static_cast<int>(i * g_mthread_size) - *g_idx;
+		else
+			cpy_size = *g_idx;
 		checkCudaErrors(cuMemcpyDtoH(edges.future_edges + i * g_mthread_size, d_future_edges, sizeof(int) * cpy_size));
+
+		if (cpy_size < g_mthread_size)
+			break;
 	}
 
 	//Free Device Memory
@@ -760,8 +770,14 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 		checkCudaErrors(cuCtxSynchronize());
 
 		//Copy Memory from Device to Host
-		cpy_size = *g_idx - static_cast<int>(i * g_mthread_size) >= 0 ? g_mthread_size : static_cast<int>(i * g_mthread_size) - *g_idx;
+		if (*g_idx > g_mthread_size)
+			cpy_size = *g_idx - static_cast<int>(i * g_mthread_size) >= 0 ? g_mthread_size : static_cast<int>(i * g_mthread_size) - *g_idx;
+		else
+			cpy_size = *g_idx;
 		checkCudaErrors(cuMemcpyDtoH(edges.past_edges + i * g_mthread_size, d_past_edges, sizeof(int) * cpy_size));
+
+		if (cpy_size < g_mthread_size)
+			break;
 	}
 
 	//Free Device Memory
@@ -945,9 +961,9 @@ bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const 
 	k_res = static_cast<float>(*g_idx * 2) / N_res;
 
 	if (DEBUG) {
-		assert (N_res > 0);
-		assert (N_deg2 > 0);
-		assert (k_res > 0.0);
+		assert (N_res >= 0);
+		assert (N_deg2 >= 0);
+		assert (k_res >= 0.0);
 	}
 
 	//Free Device Memory
