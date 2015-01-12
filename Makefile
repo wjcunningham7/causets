@@ -121,7 +121,7 @@ OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.o, $(SOURCES))
 # Top-Level Compilation Sequences #
 ###################################
 
-all : gpu
+all : cpu
 
 cpu : $(COBJS) $(CEXTOBJS) $(OBJS) link
 

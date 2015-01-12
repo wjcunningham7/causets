@@ -413,11 +413,11 @@ inline float sphProduct(const float4 &sc0, const float4 &sc1)
 }
 
 //Flat Inner Product
-//Returns distance squared
+//Returns distance ***SQUARED***
 inline float flatProduct(const float4 &sc0, const float4 &sc1)
 {
 	return POW2(X_FLAT(sc0.y, sc0.z, sc0.x) - X_FLAT(sc1.y, sc1.z, sc1.x), EXACT) +
-	       POW2(Y_FLAT(sc0.y, sc0.z, sc0.x) - X_FLAT(sc1.y, sc1.z, sc1.x), EXACT) +
+	       POW2(Y_FLAT(sc0.y, sc0.z, sc0.x) - Y_FLAT(sc1.y, sc1.z, sc1.x), EXACT) +
 	       POW2(Z_FLAT(sc0.y, sc0.z) - Z_FLAT(sc1.y, sc1.z), EXACT);
 }
 

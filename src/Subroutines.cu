@@ -419,7 +419,7 @@ void readDegrees(int * const &degrees, const int * const h_k, const int &index, 
 		degrees[index*offset_size+i] += h_k[i];
 }
 
-void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const core_edge_exists, int * const &g_idx, const int &core_limit, const size_t &d_edges_size, const size_t &buffer_size, const int x, const int y)
+void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const core_edge_exists, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &buffer_size, const int x, const int y)
 {
 	if (DEBUG) {
 		assert (edges != NULL);
@@ -427,7 +427,6 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const
 		assert (core_edge_exists != NULL);
 		assert (g_idx != NULL);
 		assert (*g_idx >= 0);
-		assert (core_limit >= 0);
 		assert (x >= 0);
 		assert (y >= 0);
 		assert (x <= y);

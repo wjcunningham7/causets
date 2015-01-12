@@ -206,8 +206,10 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
 
 			//Adjacency matrix not implemented in GPU algorithms
+			#ifdef CUDA_ENABLED
 			if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2)
 				network_properties->core_edge_fraction = 0.0;
+			#endif
 				
 			printf("\n");
 			printf("\tParameters Constraining Universe Causal Set:\n");
@@ -431,6 +433,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 		}
 
 		size_t dmem = 0;
+		#ifdef CUDA_ENABLED
 		if (use_gpu) {
 			size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar / 2 + edge_buffer)));
 			mem += sizeof(uint64_t) * d_edges_size;	//For encoded edge list
@@ -445,6 +448,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			dmem += sizeof(int) * mthread_size * NBUFFERS << 1;		//For k_in and k_out buffers (device)
 			dmem += sizeof(bool) * m_edges_size * NBUFFERS;			//For adjacency matrix buffers (device)
 		}
+		#endif
 
 		printMemUsed("for Network (Estimation)", mem, dmem);
 		printf("\nContinue [y/N]?");
@@ -797,7 +801,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 				if (DEBUG) assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < static_cast<float>(M_PI));
 			} else {
 				//Sample Chi from (0, chi_max)
-				nodes.crd->z(i) = static_cast<float>(ran2(&seed) * chi_max);
+				nodes.crd->z(i) = static_cast<float>(POW(ran2(&seed), 1.0 / 3.0, APPROX ? FAST : STL) * chi_max);
 				if (DEBUG) assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < static_cast<float>(chi_max));
 			}
 			//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes.crd->z(i)); fflush(stdout);
@@ -842,7 +846,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -855,7 +859,7 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 
 		//Variables in correct ranges
 		assert (N_tar > 0);
-		assert (k_tar > 0.0);
+		assert (k_tar > 0.0f);
 		assert (dim == 1 || dim == 3);
 		assert (manifold == DE_SITTER);
 		if (universe) {
@@ -868,11 +872,14 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 			assert (alpha > 0.0);
 		}
 		assert (a > 0.0);
-		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (zeta > 0.0 && zeta < HALF_PI);
+		assert (chi_max > 0.0);
+		assert (tau0 > 0.0);
+		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 		assert (edge_buffer >= 0);
 	}
 
-	float dt = 0.0, dx = 0.0;
+	float dt = 0.0f, dx = 0.0f;
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
 	int future_idx = 0;
 	int past_idx = 0;
@@ -921,8 +928,11 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 			}
 
 			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx); fflush(stdout);
-			//if (i % NPRINT == 0) printf("cos(dx): %.5f\n", cosf(dx)); fflush(stdout);
-			if (DEBUG) assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
+			if (compact) {
+				if (DEBUG) assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
+			} else {
+				if (DEBUG) assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(chi_max));
+			}
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {

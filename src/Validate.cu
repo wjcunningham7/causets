@@ -618,7 +618,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 
 	unsigned int i, j;
 	unsigned int diag;
-	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
+	unsigned int core_limit = static_cast<unsigned int>(core_edge_fraction * N_tar);
 
 	//Thread blocks are grouped into "mega" blocks
 	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * GROUP_SIZE)));

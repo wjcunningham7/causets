@@ -67,9 +67,27 @@ struct __attribute__ (aligned(8)) float2 {
 	float x, y;
 };
 
+extern inline float2 make_float2(float x, float y)
+{
+	float2 f;
+	f.x = x;
+	f.y = y;
+	return f;
+}
+
 struct __attribute__ (aligned(16)) float4 {
 	float w, x, y, z;
 };
+
+extern inline float4 make_float4(float w, float x, float y, float z)
+{
+	float4 f;
+	f.w = w;
+	f.x = x;
+	f.y = y;
+	f.z = z;
+	return f;
+}
 
 typedef int CUcontext;
 
@@ -103,14 +121,12 @@ struct Coordinates {
 	//These virtual definitions are used to indicate bugs in the code,
 	//usually when a structure is passed by value instead of by reference
 
-	float zero;
 	virtual float & v(unsigned int idx) { return zero; }
 	virtual float & w(unsigned int idx) { return zero; }
 	virtual float & x(unsigned int idx) { return zero; }
 	virtual float & y(unsigned int idx) { return zero; }
 	virtual float & z(unsigned int idx) { return zero; }
 
-	float *null_ptr;
 	virtual float *& v(void) { return null_ptr; }
 	virtual float *& w(void) { return null_ptr; }
 	virtual float *& x(void) { return null_ptr; }
@@ -127,6 +143,8 @@ protected:
 
 private:
 	int ndim;
+	float zero;
+	float *null_ptr;
 };
 
 //2-Dimensional Vertex Coordinate
