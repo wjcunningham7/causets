@@ -155,8 +155,8 @@ struct Coordinates2D : Coordinates {
 	}
 
 	Coordinates2D(float *_x, float *_y) : Coordinates(2) {
-		this->points[0] = _x;
-		this->points[1] = _y;
+		this->points[0] = _x;	//Eta (Conformal Time)
+		this->points[1] = _y;	//Theta3
 	}
 
 	//Access and mutate element as c.x(index)
@@ -196,10 +196,10 @@ struct Coordinates4D : Coordinates {
 	}
 
 	Coordinates4D(float *& _w, float *& _x, float *& _y, float *& _z) : Coordinates(4) {
-		this->points[0] = _w;
-		this->points[1] = _x;
-		this->points[2] = _y;
-		this->points[3] = _z;
+		this->points[0] = _w;	//Eta (Conformal Time)
+		this->points[1] = _x;	//Theta1
+		this->points[2] = _y;	//Theta2
+		this->points[3] = _z;	//Theta3
 	}
 
 	float & w(unsigned int idx) { return this->points[0][idx]; }
@@ -230,6 +230,7 @@ struct Coordinates4D : Coordinates {
 };
 
 //5-Dimensional Vertex Coordinate
+//Typically used for embedded 4D
 struct Coordinates5D : Coordinates {
 	Coordinates5D() : Coordinates(5) {
 		this->points[0] = NULL;
@@ -342,8 +343,8 @@ struct CausetFlags {
 	bool link;			//Link Nodes after Generation
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
 	
-	bool universe;			//Use Universe's Tau Distribution
-	bool compact;			//Use Compactification of Radial Coordinate
+	bool universe;			//Simulate FLRW Spacetime
+	bool compact;			//Use Compactification of theta1 Coordinate
 
 	bool calc_clustering;		//Find Clustering Coefficients
 	bool calc_components;		//Find Connected Components
@@ -361,7 +362,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), dim(3), manifold(DE_SITTER), a(1.0), lambda(3.0), zeta(1.0), chi_max(1.0), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0) {}
+	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), dim(3), manifold(DE_SITTER), a(1.0), lambda(3.0), zeta(1.0), chi_max(M_PI), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0) {}
 
 	CausetFlags flags;
 

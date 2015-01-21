@@ -11,19 +11,19 @@
 // Northeastern University //
 /////////////////////////////
 
-__device__ float X1_GPU(const float &phi);
+__device__ float X1_GPU(const float &theta1);
 
-__device__ float X2_GPU(const float &phi, const float &chi);
+__device__ float X2_GPU(const float &theta1, const float &theta2);
 
-__device__ float X3_GPU(const float &phi, const float &chi, const float &theta);
+__device__ float X3_GPU(const float &theta1, const float &theta2, const float &theta3);
 
-__device__ float X4_GPU(const float &phi, const float &chi, const float &theta);
+__device__ float X4_GPU(const float &theta1, const float &theta2, const float &theta3);
 
-__device__ float X_FLAT_GPU(const float &phi, const float &chi, const float &theta);
+__device__ float X_FLAT_GPU(const float &theta1, const float &theta2, const float &theta3);
 
-__device__ float Y_FLAT_GPU(const float &phi, const float &chi, const float &theta);
+__device__ float Y_FLAT_GPU(const float &theta1, const float &theta2, const float &theta3);
 
-__device__ float Z_FLAT_GPU(const float &phi, const float &chi);
+__device__ float Z_FLAT_GPU(const float &theta1, const float &theta2);
 
 __device__ float sphProduct_GPU_v1(const float4 &sc0, const float4 &sc1);
 

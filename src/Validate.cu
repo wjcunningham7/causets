@@ -1055,13 +1055,13 @@ bool printValues(Node &nodes, const int num_vals, const char *filename, const ch
 			if (strcmp(coord, "tau") == 0)
 				outputStream << nodes.id.tau[i] << std::endl;
 			else if (strcmp(coord, "eta") == 0)
-				outputStream << nodes.crd->w(i) << std::endl;
-				//outputStream << nodes.crd->x(i) << std::endl;
-			else if (strcmp(coord, "theta") == 0)
+				outputStream << nodes.crd->w(i) << std::endl;	//Use for dim = 3
+				//outputStream << nodes.crd->x(i) << std::endl;	//Use for dim = 1
+			else if (strcmp(coord, "theta1") == 0)
 				outputStream << nodes.crd->x(i) << std::endl;
-			else if (strcmp(coord, "phi") == 0)
+			else if (strcmp(coord, "theta2") == 0)
 				outputStream << nodes.crd->y(i) << std::endl;
-			else if (strcmp(coord, "chi") == 0)
+			else if (strcmp(coord, "theta3") == 0)
 				outputStream << nodes.crd->z(i) << std::endl;
 			else
 				throw CausetException("Unrecognized value in 'coord' parameter!\n");

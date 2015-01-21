@@ -702,19 +702,23 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 	double x, rval;
 	int i;
 	for (i = 0; i < N_tar; i++) {
-		///////////////////////////////////////////////////////////
-		//~~~~~~~~~~~~~~~~~~~~~~~~~Theta~~~~~~~~~~~~~~~~~~~~~~~~~//
-		//Sample Theta from (0, 2pi), as described on p. 2 of [1]//
-		///////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////
+		//~~~~~~~~~~~~~~~~~~~~~~~~~Theta3~~~~~~~~~~~~~~~~~~~~~~~~~//
+		//Sample Theta3 from (0, 2pi), as described on p. 2 of [1]//
+		////////////////////////////////////////////////////////////
 
 		x = TWO_PI * ran2(&seed);
 		if (DEBUG) assert (x > 0.0 && x < TWO_PI);
-		//if (i % NPRINT == 0) printf("Theta: %5.5f\n", x); fflush(stdout);
+		//if (i % NPRINT == 0) printf("Theta3: %5.5f\n", x); fflush(stdout);
 
 		if (dim == 1) {
 			nodes.crd->y(i) = static_cast<float>(x);
 
-			//CDF derived from PDF identified in (2) of [2]
+			/////////////////////////////////////////////////
+			//~~~~~~~~~~~~~~~~~~~~Eta~~~~~~~~~~~~~~~~~~~~~~//
+			//CDF derived from PDF identified in (2) of [2]//
+			/////////////////////////////////////////////////
+
 			nodes.crd->x(i) = static_cast<float>(ATAN(ran2(&seed) / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			if (DEBUG) {
 				assert (nodes.crd->x(i) > 0.0f);
@@ -723,7 +727,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 			nodes.id.tau[i] = static_cast<float>(etaToTau(static_cast<double>(nodes.crd->x(i))));
 		} else if (dim == 3) {
-			nodes.crd->x(i) = static_cast<float>(x);
+			nodes.crd->z(i) = static_cast<float>(x);
 
 			/////////////////////////////////////////////////////////
 			//~~~~~~~~~~~~~~~~~~~~~~~~~~~~T~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -779,38 +783,30 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 				assert (nodes.crd->w(i) < tauToEtaUniverseExact(tau0, a, alpha));
 			}
 				
-			////////////////////////////////////////////////////
-			//~~~~~~~~~~~~~~~~~Phi and Chi~~~~~~~~~~~~~~~~~~~~//	
-			//CDFs derived from PDFs identified on p. 3 of [2]//
-			//Phi given by [3]				  //
-			////////////////////////////////////////////////////
+			///////////////////////////////////////////////////////
+			//~~~~~~~~~~~~~~~~Theta1 and Theta2~~~~~~~~~~~~~~~~~~//	
+			//CDFs derived from PDFs identified on p. 3 of [2]   //
+			//Phi given by [3]				     //
+			///////////////////////////////////////////////////////
 
-			//BEGIN COMPACT EQUATIONS (Completed)
-
-			//Sample Phi from (0, pi)
 			if (compact) {
+				//Sample Theta1 from (0, pi)
 				x = HALF_PI;
 				rval = ran2(&seed);
-				if (!newton(&solvePhi, &x, 250, TOL, &rval, NULL, NULL))
+				if (!newton(&solveTheta1, &x, 250, TOL, &rval, NULL, NULL))
 					return false;
-				nodes.crd->y(i) = static_cast<float>(x);
-			} else
-				nodes.crd->y(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-			if (DEBUG) assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));
-			//if (i % NPRINT == 0) printf("Phi: %5.5f\n", nodes.crd->y(i)); fflush(stdout);
-
-			if (compact) {
-				//Sample Chi from (0, pi)
-				nodes.crd->z(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-				if (DEBUG) assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < static_cast<float>(M_PI));
+				nodes.crd->x(i) = static_cast<float>(x);
+				if (DEBUG) assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < static_cast<float>(M_PI));
 			} else {
-				//Sample Chi from (0, chi_max)
-				nodes.crd->z(i) = static_cast<float>(POW(ran2(&seed), 1.0 / 3.0, APPROX ? FAST : STL) * chi_max);
-				if (DEBUG) assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < static_cast<float>(chi_max));
+				nodes.crd->x(i) = static_cast<float>(POW(ran2(&seed), 1.0 / 3.0, APPROX ? FAST : STL) * chi_max);
+				if (DEBUG) assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < static_cast<float>(chi_max));
 			}
-			//if (i % NPRINT == 0) printf("Chi: %5.5f\n", nodes.crd->z(i)); fflush(stdout);
+			//if (i % NPRINT == 0) printf("Theta1: %5.5f\n", nodes.crd->x(i)); fflush(stdout);
 
-			//END COMPACT EQUATIONS
+			//Sample Theta2 from (0, pi)
+			nodes.crd->y(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			if (DEBUG) assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));
+			//if (i % NPRINT == 0) printf("Theta2: %5.5f\n", nodes.crd->y(i)); fflush(stdout);
 		}
 		//if (i % NPRINT == 0) printf("eta: %E\n", nodes.crd->w(i));
 		//if (i % NPRINT == 0) printf("tau: %E\n", nodes.id.tau[i]);
@@ -819,9 +815,9 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 	//Debugging statements used to check coordinate distributions
 	/*if (!printValues(nodes, N_tar, "tau_dist.cset.dbg.dat", "tau")) return false;
 	if (!printValues(nodes, N_tar, "eta_dist.cset.dbg.dat", "eta")) return false;
-	if (!printValues(nodes, N_tar, "theta_dist.cset.dbg.dat", "theta")) return false;
-	if (!printValues(nodes, N_tar, "chi_dist.cset.dbg.dat", "chi")) return false;
-	if (!printValues(nodes, N_tar, "phi_dist.cset.dbg.dat", "phi")) return false;
+	if (!printValues(nodes, N_tar, "theta1_dist.cset.dbg.dat", "theta1")) return false;
+	if (!printValues(nodes, N_tar, "theta2_dist.cset.dbg.dat", "theta2")) return false;
+	if (!printValues(nodes, N_tar, "theta3_dist.cset.dbg.dat", "theta3")) return false;
 	printf_red();
 	printf("Check coordinate distributions now.\n");
 	printf_std();

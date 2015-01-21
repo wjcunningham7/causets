@@ -795,8 +795,8 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 					if (network->nodes.crd->y(i) <= 0.0 || network->nodes.crd->y(i) >= TWO_PI)
 						throw CausetException("Invalid value for 'theta' in node position file!\n");
 				} else if (network->network_properties.dim == 3 && network->network_properties.manifold == DE_SITTER) {
-					//if (network->nodes.crd->w(i) <= 0.0 || network->nodes.crd->w(i) >= HALF_PI)
-					//	throw CausetException("Invalid value for 'eta' in node position file!\n");
+					if (network->nodes.crd->w(i) <= 0.0 || network->nodes.crd->w(i) >= static_cast<float>(HALF_PI - network->network_properties.zeta))
+						throw CausetException("Invalid value for 'eta' in node position file!\n");
 					if (network->nodes.crd->x(i) <= 0.0 || network->nodes.crd->x(i) >= TWO_PI)
 						throw CausetException("Invalid value for 'theta' in node position file!\n");
 					if (network->nodes.crd->y(i) <= 0.0 || network->nodes.crd->y(i) >= M_PI)

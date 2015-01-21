@@ -93,12 +93,12 @@ inline double tauPrimeUniverse(const double &x, const double &tau0)
 	return 6.0 * POW2(SINH(1.5 * x, APPROX ? FAST : STL), EXACT) / (SINH(3.0 * tau0, APPROX ? FAST : STL) - 3.0 * tau0);
 }
 
-inline double phi4D(const double &x, const double &rval)
+inline double theta1_4D(const double &x, const double &rval)
 {
 	return (2.0 * x - SIN(2.0 * x, APPROX ? FAST : STL)) / TWO_PI - rval;
 }
 
-inline double phiPrime4D(const double &x)
+inline double theta1_Prime4D(const double &x)
 {
 	return POW2(SIN(x, APPROX ? FAST : STL), EXACT) / HALF_PI;
 }
@@ -194,16 +194,16 @@ inline double solveTauUnivBisec(const double &x, const double * const p1, const 
 	return tauUniverse(x, p1[0], p1[1]);
 }
 
-//Returns phi Residual
+//Returns theta1 Residual
 //Used in 3+1 and Universe Causets
-inline double solvePhi(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solveTheta1(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	if (DEBUG) {
 		assert (p1 != NULL);
 		assert (p1[0] > 0.0 && p1[0] < 1.0);	//rval
 	}
 
-	return (-1.0 * phi4D(x, p1[0]) / phiPrime4D(x));
+	return (-1.0 * theta1_4D(x, p1[0]) / theta1_Prime4D(x));
 }
 
 //Functions used for solving constraints in NetworkCreator.cu/initVars()
@@ -361,80 +361,80 @@ inline double _2F1_r(const double &r, void * const param)
 //De Sitter Spatial Lengths
 
 //X1 Coordinate of de Sitter Metric
-inline float X1_SPH(const float &phi)
+inline float X1_SPH(const float &theta1)
 {
-	return static_cast<float>(COS(phi, APPROX ? FAST : STL));
+	return static_cast<float>(COS(theta1, APPROX ? FAST : STL));
 }
 
 //X2 Coordinate of de Sitter Metric
-inline float X2_SPH(const float &phi, const float &chi)
+inline float X2_SPH(const float &theta1, const float &theta2)
 {
-	return static_cast<float>(SIN(phi, APPROX ? FAST : STL) * COS(chi, APPROX ? FAST : STL));
+	return static_cast<float>(SIN(theta1, APPROX ? FAST : STL) * COS(theta2, APPROX ? FAST : STL));
 }
 
 //X3 Coordinate of de Sitter Metric
-inline float X3_SPH(const float &phi, const float &chi, const float &theta)
+inline float X3_SPH(const float &theta1, const float &theta2, const float &theta3)
 {
-	return static_cast<float>(SIN(phi, APPROX ? FAST : STL) * SIN(chi, APPROX ? FAST : STL) * COS(theta, APPROX ? FAST : STL));
+	return static_cast<float>(SIN(theta1, APPROX ? FAST : STL) * SIN(theta2, APPROX ? FAST : STL) * COS(theta3, APPROX ? FAST : STL));
 }
 
 //X4 Coordinate of de Sitter Metric
-inline float X4_SPH(const float &phi, const float &chi, const float &theta)
+inline float X4_SPH(const float &theta1, const float &theta2, const float &theta3)
 {
-	return static_cast<float>(SIN(phi, APPROX ? FAST : STL) * SIN(chi, APPROX ? FAST : STL) * SIN(theta, APPROX ? FAST : STL));
+	return static_cast<float>(SIN(theta1, APPROX ? FAST : STL) * SIN(theta2, APPROX ? FAST : STL) * SIN(theta3, APPROX ? FAST : STL));
 }
 
 //X Coordinate from Spherical Basis
-inline float X_FLAT(const float &phi, const float &chi, const float &theta)
+inline float X_FLAT(const float &theta1, const float &theta2, const float &theta3)
 {
-	return static_cast<float>(chi * COS(theta, APPROX ? FAST : STL) * SIN(phi, APPROX ? FAST : STL));
+	return static_cast<float>(theta1 * SIN(theta2, APPROX ? FAST : STL) * COS(theta3, APPROX ? FAST : STL));
 }
 
 //Y Coordinate from Spherical Basis
-inline float Y_FLAT(const float &phi, const float &chi, const float &theta)
+inline float Y_FLAT(const float &theta1, const float &theta2, const float &theta3)
 {
-	return static_cast<float>(chi * SIN(theta, APPROX ? FAST : STL) * SIN(phi, APPROX ? FAST : STL));
+	return static_cast<float>(theta1 * SIN(theta2, APPROX ? FAST : STL) * SIN(theta3, APPROX ? FAST : STL));
 }
 
 //Z Coordinate from Spherical Basis
-inline float Z_FLAT(const float &phi, const float &chi)
+inline float Z_FLAT(const float &theta1, const float &theta2)
 {
-	return static_cast<float>(chi * COS(phi, APPROX ? FAST : STL));
+	return static_cast<float>(theta1 * COS(theta2, APPROX ? FAST : STL));
 }
 
 //Spherical Inner Product
 //Returns angle between two points on unit sphere
 inline float sphProduct_v1(const float4 &sc0, const float4 &sc1)
 {
-	return X1_SPH(sc0.y) * X1_SPH(sc1.y) +
-	       X2_SPH(sc0.y, sc0.z) * X2_SPH(sc1.y, sc1.z) +
-	       X3_SPH(sc0.y, sc0.z, sc0.x) * X3_SPH(sc1.y, sc1.z, sc1.x) +
-	       X4_SPH(sc0.y, sc0.z, sc0.x) * X4_SPH(sc1.y, sc1.z, sc1.x);
+	return X1_SPH(sc0.x) * X1_SPH(sc1.x) +
+	       X2_SPH(sc0.x, sc0.y) * X2_SPH(sc1.x, sc1.y) +
+	       X3_SPH(sc0.x, sc0.y, sc0.z) * X3_SPH(sc1.x, sc1.y, sc1.z) +
+	       X4_SPH(sc0.x, sc0.y, sc0.z) * X4_SPH(sc1.x, sc1.y, sc1.z);
 }
 
 //Factored form, fewer FLOPs than v1
 inline float sphProduct_v2(const float4 &sc0, const float4 &sc1)
 {
-	return cosf(sc0.y) * cosf(sc1.y) +
-	       sinf(sc0.y) * sinf(sc1.y) * (cosf(sc0.z) * cosf(sc1.z) + 
-	       sinf(sc0.z) * sinf(sc1.z) * cosf(sc0.x - sc1.x));
+	return cosf(sc0.x) * cosf(sc1.x) +
+	       sinf(sc0.x) * sinf(sc1.x) * (cosf(sc0.y) * cosf(sc1.y) + 
+	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z));
 }
 
 //Flat Inner Product
 //Returns distance ***SQUARED***
 inline float flatProduct_v1(const float4 &sc0, const float4 &sc1)
 {
-	return POW2(X_FLAT(sc0.y, sc0.z, sc0.x) - X_FLAT(sc1.y, sc1.z, sc1.x), EXACT) +
-	       POW2(Y_FLAT(sc0.y, sc0.z, sc0.x) - Y_FLAT(sc1.y, sc1.z, sc1.x), EXACT) +
-	       POW2(Z_FLAT(sc0.y, sc0.z) - Z_FLAT(sc1.y, sc1.z), EXACT);
+	return POW2(X_FLAT(sc0.x, sc0.y, sc0.z) - X_FLAT(sc1.x, sc1.y, sc1.z), EXACT) +
+	       POW2(Y_FLAT(sc0.x, sc0.y, sc0.z) - Y_FLAT(sc1.x, sc1.y, sc1.z), EXACT) +
+	       POW2(Z_FLAT(sc0.x, sc0.y) - Z_FLAT(sc1.x, sc1.y), EXACT);
 }
 
 //Factored form, fewer FLOPS than v1
 inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 {
-	return POW2(sc0.z, EXACT) + POW2(sc1.z, EXACT) -
-	       2.0f * sc0.z * sc1.z * (cosf(sc0.y) * cosf(sc1.y) +
-	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.x - sc1.x));
+	return POW2(sc0.x, EXACT) + POW2(sc1.x, EXACT) -
+	       2.0f * sc0.x * sc1.x * (cosf(sc0.y) * cosf(sc1.y) +
+	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z));
 }
 
 //END COMPACT EQUATIONS
