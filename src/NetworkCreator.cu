@@ -111,7 +111,8 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					stopwatchStart(&sSolveTau0);
 
 					//Solve for tau_0
-					printf("\tEstimating Age of Universe.....\n");
+					printf("Estimating Age of Universe.....\n");
+					fflush(stdout);
 					double kappa1 = network_properties->k_tar / network_properties->delta;
 					double kappa2 = kappa1 / POW2(POW2(network_properties->a, EXACT), EXACT);
 
@@ -135,8 +136,11 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					network_properties->omegaL = 1.0 - network_properties->omegaM;
 
 					stopwatchStop(&sSolveTau0);
-					printf("\t\tExecution Time: %5.6f\n", sSolveTau0.elapsedTime);
-					printf("\tCompleted.\n");
+					if (network_properties->flags.verbose) {
+						printf("\tExecution Time: %5.6f sec\n", sSolveTau0.elapsedTime);
+					}
+					printf("Task Completed.\n");
+					fflush(stdout);
 				}
 				
 				//BEGIN COMPACT EQUATIONS (Completed)
@@ -918,10 +922,10 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 
 				if (compact) {
 					//Spherical Law of Cosines
-					dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+					dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 				} else {
 					//Distance on Flat Spacetime
-					dx = static_cast<float>(SQRT(static_cast<double>(flatProduct(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? BITWISE : STL));
+					dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? BITWISE : STL));
 				}
 
 				//END COMPACT EQUATIONS
@@ -973,10 +977,6 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	}
 
 	edges.future_edge_row_start[N_tar-1] = -1;
-	printf_cyan();
-	printf("\t\tUndirected Links: %d\n", future_idx);
-	printf_std();
-	fflush(stdout);
 
 	//if (!printSpatialDistances(nodes, manifold, N_tar, dim)) return false;
 
@@ -1043,6 +1043,7 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	if (!bench) {
 		printf("\tCausets Successfully Connected.\n");
 		printf_cyan();
+		printf("\t\tUndirected Links:         %d\n", future_idx);
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
 		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);

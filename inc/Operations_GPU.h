@@ -25,9 +25,13 @@ __device__ float Y_FLAT_GPU(const float &phi, const float &chi, const float &the
 
 __device__ float Z_FLAT_GPU(const float &phi, const float &chi);
 
-__device__ float sphProduct_GPU(const float4 &sc0, const float4 &sc1);
+__device__ float sphProduct_GPU_v1(const float4 &sc0, const float4 &sc1);
 
-__device__ float flatProduct_GPU(const float4 &sc0, const float4 &sc1);
+__device__ float sphProduct_GPU_v2(const float4 &sc0, const float4 &sc1);
+
+__device__ float flatProduct_GPU_v1(const float4 &sc0, const float4 &sc1);
+
+__device__ float flatProduct_GPU_v2(const float4 &sc0, const float4 &sc1);
 
 __device__ float POW2_GPU(const float &x);
 

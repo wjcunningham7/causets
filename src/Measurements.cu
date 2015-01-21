@@ -554,9 +554,9 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 			dt = static_cast<float>(ABS(static_cast<double>(c->w(j) - test_node.w), STL));
 
 			if (compact)
-				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct(new_node, test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(new_node, test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			else
-				dx = static_cast<float>(SQRT(static_cast<double>(flatProduct(new_node, test_node)), APPROX ? BITWISE : STL));
+				dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(new_node, test_node)), APPROX ? BITWISE : STL));
 
 			//END COMPACT EQUATIONS
 

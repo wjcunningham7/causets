@@ -404,7 +404,7 @@ inline float Z_FLAT(const float &phi, const float &chi)
 
 //Spherical Inner Product
 //Returns angle between two points on unit sphere
-inline float sphProduct(const float4 &sc0, const float4 &sc1)
+inline float sphProduct_v1(const float4 &sc0, const float4 &sc1)
 {
 	return X1_SPH(sc0.y) * X1_SPH(sc1.y) +
 	       X2_SPH(sc0.y, sc0.z) * X2_SPH(sc1.y, sc1.z) +
@@ -412,13 +412,29 @@ inline float sphProduct(const float4 &sc0, const float4 &sc1)
 	       X4_SPH(sc0.y, sc0.z, sc0.x) * X4_SPH(sc1.y, sc1.z, sc1.x);
 }
 
+//Factored form, fewer FLOPs than v1
+inline float sphProduct_v2(const float4 &sc0, const float4 &sc1)
+{
+	return cosf(sc0.y) * cosf(sc1.y) +
+	       sinf(sc0.y) * sinf(sc1.y) * (cosf(sc0.z) * cosf(sc1.z) + 
+	       sinf(sc0.z) * sinf(sc1.z) * cosf(sc0.x - sc1.x));
+}
+
 //Flat Inner Product
 //Returns distance ***SQUARED***
-inline float flatProduct(const float4 &sc0, const float4 &sc1)
+inline float flatProduct_v1(const float4 &sc0, const float4 &sc1)
 {
 	return POW2(X_FLAT(sc0.y, sc0.z, sc0.x) - X_FLAT(sc1.y, sc1.z, sc1.x), EXACT) +
 	       POW2(Y_FLAT(sc0.y, sc0.z, sc0.x) - Y_FLAT(sc1.y, sc1.z, sc1.x), EXACT) +
 	       POW2(Z_FLAT(sc0.y, sc0.z) - Z_FLAT(sc1.y, sc1.z), EXACT);
+}
+
+//Factored form, fewer FLOPS than v1
+inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
+{
+	return POW2(sc0.z, EXACT) + POW2(sc1.z, EXACT) -
+	       2.0f * sc0.z * sc1.z * (cosf(sc0.y) * cosf(sc1.y) +
+	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.x - sc1.x));
 }
 
 //END COMPACT EQUATIONS
@@ -736,9 +752,9 @@ inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, 
 		z1_b = a * COSH(tau_b, APPROX ? FAST : STL);
 	}
 
-	inner_product_a = POW2(z1_a, EXACT) * sphProduct(node_a, node_a) - POW2(z0_a, EXACT);
-	inner_product_b = POW2(z1_b, EXACT) * sphProduct(node_b, node_b) - POW2(z0_b, EXACT);
-	inner_product_ab = z1_a * z1_b * sphProduct(node_a, node_b) - z0_a * z0_b;
+	inner_product_a = POW2(z1_a, EXACT) * sphProduct_v2(node_a, node_a) - POW2(z0_a, EXACT);
+	inner_product_b = POW2(z1_b, EXACT) * sphProduct_v2(node_b, node_b) - POW2(z0_b, EXACT);
+	inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
 	signature = inner_product_a + inner_product_b - 2.0 * inner_product_ab;
 
 	if (signature < 0.0)
@@ -755,7 +771,7 @@ inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, 
 	//Null hypothesis is the nodes are not connected
 	if (evd != NULL) {
 		double d_eta = ABS(static_cast<double>(node_b.w - node_a.w), STL);
-		double d_theta = ACOS(static_cast<double>(sphProduct(node_a, node_b)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+		double d_theta = ACOS(static_cast<double>(sphProduct_v2(node_a, node_b)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 
 		if (signature == 0.0)
 			return distance;

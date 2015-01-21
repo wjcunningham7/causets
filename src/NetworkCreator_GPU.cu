@@ -55,9 +55,9 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 			dt[k] = n1.w - n0.w;
 
 			if (compact)
-				dx[k] = acosf(sphProduct_GPU(n0, n1));
+				dx[k] = acosf(sphProduct_GPU_v2(n0, n1));
 			else
-				dx[k] = sqrtf(flatProduct_GPU(n0, n1));
+				dx[k] = sqrtf(flatProduct_GPU_v2(n0, n1));
 
 			//END COMPACT EQUATIONS
 		}
@@ -173,11 +173,11 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 
 		//Calculate dx
 		if (compact) {
-			dx_ab = acosf(sphProduct_GPU(node0_ab, node1_ab));
-			dx_c = acosf(sphProduct_GPU(node0_c, node1_c));
+			dx_ab = acosf(sphProduct_GPU_v2(node0_ab, node1_ab));
+			dx_c = acosf(sphProduct_GPU_v2(node0_c, node1_c));
 		} else {
-			dx_ab = sqrtf(flatProduct_GPU(node0_ab, node1_ab));
-			dx_c = sqrtf(flatProduct_GPU(node0_c, node1_c));
+			dx_ab = sqrtf(flatProduct_GPU_v2(node0_ab, node1_ab));
+			dx_c = sqrtf(flatProduct_GPU_v2(node0_c, node1_c));
 		}
 
 		//END COMPACT EQUATIONS

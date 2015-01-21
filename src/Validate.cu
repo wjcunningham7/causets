@@ -104,6 +104,7 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 }
 
 #ifdef CUDA_ENABLED
+//Note that core_edge_exists has not been implemented in this version of the linkNodesGPU subroutine.
 bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
