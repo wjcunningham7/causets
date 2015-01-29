@@ -60,8 +60,6 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					assert (network_properties->delta > 0.0);
 				}
 
-				//BEGIN COMPACT EQUATIONS (Completed)
-
 				double p1[4];
 				double t;
 				double x = 0.5;
@@ -84,8 +82,6 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					else if (!newton(&solveTau0Flat, &x, 10000, TOL, p1, NULL, &network_properties->N_tar))
 						return false;
 				}
-
-				//END COMPACT EQUATIONS
 
 				network_properties->tau0 = x;
 				if (DEBUG)
@@ -143,8 +139,6 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					fflush(stdout);
 				}
 				
-				//BEGIN COMPACT EQUATIONS (Completed)
-
 				if (network_properties->N_tar > 0 && network_properties->alpha > 0.0) {
 					//Solve for delta
 					if (network_properties->flags.compact)
@@ -164,8 +158,6 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					else
 						network_properties->alpha = solveAlphaFlat(network_properties->N_tar, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->delta);
 				}
-
-				//END COMPACT EQUATIONS
 			}
 
 			//Solve for Rescaled Densities
@@ -914,17 +906,19 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 				//Formula given on p. 2 of [2]
 				dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(nodes.crd->y(j) - nodes.crd->y(i)), STL), STL));
 			} else if (dim == 3) {
-				//BEGIN COMPACT EQUATIONS (Completed)
-
 				if (compact) {
 					//Spherical Law of Cosines
-					dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+					if (DIST_V2)
+						dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+					else
+						dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v1(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 				} else {
 					//Distance on Flat Spacetime
-					dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? BITWISE : STL));
+					if (DIST_V2)
+						dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? BITWISE : STL));
+					else
+						dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v1(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? BITWISE : STL));
 				}
-
-				//END COMPACT EQUATIONS
 			}
 
 			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx); fflush(stdout);

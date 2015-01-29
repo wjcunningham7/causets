@@ -6,8 +6,6 @@
 // Northeastern University //
 /////////////////////////////
 
-//BEGIN COMPACT EQUATIONS (Completed)
-
 __device__ float X1_SPH_GPU(const float &theta1)
 {
 	return cosf(theta1);
@@ -76,5 +74,3 @@ __device__ float POW2_GPU(const float &x)
 {
 	return x * x;
 }
-
-//END COMPACT EQUATIONS

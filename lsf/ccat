@@ -1,5 +1,13 @@
 #!/bin/bash
 
+###########################
+#(C) Will Cunningham 2014 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# Concatenates multiple jobs into a single folder
+
 njobs=0
 start_idx=1
 

@@ -82,7 +82,7 @@ endif
 OMPFLAGS	:=
 MPIFLAGS	:=
 
-USE_OMP		:= 0
+USE_OMP		:= 1
 USE_MPI		:= 0
 
 ifneq ($(USE_OMP), 0)

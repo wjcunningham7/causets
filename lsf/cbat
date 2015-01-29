@@ -15,6 +15,12 @@ jobstart=1
 # The number of samples to run serially on a single node
 nsamples=1
 
+# If reading a graph instead of generating one, specify the job number
+readjobid=0
+
+# If reading a graph instead of generating one, specify the graph id
+readgraphid=0
+
 # The flags to pass to the CausalSet program
 flags="--universe --age 4.0 --nodes 10240 --delta 1 --radius 1 --print --link --gpu"
 
@@ -25,7 +31,7 @@ queue="par-gpu"
 ncores=1
 
 # Parse command line parameters
-OPTIONS=`getopt -o j:J:s:f:q:c:h -l njobs:,start:,nsamples:,flags:,queue:,ncores:,'help' -n 'cbat' -- "$@"`
+OPTIONS=`getopt -o c:f:G:hJ:j:q:R:s: -l ncores:,flags:,graph:,'help',start:,njobs:,queue:,readjob:,nsamples: -n 'cbat' -- "$@"`
 
 if [ $? -ne 0 ] ; then
   echo "Unrecognized option. Try running with --help flag." >&2
@@ -36,47 +42,59 @@ eval set -- "$OPTIONS"
 
 while true ; do
   case "$1" in
-    -j|--njobs)
+    -c|--ncores)
       case "$2" in
         "") shift 2 ;;
-        *) njobs=$2 ; shift 2 ;;
-      esac ;;
-    -J|--start)
-      case "$2" in
-        "") shift 2 ;;
-        *) jobstart=$2 ; shift 2 ;;
-      esac ;;
-    -s|--nsamples)
-      case "$2" in
-        "") shift 2 ;;
-        *) nsamples=$2 ; shift 2 ;;
+        *) ncores=$2 ; shift 2 ;;
       esac ;;
     -f|--flags)
       case "$2" in
         "") shift 2 ;;
         *) flags=$2 ; shift 2 ;;
       esac ;;
+    -G|--graph)
+      case "$2" in
+        "") shift 2 ;;
+        *) readgraphid=$2 ; shift 2 ;;
+      esac ;;
+    -J|--start)
+      case "$2" in
+        "") shift 2 ;;
+        *) jobstart=$2 ; shift 2 ;;
+      esac ;;
+    -j|--njobs)
+      case "$2" in
+        "") shift 2 ;;
+        *) njobs=$2 ; shift 2 ;;
+      esac ;;
     -q|--queue)
       case "$2" in
         "") shift 2 ;;
         *) queue=$2 ; shift 2 ;;
       esac ;;
-    -c|--ncores)
+    -R|--readjob)
       case "$2" in
         "") shift 2 ;;
-        *) ncores=$2 ; shift 2 ;;
+        *) readjobid=$2; shift 2 ;;
+      esac ;;
+    -s|--nsamples)
+      case "$2" in
+        "") shift 2 ;;
+        *) nsamples=$2 ; shift 2 ;;
       esac ;;
     -h|--help)
       echo "Usage: cbat [OPTION]..."
       echo "Send CausalSet jobs to par-gpu LSF queue on Discovery cluster."
       echo ""
-      echo "  -j, --njobs      number of jobs to run in parallel on separate nodes"
-      echo "  -J, --start      job ID offset, used for naming directories"
-      echo "  -s, --nsamples   number of samples to run serially on a single node"
-      echo "  -f, --flags      flags to pass to CausalSet program"
-      echo "  -q, --queue      LSF queue"
       echo "  -c, --ncores     number of cores requested"
+      echo "  -f, --flags      flags to pass to CausalSet program"
+      echo "  -G, --graph      graph ID specified when reading a graph from another job"
       echo "  -h, --help       display this help and exit"
+      echo "  -J, --start      job ID offset, used for naming directories"
+      echo "  -j, --njobs      number of jobs to run in parallel on separate nodes"
+      echo "  -q, --queue      LSF queue"
+      echo "  -R, --readjob    job ID specified when reading a graph from another job"
+      echo "  -s, --nsamples   number of samples to run serially on a single node"
       echo ""
       echo "Report cbat bugs to w.cunningham@neu.edu"
       echo "GitHub repository home page: <https://github.com/wjcunningham7/causets>"
@@ -87,7 +105,7 @@ while true ; do
 done
 
 for (( i=${jobstart}; i<=${njobs}+${jobstart}-1; i++ )); do
-  sed "s:%flags%:$flags:g;s:%jobID%:$i:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g" < lsf/causet | bsub
+  sed "s:%flags%:$flags:g;s:%jobID%:$i:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g" < lsf/causet | bsub
   sleep 1
 done
 

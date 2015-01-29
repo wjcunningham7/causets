@@ -305,14 +305,17 @@ struct Edge {
 
 //Embedding Validation Data
 struct EVData {
-	EVData() : confusion(NULL), tn(NULL), fp(NULL), tn_idx(0), fp_idx(0) {}
+	EVData() : confusion(NULL), tn(NULL), fp(NULL), tn_idx(0), fp_idx(0), A1T(0.0), A1S(0.0) {}
 
-	double *confusion;		//Confusion Matrix for Embedding
+	uint64_t *confusion;		//Confusion Matrix for Embedding
 	float *tn;			//True Negatives
 	float *fp;			//False Positives
 
 	uint64_t tn_idx;		//Index for emb_tn array
 	uint64_t fp_idx;		//Index for emb_fp array
+
+	double A1T;			//Normalization for timelike distances
+	double A1S;			//Normalization for spacelike distances
 };
 
 //These are conflicts which arise due to over-constraining
@@ -362,7 +365,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), dim(3), manifold(DE_SITTER), a(1.0), lambda(3.0), zeta(1.0), chi_max(M_PI), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0) {}
+	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), dim(3), manifold(DE_SITTER), a(1.0), lambda(3.0), zeta(1.0), chi_max(M_PI), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), num_mpi_threads(0), mpi_rank(-1) {}
 
 	CausetFlags flags;
 
@@ -399,6 +402,9 @@ struct NetworkProperties {
 
 	long seed;			//Random Seed
 	int graphID;			//Unique Simulation ID
+
+	int num_mpi_threads;		//Number of MPI Threads
+	int mpi_rank;			//ID of this MPI Thread
 };
 
 //Measured values of the network

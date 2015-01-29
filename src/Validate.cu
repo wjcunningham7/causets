@@ -932,7 +932,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 //Generate confusion matrix for geodesic distances in universe with matter
 //Save matrix values as well as d_theta and d_eta to file
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, const int &num_mpi_threads, const int &mpi_rank, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -943,16 +943,17 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 		assert (nodes.crd->z() != NULL);
 		assert (N_tar > 0);
 		assert (dim == 3);
+		#ifdef MPI_ENABLED
+		assert (num_mpi_threads > 0);
+		assert (mpi_rank >= 0);
+		#endif
 		assert (manifold == DE_SITTER);
 		assert (universe);	//Just for now
 	}
 
 	uint64_t stride = static_cast<uint64_t>(static_cast<double>(N_tar) * (N_tar - 1) / (N_emb * 2));
 	uint64_t npairs = static_cast<uint64_t>(N_emb);
-	uint64_t vec_idx;
 	uint64_t k;
-	int do_map;
-	int i, j;
 
 	stopwatchStart(&sValidateEmbedding);
 
@@ -960,11 +961,11 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 	//printf("Stride: %" PRIu64 "\n", stride);
 
 	try {
-		evd.confusion = (double*)malloc(sizeof(double) * 4);
+		evd.confusion = (uint64_t*)malloc(sizeof(uint64_t) * 4);
 		if (evd.confusion == NULL)
 			throw std::bad_alloc();
-		memset(evd.confusion, 0, sizeof(double) * 4);
-		hostMemUsed += sizeof(double) * 4;
+		memset(evd.confusion, 0, sizeof(uint64_t) * 4);
+		hostMemUsed += sizeof(uint64_t) * 4;
 
 		evd.tn = (float*)malloc(sizeof(float) * npairs * 2);
 		if (evd.tn == NULL)
@@ -986,40 +987,128 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 		return false;
 	}
 
-	for (k = 0; k < npairs; k++) {
-		vec_idx = k * stride + 1;
-		i = static_cast<int>(vec_idx / (N_tar - 1));
-		j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
-		do_map = i >= j;
+	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
+	//Broadcast:
+	// > nodes.crd.w
+	// > nodes.crd.x
+	// > nodes.crd.y
+	// > nodes.crd.z
+	// > nodes.id.tau
+	#endif
+
+	unsigned int start = 0;
+	unsigned int finish = npairs;
+
+	#ifdef MPI_ENABLED
+	//Define start based on num_mpi_threads and mpi_rank
+	//Define end based on num_mpi_threads and mpi_rank
+	#endif
+
+	#ifdef _OPENMP
+	//Assuming omp_get_max_threads() returns 32
+	#pragma omp parallel num_threads(32)
+	{
+	#pragma omp for
+	#endif
+	for (k = start; k < finish; k++) {
+		//Choose a pair (i,j) from a single index k
+		uint64_t vec_idx = k * stride + 1;
+		int i = static_cast<int>(vec_idx / (N_tar - 1));
+		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
+		int do_map = i >= j;
 
 		if (j < N_tar >> 1) {
 			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
-		distanceDS(&evd, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact);
+		//Embedded distance
+		double distance = distanceEmbFLRW(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact);
+
+		if (distance == INF) continue;
+
+		//Check light cone condition for 4D vs 5D
+		//Null hypothesis is the nodes are not connected
+		double d_eta = ABS(static_cast<double>(node_b.w - node_a.w), STL);
+		double d_theta = ACOS(static_cast<double>(DIST_V2 ? sphProduct_v2(node_a, node_b) : sphProduct_v1(node_a, node_b)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+
+		if (d_theta < d_eta) {	//Actual Timelike
+			if (distance > 0) {
+				//False Negative (both timelike)
+				#ifdef _OPENMP
+				#pragma omp atomic
+				#endif
+				evd->confusion[1]++;
+			} else {
+				//True Negative
+				#ifdef _OPENMP
+				#pragma omp atomic
+				#endif
+				evd->confusion[2]++;
+
+				#ifdef _OPENMP
+				#pragma omp critical (tn)
+				{
+				#endif
+				evd->tn[evd->tn_idx++] = static_cast<float>(d_eta);
+				evd->tn[evd->tn_idx++] = static_cast<float>(d_theta);
+				#ifdef _OPENMP
+				}
+				#endif
+			}
+		} else {	//Actual Spacelike
+			if (distance > 0) {
+				//False Positive
+				#ifdef _OPENMP
+				#pragma omp atomic
+				#endif
+				evd->confusion[3]++;
+
+				#ifdef _OPENMP
+				#pragma omp critical (fp)
+				{
+				#endif
+				evd->fp[evd->fp_idx++] = static_cast<float>(d_eta);
+				evd->fp[evd->fp_idx++] = static_cast<float>(d_theta);
+				#ifdef _OPENMP
+				}
+				#endif
+			} else {
+				//True Positive (both spacelike)
+				#ifdef _OPENMP
+				#pragma omp atomic
+				#endif
+				evd->confusion[0]++;
+			}
+		}		
 	}
+	#ifdef _OPENMP
+	}
+	#endif
+
+	#ifdef MPI_ENABLED
+	//Reduce:
+	// > evd.confusion
+	//Gatherv:
+	// > evd.fp
+	// > evd.tn
+	#endif
 
 	//Number of timelike distances in 4-D native FLRW spacetime
-	double A1T = static_cast<double>(N_res * k_res / 2);
+	evd.A1T = static_cast<double>(N_res * k_res / 2);
 	//Number of spacelike distances in 4-D native FLRW spacetime
-	double A1S = static_cast<double>(N_tar) * (N_tar - 1) / 2 - A1T;
-
-	//Normalize
-	evd.confusion[0] /= A1S;
-	evd.confusion[1] /= A1T;
-	evd.confusion[2] /= A1T;
-	evd.confusion[3] /= A1S;
+	evd.A1S = static_cast<double>(N_tar) * (N_tar - 1) / 2 - A1T;
 
 	stopwatchStop(&sValidateEmbedding);
 
 	printf("\tCalculated Confusion Matrix.\n");
 	printf_cyan();
-	printf("\t\tTrue  Positives: %f\n", evd.confusion[0]);
-	printf("\t\tFalse Negatives: %f\n", evd.confusion[1]);
+	printf("\t\tTrue  Positives: %f\n", static_cast<double>(evd.confusion[0]) / evd.A1S);
+	printf("\t\tFalse Negatives: %f\n", static_cast<double>(evd.confusion[1]) / evd.A1T);
 	printf_red();
-	printf("\t\tTrue  Negatives: %f\n", evd.confusion[2]);
-	printf("\t\tFalse Positives: %f\n", evd.confusion[3]);
+	printf("\t\tTrue  Negatives: %f\n", static_cast<double>(evd.confusion[2]) / evd.A1T);
+	printf("\t\tFalse Positives: %f\n", static_cast<double>(evd.confusion[3]) / evd.A1S);
 	printf_std();
 	fflush(stdout);
 

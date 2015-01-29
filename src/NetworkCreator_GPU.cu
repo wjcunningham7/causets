@@ -49,17 +49,20 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 			n1.y = shr_y1[k];
 			n1.z = shr_z1[k];
 
-			//BEGIN COMPACT EQUATIONS (Completed)
-
 			//Identify spacetime interval
 			dt[k] = n1.w - n0.w;
 
-			if (compact)
-				dx[k] = acosf(sphProduct_GPU_v2(n0, n1));
-			else
-				dx[k] = sqrtf(flatProduct_GPU_v2(n0, n1));
-
-			//END COMPACT EQUATIONS
+			if (compact) {
+				if (DIST_V2)
+					dx[k] = acosf(sphProduct_GPU_v2(n0, n1));
+				else
+					dx[k] = acosf(sphProduct_GPU_v1(n0, n1));
+			} else {
+				if (DIST_V2)
+					dx[k] = sqrtf(flatProduct_GPU_v2(n0, n1));
+				else
+					dx[k] = sqrtf(flatProduct_GPU_v1(n0, n1));
+			}
 		}
 	}
 
@@ -169,18 +172,24 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 		dt_ab = node1_ab.w - node0_ab.w;
 		dt_c  = node1_c.w  - node0_c.w;
 
-		//BEGIN COMPACT EQUATIONS (Completed)
-
 		//Calculate dx
 		if (compact) {
-			dx_ab = acosf(sphProduct_GPU_v2(node0_ab, node1_ab));
-			dx_c = acosf(sphProduct_GPU_v2(node0_c, node1_c));
+			if (DIST_V2) {
+				dx_ab = acosf(sphProduct_GPU_v2(node0_ab, node1_ab));
+				dx_c = acosf(sphProduct_GPU_v2(node0_c, node1_c));
+			} else {
+				dx_ab = acosf(sphProduct_GPU_v1(node0_ab, node1_ab));
+				dx_c = acosf(sphProduct_GPU_v1(node0_c, node1_c));
+			}
 		} else {
-			dx_ab = sqrtf(flatProduct_GPU_v2(node0_ab, node1_ab));
-			dx_c = sqrtf(flatProduct_GPU_v2(node0_c, node1_c));
+			if (DIST_V2) {
+				dx_ab = sqrtf(flatProduct_GPU_v2(node0_ab, node1_ab));
+				dx_c = sqrtf(flatProduct_GPU_v2(node0_c, node1_c));
+			} else {
+				dx_ab = sqrtf(flatProduct_GPU_v1(node0_ab, node1_ab));
+				dx_c = sqrtf(flatProduct_GPU_v1(node0_c, node1_c));
+			}
 		}
-
-		//END COMPACT EQUATIONS
 	}
 
 	//Reduction in Shared Memory

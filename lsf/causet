@@ -14,14 +14,22 @@
 # Northeastern University #
 ###########################
 
+# This is the LSF batch submission script for the CausalSet program
+# It is intended to be submitted to LSF via the 'cbat' script
+# This other script will fill in variables inside the %% symbols
+
+# Make sure base directories exist
 mkdir -p /scratch/cunningham
 mkdir -p /scratch/cunningham/causet%jobID%/
 
+# Working directories
 work=/scratch/cunningham/causet%jobID%
 homedir=/home/cunningham.wi/projects/causets
 
+# Copy the binary
 cp $homedir/bin/CausalSet $work/
 
+# Create peripheral directories and copy relevant files
 mkdir -p $work/etc
 
 cp $homedir/etc/degrees $work/etc/
@@ -38,7 +46,51 @@ cp $homedir/etc/ctuc_table.cset.bin $work/etc/
 
 cp $homedir/etc/mkdat $work/etc/
 
+# Make directories to hold data files
 $homedir/etc/mkdat $work
+
+# Make sure directories exist if reading previously generated data
+if [ %readjobid% -ne 0 ] ; then
+  dir1="/scratch/cunningham/causet%readjobid%"
+  if [ ! -d ${dir1} ] ; then
+    echo "Folder ${dir1} does not exist!"
+    exit 1;
+  fi
+
+  dir2=$dir1/dat
+  if [ ! -d ${dir2} ] ; then
+    echo "Folder ${dir2} does not exist!"
+    exit 2;
+  fi
+
+  dir3=$dir2/pos
+  if [ ! -d ${dir3} ] ; then
+    echo "Folder ${dir3} does not exist!"
+    exit 3;
+  fi
+
+  posfile=$dir3/%readgraphid%
+  if [ ! -f ${posfile} ] ; then
+    echo "Node position file ${posfile} does not exist!"
+    exit 4;
+  fi
+
+  dir4=$dir2/edg
+  if [ ! -d ${dir4} ] ; then
+    echo "Folder ${dir4} does not exist!"
+    exit 5;
+  fi
+
+  edgfile=$dir4/%readgraphid%
+  if [ ! -f ${edgfile} ] ; then
+    echo "Edge list file ${edgfile} does not exist!"
+    exit 6;
+  fi
+
+  # If the files exist then move the relevant data
+  cp $posfile $work/dat/pos/
+  cp $edgfile $work/dat/edg/
+fi
 
 # Do not edit below this
 
@@ -57,9 +109,10 @@ done
 
 # Do not edit above this
 
+# Run nsamples jobs serially
 for (( i=1; i<=%nsamples%; i++ )); do
   echo "Starting Trial ${i} of %nsamples%"
-  ./CausalSet %flags% > CausalSet_Job-%jobID%_Sample-$i.log
+  ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
   sleep 1
 done
 

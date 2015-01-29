@@ -303,7 +303,7 @@ bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core
 						goto PathSuccess;
 					}
 					if (manifold == DE_SITTER)
-						dist = distanceDS(NULL, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+						dist = distanceEmbFLRW(NULL, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
 					else if (manifold == HYPERBOLIC)
 						dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 					//printf("\t\tDistance: %f\n", dist);
@@ -324,7 +324,7 @@ bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core
 						goto PathSuccess;
 					}
 					if (manifold == DE_SITTER)
-						dist = distanceDS(NULL, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+						dist = distanceEmbFLRW(NULL, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
 					else if (manifold == HYPERBOLIC)
 						dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 					//printf("\t\tDistance: %f\n", dist);
@@ -547,18 +547,21 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		//Compare test node to N_tar other nodes
 		float4 new_node;
 		for (j = 0; j < N_tar; j++) {
-			//BEGIN COMPACT EQUATIONS (Completed)
-
 			//Calculate sign of spacetime interval
 			new_node = c->getFloat4(j);
 			dt = static_cast<float>(ABS(static_cast<double>(c->w(j) - test_node.w), STL));
 
-			if (compact)
-				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(new_node, test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-			else
-				dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(new_node, test_node)), APPROX ? BITWISE : STL));
-
-			//END COMPACT EQUATIONS
+			if (compact) {
+				if (DIST_V2)
+					dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(new_node, test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+				else
+					dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v1(new_node, test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			} else {
+				if (DIST_V2)
+					dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(new_node, test_node)), APPROX ? BITWISE : STL));
+				else
+					dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v1(new_node, test_node)), APPROX ? BITWISE : STL));
+			}
 
 			if (dx < dt) {
 				//They are connected

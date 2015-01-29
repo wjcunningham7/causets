@@ -47,8 +47,6 @@ inline double zetaPrime4D(const double &x)
 	return (3.0 * (COS(5.0 * x, APPROX ? FAST : STL) - 32.0 * (M_PI - 2.0 * x) * _sinx3) + COS(x, APPROX ? FAST : STL) * (84.0 - 72.0 * _lncscx) + COS(3.0 * x, APPROX ? FAST : STL) * (24.0 * _lncscx - 31.0)) / (-4.0 * M_PI * _sinx4 * _cosx3 * POW3((2.0 + _cscx2), EXACT));
 }
 
-//BEGIN COMPACT EQUATIONS (Completed)
-
 inline double tau0Compact(const double &x, const int &N_tar, const double &alpha, const double &delta, const double &a)
 {
 	return SINH(3.0 * x, APPROX ? FAST : STL) - 3.0 * (x + static_cast<double>(N_tar) / (POW2(M_PI, EXACT) * delta * a * POW3(alpha, EXACT)));
@@ -63,8 +61,6 @@ inline double tau0Prime(const double &x)
 {
 	return 3.0 * (COSH(3.0 * x, APPROX ? FAST : STL) - 1.0);
 }
-
-//END COMPACT EQUATIONS
 
 inline double tau4D(const double &x, const double &zeta, const double &rval)
 {
@@ -120,8 +116,6 @@ inline double solveZeta(const double &x, const double * const p1, const float * 
 		-1.0 * zeta4D(x, p3[0], p2[0]) / zetaPrime4D(x));
 }
 
-//BEGIN COMPACT EQUATIONS (Completed)
-
 //Returns tau0 Residual
 //Used in Universe Causet
 inline double solveTau0Compact(const double &x, const double * const p1, const float * const p2, const int * const p3)
@@ -152,8 +146,6 @@ inline double solveTau0Flat(const double &x, const double * const p1, const floa
 
 	return (-1.0 * tau0Flat(x, p3[0], p1[0], p1[1], p1[2], p1[3]) / tau0Prime(x));
 }
-
-//END COMPACT EQUATIONS
 
 //Returns tau Residual
 //Used in 3+1 Causet
@@ -356,8 +348,6 @@ inline double _2F1_r(const double &r, void * const param)
 	return -1.0 / POW3(r, EXACT);
 }
 
-//BEGIN COMPACT EQUATIONS
-
 //De Sitter Spatial Lengths
 
 //X1 Coordinate of de Sitter Metric
@@ -436,8 +426,6 @@ inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 	       2.0f * sc0.x * sc1.x * (cosf(sc0.y) * cosf(sc1.y) +
 	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z));
 }
-
-//END COMPACT EQUATIONS
 
 //Temporal Transformations
 
@@ -673,8 +661,6 @@ inline double degreeFieldTheory(double eta, void *params)
 	return POW3(ABS(((double*)params)[0] - eta, STL), EXACT) * POW2(POW2(rescaledScaleFactor(&((double*)params)[4], ((double*)params)[3], eta, ((double*)params)[1], ((double*)params)[2]), EXACT), EXACT);
 }
 
-//BEGIN COMPACT EQUATIONS
-
 //Geodesic Distances
 
 //Embedded Z1 Coordinate
@@ -701,13 +687,12 @@ inline double embeddedZ1(double x, void *params)
 	return SQRT(1.0 + POW2(a, EXACT) * x * POW2(alpha, EXACT) / (POW3(alpha, EXACT) + POW3(x, EXACT)), STL);
 }
 
-//Returns the de Sitter distance between two nodes
+//Returns the embedded FLRW distance between two nodes
 //Modify this to handle 3+1 DS without matter!
 //O(xxx) Efficiency (revise this)
-inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe, const bool &compact)
+inline double distanceEmbFLRW(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe, const bool &compact)
 {
 	if (DEBUG) {
-		assert (evd != NULL);
 		assert (dim == 3);
 		assert (manifold == DE_SITTER);
 		assert (a > 0.0);
@@ -752,9 +737,15 @@ inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, 
 		z1_b = a * COSH(tau_b, APPROX ? FAST : STL);
 	}
 
-	inner_product_a = POW2(z1_a, EXACT) * sphProduct_v2(node_a, node_a) - POW2(z0_a, EXACT);
-	inner_product_b = POW2(z1_b, EXACT) * sphProduct_v2(node_b, node_b) - POW2(z0_b, EXACT);
-	inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
+	if (DIST_V2) {
+		inner_product_a = POW2(z1_a, EXACT) * sphProduct_v2(node_a, node_a) - POW2(z0_a, EXACT);
+		inner_product_b = POW2(z1_b, EXACT) * sphProduct_v2(node_b, node_b) - POW2(z0_b, EXACT);
+		inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
+	} else {
+		inner_product_a = POW2(z1_a, EXACT) * sphProduct_v1(node_a, node_a) - POW2(z0_a, EXACT);
+		inner_product_b = POW2(z1_b, EXACT) * sphProduct_v1(node_b, node_b) - POW2(z0_b, EXACT);
+		inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
+	}
 	signature = inner_product_a + inner_product_b - 2.0 * inner_product_ab;
 
 	if (signature < 0.0)
@@ -765,43 +756,11 @@ inline double distanceDS(EVData *evd, const float4 &node_a, const float &tau_a, 
 		distance = INF;
 	else
 		//Spacelike
-		distance = ACOS(inner_product_ab, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-
-	//Check light cone condition for 4D vs 5D
-	//Null hypothesis is the nodes are not connected
-	if (evd != NULL) {
-		double d_eta = ABS(static_cast<double>(node_b.w - node_a.w), STL);
-		double d_theta = ACOS(static_cast<double>(sphProduct_v2(node_a, node_b)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-
-		if (signature == 0.0)
-			return distance;
-
-		if (d_theta < d_eta) {	//Actual Time-Like
-			if (signature < 0)
-				//False Negative (both timelike)
-				evd->confusion[1] += 1.0;
-			else {
-				//True Negative
-				evd->confusion[2] += 1.0;
-				evd->tn[evd->tn_idx++] = static_cast<float>(d_eta);
-				evd->tn[evd->tn_idx++] = static_cast<float>(d_theta);
-			}
-		} else {	//Actual Space-Like
-			if (signature < 0) {
-				//False Positive
-				evd->confusion[3] += 1.0;
-				evd->fp[evd->fp_idx++] = static_cast<float>(d_eta);
-				evd->tn[evd->fp_idx++] = static_cast<float>(d_theta);
-			} else
-				//True Positive (both spacelike)
-				evd->confusion[0] += 1.0;
-		}
-	}	
+		//Report as negative to indicate it is spacelike
+		distance = -1.0 * ACOS(inner_product_ab, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 
 	return distance;
 }
-
-//END COMPACT EQUATIONS
 
 //Returns the hyperbolic distance between two nodes
 //O(xxx) Efficiency (revise this)

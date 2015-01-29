@@ -22,6 +22,8 @@
 
 #define USE_GSL true	//Use GNU Scientific Library for numerical integration
 
+#define DIST_V2 true	//Use factored or expanded distance formulae
+
 //Debugging Flags
 #define DEBUG true	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements
