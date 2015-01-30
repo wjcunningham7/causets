@@ -14,14 +14,14 @@ import sys
 #basedir = '/scratch/cunningham/causets/'
 basedir = ''
 cfiles = glob.glob(basedir + 'dat/emb/*.cset.emb.dat')
-tnfiles = glob.glob(basedir + 'dat/emb/tn/*.cset.emb_tn.dat')
+fpfiles = glob.glob(basedir + 'dat/emb/fp/*.cset.emb_fp.dat')
 
 confusion = []
 for i in range(0,4):
 	confusion.append(0)
 
-tn_eta = []
-tn_theta = []
+fp_eta = []
+fp_theta = []
 
 for file in cfiles:
 	f = open(file)
@@ -32,14 +32,14 @@ for file in cfiles:
 
 	f.close()
 
-for file in tnfiles:
+for file in fpfiles:
 	f = open(file)
 	lines = f.readlines()
 
 	for line in lines:
 		token1,token2 = (float(x) for x in line.split())
-		tn_eta.append(token1);
-		tn_theta.append(token2);
+		fp_eta.append(token1);
+		fp_theta.append(token2);
 
 	f.close()
 
@@ -48,9 +48,9 @@ for i in range(0,4):
 	f.write(str(confusion[i]) + '\n')
 f.close()
 
-f = open(basedir + 'dat/ref/tn.cset.emb.ref','w')
-for i in range(0,len(tn_eta)):
-	f.write(str(tn_eta[i]) + ' ' + str(tn_theta[i]) + '\n')
+f = open(basedir + 'dat/ref/fp.cset.emb.ref','w')
+for i in range(0,len(fp_eta)):
+	f.write(str(fp_eta[i]) + ' ' + str(fp_theta[i]) + '\n')
 f.close()
 
 sys.stdout.write('Completed EMB.\n')

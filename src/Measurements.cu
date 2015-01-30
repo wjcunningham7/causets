@@ -303,7 +303,7 @@ bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core
 						goto PathSuccess;
 					}
 					if (manifold == DE_SITTER)
-						dist = distanceEmbFLRW(NULL, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+						dist = distanceEmbFLRW(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
 					else if (manifold == HYPERBOLIC)
 						dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 					//printf("\t\tDistance: %f\n", dist);
@@ -324,7 +324,7 @@ bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core
 						goto PathSuccess;
 					}
 					if (manifold == DE_SITTER)
-						dist = distanceEmbFLRW(NULL, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+						dist = distanceEmbFLRW(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
 					else if (manifold == HYPERBOLIC)
 						dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 					//printf("\t\tDistance: %f\n", dist);

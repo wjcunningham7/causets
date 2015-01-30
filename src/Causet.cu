@@ -1371,21 +1371,21 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open embedding confusion matrix file!\n");
 			dataStream << "True Positives:  " << static_cast<double>(network.network_observables.evd.confusion[0]) / network.network_observables.evd.A1S << std::endl;
-			dataStream << "False Negatives: " << static_cast<double>(network.network_observables.evd.confusion[1]) / network.network_observables.evd.A1T << std::endl;
-			dataStream << "True Negatives:  " << static_cast<double>(network.network_observables.evd.confusion[2]) / network.network_observables.evd.A1T << std::endl;
-			dataStream << "False Positives: " << static_cast<double>(network.network_observables.evd.confusion[3]) / network.network_observables.evd.A1S << std::endl;
+			dataStream << "True Negatives: " << static_cast<double>(network.network_observables.evd.confusion[1]) / network.network_observables.evd.A1T << std::endl;
+			dataStream << "False Positives:  " << static_cast<double>(network.network_observables.evd.confusion[2]) / network.network_observables.evd.A1T << std::endl;
+			dataStream << "False Negatives: " << static_cast<double>(network.network_observables.evd.confusion[3]) / network.network_observables.evd.A1S << std::endl;
 
 			dataStream.flush();
 			dataStream.close();
 
 			sstm.str("");
 			sstm.clear();
-			sstm << "./dat/emb/tn/" << network.network_properties.graphID << ".cset.emb_tn.dat";
+			sstm << "./dat/emb/fn/" << network.network_properties.graphID << ".cset.emb_fn.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
-				throw CausetException("Failed to open embedding true negatives file!\n");
-			for (m = 0; m < network.network_observables.evd.tn_idx >> 1; m++)
-				dataStream << network.network_observables.evd.tn[m<<1] << " " << network.network_observables.evd.tn[(m<<1)+1] << std::endl;
+				throw CausetException("Failed to open embedding false negatives file!\n");
+			for (m = 0; m < network.network_observables.evd.fn_idx >> 1; m++)
+				dataStream << network.network_observables.evd.fn[m<<1] << " " << network.network_observables.evd.fn[(m<<1)+1] << std::endl;
 			
 			dataStream.flush();
 			dataStream.close();
@@ -1616,8 +1616,8 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		network->network_observables.evd.confusion = NULL;
 		hostMemUsed -= sizeof(uint64_t) * 4;
 
-		free(network->network_observables.evd.tn);
-		network->network_observables.evd.tn = NULL;
+		free(network->network_observables.evd.fn);
+		network->network_observables.evd.fn = NULL;
 		hostMemUsed -= sizeof(float) * 2 * static_cast<uint64_t>(network->network_properties.N_emb);
 
 		free(network->network_observables.evd.fp);

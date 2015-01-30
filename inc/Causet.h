@@ -305,13 +305,13 @@ struct Edge {
 
 //Embedding Validation Data
 struct EVData {
-	EVData() : confusion(NULL), tn(NULL), fp(NULL), tn_idx(0), fp_idx(0), A1T(0.0), A1S(0.0) {}
+	EVData() : confusion(NULL), fn(NULL), fp(NULL), fn_idx(0), fp_idx(0), A1T(0.0), A1S(0.0) {}
 
 	uint64_t *confusion;		//Confusion Matrix for Embedding
-	float *tn;			//True Negatives
+	float *fn;			//False Negatives
 	float *fp;			//False Positives
 
-	uint64_t tn_idx;		//Index for emb_tn array
+	uint64_t fn_idx;		//Index for emb_fn array
 	uint64_t fp_idx;		//Index for emb_fp array
 
 	double A1T;			//Normalization for timelike distances

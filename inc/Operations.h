@@ -707,8 +707,7 @@ inline double distanceEmbFLRW(const float4 &node_a, const float &tau_a, const fl
 
 	double z0_a, z0_b;
 	double z1_a, z1_b;
-	double inner_product_a, inner_product_b, inner_product_ab;
-	double signature;
+	double inner_product_ab;
 	double distance;
 
 	if (universe) {
@@ -737,26 +736,21 @@ inline double distanceEmbFLRW(const float4 &node_a, const float &tau_a, const fl
 		z1_b = a * COSH(tau_b, APPROX ? FAST : STL);
 	}
 
-	if (DIST_V2) {
-		inner_product_a = POW2(z1_a, EXACT) * sphProduct_v2(node_a, node_a) - POW2(z0_a, EXACT);
-		inner_product_b = POW2(z1_b, EXACT) * sphProduct_v2(node_b, node_b) - POW2(z0_b, EXACT);
+	if (DIST_V2)
 		inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
-	} else {
-		inner_product_a = POW2(z1_a, EXACT) * sphProduct_v1(node_a, node_a) - POW2(z0_a, EXACT);
-		inner_product_b = POW2(z1_b, EXACT) * sphProduct_v1(node_b, node_b) - POW2(z0_b, EXACT);
+	else
 		inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
-	}
-	signature = inner_product_a + inner_product_b - 2.0 * inner_product_ab;
 
-	if (signature < 0.0)
+	if (inner_product_ab > 1.0)
 		//Timelike
 		distance = ACOSH(inner_product_ab, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-	else if (inner_product_ab <= -1.0)
+	else if (inner_product_ab < -1.0)
 		//Disconnected Regions
-		distance = INF;
+		//Negative sign indicates not timelike
+		distance = -1.0 * INF;
 	else
 		//Spacelike
-		//Report as negative to indicate it is spacelike
+		//Negative sign indicates not timelike
 		distance = -1.0 * ACOS(inner_product_ab, APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 
 	return distance;

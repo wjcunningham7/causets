@@ -767,13 +767,13 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 				} else
 					//Exact Solution
 					nodes.crd->w(i) = static_cast<float>(tauToEtaUniverseExact(nodes.id.tau[i], a, alpha));
-			} else
-				nodes.crd->w(i) = static_cast<float>(tauToEta(static_cast<double>(nodes.id.tau[i])));
 
-			if (DEBUG) {
-				assert (nodes.crd->w(i) > 0.0);
-				assert (nodes.crd->w(i) < tauToEtaUniverseExact(tau0, a, alpha));
+				if (DEBUG) assert (nodes.crd->w(i) < tauToEtaUniverseExact(tau0, a, alpha));
+			} else {
+				nodes.crd->w(i) = static_cast<float>(tauToEta(static_cast<double>(nodes.id.tau[i])));
+				if (DEBUG) assert (nodes.crd->w(i) < tauToEta(tau0));
 			}
+			if (DEBUG) assert (nodes.crd->w(i) > 0.0);
 				
 			///////////////////////////////////////////////////////
 			//~~~~~~~~~~~~~~~~Theta1 and Theta2~~~~~~~~~~~~~~~~~~//	

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2015 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# This is intended to simply be an example of how to launch 'lsf/cbat'
+
+./lsf/cbat --ncores 32 --flags '--universe --nodes 131072 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --gpu --embedding 0.005' --start 51 --njobs 1 --queue 'par-gpu' --nsamples 1
