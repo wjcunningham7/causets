@@ -1,29 +1,17 @@
 #!/bin/bash
 
-#BSUB -J CS-Job%jobID%
-#BSUB -o /scratch/cunningham/causet%jobID%/causet%jobID%.log
-#BSUB -e /scratch/cunningham/causet%jobID%/causet%jobID%.err
-#BSUB -q %queue%
-#BSUB -n %ncores%
-#BSUB -R span[ptile=%ncores%]
-#BSUB -cwd /scratch/cunningham/causet%jobID%
-
 ###########################
-#(C) Will Cunningham 2014 #
+#(C) Will Cunningham 2015 #
 # Krioukov Research Group #
 # Northeastern University #
 ###########################
 
-# This is the LSF batch submission script for the CausalSet program
-# It is intended to be submitted to LSF via the 'cbat' script
-# This other script will fill in variables inside the %% symbols
-
 # Make sure base directories exist
 mkdir -p /scratch/cunningham
-mkdir -p /scratch/cunningham/causet%jobID%/
+mkdir -p /scratch/cunningham/causet@jobID@/
 
 # Working directories
-work=/scratch/cunningham/causet%jobID%
+work=/scratch/cunningham/causet@jobID@
 homedir=/home/cunningham.wi/projects/causets
 
 # Copy the binary
@@ -50,8 +38,8 @@ cp $homedir/etc/mkdat $work/etc/
 $homedir/etc/mkdat $work
 
 # Make sure directories exist if reading previously generated data
-if [ %readjobid% -ne 0 ] ; then
-  dir1="/scratch/cunningham/causet%readjobid%"
+if [ @readjobid@ -ne 0 ] ; then
+  dir1="/scratch/cunningham/causet@readjobid@"
   if [ ! -d ${dir1} ] ; then
     echo "Folder ${dir1} does not exist!"
     exit 1;
@@ -69,7 +57,7 @@ if [ %readjobid% -ne 0 ] ; then
     exit 3;
   fi
 
-  posfile=$dir3/%readgraphid%
+  posfile=$dir3/@readgraphid@.cset.pos.dat
   if [ ! -f ${posfile} ] ; then
     echo "Node position file ${posfile} does not exist!"
     exit 4;
@@ -81,7 +69,7 @@ if [ %readjobid% -ne 0 ] ; then
     exit 5;
   fi
 
-  edgfile=$dir4/%readgraphid%
+  edgfile=$dir4/@readgraphid@.cset.edg.dat
   if [ ! -f ${edgfile} ] ; then
     echo "Edge list file ${edgfile} does not exist!"
     exit 6;
@@ -91,34 +79,3 @@ if [ %readjobid% -ne 0 ] ; then
   cp $posfile $work/dat/pos/
   cp $edgfile $work/dat/edg/
 fi
-
-# Do not edit below this
-
-cd $work
-tempfile1=hostlistrun
-tempfile2=hostlist-tcp
-echo $LSB_MCPU_HOSTS > $tempfile1
-declare -a hosts
-read -a hosts < ${tempfile1}
-for ((i=0; i<${#hosts[@]}; i += 2)) ;
-do
-	HOST=${hosts[$i]}
-	CORE=${hosts[(($i+1))]}
-	echo $HOST:$CORE >> $tempfile2
-done
-
-# Do not edit above this
-
-# Run nsamples jobs serially
-for (( i=1; i<=%nsamples%; i++ )); do
-  echo "Starting Trial ${i} of %nsamples%"
-  ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
-  sleep 1
-done
-
-# Do not edit below this
-
-rm $work/$tempfile1
-rm $work/$tempfile2
-
-# Do not edit above this

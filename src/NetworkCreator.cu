@@ -19,6 +19,14 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 		network_properties->flags.print_network = false;
 	}
 
+	int rank = network_properties->rank;
+
+	#ifdef MPI_ENABLED
+	//Suppress queries if MPI is enabled
+	if (network_properties->flags.verbose)
+		network_properties->flags.yes = true;
+	#endif
+
 	//If graph ID specified, prepare to read graph properties
 	if (network_properties->graphID && network_properties->flags.verbose && !network_properties->flags.yes) {
 		printf("You have chosen to load a graph from memory.  Some parameters may be ignored as a result.  Continue [y/N]? ");
@@ -32,7 +40,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 	#ifdef CUDA_ENABLED
 	//Optimize Parameters for GPU
 	if (network_properties->flags.use_gpu && network_properties->N_tar % (BLOCK_SIZE << 1)) {
-		printf("If you are using the GPU, set the target number of nodes (--nodes) to be a multiple of double the thread block size (%d)!\n", BLOCK_SIZE << 1);
+		printf_mpi(rank, "If you are using the GPU, set the target number of nodes (--nodes) to be a multiple of double the thread block size (%d)!\n", BLOCK_SIZE << 1);
 		fflush(stdout);
 		return false;
 	}
@@ -107,7 +115,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					stopwatchStart(&sSolveTau0);
 
 					//Solve for tau_0
-					printf("Estimating Age of Universe.....\n");
+					printf_mpi(rank, "\n\tEstimating Age of Universe.....\n");
 					fflush(stdout);
 					double kappa1 = network_properties->k_tar / network_properties->delta;
 					double kappa2 = kappa1 / POW2(POW2(network_properties->a, EXACT), EXACT);
@@ -133,9 +141,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 					stopwatchStop(&sSolveTau0);
 					if (network_properties->flags.verbose) {
-						printf("\tExecution Time: %5.6f sec\n", sSolveTau0.elapsedTime);
+						printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sSolveTau0.elapsedTime);
 					}
-					printf("Task Completed.\n");
+					printf_mpi(rank, "\tTask Completed.\n");
 					fflush(stdout);
 				}
 				
@@ -194,7 +202,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			
 			if (network_properties->k_tar == 0.0) {
 				int method = 1;	//Use lookup table
-				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->a, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, cp->sCalcDegrees, bm->bCalcDegrees, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network_properties->flags.verbose, network_properties->flags.bench, method))
+				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->a, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->rank, cp->sCalcDegrees, bm->bCalcDegrees, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network_properties->flags.verbose, network_properties->flags.bench, method))
 					return false;
 			}
 			
@@ -207,25 +215,24 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				network_properties->core_edge_fraction = 0.0;
 			#endif
 				
-			printf("\n");
-			printf("\tParameters Constraining Universe Causal Set:\n");
-			printf("\t--------------------------------------------\n");
-			printf_cyan();
-			printf("\t > Number of Nodes:\t\t%d\n", network_properties->N_tar);
-			printf("\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
-			printf("\t > Pseudoradius:\t\t%.6f\n", network_properties->a);
-			printf("\t > Cosmological Constant:\t%.6f\n", network_properties->lambda);
-			printf("\t > Rescaled Age:\t\t%.6f\n", network_properties->tau0);
-			printf("\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
-			printf("\t > Rescaled Energy Density:\t%.6f\n", network_properties->rhoL);
-			printf("\t > Matter Density:\t\t%.6f\n", network_properties->omegaM);
-			printf("\t > Rescaled Matter Density:\t%.6f\n", network_properties->rhoM);
-			printf("\t > Ratio:\t\t\t%.6f\n", network_properties->ratio);
-			printf("\t > Node Density:\t\t%.6f\n", network_properties->delta);
-			printf("\t > Alpha:\t\t\t%.6f\n", network_properties->alpha);
-			printf("\t > Scaling Factor:\t\t%.6f\n", network_properties->R0);
-			printf("\n");
-			printf_std();
+			printf_mpi(rank, "\n");
+			printf_mpi(rank, "\tParameters Constraining Universe Causal Set:\n");
+			printf_mpi(rank, "\t--------------------------------------------\n");
+			if (rank == 0) printf_cyan();
+			printf_mpi(rank, "\t > Number of Nodes:\t\t%d\n", network_properties->N_tar);
+			printf_mpi(rank, "\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
+			printf_mpi(rank, "\t > Pseudoradius:\t\t%.6f\n", network_properties->a);
+			printf_mpi(rank, "\t > Cosmological Constant:\t%.6f\n", network_properties->lambda);
+			printf_mpi(rank, "\t > Rescaled Age:\t\t%.6f\n", network_properties->tau0);
+			printf_mpi(rank, "\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
+			printf_mpi(rank, "\t > Rescaled Energy Density:\t%.6f\n", network_properties->rhoL);
+			printf_mpi(rank, "\t > Matter Density:\t\t%.6f\n", network_properties->omegaM);
+			printf_mpi(rank, "\t > Rescaled Matter Density:\t%.6f\n", network_properties->rhoM);
+			printf_mpi(rank, "\t > Ratio:\t\t\t%.6f\n", network_properties->ratio);
+			printf_mpi(rank, "\t > Node Density:\t\t%.6f\n", network_properties->delta);
+			printf_mpi(rank, "\t > Alpha:\t\t\t%.6f\n", network_properties->alpha);
+			printf_mpi(rank, "\t > Scaling Factor:\t\t%.6f\n", network_properties->R0);
+			if (rank == 0) printf_std();
 			fflush(stdout);
 		} else if (network_properties->manifold == DE_SITTER) {
 			if (network_properties->N_tar == 0)
@@ -261,7 +268,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 //Calculate Expected Average Degree
 //See Causal Set Notes for detailed explanation of methods
-bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alpha, const double &delta, long &seed, Stopwatch &sCalcDegrees, double &bCalcDegrees, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench, const int method)
+bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alpha, const double &delta, long &seed, const int &rank, Stopwatch &sCalcDegrees, double &bCalcDegrees, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench, const int method)
 {
 	if (DEBUG) {
 		//Variables in correct ranges
@@ -272,7 +279,7 @@ bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alph
 		assert (method == 0 || method == 1 || method == 2);
 	}
 
-	printf("Estimating Expected Average Degree...\n");
+	printf_mpi(rank, "\tEstimating Expected Average Degree...\n");
 	fflush(stdout);
 
 	double *table;
@@ -380,13 +387,13 @@ bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alph
 	if (nb)
 		bCalcDegrees = sCalcDegrees.elapsedTime / NBENCH;
 
-	if (!bench) {
-		printf("\tExpected Average Degree Successfully Calculated.\n");
+	if (verbose) {
+		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sCalcDegrees.elapsedTime);
 		fflush(stdout);
 	}
 
-	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sCalcDegrees.elapsedTime);
+	if (!bench) {
+		printf_mpi(rank, "\tExpected Average Degree Successfully Calculated.\n");
 		fflush(stdout);
 	}
 
@@ -395,7 +402,7 @@ bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alph
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &link, const bool &relink, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const float &core_edge_fraction, const int &edge_buffer, const int &rank, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &link, const bool &relink, const bool &verbose, const bool &bench, const bool &yes)
 {
 	if (DEBUG) {
 		//Variables in correct ranges
@@ -446,7 +453,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 		}
 		#endif
 
-		printMemUsed("for Network (Estimation)", mem, dmem);
+		printMemUsed("for Network (Estimation)", mem, dmem, 0);
 		printf("\nContinue [y/N]?");
 		fflush(stdout);
 		char response = getchar();
@@ -519,7 +526,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 		}
 
 		if (verbose)
-			printMemUsed("for Nodes", hostMemUsed, devMemUsed);
+			printMemUsed("for Nodes", hostMemUsed, devMemUsed, rank);
 
 		if (links_exist) {
 			edges.past_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar / 2 + edge_buffer));
@@ -555,7 +562,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 
 		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 		if (verbose)
-			printMemUsed("for Network", hostMemUsed, devMemUsed);
+			printMemUsed("for Network", hostMemUsed, devMemUsed, rank);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -564,19 +571,19 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 	stopwatchStop(&sCreateNetwork);
 
 	if (!bench) {
-		printf("\tMemory Successfully Allocated.\n");
+		printf_mpi(rank, "\tMemory Successfully Allocated.\n");
 		fflush(stdout);
 	}
 
 	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sCreateNetwork.elapsedTime);
+		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sCreateNetwork.elapsedTime);
 		fflush(stdout);
 	}
 
 	return true;
 }
 
-bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const double &a, double &zeta, double &tau0, const double &alpha, const bool &universe)
+bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const double &a, double &zeta, double &tau0, const double &alpha, const int &rank, const bool &universe)
 {
 	if (universe) {
 		if (DEBUG) {
@@ -603,10 +610,10 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 			//Exact Solution
 			zeta = HALF_PI - tauToEtaUniverseExact(tau0, a, alpha);
 
-		printf_cyan();
-		printf("\t\tMaximum Conformal Time: %5.8f\n", HALF_PI - zeta);
-		printf("\t\tMaximum Rescaled Time:  %5.8f\n", tau0);
-		printf_std();
+		if (rank == 0) printf_cyan();
+		printf_mpi(rank, "\t\tMaximum Conformal Time: %5.8f\n", HALF_PI - zeta);
+		printf_mpi(rank, "\t\tMaximum Rescaled Time:  %5.8f\n", tau0);
+		if (rank == 0) printf_std();
 		fflush(stdout);
 	} else {
 		//Solve for eta0 using Newton-Raphson Method
@@ -639,12 +646,12 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 			assert (tau0 > 0.0);
 		}
 
-		printf("\tTranscendental Equation Solved:\n");
-		printf_cyan();
-		//printf("\t\tZeta: %5.8f\n", zeta);
-		printf("\t\tMaximum Conformal Time: %5.8f\n", HALF_PI - zeta);
-		printf("\t\tMaximum Rescaled Time:  %5.8f\n", tau0);
-		printf_std();
+		printf_mpi(rank, "\tTranscendental Equation Solved:\n");
+		if (rank == 0) printf_cyan();
+		//printf_mpi(rank, "\t\tZeta: %5.8f\n", zeta);
+		printf_mpi(rank, "\t\tMaximum Conformal Time: %5.8f\n", HALF_PI - zeta);
+		printf_mpi(rank, "\t\tMaximum Rescaled Time:  %5.8f\n", tau0);
+		if (rank == 0) printf_std();
 		fflush(stdout);
 	}
 
@@ -814,7 +821,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 	printf("Check coordinate distributions now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(EXIT_SUCCESS);*/
+	exit(0);*/
 
 	stopwatchStop(&sGenerateNodes);
 
@@ -1026,7 +1033,7 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(EXIT_SUCCESS);*/
+	exit(0);*/
 
 	stopwatchStop(&sLinkNodes);
 

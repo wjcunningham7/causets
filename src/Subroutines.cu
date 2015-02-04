@@ -445,3 +445,20 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const
 		}
 	}
 }
+
+//MPI Print Variadic Function
+//Allows only the master process to print to stdout
+//If MPI is not enabled, rank == 0
+int printf_mpi(int rank, const char * format, ...)
+{
+	int retval = 0;
+
+	if (rank == 0) {
+		va_list argp;
+		va_start(argp, format);
+		vprintf(format, argp);
+		va_end(argp);
+	}
+
+	return retval;
+}

@@ -1,6 +1,5 @@
 #include "NetworkCreator.h"
 #include "Measurements.h"
-#include "test.h"
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
@@ -10,34 +9,32 @@
 
 int main(int argc, char **argv)
 {
-	//test();
+	int num_threads = 0;
+	int rank = 0;
 
 	#ifdef MPI_ENABLED
 	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &num_threads);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	#endif
 
 	//Initialize Data Structures
 	CausetPerformance cp = CausetPerformance();
 	stopwatchStart(&cp.sCauset);
 
-	Network network = Network(parseArgs(argc, argv));
+	Network network = Network(parseArgs(argc, argv, num_threads, rank));
 	Benchmark bm = Benchmark();
 	Resources resources = Resources();
 
-	#ifdef MPI_ENABLED
-	MPI_Comm_size(MPI_COMM_WORLD, &network.network_properties.num_mpi_threads);
-	MPI_Comm_rank(MPI_COMM_WORLD, &network.network_properties.mpi_rank);
-	#endif
-	
 	long init_seed = network.network_properties.seed;
 	bool success = false;
 
-	shrQAStart(argc, argv);
+	int e_start = printStart((const char**)argv, rank);
 
 	#ifdef CUDA_ENABLED
 	//Identify and Connect to GPU
 	if (network.network_properties.flags.use_gpu)
-		connectToGPU(&resources, argc, argv);
+		connectToGPU(&resources, argc, argv, rank);
 	#endif
 
 	//Create Causal Set Graph	
@@ -49,15 +46,15 @@ int main(int argc, char **argv)
 	if (!measureNetworkObservables(&network, &cp, &bm, resources.hostMemUsed, resources.maxHostMemUsed, resources.devMemUsed, resources.maxDevMemUsed)) goto CausetExit;
 
 	//Print Results
+	if (!network.network_properties.flags.bench) printMemUsed(NULL, resources.maxHostMemUsed, resources.maxDevMemUsed, rank);
 	#ifdef MPI_ENABLED
-	if (network.network_properties.mpi_rank == 0) {
+	if (rank == 0) {
 	#endif
 	if (network.network_properties.flags.bench && !printBenchmark(bm, network.network_properties.flags, network.network_properties.flags.link, network.network_properties.flags.relink)) goto CausetExit;
+	if (network.network_properties.flags.print_network && !printNetwork(network, cp, init_seed, resources.gpuID)) goto CausetExit;
 	#ifdef MPI_ENABLED
 	}
 	#endif
-	if (!network.network_properties.flags.bench) printMemUsed(NULL, resources.maxHostMemUsed, resources.maxDevMemUsed);
-	if (network.network_properties.flags.print_network && !printNetwork(network, cp, init_seed, resources.gpuID)) goto CausetExit;
 
 	//Free Resources
 	destroyNetwork(&network, resources.hostMemUsed, resources.devMemUsed);
@@ -71,26 +68,31 @@ int main(int argc, char **argv)
 	//Identify Potential Memory Leaks
 	success = !resources.hostMemUsed && !resources.devMemUsed;
 	if (!success)
-		printf("WARNING: Memory leak detected!\n");
+		printf_mpi(rank, "WARNING: Memory leak detected!\n");
 
 	CausetExit:
 	//Exit Program
 	stopwatchStop(&cp.sCauset);
-	#ifdef CUDA_ENABLED
-	shrQAFinish(argc, (const char**)argv, success ? QA_PASSED : QA_FAILED);
-	#endif
+
+	printFinish((const char**)argv, e_start, rank, success ? PASSED : FAILED);
+
+	printf_mpi(rank, "Time: %5.6f sec\n", cp.sCauset.elapsedTime);
+	printf_mpi(rank, "PROGRAM COMPLETED\n\n");
+	fflush(stdout);
+	
 	#ifdef MPI_ENABLED
 	MPI_Finalize();
 	#endif
-	printf("Time: %5.6f sec\n", cp.sCauset.elapsedTime);
-	printf("PROGRAM COMPLETED\n\n");
-	fflush(stdout);
+
+	return 0;
 }
 
 //Parse Command Line Arguments
-NetworkProperties parseArgs(int argc, char **argv)
+NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const int &rank)
 {
 	NetworkProperties network_properties = NetworkProperties();
+	network_properties.num_mpi_threads = num_threads;
+	network_properties.rank = rank;
 
 	//Initialize conflict array to zeros (no conflicts)
 	for (int i = 0; i < 7; i++)
@@ -98,7 +100,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":A:a:Cc:D:d:E:F:Gg:hk:Ll:m:n:o:Rr:S:s:Tt:uvxyz:";
+	static const char *optString = ":A:a:Cc:D:d:E:F:Gg:hk:Ll:m:n:Oo:Rr:S:s:Tt:uvxyz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
 		{ "alpha",	required_argument,	NULL, 'A' },
@@ -117,6 +119,7 @@ NetworkProperties parseArgs(int argc, char **argv)
 		{ "lambda",	required_argument,	NULL, 'l' },
 		{ "manifold",	required_argument,	NULL, 'm' },
 		{ "nodes", 	required_argument,	NULL, 'n' },
+		{ "read-old-format", no_argument,	NULL, 'O' },
 		{ "energy",	required_argument,	NULL, 'o' },
 		{ "relink",	no_argument,		NULL, 'R' },
 		{ "ratio",	required_argument,	NULL, 'r' },
@@ -250,6 +253,9 @@ NetworkProperties parseArgs(int argc, char **argv)
 				network_properties.flags.cc.conflicts[6]++;
 
 				break;
+			case 'O':
+				network_properties.flags.read_old_format = true;
+				break;
 			case 'o':	//Density of dark energy
 				network_properties.omegaL = atof(optarg);
 
@@ -342,21 +348,25 @@ NetworkProperties parseArgs(int argc, char **argv)
 					network_properties.flags.compact = true;
 				else if (!strcmp("conflicts", longOpts[longIndex].name)) {
 					//Print conflicting parameters
-					printf("\nParameter Conflicts:\n");
-					printf("--------------------\n");
-					printf(" > a, lambda\n");
-					printf(" > energy, ratio\n");
-					printf(" > energy, age\n");
-					printf(" > age, ratio\n");
-					printf(" > n, delta, alpha, ratio\n");
-					printf(" > n, delta, alpha, energy\n");
-					printf(" > n, delta, alpha, age\n\n");
-					printf("Specifying any of these combinations will over-constrain the system!\n\n");
-					exit(EXIT_SUCCESS);
+					printf_mpi(rank, "\nParameter Conflicts:\n");
+					printf_mpi(rank, "--------------------\n");
+					printf_mpi(rank, " > a, lambda\n");
+					printf_mpi(rank, " > energy, ratio\n");
+					printf_mpi(rank, " > energy, age\n");
+					printf_mpi(rank, " > age, ratio\n");
+					printf_mpi(rank, " > n, delta, alpha, ratio\n");
+					printf_mpi(rank, " > n, delta, alpha, energy\n");
+					printf_mpi(rank, " > n, delta, alpha, age\n\n");
+					printf_mpi(rank, "Specifying any of these combinations will over-constrain the system!\n\n");
+					#ifdef MPI_ENABLED
+					MPI_Abort(MPI_COMM_WORLD, 0);
+					#else
+					exit(0);
+					#endif
 				} else if (!strcmp("display", longOpts[longIndex].name)) {
 					//Flag to use OpenGL to display network
 					//network_properties.flags.disp_network = true;
-					printf("Display not supported:  Ignoring Flag.\n");
+					printf_mpi(rank, "Display not supported:  Ignoring Flag.\n");
 					fflush(stdout);
 				} else if (!strcmp("gpu", longOpts[longIndex].name)) {
 					//Flag to use GPU accelerated routines
@@ -370,76 +380,101 @@ NetworkProperties parseArgs(int argc, char **argv)
 				else {
 					//Unrecognized options
 					fprintf(stderr, "Option --%s is not recognized.\n", longOpts[longIndex].name);
-					exit(EXIT_FAILURE);
+					#ifdef MPI_ENABLED
+					MPI_Abort(MPI_COMM_WORLD, 5);
+					#else
+					exit(5);
+					#endif
 				}
 				break;
 			case 'h':
 				//Print help menu
-				printf("\nUsage  :  CausalSet [options]\n\n");
-				printf("CausalSet Options...................\n");
-				printf("====================================\n");
-				printf("Flag:\t\t\tVariable:\t\t\tSuggested Values:\n");
-				printf("  -A, --alpha\t\tUnphysical Parameter\t\t2.0\n");
-				printf("  -a, --radius\t\tPseudoradius\t\t\t1.0\n");
-				printf("  -C, --clustering\tCalculate Clustering\n");
-				printf("  -c, --core\t\tCore Edge Ratio\t\t\t0.01\n");
-				printf("  -D, --delta\t\tNode Density\t\t\t10000\n");
-				printf("  -d, --dim\t\tSpatial Dimensions\t\t1 or 3\n");
-				printf("  -E, --embedding\tValidate Embedding\t\t0.01\n");
-				printf("  -F, --fields\t\tMeasure Degree Fields\n");
-				printf("  -G, --components\tIdentify Giant Component\n");
-				printf("  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
-				printf("  -h, --help\t\tDisplay This Menu\n");
-				printf("  -k, --degrees\t\tExpected Average Degrees\t10-100\n");
-				printf("  -L, --link\t\tLink Nodes to Create Graph\n");
-				printf("  -l, --lambda\t\tCosmological Constant\t\t3.0\n");
-				printf("  -m, --manifold\tManifold\t\t\t[d]e sitter, [h]yperbolic\n");
-				printf("  -n, --nodes\t\tNumber of Nodes\t\t\t100-100000\n");
-				printf("  -o, --energy\t\tDark Energy Density\t\t0.73\n");
-				printf("  -R, --relink\t\tIgnore Pre-Existing Links\n");
-				printf("  -r, --ratio\t\tEnergy to Matter Ratio\t\t2.7\n");
-				printf("  -S, --success\t\tCalculate Success Ratio\t\t0.5\n");
-				printf("  -s, --seed\t\tRNG Seed\t\t\t18100L\n");
-				printf("  -T, --test\t\tTest Universe Parameters\n");
-				printf("  -t, --age\t\tRescaled Age of Universe\t0.85\n");
-				printf("  -u, --universe\tUniverse Causet\n");
-				printf("  -v, --verbose\t\tVerbose Output\n");
-				printf("  -x, --maxchi\t\tSize of Spatial Slice\t\t100\n");
-				printf("  -y\t\t\tSuppress User Queries\n");
-				printf("  -z, --zeta\t\tHyperbolic Curvature\t\t1.0\n");
-				printf("\n");
+				printf_mpi(rank, "\nUsage  :  CausalSet [options]\n\n");
+				printf_mpi(rank, "CausalSet Options...................\n");
+				printf_mpi(rank, "====================================\n");
+				printf_mpi(rank, "Flag:\t\t\tVariable:\t\t\tSuggested Values:\n");
+				printf_mpi(rank, "  -A, --alpha\t\tUnphysical Parameter\t\t2.0\n");
+				printf_mpi(rank, "  -a, --radius\t\tPseudoradius\t\t\t1.0\n");
+				printf_mpi(rank, "  -C, --clustering\tCalculate Clustering\n");
+				printf_mpi(rank, "  -c, --core\t\tCore Edge Ratio\t\t\t0.01\n");
+				printf_mpi(rank, "  -D, --delta\t\tNode Density\t\t\t10000\n");
+				printf_mpi(rank, "  -d, --dim\t\tSpatial Dimensions\t\t1 or 3\n");
+				printf_mpi(rank, "  -E, --embedding\tValidate Embedding\t\t0.01\n");
+				printf_mpi(rank, "  -F, --fields\t\tMeasure Degree Fields\n");
+				printf_mpi(rank, "  -G, --components\tIdentify Giant Component\n");
+				printf_mpi(rank, "  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
+				printf_mpi(rank, "  -h, --help\t\tDisplay This Menu\n");
+				printf_mpi(rank, "  -k, --degrees\t\tExpected Average Degrees\t10-100\n");
+				printf_mpi(rank, "  -L, --link\t\tLink Nodes to Create Graph\n");
+				printf_mpi(rank, "  -l, --lambda\t\tCosmological Constant\t\t3.0\n");
+				printf_mpi(rank, "  -m, --manifold\tManifold\t\t\t[d]e sitter, [h]yperbolic\n");
+				printf_mpi(rank, "  -n, --nodes\t\tNumber of Nodes\t\t\t100-100000\n");
+				printf_mpi(rank, "  -O, --read-old-format\tRead Positions in Old Format\n");
+				printf_mpi(rank, "  -o, --energy\t\tDark Energy Density\t\t0.73\n");
+				printf_mpi(rank, "  -R, --relink\t\tIgnore Pre-Existing Links\n");
+				printf_mpi(rank, "  -r, --ratio\t\tEnergy to Matter Ratio\t\t2.7\n");
+				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.5\n");
+				printf_mpi(rank, "  -s, --seed\t\tRNG Seed\t\t\t18100L\n");
+				printf_mpi(rank, "  -T, --test\t\tTest Universe Parameters\n");
+				printf_mpi(rank, "  -t, --age\t\tRescaled Age of Universe\t0.85\n");
+				printf_mpi(rank, "  -u, --universe\tUniverse Causet\n");
+				printf_mpi(rank, "  -v, --verbose\t\tVerbose Output\n");
+				printf_mpi(rank, "  -x, --maxchi\t\tSize of Spatial Slice\t\t100\n");
+				printf_mpi(rank, "  -y\t\t\tSuppress User Queries\n");
+				printf_mpi(rank, "  -z, --zeta\t\tHyperbolic Curvature\t\t1.0\n");
+				printf_mpi(rank, "\n");
 
-				printf("Flag:\t\t\tPurpose:\n");
-				printf("  --autocorr\t\tCalculate Autocorrelations\n");
-				printf("  --benchmark\t\tBenchmark Algorithms\n");
-				printf("  --compact\t\tUse Compactification of Radial Coordinate\n");
-				printf("  --conflicts\t\tShow Parameter Conflicts\n");
-				printf("  --display\t\tDisplay Graph\n");
+				printf_mpi(rank, "Flag:\t\t\tPurpose:\n");
+				printf_mpi(rank, "  --autocorr\t\tCalculate Autocorrelations\n");
+				printf_mpi(rank, "  --benchmark\t\tBenchmark Algorithms\n");
+				printf_mpi(rank, "  --compact\t\tUse Compactification of Radial Coordinate\n");
+				printf_mpi(rank, "  --conflicts\t\tShow Parameter Conflicts\n");
+				printf_mpi(rank, "  --display\t\tDisplay Graph\n");
 				#ifdef CUDA_ENABLED
-				printf("  --gpu\t\t\tUse GPU Acceleration\n");
+				printf_mpi(rank, "  --gpu\t\t\tUse GPU Acceleration\n");
 				#endif
-				printf("  --print\t\tPrint Results\n");
-				printf("\n");
+				printf_mpi(rank, "  --print\t\tPrint Results\n");
+				printf_mpi(rank, "\n");
 
-				printf("Report bugs to w.cunningham@neu.edu\n");
-				printf("GitHub repository home page: <https://github.com/wjcunningham7/causets>\n");
-				exit(EXIT_SUCCESS);
+				printf_mpi(rank, "Report bugs to w.cunningham@neu.edu\n");
+				printf_mpi(rank, "GitHub repository home page: <https://github.com/wjcunningham7/causets>\n");
+				#ifdef MPI_ENABLED
+				MPI_Abort(MPI_COMM_WORLD, 0);
+				#else
+				exit(0);
+				#endif
 			case ':':
 				//Single-character flag needs an argument
 				fprintf(stderr, "%s: option '-%c' requires an argument\n", argv[0], optopt);
-				exit(EXIT_FAILURE);
+				#ifdef MPI_ENABLED
+				MPI_Abort(MPI_COMM_WORLD, 6);
+				#else
+				exit(6);
+				#endif
 			case '?':	//Unrecognized flag
 			default:	//Default case
 				fprintf(stderr, "%s:option -%c' is not recognized.\n", argv[0], optopt);
-				exit(EXIT_FAILURE);
+				#ifdef MPI_ENABLED
+				MPI_Abort(MPI_COMM_WORLD, 7);
+				#else
+				exit(7);
+				#endif
 			}
 		}
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		exit(EXIT_FAILURE);
+		#ifdef MPI_ENABLED
+		MPI_Abort(MPI_COMM_WORLD, 8);
+		#else
+		exit(8);
+		#endif
 	} catch (std::exception e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-		exit(EXIT_FAILURE);
+		#ifdef MPI_ENABLED
+		MPI_Abort(MPI_COMM_WORLD, 9);
+		#else
+		exit(9);
+		#endif
 	}
 	
 	//If no seed specified, choose random one
@@ -461,12 +496,17 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 		assert (bm != NULL);
 	}
 
-	#ifdef _OPENMP
-	printf("\t[ *** OPENMP MODULE ACTIVE *** ]\n\n");
-	#endif
-	
+	int rank = network->network_properties.rank;
 	int nb = static_cast<int>(network->network_properties.flags.bench) * NBENCH;
 	int i;
+
+	#ifdef MPI_ENABLED
+	printf_mpi(rank, "\n\t[ ***   MPI MODULE ACTIVE  *** ]\n");
+	#endif
+
+	#ifdef _OPENMP
+	printf_mpi(rank, "\n\t[ *** OPENMP MODULE ACTIVE *** ]\n");
+	#endif
 
 	//Initialize variables using constraints
 	if (!initVars(&network->network_properties, cp, bm, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
@@ -476,12 +516,12 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 	if (network->network_properties.flags.test)
 		return true;
 
-	printf("\nInitializing Network...\n");
+	printf_mpi(rank, "\nInitializing Network...\n");
 	fflush(stdout);
 
 	//Allocate memory needed by pointers
 	for (i = 0; i <= nb; i++) {
-		if (!createNetwork(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
+		if (!createNetwork(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.rank, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 			return false;
 		if (nb)
 			destroyNetwork(network, hostMemUsed, devMemUsed);
@@ -490,7 +530,7 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 	if (nb)
 		bm->bCreateNetwork = cp->sCreateNetwork.elapsedTime / NBENCH;
 
-	if (!solveMaxTime(network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.flags.universe))
+	if (!solveMaxTime(network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.rank, network->network_properties.flags.universe))
 		return false;
 
 	//Make sure tau_m < tau_0 (if applicable)
@@ -506,7 +546,7 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 	}
 
 	#ifdef MPI_ENABLED
-	if (network->network_properties.mpi_rank == 0) {
+	if (rank == 0) {
 	#endif
 	//Generate coordinates of spacetime nodes and then order nodes temporally using quicksort
 	int low = 0;
@@ -568,7 +608,7 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 	}
 	#endif
 
-	printf("Task Completed.\n");
+	printf_mpi(rank, "Task Completed.\n");
 	fflush(stdout);
 	return true;
 }
@@ -584,16 +624,17 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 	
 	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio && !network->network_properties.flags.calc_deg_field)
 		return true;
-		
-	printf("\nCalculating Network Observables...\n");
-	fflush(stdout);
 
+	int rank = network->network_properties.rank;
 	bool links_exist = network->network_properties.flags.link || network->network_properties.flags.relink;
 	int nb = static_cast<int>(network->network_properties.flags.bench) * NBENCH;
 	int i;
+		
+	printf_mpi(rank, "\nCalculating Network Observables...\n");
+	fflush(stdout);
 
 	#ifdef MPI_ENABLED
-	if (network->network_properties.mpi_rank == 0) {
+	if (rank == 0) {
 	#endif
 	//Measure Clustering
 	if (network->network_properties.flags.calc_clustering) {
@@ -644,12 +685,12 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 
 	//Validate Embedding
 	if (network->network_properties.flags.validate_embedding) {
-		if (!validateEmbedding(network->network_observables.evd, network->nodes, network->edges, network->network_properties.N_tar, network->network_properties.N_emb, network->network_observables.N_res, network->network_observables.k_res, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.seed, network->network_properties.num_mpi_threads, network->network_properties.mpi_rank, cp->sValidateEmbedding, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose))
+		if (!validateEmbedding(network->network_observables.evd, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.N_emb, network->network_observables.N_res, network->network_observables.k_res, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.seed, network->network_properties.num_mpi_threads, network->network_properties.rank, cp->sValidateEmbedding, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose))
 			return false;
 	}
 
 	#ifdef MPI_ENABLED
-	if (network->network_properties.mpi_rank == 0) {
+	if (rank == 0) {
 	#endif
 	//Measure Success Ratio
 	if (network->network_properties.flags.calc_success_ratio) {
@@ -687,7 +728,7 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 	}
 	#endif
 
-	printf("Task Completed.\n");
+	printf_mpi(rank, "Task Completed.\n");
 	fflush(stdout);
 
 	return true;
@@ -712,7 +753,17 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 		assert (!network->network_properties.flags.bench);
 	}
 
-	printf("Loading Graph from File.....\n");
+	int rank = network->network_properties.rank;
+
+	#ifdef MPI_ENABLED
+	printf_mpi(rank, "\n\t[ ***   MPI MODULE ACTIVE  *** ]\n");
+	#endif
+
+	#ifdef _OPENMP
+	printf_mpi(rank, "\n\t[ *** OPENMP MODULE ACTIVE *** ]\n");
+	#endif
+
+	printf_mpi(rank, "\nLoading Graph from File.....\n");
 	fflush(stdout);
 
 	try {
@@ -742,6 +793,10 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 		delimeters = &d[0];
 		N_edg = 0;
 
+		#ifdef MPI_ENABLED
+		if (rank == 0) {
+		#endif
+
 		//Identify Basic Network Properties
 		dataname << "./dat/pos/" << network->network_properties.graphID << ".cset.pos.dat";
 		dataStream.open(dataname.str().c_str());
@@ -767,26 +822,31 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 			dataStream.close();
 		} else
 			throw CausetException("Failed to open edge list file!\n");
+
+		#ifdef MPI_ENABLED
+		}
+		//Broadcast N_tar
+		#endif
 		
 		if (!initVars(&network->network_properties, cp, bm, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
 			return false;
 
-		printf("\tGathered Peripheral Network Data.\n");
+		printf_mpi(rank, "\nFinished Gathering Peripheral Network Data.\n");
 		fflush(stdout);
 
 		if (network->network_properties.flags.test)
 			return true;
 
 		//Allocate Memory	
-		if (!createNetwork(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
+		if (!createNetwork(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.rank, cp->sCreateNetwork, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.use_gpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 			return false;
 
 		//Solve for eta0 and tau0 if DE_SITTER
-		if (network->network_properties.manifold == DE_SITTER && !solveMaxTime(network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.flags.universe))
+		if (network->network_properties.manifold == DE_SITTER && !solveMaxTime(network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.rank, network->network_properties.flags.universe))
 			return false;
 
 		#ifdef MPI_ENABLED
-		if (network->network_properties.mpi_rank == 0) {
+		if (rank == 0) {
 		#endif
 		//Read Node Positions
 		printf("\tReading Node Position Data.....\n");
@@ -818,9 +878,16 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 							network->nodes.crd->w(i) = atof(strtok((char*)line.c_str(), delimeters));
 							network->nodes.id.tau[i] = etaToTau(network->nodes.crd->w(i));
 						}
-						network->nodes.crd->x(i) = atof(strtok(NULL, delimeters));
-						network->nodes.crd->y(i) = atof(strtok(NULL, delimeters));
-						network->nodes.crd->z(i) = atof(strtok(NULL, delimeters));
+
+						if (network->network_properties.flags.read_old_format) {
+							network->nodes.crd->z(i) = atof(strtok(NULL, delimeters));
+							network->nodes.crd->y(i) = atof(strtok(NULL, delimeters));
+							network->nodes.crd->x(i) = atof(strtok(NULL, delimeters));
+						} else {
+							network->nodes.crd->x(i) = atof(strtok(NULL, delimeters));
+							network->nodes.crd->y(i) = atof(strtok(NULL, delimeters));
+							network->nodes.crd->z(i) = atof(strtok(NULL, delimeters));
+						}
 					}
 				} else if (network->network_properties.manifold == HYPERBOLIC) {
 					network->nodes.id.AS[i] = atoi(strtok((char*)line.c_str(), delimeters));
@@ -836,12 +903,12 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 				} else if (network->network_properties.dim == 3 && network->network_properties.manifold == DE_SITTER) {
 					if (network->nodes.crd->w(i) <= 0.0 || network->nodes.crd->w(i) >= static_cast<float>(HALF_PI - network->network_properties.zeta))
 						throw CausetException("Invalid value for 'eta' in node position file!\n");
-					if (network->nodes.crd->x(i) <= 0.0 || network->nodes.crd->x(i) >= TWO_PI)
-						throw CausetException("Invalid value for 'theta' in node position file!\n");
+					if (network->nodes.crd->x(i) <= 0.0 || (network->network_properties.flags.compact && network->nodes.crd->x(i) >= M_PI) || (!network->network_properties.flags.compact && network->nodes.crd->x(i) >= network->network_properties.chi_max))
+						throw CausetException("Invalid value for 'theta_1' in node position file!\n");
 					if (network->nodes.crd->y(i) <= 0.0 || network->nodes.crd->y(i) >= M_PI)
-						throw CausetException("Invalid value for 'phi' in node position file!\n");
-					if (network->nodes.crd->z(i) <= 0.0 || network->nodes.crd->z(i) >= M_PI)
-						throw CausetException("Invalid value for 'chi' in node position file!\n");
+						throw CausetException("Invalid value for 'theta_2' in node position file!\n");
+					if (network->nodes.crd->z(i) <= 0.0 || network->nodes.crd->z(i) >= TWO_PI)
+						throw CausetException("Invalid value for 'theta_3' in node position file!\n");
 				}
 			}
 			dataStream.close();
@@ -1005,7 +1072,7 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 		#ifdef MPI_ENABLED
 		}
 		#endif
-		printf("\t\tCompleted.\n");
+		printf_mpi(rank, "\t\tCompleted.\n");
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
@@ -1021,14 +1088,14 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 	}
 
 	if (network->network_properties.flags.verbose) {
-		printf("\tGraph Properties:\n");
-		printf_cyan();
-		printf("\t\tResulting Network Size: %d\n", network->network_observables.N_res);
-		printf("\t\tExpected Average Degrees: %f\n", network->network_observables.k_res);
-		printf_std();
+		printf_mpi(rank, "\tGraph Properties:\n");
+		if (rank == 0) printf_cyan();
+		printf_mpi(rank, "\t\tResulting Network Size: %d\n", network->network_observables.N_res);
+		printf_mpi(rank, "\t\tExpected Average Degrees: %f\n", network->network_observables.k_res);
+		if (rank == 0) printf_std();
 	}
 
-	printf("Task Completed.\n");
+	printf_mpi(rank, "Task Completed.\n");
 	fflush(stdout);
 
 	return true;
@@ -1040,15 +1107,10 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 	if (!network.network_properties.flags.print_network)
 		return false;
 
-	#ifdef MPI_ENABLED
-	if (network.network_properties.mpi_rank != 0)
-		return true;
-	#endif
-
 	printf("Printing Results to File...\n");
 	fflush(stdout);
 
-	uint64_t m;
+	//uint64_t m;
 	int i, j, k;
 
 	try {
@@ -1216,10 +1278,6 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 		if (network.network_properties.flags.calc_deg_field)
 			outputStream << "measureDegreeField: " << cp.sMeasureDegreeField.elapsedTime << " sec" << std::endl;
 
-		stopwatchStop(&cp.sCauset);
-		outputStream << "\nTotal Time:          " << cp.sCauset.elapsedTime << " sec" << std::endl;
-		stopwatchStart(&cp.sCauset);
-
 		outputStream.flush();
 		outputStream.close();
 
@@ -1378,7 +1436,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			dataStream.flush();
 			dataStream.close();
 
-			sstm.str("");
+			/*sstm.str("");
 			sstm.clear();
 			sstm << "./dat/emb/fn/" << network.network_properties.graphID << ".cset.emb_fn.dat";
 			dataStream.open(sstm.str().c_str());
@@ -1400,7 +1458,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 				dataStream << network.network_observables.evd.fp[m<<1] << " " << network.network_observables.evd.fp[(m<<1)+1] << std::endl;
 
 			dataStream.flush();
-			dataStream.close();
+			dataStream.close();*/
 		}
 
 		if (network.network_properties.flags.calc_deg_field) {
@@ -1496,10 +1554,7 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link
 	printf("Time Averaged over %d Runs:\n", NBENCH);
 	printf("\tcalcDegrees:\t\t%5.6f sec\n", bm.bCalcDegrees);
 	printf("\tcreateNetwork:\t\t%5.6f sec\n", bm.bCreateNetwork);
-	//if (cf.use_gpu)
-	//	printf("\tgenerateNodesGPU:\t%5.6f sec\n", bm.bGenerateNodesGPU);
-	//else
-		printf("\tgenerateNodes:\t\t%5.6f sec\n", bm.bGenerateNodes);
+	printf("\tgenerateNodes:\t\t%5.6f sec\n", bm.bGenerateNodes);
 	printf("\tquicksort:\t\t%5.6f sec\n", bm.bQuicksort);
 	if (links_exist) {
 		if (cf.use_gpu)
@@ -1524,6 +1579,7 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link
 //Free Memory
 void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed)
 {
+	int rank = network->network_properties.rank;
 	bool links_exist = network->network_properties.flags.link || network->network_properties.flags.relink;
 
 	if (network->network_properties.manifold == DE_SITTER) {
@@ -1593,51 +1649,43 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 	if (network->network_properties.flags.bench)
 		return;
 
-	#ifdef MPI_ENABLED
-	if (network->network_properties.mpi_rank == 0) {
-	#endif
-	if (network->network_properties.flags.calc_clustering) {
-		free(network->network_observables.clustering);
-		network->network_observables.clustering = NULL;
-		hostMemUsed -= sizeof(float) * network->network_properties.N_tar;
-	}
+	if (rank == 0) {
+		if (network->network_properties.flags.calc_clustering) {
+			free(network->network_observables.clustering);
+			network->network_observables.clustering = NULL;
+			hostMemUsed -= sizeof(float) * network->network_properties.N_tar;
+		}
 
-	if (network->network_properties.flags.calc_components) {
-		free(network->nodes.cc_id);
-		network->nodes.cc_id = NULL;
-		hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
+		if (network->network_properties.flags.calc_components) {
+			free(network->nodes.cc_id);
+			network->nodes.cc_id = NULL;
+			hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
+		}
 	}
-	#ifdef MPI_ENABLED
-	}
-	#endif
 
 	if (network->network_properties.flags.validate_embedding) {
 		free(network->network_observables.evd.confusion);
 		network->network_observables.evd.confusion = NULL;
 		hostMemUsed -= sizeof(uint64_t) * 4;
 
-		free(network->network_observables.evd.fn);
+		/*free(network->network_observables.evd.fn);
 		network->network_observables.evd.fn = NULL;
 		hostMemUsed -= sizeof(float) * 2 * static_cast<uint64_t>(network->network_properties.N_emb);
 
 		free(network->network_observables.evd.fp);
 		network->network_observables.evd.fp = NULL;
-		hostMemUsed -= sizeof(float) * 2 * static_cast<uint64_t>(network->network_properties.N_emb);
+		hostMemUsed -= sizeof(float) * 2 * static_cast<uint64_t>(network->network_properties.N_emb);*/
 	}
 
-	#ifdef MPI_ENABLED
-	if (network->network_properties.mpi_rank == 0) {
-	#endif
-	if (network->network_properties.flags.calc_deg_field) {
-		free(network->network_observables.in_degree_field);
-		network->network_observables.in_degree_field = NULL;
-		hostMemUsed -= sizeof(int) * network->network_properties.N_df;
+	if (rank == 0) {
+		if (network->network_properties.flags.calc_deg_field) {
+			free(network->network_observables.in_degree_field);
+			network->network_observables.in_degree_field = NULL;
+			hostMemUsed -= sizeof(int) * network->network_properties.N_df;
 
-		free(network->network_observables.out_degree_field);
-		network->network_observables.out_degree_field = NULL;
-		hostMemUsed -= sizeof(int) * network->network_properties.N_df;
+			free(network->network_observables.out_degree_field);
+			network->network_observables.out_degree_field = NULL;
+			hostMemUsed -= sizeof(int) * network->network_properties.N_df;
+		}
 	}
-	#ifdef MPI_ENABLED
-	}
-	#endif
 }

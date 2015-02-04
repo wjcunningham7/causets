@@ -585,7 +585,11 @@ inline double rescaledScaleFactor(double *table, double size, double eta, double
 			printf("Value not found in ctuc_table.cset.bin:\n");
 			printf("\tEta: %f\n", eta);
 			printf("\tg:   %f\n", g);
-			exit(0);
+			#ifdef MPI_ENABLED
+			MPI_Abort(MPI_COMM_WORLD, 10);
+			#else
+			exit(10);
+			#endif
 		}
 	}
 	
@@ -671,20 +675,18 @@ inline double embeddedZ1(double x, void *params)
 	if (DEBUG)
 		assert (params != NULL);
 
-	//GSL_EmbeddedZ1_Parameters *p = (GSL_EmbeddedZ1_Parameters*)params;
 	double *p = (double*)params;
 
-	//double a = p->a;
-	//double alpha = p->alpha;
 	double a = p[0];
 	double alpha = p[1];
-	
+	double alpha2 = POW2(alpha, EXACT);
+
 	if (DEBUG) {
 		assert (a > 0.0);
 		assert (alpha > 0.0);
 	}
 
-	return SQRT(1.0 + POW2(a, EXACT) * x * POW2(alpha, EXACT) / (POW3(alpha, EXACT) + POW3(x, EXACT)), STL);
+	return SQRT((1.0 / alpha2) + (POW2(a, EXACT) * x) / (alpha2 * alpha + POW3(x, EXACT)), STL);
 }
 
 //Returns the embedded FLRW distance between two nodes
@@ -707,6 +709,7 @@ inline double distanceEmbFLRW(const float4 &node_a, const float &tau_a, const fl
 
 	double z0_a, z0_b;
 	double z1_a, z1_b;
+	//double norm;
 	double inner_product_ab;
 	double distance;
 
@@ -720,8 +723,8 @@ inline double distanceEmbFLRW(const float4 &node_a, const float &tau_a, const fl
 
 		//Solve for z1 in Rotated Plane
 		double power = 2.0 / 3.0;
-		z1_a = alpha * POW(SINH(1.5 * tau_a, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
-		z1_b = alpha * POW(SINH(1.5 * tau_b, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
+		z1_a = POW(SINH(1.5 * tau_a, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
+		z1_b = POW(SINH(1.5 * tau_b, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
 
 		//Use Numerical Integration for z0
 		idata.upper = z1_a;
@@ -729,17 +732,26 @@ inline double distanceEmbFLRW(const float4 &node_a, const float &tau_a, const fl
 		idata.upper = z1_b;
 		z0_b = integrate1D(&embeddedZ1, (void*)p, &idata, QNG);
 	} else {
-		z0_a = a * SINH(tau_a, APPROX ? FAST : STL);
-		z0_b = a * SINH(tau_b, APPROX ? FAST : STL);
+		z0_a = SINH(tau_a, APPROX ? FAST : STL);
+		z0_b = SINH(tau_b, APPROX ? FAST : STL);
 
-		z1_a = a * COSH(tau_a, APPROX ? FAST : STL);
-		z1_b = a * COSH(tau_b, APPROX ? FAST : STL);
+		z1_a = COSH(tau_a, APPROX ? FAST : STL);
+		z1_b = COSH(tau_b, APPROX ? FAST : STL);
 	}
 
-	if (DIST_V2)
-		inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
-	else
-		inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
+	if (universe) {
+		//norm = POW2(alpha, EXACT);
+		if (DIST_V2)
+			inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
+		else
+			inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
+	} else {
+		//norm = POW2(a, EXACT);
+		if (DIST_V2)
+			inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
+		else
+			inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
+	}
 
 	if (inner_product_ab > 1.0)
 		//Timelike

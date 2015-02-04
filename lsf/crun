@@ -1,0 +1,54 @@
+#!/bin/bash
+
+#BSUB -J CS-Job%jobID%
+#BSUB -o /scratch/cunningham/causet%jobID%/causet%jobID%.log
+#BSUB -e /scratch/cunningham/causet%jobID%/causet%jobID%.err
+#BSUB -q %queue%
+#BSUB -n %ncores%
+#BSUB -R span[ptile=%ncores%]
+#BSUB -cwd /scratch/cunningham/causet%jobID%
+
+###########################
+#(C) Will Cunningham 2014 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# This is the LSF batch submission script for the CausalSet program
+# It is intended to be submitted to LSF via the 'cbat' script
+
+homedir=/home/cunningham.wi/projects/causets
+work=/scratch/cunningham/causet%jobID%
+
+sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphid%:g" < $homedir/lsf/setup | source /dev/stdin
+
+# Do not edit below this
+
+cd $work
+tempfile1=hostlistrun
+tempfile2=hostlist-tcp
+echo $LSB_MCPU_HOSTS > $tempfile1
+declare -a hosts
+read -a hosts < ${tempfile1}
+for ((i=0; i<${#hosts[@]}; i += 2)) ;
+do
+	HOST=${hosts[$i]}
+	CORE=${hosts[(($i+1))]}
+	echo $HOST:$CORE >> $tempfile2
+done
+
+# Do not edit above this
+
+# Run nsamples jobs serially
+for (( i=1; i<=%nsamples%; i++ )); do
+  echo "Starting Trial ${i} of %nsamples%"
+  ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+  sleep 1
+done
+
+# Do not edit below this
+
+rm $work/$tempfile1
+rm $work/$tempfile2
+
+# Do not edit above this

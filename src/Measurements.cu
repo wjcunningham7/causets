@@ -43,7 +43,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 	
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Clustering", hostMemUsed, devMemUsed);
+		printMemUsed("to Measure Clustering", hostMemUsed, devMemUsed, 0);
 
 	//i represents the node we are calculating the clustering coefficient for (node #1 in triplet)
 	//j represents the second node in the triplet
@@ -170,7 +170,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 	
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Components", hostMemUsed, devMemUsed);
+		printMemUsed("to Measure Components", hostMemUsed, devMemUsed, 0);
 
 	for (i = 0; i < N_tar; i++) {
 		elements = 0;
@@ -256,7 +256,7 @@ bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core
 	
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Success Ratio", hostMemUsed, devMemUsed);
+		printMemUsed("to Measure Success Ratio", hostMemUsed, devMemUsed, 0);
 
 	n_trav = 0;
 	for (k = 0; k < static_cast<uint64_t>(N_sr); k++) {
@@ -469,7 +469,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Degree Fields", hostMemUsed, devMemUsed);
+		printMemUsed("to Measure Degree Fields", hostMemUsed, devMemUsed, 0);
 	
 	//Calculate eta_m
 	if (universe) {

@@ -188,7 +188,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Parallel Node Linking", hostMemUsed, devMemUsed);
+		printMemUsed("for Parallel Node Linking", hostMemUsed, devMemUsed, 0);
 
 	//Copy Memory from Host to Device
 	checkCudaErrors(cuMemcpyHtoD(d_w, nodes.crd->w(), sizeof(float) * N_tar));
@@ -231,21 +231,21 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	//Free Device Memory
 	cuMemFree(d_w);
-	d_w = NULL;
+	d_w = 0;
 
 	cuMemFree(d_x);
-	d_x = NULL;
+	d_x = 0;
 
 	cuMemFree(d_y);
-	d_y = NULL;
+	d_y = 0;
 
 	cuMemFree(d_z);
-	d_z = NULL;
+	d_z = 0;
 
 	devMemUsed -= sizeof(float) * N_tar * 4;
 
 	cuMemFree(d_g_idx);
-	d_g_idx = NULL;
+	d_g_idx = 0;
 	devMemUsed -= sizeof(int);
 
 	try {
@@ -312,7 +312,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	//Free Device Memory
 	cuMemFree(d_future_edges);
-	d_future_edges = NULL;
+	d_future_edges = 0;
 	devMemUsed -= sizeof(int) * d_edges_size;
 
 	stopwatchStop(&sGPUOverhead);
@@ -355,11 +355,11 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	
 	//Free Device Memory
 	cuMemFree(d_edges);
-	d_edges = NULL;
+	d_edges = 0;
 	devMemUsed -= sizeof(uint64_t) * d_edges_size;
 
 	cuMemFree(d_past_edges);
-	d_past_edges = NULL;
+	d_past_edges = 0;
 	devMemUsed -= sizeof(int) * d_edges_size;
 
 	//Parallel Prefix Sum of 'k_in' and 'k_out' and Write to Edge Pointers
@@ -379,7 +379,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Parallel Prefix Sum", hostMemUsed, devMemUsed);
+		printMemUsed("for Parallel Prefix Sum", hostMemUsed, devMemUsed, 0);
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_past_edge_row_start, 0, N_tar));
@@ -463,19 +463,19 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	//Free Device Memory
 	cuMemFree(d_past_edge_row_start);
-	d_past_edge_row_start = NULL;
+	d_past_edge_row_start = 0;
 	devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_future_edge_row_start);
-	d_future_edge_row_start = NULL;
+	d_future_edge_row_start = 0;
 	devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_buf);
-	d_buf = NULL;
+	d_buf = 0;
 	devMemUsed -= sizeof(int) * (BLOCK_SIZE << 1);
 
 	cuMemFree(d_buf_scanned);
-	d_buf_scanned = NULL;
+	d_buf_scanned = 0;
 	devMemUsed -= sizeof(int) * (BLOCK_SIZE << 1);
 
 	//Resulting Network Properties
@@ -528,19 +528,19 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	//Free Device Memory
 	cuMemFree(d_k_in);
-	d_k_in = NULL;
+	d_k_in = 0;
 	devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_k_out);
-	d_k_out = NULL;
+	d_k_out = 0;
 	devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_N_res);
-	d_N_res = NULL;
+	d_N_res = 0;
 	devMemUsed -= sizeof(int);
 
 	cuMemFree(d_N_deg2);
-	d_N_deg2 = NULL;
+	d_N_deg2 = 0;
 	devMemUsed -= sizeof(int);
 
 	stopwatchStop(&sGPUOverhead);
@@ -565,7 +565,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(EXIT_SUCCESS);*/
+	exit(0);*/
 
 	//Free Host Memory
 	free(g_idx);
@@ -692,7 +692,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Generating Lists on GPU", hostMemUsed, devMemUsed);
+		printMemUsed("for Generating Lists on GPU", hostMemUsed, devMemUsed, 0);
 
 	//CUDA Grid Specifications
 	unsigned int gridx = static_cast<unsigned int>(ceil(static_cast<float>(mthread_size) / THREAD_SIZE));
@@ -762,43 +762,43 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	}
 
 	cuMemFree(d_w0);
-	d_w0 = NULL;
+	d_w0 = 0;
 
 	cuMemFree(d_x0);
-	d_x0 = NULL;
+	d_x0 = 0;
 
 	cuMemFree(d_y0);
-	d_y0 = NULL;
+	d_y0 = 0;
 
 	cuMemFree(d_z0);
-	d_z0 = NULL;
+	d_z0 = 0;
 
 	devMemUsed -= sizeof(float) * mthread_size * 4;
 
 	cuMemFree(d_w1);
-	d_w1 = NULL;
+	d_w1 = 0;
 
 	cuMemFree(d_x1);
-	d_x1 = NULL;
+	d_x1 = 0;
 
 	cuMemFree(d_y1);
-	d_y1 = NULL;
+	d_y1 = 0;
 
 	cuMemFree(d_z1);
-	d_z1 = NULL;
+	d_z1 = 0;
 
 	devMemUsed -= sizeof(float) * mthread_size * 4;
 
 	cuMemFree(d_k_in);
-	d_k_in = NULL;
+	d_k_in = 0;
 	devMemUsed -= sizeof(int) * mthread_size;
 
 	cuMemFree(d_k_out);
-	d_k_out = NULL;
+	d_k_out = 0;
 	devMemUsed -= sizeof(int) * mthread_size;
 
 	cuMemFree(d_edges);
-	d_edges = NULL;
+	d_edges = 0;
 	devMemUsed -= sizeof(bool) * m_edges_size;
 
 	free(h_k_in);
@@ -866,7 +866,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Bitonic Sorting", hostMemUsed, devMemUsed);
+		printMemUsed("for Bitonic Sorting", hostMemUsed, devMemUsed, 0);
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_future_edges, 0, d_edges_size));
@@ -888,7 +888,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 	//Free Device Memory
 	cuMemFree(d_future_edges);
-	d_future_edges = NULL;
+	d_future_edges = 0;
 	devMemUsed -= sizeof(int) * d_edges_size;
 
 	//Resort Edges with New Encoding
@@ -919,11 +919,11 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 	
 	//Free Device Memory
 	cuMemFree(d_edges);
-	d_edges = NULL;
+	d_edges = 0;
 	devMemUsed -= sizeof(uint64_t) * d_edges_size;
 
 	cuMemFree(d_past_edges);
-	d_past_edges = NULL;
+	d_past_edges = 0;
 	devMemUsed -= sizeof(int) * d_edges_size;
 
 	return true;
@@ -932,7 +932,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 //Generate confusion matrix for geodesic distances in universe with matter
 //Save matrix values as well as d_theta and d_eta to file
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, const int &num_mpi_threads, const int &mpi_rank, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, long &seed, const int &num_mpi_threads, const int &rank, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -945,15 +945,19 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 		assert (dim == 3);
 		#ifdef MPI_ENABLED
 		assert (num_mpi_threads > 0);
-		assert (mpi_rank >= 0);
+		assert (rank >= 0);
 		#endif
 		assert (manifold == DE_SITTER);
-		//assert (universe);	//Just for now
 	}
 
 	uint64_t stride = static_cast<uint64_t>(static_cast<double>(N_tar) * (N_tar - 1) / (N_emb * 2));
 	uint64_t npairs = static_cast<uint64_t>(N_emb);
 	uint64_t k;
+
+	#ifdef MPI_ENABLED
+	//uint64_t *rcounts = NULL;	//Receive counts used for MPI_Gatherv
+	//uint64_t *displs = NULL;	//Displacements used for MPI_Gatherv
+	#endif
 
 	stopwatchStart(&sValidateEmbedding);
 
@@ -967,7 +971,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 		memset(evd.confusion, 0, sizeof(uint64_t) * 4);
 		hostMemUsed += sizeof(uint64_t) * 4;
 
-		evd.fn = (float*)malloc(sizeof(float) * npairs * 2);
+		/*evd.fn = (float*)malloc(sizeof(float) * npairs * 2);
 		if (evd.fn == NULL)
 			throw std::bad_alloc();
 		memset(evd.fn, 0, sizeof(float) * npairs * 2);
@@ -979,37 +983,74 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 		memset(evd.fp, 0, sizeof(float) * npairs * 2);
 		hostMemUsed += sizeof(float) * npairs * 2;
 
+		#ifdef MPI_ENABLED
+		if (rank == 0) {
+			rcounts = (uint64_t*)malloc(sizeof(uint64_t) * num_mpi_threads);
+			if (rcounts == NULL)
+				throw std::bad_alloc();
+			memset(rcounts, 0, sizeof(uint64_t) * num_mpi_threads);
+			hostMemUsed += sizeof(uint64_t) * num_mpi_threads;
+
+			displs = (uint64_t*)malloc(sizeof(uint64_t) * num_mpi_threads);
+			if (displs == NULL)
+				throw std::bad_alloc();
+			memset(displs, 0, sizeof(uint64_t) * num_mpi_threads);
+			hostMemUsed += sizeof(uint64_t) * num_mpi_threads;
+		}
+		#endif*/
+
 		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 		if (verbose)
-			printMemUsed("for Embedding Validation", hostMemUsed, devMemUsed);
+			printMemUsed("for Embedding Validation", hostMemUsed, devMemUsed, rank);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
 
 	#ifdef MPI_ENABLED
+	//BEGIN DEBUG
 	MPI_Barrier(MPI_COMM_WORLD);
+	if (rank == 0)
+		printf("My rank is %d\n", rank);
+	MPI_Barrier(MPI_COMM_WORLD);
+	if (rank == 1)
+		printf("My rank is %d\n", rank);
+	MPI_Barrier(MPI_COMM_WORLD);
+	if (rank == 2)
+		printf("My rank is %d\n", rank);
+	MPI_Barrier(MPI_COMM_WORLD);
+	if (rank == 3)
+		printf("My rank is %d\n", rank);
+	MPI_Barrier(MPI_COMM_WORLD);
+	//END DEBUG
+
 	//Broadcast:
 	// > nodes.crd.w
 	// > nodes.crd.x
 	// > nodes.crd.y
 	// > nodes.crd.z
 	// > nodes.id.tau
+	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Bcast(nodes.crd->w(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(nodes.crd->z(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(nodes.id.tau, N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	#endif
 
-	unsigned int start = 0;
-	unsigned int finish = npairs;
+	uint64_t start = 0;
+	uint64_t finish = npairs;
 
 	#ifdef MPI_ENABLED
+	uint64_t mpi_chunk = npairs / num_mpi_threads;
 	//Define start based on num_mpi_threads and mpi_rank
+	start = rank * mpi_chunk;
 	//Define end based on num_mpi_threads and mpi_rank
+	finish = start + mpi_chunk - 1;
 	#endif
 
 	#ifdef _OPENMP
-	//Assuming omp_get_max_threads() returns 32
-	#pragma omp parallel num_threads(32)
-	{
-	#pragma omp for
+	#pragma omp parallel for
 	#endif
 	for (k = start; k < finish; k++) {
 		//Choose a pair (i,j) from a single index k
@@ -1028,10 +1069,11 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 
 		//Check light cone condition for 4D vs 5D
 		//Null hypothesis is the nodes are not connected
-		double d_eta = ABS(static_cast<double>(nodes.crd->w(j) - nodes.crd->w(i)), STL);
-		double d_theta = ACOS(static_cast<double>(DIST_V2 ? sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)) : sphProduct_v1(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+		//double d_eta = ABS(static_cast<double>(nodes.crd->w(j) - nodes.crd->w(i)), STL);
+		//double d_theta = ACOS(static_cast<double>(DIST_V2 ? sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)) : sphProduct_v1(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 
-		if (d_theta < d_eta) {	//Actual Timelike (Negative)
+		//if (d_theta < d_eta) {	//Actual Timelike (Negative)
+		if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, i, j)) {
 			if (distance > 0) {
 				//True Negative (both timelike)
 				#ifdef _OPENMP
@@ -1045,7 +1087,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 				#endif
 				evd.confusion[2]++;
 
-				#ifdef _OPENMP
+				/*#ifdef _OPENMP
 				#pragma omp critical (tn)
 				{
 				#endif
@@ -1053,7 +1095,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 				evd.fp[evd.fp_idx++] = static_cast<float>(d_theta);
 				#ifdef _OPENMP
 				}
-				#endif
+				#endif*/
 			}
 		} else {	//Actual Spacelike (Positive)
 			if (distance > 0) {
@@ -1063,7 +1105,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 				#endif
 				evd.confusion[3]++;
 
-				#ifdef _OPENMP
+				/*#ifdef _OPENMP
 				#pragma omp critical (fp)
 				{
 				#endif
@@ -1071,7 +1113,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 				evd.fn[evd.fn_idx++] = static_cast<float>(d_theta);
 				#ifdef _OPENMP
 				}
-				#endif
+				#endif*/
 			} else {
 				//True Positive (both spacelike)
 				#ifdef _OPENMP
@@ -1081,16 +1123,50 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 			}
 		}		
 	}
-	#ifdef _OPENMP
-	}
-	#endif
 
 	#ifdef MPI_ENABLED
-	//Reduce:
-	// > evd.confusion
-	//Gatherv:
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	//Reduce (In-Place):
+	// > evd.confusion[0-3]
+	if (rank == 0)
+		MPI_Reduce(MPI_IN_PLACE, evd.confusion, 4, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
+	else
+		MPI_Reduce(evd.confusion, NULL, 4, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
+
+	//Gather (In-Place):
+	// > rcounts
+	/*if (rank == 0) {
+		rcounts[0] = evd.fn_idx;
+		MPI_Gather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, rcounts, num_mpi_threads, MPI_UINT64_T, 0, MPI_COMM_WORLD);
+	} else
+		MPI_Gather(rcounts, num_mpi_threads, MPI_UINT64_T, NULL, 0, MPI_DATATYPE_NULL, 0, MPI_COMM_WORLD);
+
+	if (rank == 0) {
+		int i;
+		displs[0] = 0;
+		for (i = 1; i < num_mpi_threads; i++)
+			displs[i] = displs[i-1] + rcounts[i-1];
+	}*/
+
+	//Gatherv (In-Place):
+	// > evd.fn
 	// > evd.fp
-	// > evd.tn
+	/*if (rank == 0)
+		MPI_Gatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, evd.fn, rcounts, displs, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	else
+		MPI_Gatherv(evd.fn, evd.fn_idx, MPI_FLOAT, NULL, NULL, NULL, MPI_DATATYPE_NULL, 0, MPI_COMM_WORLD);*/
+	
+	//Free Buffers
+	/*if (rank == 0) {
+		free(rcounts);
+		rcounts = NULL;
+		hostMemUsed -= sizeof(uint64_t) * num_mpi_threads;
+
+		free(displs);
+		displs = NULL;
+		hostMemUsed -= sizeof(uint64_t) * num_mpi_threads;
+	}*/
 	#endif
 
 	//Number of timelike distances in 4-D native FLRW spacetime
@@ -1105,18 +1181,18 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const int &N
 
 	stopwatchStop(&sValidateEmbedding);
 
-	printf("\tCalculated Confusion Matrix.\n");
-	printf_cyan();
-	printf("\t\tTrue  Positives: %f\t(4D spacelike, 5D spacelike)\n", static_cast<double>(evd.confusion[0]) / evd.A1S);
-	printf("\t\tTrue  Negatives: %f\t(4D timelike,  5D timelike)\n", static_cast<double>(evd.confusion[1]) / evd.A1T);
-	printf_red();
-	printf("\t\tFalse Positives: %f\t(4D timelike,  5D spacelike)\n", static_cast<double>(evd.confusion[2]) / evd.A1T);
-	printf("\t\tFalse Negatives: %f\t(4D spacelike, 5D timelike)\n", static_cast<double>(evd.confusion[3]) / evd.A1S);
-	printf_std();
+	printf_mpi(rank, "\tCalculated Confusion Matrix.\n");
+	if (rank == 0) printf_cyan();
+	printf_mpi(rank, "\t\tTrue  Positives: %f\t(4D spacelike, 5D spacelike)\n", static_cast<double>(evd.confusion[0]) / evd.A1S);
+	printf_mpi(rank, "\t\tTrue  Negatives: %f\t(4D timelike,  5D timelike)\n", static_cast<double>(evd.confusion[1]) / evd.A1T);
+	if (rank == 0) printf_red();
+	printf_mpi(rank, "\t\tFalse Positives: %f\t(4D timelike,  5D spacelike)\n", static_cast<double>(evd.confusion[2]) / evd.A1T);
+	printf_mpi(rank, "\t\tFalse Negatives: %f\t(4D spacelike, 5D timelike)\n", static_cast<double>(evd.confusion[3]) / evd.A1S);
+	if (rank == 0) printf_std();
 	fflush(stdout);
 
 	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sValidateEmbedding.elapsedTime);
+		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sValidateEmbedding.elapsedTime);
 		fflush(stdout);
 	}
 

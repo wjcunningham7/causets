@@ -12,25 +12,28 @@
 #include <limits>
 #include <math.h>
 #include <sstream>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string>
 
-//Other System Files
-#include <boost/unordered_map.hpp>
+//System Files for Parallel Acceleration
 #ifdef CUDA_ENABLED
 #include <cuda.h>
-//#include <curand.h>
 #endif
-//#include <GL/freeglut.h>
+
 #ifdef MPI_ENABLED
 #include <mpi.h>
 #endif
+
 #ifdef _OPENMP
   #include <omp.h>
 #else
   #define omp_get_thread_num() 0
 #endif
+
+//Other System Files
+#include <boost/unordered_map.hpp>
 #include <sys/io.h>
 
 //Custom System Files
@@ -63,7 +66,7 @@
 #ifndef CUDA_ENABLED
 //Redefine CUDA data types
 
-struct __attribute__ (aligned(8)) float2 {
+struct __attribute__ ((aligned(8))) float2 {
 	float x, y;
 };
 
@@ -75,7 +78,7 @@ extern inline float2 make_float2(float x, float y)
 	return f;
 }
 
-struct __attribute__ (aligned(16)) float4 {
+struct __attribute__ ((aligned(16))) float4 {
 	float w, x, y, z;
 };
 
@@ -336,7 +339,7 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), link(false), relink(false), universe(false), compact(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), validate_embedding(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), link(false), relink(false), read_old_format(false), universe(false), compact(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), validate_embedding(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	CausetConflicts cc;		//Conflicting Parameters
 
@@ -345,6 +348,7 @@ struct CausetFlags {
 	bool print_network;		//Print to File
 	bool link;			//Link Nodes after Generation
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
+	bool read_old_format;		//Read Node Positions in the Format (theta3, theta2, theta1)
 	
 	bool universe;			//Simulate FLRW Spacetime
 	bool compact;			//Use Compactification of theta1 Coordinate
@@ -365,7 +369,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), dim(3), manifold(DE_SITTER), a(1.0), lambda(3.0), zeta(1.0), chi_max(M_PI), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), num_mpi_threads(0), mpi_rank(-1) {}
+	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), dim(3), manifold(DE_SITTER), a(1.0), lambda(3.0), zeta(1.0), chi_max(M_PI), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), num_mpi_threads(0), rank(0) {}
 
 	CausetFlags flags;
 
@@ -404,7 +408,7 @@ struct NetworkProperties {
 	int graphID;			//Unique Simulation ID
 
 	int num_mpi_threads;		//Number of MPI Threads
-	int mpi_rank;			//ID of this MPI Thread
+	int rank;			//ID of this MPI Thread
 };
 
 //Measured values of the network
@@ -496,7 +500,7 @@ protected:
 };
 
 //Function prototypes for those described in src/Causet.cu
-NetworkProperties parseArgs(int argc, char **argv);
+NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const int &rank);
 
 bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
 

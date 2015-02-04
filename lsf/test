@@ -8,4 +8,14 @@
 
 # This is intended to simply be an example of how to launch 'lsf/cbat'
 
-./lsf/cbat --ncores 32 --flags '--universe --nodes 131072 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --gpu --embedding 0.005' --start 51 --njobs 1 --queue 'par-gpu' --nsamples 1
+# Generate New Network (GPU Accelerated)
+#./lsf/cbat --ncores 32 --flags '--universe --nodes 131072 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --gpu --embedding 0.005' --start 52 --njobs 1 --queue 'par-gpu' --nsamples 1
+
+# Generate New Network (GPU, MPI Accelerated)
+#./lsf/cbat --ncores 32 --flags '--universe --nodes 131072 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --gpu --embedding 0.5' --start 53 --njobs 1 --mpi 8 --queue 'par-gpu' --nsamples 1
+
+# Study Existing Network (GPU Accelerated)
+#./lsf/cbat --ncores 32 --flags '--universe --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --read-old-format --embedding 0.1' --graph 1415824956 --start 51 --njobs 1 --queue 'par-gpu' --readjob 44 --nsamples 1
+
+# Study Existing Network (CPU Only)
+./lsf/cbat --ncores 70 --flags '--universe --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --read-old-format --embedding 1' --graph 1415824956 --start 51 --njobs 1 --queue 'krioukov' --readjob 44 --nsamples 1

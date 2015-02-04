@@ -46,16 +46,16 @@ endif
 # Compilers #
 #############
 
-GCC		?= /usr/bin/gcc
-CXX 		?= /usr/bin/g++
+GCC		?= gcc
+CXX 		?= g++
 ifneq (, $(findstring $(host1), $(HOSTNAME)))
-MPI		?= /opt/ibm/platform_mpi/bin/mpicc
+MPI		?= mpic++
 else ifneq (, $(findstring $(host2), $(HOSTNAME)))
 MPI		?= /usr/lib64/openmpi/bin/mpicc
 else
 $(error Hostname not recognized!)
 endif
-GFOR		?= /usr/bin/gfortran
+GFOR		?= gfortran
 NVCC 		?= $(CUDA_HOME)/bin/nvcc
 
 #########################
@@ -64,7 +64,7 @@ NVCC 		?= $(CUDA_HOME)/bin/nvcc
 
 INCD 		 = -I $(INCDIR) -I $(LOCAL_DIR)/include/
 CUDA_INCD	 = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include
-LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas -lfastmath -lnint -lgomp -lprintcolor
+LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas -lfastmath -lnint -lprintcolor -lgomp
 CUDA_LIBS	 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PATH)/common/lib -lcuda -lcudart
 
 ##################
@@ -79,23 +79,31 @@ else ifneq (, $(findstring $(host2), $(HOSTNAME)))
 NVCCFLAGS += -arch=sm_30
 else
 endif
-OMPFLAGS	:=
-MPIFLAGS	:=
+OMPFLAGS1	:=
+OMPFLAGS2	:=
+MPIFLAGS1	:=
+MPIFLAGS2	:=
+
+##############################
+# OpenMP or MPI Acceleration #
+##############################
 
 USE_OMP		:= 1
 USE_MPI		:= 0
 
 ifneq ($(USE_OMP), 0)
-OMPFLAGS += -Xcompiler -fopenmp
+OMPFLAGS1 += -fopenmp
+OMPFLAGS2 += -Xcompiler -fopenmp
 endif
 
 ifneq ($(USE_MPI), 0)
 CXX=$(MPI)
-MPIFLAGS += -DMPI_ENABLED -Xcompiler -Wno-deprecated
+MPIFLAGS1 += -DMPI_ENABLED -Wno-deprecated
+MPIFLAGS2 += -DMPI_ENABLED -Xcompiler -Wno-deprecated
 endif
 
-CXXFLAGS += $(MPIFLAGS)
-NVCCFLAGS += $(OMPFLAGS) $(MPIFLAGS)
+CXXFLAGS += $(OMPFLAGS1) $(MPIFLAGS1)
+NVCCFLAGS += $(OMPFLAGS2) $(MPIFLAGS2)
 
 ###############
 # Source Code #
