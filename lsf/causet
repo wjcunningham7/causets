@@ -4,7 +4,7 @@
 #BSUB -o /scratch/cunningham/causet%jobID%/causet%jobID%.log
 #BSUB -e /scratch/cunningham/causet%jobID%/causet%jobID%.err
 #BSUB -q %queue%
-#BSUB -n %ncores%
+#BSUB -n %totalcores%
 #BSUB -R span[ptile=%ncores%]
 #BSUB -cwd /scratch/cunningham/causet%jobID%
 
@@ -19,7 +19,9 @@
 
 homedir=/home/cunningham.wi/projects/causets
 work=/scratch/cunningham/causet%jobID%
+usempi=%usempi%
 
+# Setup peripheral directories and copy necessary files, as well as the binary
 sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphid%:g" < $homedir/lsf/setup | source /dev/stdin
 
 # Do not edit below this
@@ -42,9 +44,15 @@ done
 # Run nsamples jobs serially
 for (( i=1; i<=%nsamples%; i++ )); do
   echo "Starting Trial ${i} of %nsamples%"
-  ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+  if [ ${usempi} -eq 0 ] ; then # Do not use MPI
+    ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+  else # Do use MPI
+    mpirun -np %totalcoresmpi% -machinefile hostlist-tcp ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+  fi
   sleep 1
 done
+
+wait
 
 # Do not edit below this
 

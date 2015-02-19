@@ -66,6 +66,7 @@ bool getLookupTable(const char *filename, double **lt, long *size)
 	return true;
 }
 
+//Lookup value in table of (x, y) coordinates -> 2D parameter space
 double lookupValue(const double *table, const long &size, double *x, double *y, bool increasing)
 {
 	if (DEBUG) {
@@ -112,6 +113,22 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 	}
 
 	return output;
+}
+
+//Lookup value in table of (t1, t2, omega12, lambda) coordinates -> 4D parameter space
+//Used for geodesic distance calculations
+double lookupValue4D(const double *table, const long &size, const double &t1, const double &t2, const double &omega12)
+{
+	if (DEBUG) {
+		assert (table != NULL);
+		assert (size > 0);
+		assert (t1 >= 0.0);
+		assert (t2 >= 0.0);
+		assert (omega12 >= 0.0);
+		assert (t2 > t1);
+	}
+
+	return 0.0;
 }
 
 //Sort nodes temporally
@@ -339,7 +356,7 @@ bool newton(double (*solve)(const double &x, const double * const p1, const floa
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
 //O(k) Efficiency for Adjacency List
-bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, const int past_idx, const int future_idx)
+bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -351,11 +368,18 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 		assert (past_idx >= 0 && past_idx < N_tar);
 		assert (future_idx >= 0 && future_idx < N_tar);
-		assert (past_idx < future_idx);
+		assert (past_idx != future_idx);
 	}
 
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
 	int i;
+
+	//Make sure past_idx < future_idx
+	if (past_idx > future_idx) {
+		int temp = past_idx;
+		past_idx = future_idx;
+		future_idx = temp;
+	}
 
 	//Check if the adjacency matrix can be used
 	if (past_idx < core_limit && future_idx < core_limit)

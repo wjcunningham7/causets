@@ -11,14 +11,12 @@
 bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, Stopwatch &sMeasureClustering, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &calc_autocorr, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
-		//No null pointers
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
 
-		//Parameters in correct ranges
 		assert (N_tar > 0);
 		assert (N_deg2 > 0);
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
@@ -139,17 +137,17 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 //Calculates the number of connected components in the graph
 //as well as the size of the giant connected component
 //Efficiency: O(xxx)
-bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar, int &N_cc, int &N_gcc, Stopwatch &sMeasureConnectedComponents, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar, const int &rank, int &N_cc, int &N_gcc, Stopwatch &sMeasureConnectedComponents, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
-		//No Null Pointers
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
-
-		//Parameters in Correct Ranges
 		assert (N_tar > 0);
+		#ifdef MPI_ENABLED
+		assert (rank >= 0);
+		#endif
 	}
 
 	int elements;
@@ -170,18 +168,25 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 	
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Components", hostMemUsed, devMemUsed, 0);
+		printMemUsed("to Measure Components", hostMemUsed, devMemUsed, rank);
 
-	for (i = 0; i < N_tar; i++) {
-		elements = 0;
-		if (!nodes.cc_id[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0) {
-			//printf("BEFORE\n");
-			bfsearch(nodes, edges, i, ++N_cc, elements);
-			//printf("AFTER\n");
+	if (rank == 0) {
+		for (i = 0; i < N_tar; i++) {
+			elements = 0;
+			if (!nodes.cc_id[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0) {
+				bfsearch(nodes, edges, i, ++N_cc, elements);
+			}
+			if (elements > N_gcc)
+				N_gcc = elements;
 		}
-		if (elements > N_gcc)
-			N_gcc = elements;
 	}
+
+	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Bcast(nodes.cc_id, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&N_cc, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&N_gcc, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	#endif
 
 	stopwatchStop(&sMeasureConnectedComponents);
 
@@ -191,16 +196,16 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 	}
 
 	if (!bench) {
-		printf("\tCalculated Number of Connected Components.\n");
-		printf_cyan();
-		printf("\t\tIdentified %d Components.\n", N_cc);
-		printf("\t\tSize of Giant Component: %d\n", N_gcc);
-		printf_std();
+		printf_mpi(rank, "\tCalculated Number of Connected Components.\n");
+		if (rank == 0) printf_cyan();
+		printf_mpi(rank, "\t\tIdentified %d Components.\n", N_cc);
+		printf_mpi(rank, "\t\tSize of Giant Component: %d\n", N_gcc);
+		if (rank == 0) printf_std();
 		fflush(stdout);
 	}
 
 	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sMeasureConnectedComponents.elapsedTime);
+		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sMeasureConnectedComponents.elapsedTime);
 		fflush(stdout);
 	}
 
@@ -209,176 +214,392 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &success_ratio, const int &N_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, const int &num_mpi_threads, const int &rank, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
-		//No Null Pointers
+		assert (!nodes.crd->isNull());
+		assert (dim == 1 || dim == 3);
+		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+
+		if (manifold == HYPERBOLIC)
+			assert (dim == 1);
+
+		if (dim == 1) {
+			assert (nodes.crd->getDim() == 2);
+		} else if (dim == 3) {
+			assert (nodes.crd->getDim() == 4);
+			assert (nodes.crd->w() != NULL);
+			assert (nodes.crd->z() != NULL);
+			assert (manifold == DE_SITTER);
+		}
+
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
 
-		//Parameters in Correct Ranges
 		assert (N_tar > 0);
 		assert (N_sr > 0 && N_sr <= ((uint64_t)N_tar * (N_tar - 1)) >> 1);
 		assert (!(dim == 1 && manifold == DE_SITTER));
 		if (manifold == DE_SITTER && universe)
 			assert (alpha > 0);
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (edge_buffer >= 0);
+		#ifdef MPI_ENABLED
+		assert (num_mpi_threads > 0);
+		assert (rank >= 0);
+		#endif
 	}
 
-	float dist = 0.0f, min_dist = 0.0f;
-	int loc, next;
-	int idx_a, idx_b;
-	int i, j, m;
-	int do_map;
-	int n_trav;
-
 	uint64_t stride = (uint64_t)N_tar * (N_tar - 1) / (static_cast<uint64_t>(N_sr) << 1);
-	uint64_t vec_idx;
-	uint64_t k;
+	uint64_t npairs = static_cast<uint64_t>(N_sr);
+	uint64_t n_trav = 0;
+	uint64_t n_succ = 0;
 
+	double *table;
 	bool *used;
+	long size = 0L;
+	size_t u_size;
+
+	#ifdef MPI_ENABLED
+	int edges_size = static_cast<int>(N_tar * k_tar / 2 + edge_buffer);
+	int core_edges_size = static_cast<int>(POW2(core_edge_fraction * N_tar, EXACT));
+	#endif
+
+	//Check out-degrees of earliest nodes
+	//for (int t = 0; t < 100; t++)
+	//	printf("%d\n", nodes.k_out[t]);
+	//exit(11);
 
 	stopwatchStart(&sMeasureSuccessRatio);
 
+	//TEST THESE PARAMETERS
+	u_size = sizeof(bool) * N_tar;
+	//printf_mpi(rank, "Original u_size: %zu\n", u_size);
+	#ifdef _OPENMP
+	u_size *= omp_get_max_threads();
+	//printf_mpi(rank, "OpenMP Threads:  %d\n", omp_get_max_threads());
+	//printf_mpi(rank, "Max u_size:      %zu\n", u_size);
+	#endif
+	#ifdef MPI_ENABLED
+	//u_size /= (num_mpi_threads / omp_get_max_threads());
+	//printf_mpi(rank, "MPI Threads:     %d\n", num_mpi_threads);
+	//printf_mpi(rank, "Divided u_size:  %zu\n", u_size);
+	#endif
+
 	try {
-		used = (bool*)malloc(sizeof(bool) * N_tar);
+		used = (bool*)malloc(u_size);
 		if (used == NULL)
 			throw std::bad_alloc();
-		memset(used, 0, sizeof(bool) * N_tar);
-		hostMemUsed += sizeof(bool) * N_tar;
+		memset(used, 0, u_size);
+		hostMemUsed += u_size;
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
+
+	if (!getLookupTable("./etc/geodesic_table.cset.bin", &table, &size))
+		return false;
 	
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Success Ratio", hostMemUsed, devMemUsed, 0);
+		printMemUsed("to Measure Success Ratio", hostMemUsed, devMemUsed, rank);
 
-	n_trav = 0;
-	for (k = 0; k < static_cast<uint64_t>(N_sr); k++) {
+	#ifdef MPI_ENABLED
+	//Broadcast:
+	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	if (dim == 3) {
+		MPI_Bcast(nodes.crd->w(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(nodes.crd->z(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	}
+	if (manifold == DE_SITTER)
+		MPI_Bcast(nodes.id.tau, N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(nodes.k_in, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(edges.past_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(edges.past_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(core_edge_exists, core_edges_size, MPI::BOOL, 0, MPI_COMM_WORLD);
+	#endif
+
+	uint64_t start = 0;
+	uint64_t finish = npairs;
+
+	#ifdef MPI_ENABLED
+	uint64_t mpi_chunk = npairs / num_mpi_threads;
+	start = rank * mpi_chunk;
+	finish = start + mpi_chunk;
+	#endif
+
+	#ifdef _OPENMP
+	#pragma omp parallel for schedule (runtime) reduction (+ : n_trav, n_succ)
+	#endif
+	for (uint64_t k = start; k < finish; k++) {
 		//Pick Unique Pair
-		vec_idx = k * stride + 1;
-		i = static_cast<int>(vec_idx / (N_tar - 1));
-		j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
-		do_map = i >= j;
+		uint64_t vec_idx = k * stride + 1;
+		int i = static_cast<int>(vec_idx / (N_tar - 1));
+		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
+		int do_map = i >= j;
 
 		if (j < N_tar >> 1) {
 			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
+		//If either node is isolated, continue
 		if (!(nodes.k_in[i] + nodes.k_out[i]) || !(nodes.k_in[j] + nodes.k_out[j]))
 			continue;
+
+		//If the nodes are in different components, continue
 		if (nodes.cc_id[i] != nodes.cc_id[j])
 			continue;
 
-		//printf("%d -> %d:\n", nodes.id.AS[i], nodes.id.AS[j]);
-		//printf("---------\n");
-
-		//printf("%d -> ", nodes.id.AS[i]);
-
-		//Reset boolean array
-		memset(used, 0, sizeof(bool) * N_tar);
+		//Set all nodes to "not yet used"
+		memset(used + N_tar * omp_get_thread_num(), 0, sizeof(bool) * N_tar);
 
 		//Begin Traversal from i to j
-		loc = i;
-		idx_b = j;
-		while (loc != j) {
-			idx_a = loc;
-			min_dist = INF;
-			used[loc] = true;
-			next = loc;
+		bool success = traversePath(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, universe, compact, i, j);
 
-			//Check Past Connections
-			if (edges.past_edge_row_start[loc] != -1) {
-				for (m = 0; m < nodes.k_in[loc]; m++) {
-					idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
-					//printf("\tPast Candidate: %d\n", nodes.id.AS[idx_a]);
-					if (idx_a == idx_b) {
-						loc = idx_b;
-						goto PathSuccess;
-					}
-					if (manifold == DE_SITTER)
-						dist = distanceEmbFLRW(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
-					else if (manifold == HYPERBOLIC)
-						dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
-					//printf("\t\tDistance: %f\n", dist);
-					if (dist <= min_dist) {
-						min_dist = dist;
-						next = edges.past_edges[edges.past_edge_row_start[loc]+m];
-					}
-				}
-			}
-
-			//Check Future Connections
-			if (edges.future_edge_row_start[loc] != -1) {
-				for (m = 0; m < nodes.k_out[loc]; m++) {
-					idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
-					//printf("\tFuture Candidate: %d\n", nodes.id.AS[idx_a]);
-					if (idx_a == idx_b) {
-						loc = idx_b;
-						goto PathSuccess;
-					}
-					if (manifold == DE_SITTER)
-						dist = distanceEmbFLRW(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
-					else if (manifold == HYPERBOLIC)
-						dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
-					//printf("\t\tDistance: %f\n", dist);
-					if (dist <= min_dist) {
-						min_dist = dist;
-						next = edges.future_edges[edges.future_edge_row_start[loc]+m];
-					}
-				}
-			}
-
-			//printf("Moving To: %d\n", nodes.id.AS[next]);
-		
-			if (!used[next])
-				loc = next;
-			else
-				break;
-
-			//printf("%d -> ", nodes.id.AS[next]);
-		}
-
-		PathSuccess:
-		if (loc == j) //{
-			success_ratio += 1.0f;
-			//printf("%d (S)\n", nodes.id.AS[loc]);
-		//} else
-		//	printf("(F)\n");
-		//printf("\n");
 		n_trav++;
+		if (success)
+			n_succ++;
 	}
 
-	if (n_trav)
-		success_ratio /= n_trav;
+	#ifdef MPI_ENABLED
+	//Reduce (In-Place):
+	MPI_Barrier(MPI_COMM_WORLD);
+	if (rank == 0)
+		MPI_Reduce(MPI_IN_PLACE, &n_succ, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
+	else
+		MPI_Reduce(&n_succ, NULL, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
+
+	if (rank == 0)
+		MPI_Reduce(MPI_IN_PLACE, &n_trav, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
+	else
+		MPI_Reduce(&n_trav, NULL, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);
+	#endif
+
+	if (rank == 0 && n_trav > 0)
+		success_ratio = static_cast<float>(n_succ) / n_trav;
 
 	free(used);
 	used = NULL;
-	hostMemUsed -= sizeof(bool) * N_tar;
+	hostMemUsed -= u_size;
 
 	stopwatchStop(&sMeasureSuccessRatio);
 
 	if (!bench) {
-		printf("\tCalculated Success Ratio.\n");
-		printf_cyan();
-		printf("\t\tSuccess Ratio: %f\n", success_ratio);
-		printf("\t\tTraversed Pairs: %d\n", n_trav);
-		printf_std();
+		printf_mpi(rank, "\tCalculated Success Ratio.\n");
+		if (rank == 0) printf_cyan();
+		printf_mpi(rank, "\t\tSuccess Ratio: %f\n", success_ratio);
+		printf_mpi(rank, "\t\tTraversed Pairs: %" PRIu64 "\n", n_trav);
+		if (rank == 0) printf_std();
 		fflush(stdout);
 	}
 
 	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sMeasureSuccessRatio.elapsedTime);
+		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sMeasureSuccessRatio.elapsedTime);
 		fflush(stdout);
 	}
 
 	return true;
+}
+
+//Node Traversal Algorithm
+//Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
+//O(xxx) Efficiency (revise this)
+bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const bool &universe, const bool &compact, int source, int dest)
+{
+	if (DEBUG) {
+		assert (!nodes.crd->isNull());
+		assert (dim == 1 || dim == 3);
+		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+
+		if (manifold == HYPERBOLIC)
+			assert (dim == 1);
+
+		if (dim == 1) {
+			assert (nodes.crd->getDim() == 2);
+		} else if (dim == 3) {
+			assert (nodes.crd->getDim() == 4);
+			assert (nodes.crd->w() != NULL);
+			assert (nodes.crd->z() != NULL);
+			assert (manifold == DE_SITTER);
+		}
+
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+		assert (nodes.k_in != NULL);
+		assert (nodes.k_out != NULL);
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
+		assert (core_edge_exists != NULL);
+		assert (used != NULL);
+		
+		assert (N_tar > 0);
+		if (manifold == DE_SITTER) {
+			assert (a > 0.0);
+			assert (HALF_PI - zeta > 0.0);
+			if (universe)
+				assert (alpha > 0.0);
+		}
+		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (source >= 0 && source < N_tar);
+		assert (dest >= 0 && dest < N_tar);
+	}
+
+	float min_dist = 0.0f;
+	int loc = source;
+	int idx_a = source;
+	int idx_b = dest;
+
+	float dist;
+	int next;
+
+	bool success = false;
+
+	//While the current location (loc) is not equal to the destination (dest)
+	while (loc != dest) {
+		next = loc;
+		dist = INF;
+		min_dist = INF;
+		used[loc] = true;
+
+		//These would indicate corrupted data
+		if (DEBUG) {
+			assert (!(edges.past_edge_row_start[loc] == -1 && nodes.k_in[loc] > 0));
+			assert (!(edges.past_edge_row_start[loc] != -1 && nodes.k_in[loc] == 0));
+			assert (!(edges.future_edge_row_start[loc] == -1 && nodes.k_out[loc] > 0));
+			assert (!(edges.future_edge_row_start[loc] != -1 && nodes.k_out[loc] == 0));
+		}
+
+		//(1) Check past relations
+		for (int m = 0; m < nodes.k_in[loc]; m++) {
+			idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
+
+			//(A) If the current location's (loc's) past neighbor (idx_a) is the destination (idx_b) then return true
+			if (idx_a == idx_b)
+				return true;
+
+			//(B) If the current location's past neighbor is directly connected to the destination then return true
+			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b))
+				return true;
+
+			//(C) Otherwise find the past neighbor closest to the destination
+			if (manifold == DE_SITTER) {
+				if (compact)
+					dist = distanceEmbFLRW(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+				//else Use Michel's version
+			} else if (manifold == HYPERBOLIC)
+				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+
+			//Save the minimum distance
+			if (dist <= min_dist) {
+				min_dist = dist;
+				next = idx_a;
+			}
+		}
+
+		//(2) Check future relations
+		//OpenMP is implemented here for the early nodes which have lots of out-degrees
+		//However, it does not appear to provide a speedup...
+		#ifdef _OPENMP
+		float priv_min_dist = min_dist;
+		int priv_next = next;
+		//bool make_parallel = nodes.k_out[loc] > 10000;
+		bool make_parallel = false;
+		#pragma omp parallel shared (next, min_dist) \
+				     firstprivate (idx_a, priv_min_dist, priv_next) \
+				     if (make_parallel)
+		{
+		#pragma omp for schedule (dynamic, 1)
+		#endif
+		for (int m = 0; m < nodes.k_out[loc]; m++) {
+			#ifdef _OPENMP
+			if (priv_next == idx_b)
+				continue;
+			#endif
+
+			idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
+
+			//(D) If the current location's future neighbor is the destination then return true
+			if (idx_a == idx_b) {
+				#ifdef _OPENMP
+				priv_min_dist = 0.0f;
+				priv_next = idx_b;
+				continue;
+				#else
+				return true;
+				#endif
+			}
+
+			//(E) If the current location's future neighbor is directly connected to the destination then return true
+			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
+				#ifdef _OPENMP
+				priv_min_dist = 0.0f;
+				priv_next = idx_b;
+				continue;
+				#else
+				return true;
+				#endif
+			}
+
+			//(F) Otherwise find the future neighbor closest to the destination
+			if (manifold == DE_SITTER) {
+				if (compact)
+					dist = distanceEmbFLRW(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+				//else Use Michel's version
+			} else if (manifold == HYPERBOLIC)
+				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+
+			#ifdef _OPENMP
+			if (dist <= priv_min_dist) {
+				priv_min_dist = dist;
+				priv_next = idx_a;
+			}
+			#else
+			if (dist <= min_dist) {
+				min_dist = dist;
+				next = idx_a;
+			}
+			#endif
+		}
+
+		#ifdef _OPENMP
+		if (next != idx_b) {
+			#pragma omp flush (min_dist)
+			if (priv_min_dist <= min_dist) {
+				#pragma omp critical
+				{
+					if (priv_min_dist <= min_dist) {
+						min_dist = priv_min_dist;
+						next = priv_next;
+					}
+				}
+			}
+		}
+		}
+		#endif
+
+		if (next == idx_b)
+			return true;
+
+		if (!used[next])
+			loc = next;
+		else
+			break;
+	}
+
+	return success;
 }
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m
@@ -402,7 +623,8 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		assert (manifold == DE_SITTER);
 		assert (a > 0.0);
 		assert (HALF_PI - zeta > 0.0);
-		assert (alpha > 0.0);
+		if (universe)
+			assert (alpha > 0.0);
 	}
 
 	double *table;

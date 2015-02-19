@@ -22,10 +22,10 @@ readjobid=0
 readgraphid=0
 
 # The flags to pass to the CausalSet program
-flags="--universe --age 4.0 --nodes 10240 --delta 1 --radius 1 --print --link --gpu"
+flags=''
 
 # LSF queue
-queue="par-gpu"
+queue=''
 
 # Number of cores per node
 ncores=1
@@ -92,7 +92,7 @@ while true ; do
       esac ;;
     -h|--help)
       echo "Usage: cbat [OPTION]..."
-      echo "Send CausalSet jobs to par-gpu LSF queue on Discovery cluster."
+      echo "Send CausalSet jobs to LSF queue on Discovery cluster."
       echo ""
       echo "  -c, --ncores     number of cores requested"
       echo "  -f, --flags      flags to pass to CausalSet program"
@@ -113,13 +113,37 @@ while true ; do
   esac
 done
 
-for (( i=${jobstart}; i<=${njobs}+${jobstart}-1; i++ )); do
-  if [ $mpinodes -eq 0 ]; then
-    sed "s:%flags%:$flags:g;s:%jobID%:$i:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g" < lsf/crun | bsub
-  else
-    let totalcores=$ncores*$mpinodes
-    sed "s:%flags%:$flags:g;s:%jobID%:$i:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%totalcores%:$totalcores:g" < lsf/cmpi | bsub
+# Check if 'jobstart' is an integer or a string
+num='^[0-9]+$' # Regular expression here
+istart=1
+notnumber=0 # Assume jobstart is a number by default
+if ! [[ "$jobstart" =~ $num ]] ; then # Not a number
+  njobs=1
+  notnumber=1
+else
+  istart=$jobstart
+fi
+
+# Check if MPI is being used
+totalcores=$ncores
+totalcoresmpi=0
+usempi=0
+if [ ${mpinodes} -ne 0 ] ; then
+  let totalcores=$ncores*$mpinodes
+  totalcoresmpi=$totalcores
+  if [ "$queue" == "ser-par-10g" ] ; then
+    let "totalcoresmpi*=2"
   fi
+  usempi=1
+fi
+
+# Send jobs to LSF via bsub
+jobid=$jobstart
+for (( i=${istart}; i<=${njobs}+${istart}-1; i++ )) ; do
+  if [ ${notnumber} -eq 0 ] ; then
+    jobid=$i
+  fi
+  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%totalcores%:$totalcores:g;s:%totalcoresmpi%:$totalcoresmpi:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%usempi%:$usempi:g" < lsf/causet | bsub
   sleep 1
 done
 

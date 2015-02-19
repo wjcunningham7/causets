@@ -657,6 +657,9 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 		if (nb)
 			bm->bMeasureClustering = cp->sMeasureClustering.elapsedTime / NBENCH;
 	}
+	#ifdef MPI_ENABLED
+	}
+	#endif
 
 	//Measure Connectedness
 	if (network->network_properties.flags.calc_components) {
@@ -672,26 +675,20 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 				break;
 			}
 
-			if (!measureConnectedComponents(network->nodes, network->edges, network->network_properties.N_tar, network->network_observables.N_cc, network->network_observables.N_gcc, cp->sMeasureConnectedComponents, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!measureConnectedComponents(network->nodes, network->edges, network->network_properties.N_tar, network->network_properties.rank, network->network_observables.N_cc, network->network_observables.N_gcc, cp->sMeasureConnectedComponents, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
 
 		if (nb)
 			bm->bMeasureConnectedComponents = cp->sMeasureConnectedComponents.elapsedTime / NBENCH;
 	}
-	#ifdef MPI_ENABLED
-	}
-	#endif
 
 	//Validate Embedding
 	if (network->network_properties.flags.validate_embedding) {
-		if (!validateEmbedding(network->network_observables.evd, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.N_emb, network->network_observables.N_res, network->network_observables.k_res, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.seed, network->network_properties.num_mpi_threads, network->network_properties.rank, cp->sValidateEmbedding, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose))
+		if (!validateEmbedding(network->network_observables.evd, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_emb, network->network_observables.N_res, network->network_observables.k_res, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.seed, network->network_properties.num_mpi_threads, network->network_properties.rank, cp->sValidateEmbedding, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose))
 			return false;
 	}
 
-	#ifdef MPI_ENABLED
-	if (rank == 0) {
-	#endif
 	//Measure Success Ratio
 	if (network->network_properties.flags.calc_success_ratio) {
 		for (i = 0; i <= nb; i++) {
@@ -706,7 +703,7 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 				break;
 			}
 
-			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.core_edge_fraction, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.num_mpi_threads, network->network_properties.rank, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
 
@@ -714,6 +711,9 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 			bm->bMeasureSuccessRatio = cp->sMeasureSuccessRatio.elapsedTime / NBENCH;
 	}
 
+	#ifdef MPI_ENABLED
+	if (rank == 0) {
+	#endif
 	//Measure Degree Fields
 	if (network->network_properties.flags.calc_deg_field) {
 		for (i = 0; i <= nb; i++) {
@@ -825,7 +825,10 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 
 		#ifdef MPI_ENABLED
 		}
-		//Broadcast N_tar
+		//Broadcast:
+		// > N_tar
+		MPI_Barrier(MPI_COMM_WORLD);
+		MPI_Bcast(&network->network_properties.N_tar, 1, MPI_INT, 0, MPI_COMM_WORLD);
 		#endif
 		
 		if (!initVars(&network->network_properties, cp, bm, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed))
@@ -1429,8 +1432,8 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open embedding confusion matrix file!\n");
 			dataStream << "True Positives:  " << static_cast<double>(network.network_observables.evd.confusion[0]) / network.network_observables.evd.A1S << std::endl;
-			dataStream << "True Negatives: " << static_cast<double>(network.network_observables.evd.confusion[1]) / network.network_observables.evd.A1T << std::endl;
-			dataStream << "False Positives:  " << static_cast<double>(network.network_observables.evd.confusion[2]) / network.network_observables.evd.A1T << std::endl;
+			dataStream << "True Negatives:  " << static_cast<double>(network.network_observables.evd.confusion[1]) / network.network_observables.evd.A1T << std::endl;
+			dataStream << "False Positives: " << static_cast<double>(network.network_observables.evd.confusion[2]) / network.network_observables.evd.A1T << std::endl;
 			dataStream << "False Negatives: " << static_cast<double>(network.network_observables.evd.confusion[3]) / network.network_observables.evd.A1S << std::endl;
 
 			dataStream.flush();
@@ -1655,12 +1658,12 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 			network->network_observables.clustering = NULL;
 			hostMemUsed -= sizeof(float) * network->network_properties.N_tar;
 		}
+	}
 
-		if (network->network_properties.flags.calc_components) {
-			free(network->nodes.cc_id);
-			network->nodes.cc_id = NULL;
-			hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
-		}
+	if (network->network_properties.flags.calc_components) {
+		free(network->nodes.cc_id);
+		network->nodes.cc_id = NULL;
+		hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 	}
 
 	if (network->network_properties.flags.validate_embedding) {

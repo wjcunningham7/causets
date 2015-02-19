@@ -6,16 +6,42 @@
 # Northeastern University #
 ###########################
 
-# This is intended to simply be an example of how to launch 'lsf/cbat'
+# This is intended to be an example of how to launch 'lsf/cbat'
 
-# Generate New Network (GPU Accelerated)
-#./lsf/cbat --ncores 32 --flags '--universe --nodes 131072 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --gpu --embedding 0.005' --start 52 --njobs 1 --queue 'par-gpu' --nsamples 1
+###########################
+#  GENERATE NEW NETWORKS  #
+###########################
 
-# Generate New Network (GPU, MPI Accelerated)
-#./lsf/cbat --ncores 32 --flags '--universe --nodes 131072 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --gpu --embedding 0.5' --start 53 --njobs 1 --mpi 8 --queue 'par-gpu' --nsamples 1
+#=================#
+# No Acceleration #
+#=================#
 
-# Study Existing Network (GPU Accelerated)
-#./lsf/cbat --ncores 32 --flags '--universe --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --read-old-format --embedding 0.1' --graph 1415824956 --start 51 --njobs 1 --queue 'par-gpu' --readjob 44 --nsamples 1
+#./lsf/cbat --ncores 40 --flags '--universe --nodes 131072 --degrees 10 --delta 500 --radius 0.8 --link --verbose -y --print --compact' --start 51 --queue 'ser-par-10g-3' --nsamples 10
 
-# Study Existing Network (CPU Only)
-./lsf/cbat --ncores 70 --flags '--universe --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --read-old-format --embedding 1' --graph 1415824956 --start 51 --njobs 1 --queue 'krioukov' --readjob 44 --nsamples 1
+#==================#
+# GPU Acceleration #
+#==================#
+
+#./lsf/cbat --ncores 32 --flags '--universe --nodes 65536 --degrees 10 --delta 500 --radius 0.8 --link --verbose -y --compact --gpu --print' --start 59 --queue 'par-gpu' --nsamples 1
+
+#=======================#
+# GPU, MPI Acceleration #
+#=======================#
+
+#./lsf/cbat --ncores 32 --flags '--universe --nodes 131072 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --gpu --embedding 1' --start 51 --mpi 8 --queue 'par-gpu'
+
+###########################
+# STUDY EXISTING NETWORKS #
+###########################
+
+#=================#
+# No Acceleration #
+#=================#
+
+#./lsf/cbat --ncores 16 --flags '--universe --degrees 10 --delta 500 --radius 0.8 --link --compact --verbose -y --success 0.001' --graph 1423781940 --start 60 --queue 'ser-par-10g' --readjob 59
+
+#==================#
+# MPI Acceleration #
+#==================#
+
+./lsf/cbat --ncores 40 --flags '--universe --degrees 10 --delta 500 --radius 0.8 --link --compact --verbose -y --success 0.001' --graph 1423781940 --start 60 --mpi 8 --queue 'ser-par-10g-2' --readjob 59

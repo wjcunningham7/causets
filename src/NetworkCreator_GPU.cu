@@ -538,47 +538,48 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	//Index 'i' marks the row and 'j' marks the column
 	for (i = 0; i < 2 * GROUP_SIZE; i++) {
 		for (j = 0; j < 2 * GROUP_SIZE / NBUFFERS; j++) {
-			#ifdef _OPENMP
-			#pragma omp parallel
-			{
-				checkCudaErrors(cuCtxSetCurrent(ctx));
+			//I don't think OpenMP generates enough threads for this to be efficient
+			//#ifdef _OPENMP
+			//#pragma omp parallel
+			//{
+			//checkCudaErrors(cuCtxSetCurrent(ctx));
 
-				#pragma omp for schedule(dynamic, 1)
-			#endif
-				for (m = 0; m < NBUFFERS; m++) {
-					if (i > j * NBUFFERS + m)
-						continue;
+			//#pragma omp for schedule(dynamic, 1)
+			//#endif
+			for (m = 0; m < NBUFFERS; m++) {
+				if (i > j * NBUFFERS + m)
+					continue;
 
-					diag = (unsigned int)(i == j * NBUFFERS + m);
+				diag = (unsigned int)(i == j * NBUFFERS + m);
 
-					//Clear Device Buffers
-					checkCudaErrors(cuMemsetD32Async(d_k_in[m], 0, mthread_size, stream[m]));
-					checkCudaErrors(cuMemsetD32Async(d_k_out[m], 0, mthread_size, stream[m]));
-					checkCudaErrors(cuMemsetD8Async(d_edges[m], 0, m_edges_size, stream[m]));					
+				//Clear Device Buffers
+				checkCudaErrors(cuMemsetD32Async(d_k_in[m], 0, mthread_size, stream[m]));
+				checkCudaErrors(cuMemsetD32Async(d_k_out[m], 0, mthread_size, stream[m]));
+				checkCudaErrors(cuMemsetD8Async(d_edges[m], 0, m_edges_size, stream[m]));					
 			
-					//Transfer Nodes to Device Buffers
-					checkCudaErrors(cuMemcpyHtoDAsync(d_w0[m], nodes.crd->w() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
-					checkCudaErrors(cuMemcpyHtoDAsync(d_x0[m], nodes.crd->x() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
-					checkCudaErrors(cuMemcpyHtoDAsync(d_y0[m], nodes.crd->y() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
-					checkCudaErrors(cuMemcpyHtoDAsync(d_z0[m], nodes.crd->z() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
+				//Transfer Nodes to Device Buffers
+				checkCudaErrors(cuMemcpyHtoDAsync(d_w0[m], nodes.crd->w() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_x0[m], nodes.crd->x() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_y0[m], nodes.crd->y() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_z0[m], nodes.crd->z() + i * mthread_size, sizeof(float) * mthread_size, stream[m]));
 
-					checkCudaErrors(cuMemcpyHtoDAsync(d_w1[m], nodes.crd->w() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
-					checkCudaErrors(cuMemcpyHtoDAsync(d_x1[m], nodes.crd->x() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
-					checkCudaErrors(cuMemcpyHtoDAsync(d_y1[m], nodes.crd->y() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
-					checkCudaErrors(cuMemcpyHtoDAsync(d_z1[m], nodes.crd->z() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_w1[m], nodes.crd->w() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_x1[m], nodes.crd->x() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_y1[m], nodes.crd->y() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_z1[m], nodes.crd->z() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * mthread_size, stream[m]));
 
-					//Execute Kernel
-					GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], diag, compact);
-					getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
+				//Execute Kernel
+				GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], diag, compact);
+				getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
 
-					//Copy Memory to Host Buffers
-					checkCudaErrors(cuMemcpyDtoHAsync(h_k_in[m], d_k_in[m], sizeof(int) * mthread_size, stream[m]));
-					checkCudaErrors(cuMemcpyDtoHAsync(h_k_out[m], d_k_out[m], sizeof(int) * mthread_size, stream[m]));
-					checkCudaErrors(cuMemcpyDtoHAsync(h_edges[m], d_edges[m], sizeof(bool) * m_edges_size, stream[m]));
-				}
-			#ifdef _OPENMP
+				//Copy Memory to Host Buffers
+				checkCudaErrors(cuMemcpyDtoHAsync(h_k_in[m], d_k_in[m], sizeof(int) * mthread_size, stream[m]));
+				checkCudaErrors(cuMemcpyDtoHAsync(h_k_out[m], d_k_out[m], sizeof(int) * mthread_size, stream[m]));
+				checkCudaErrors(cuMemcpyDtoHAsync(h_edges[m], d_edges[m], sizeof(bool) * m_edges_size, stream[m]));
 			}
-			#endif
+			//#ifdef _OPENMP
+			//}
+			//#endif
 
 			for (m = 0; m < NBUFFERS; m++) {
 				if (i > j * NBUFFERS + m)

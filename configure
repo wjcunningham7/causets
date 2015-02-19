@@ -29,6 +29,3 @@ else
 		exit 1
 	fi
 fi
-	
-mkdir -p $LOCAL_DIR/include/cuda
-cp etc/shrQATest.h $LOCAL_DIR/include/cuda/

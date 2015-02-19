@@ -1,0 +1,56 @@
+#!/bin/bash
+
+#BSUB -J %jobname%
+#BSUB -o /scratch/cunningham/math/%jobname%/%jobname%.log
+#BSUB -e /scratch/cunningham/math/%jobname%/%jobname%.err
+#BSUB -q krioukov
+#BSUB -n 1
+#BSUB -R span[ptile=1]
+#BSUB -cwd /scratch/cunningham/math/%jobname%
+
+###########################
+#(C) Will Cunningham 2015 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# This is the LSF batch submission script for Mathematica programs
+
+homedir=/home/cunningham.wi/projects/causets
+work=/scratch/cunningham/math/%jobname%
+
+mkdir -p /scratch/cunningham
+mkdir -p /scratch/cunningham/math/%jobname%
+
+cp $homedir/etc/%jobname%.m $work/
+cp $homedir/etc/ToMatlab.m $work/
+
+# Do not edit below this
+
+cd $work
+tempfile1=hostlistrun
+tempfile2=hostlist-tcp
+echo $LSB_MCPU_HOSTS > $tempfile1
+declare -a hosts
+read -a hosts < ${tempfile1}
+for ((i=0; i<${#hosts[@]}; i += 2)) ;
+do
+	HOST=${hosts[$i]}
+	CORE=${hosts[(($i+1))]}
+	echo $HOST:$CORE >> $tempfile2
+done
+
+# Do not edit above this
+
+echo "Starting Mathematica Job..."
+math -noprompt -run '<<%jobname%.m' > %jobname%.out
+sleep 1
+
+wait
+
+# Do not edit below this
+
+rm $work/$tempfile1
+rm $work/$tempfile2
+
+# Do not edit above this

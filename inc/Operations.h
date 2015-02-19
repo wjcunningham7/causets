@@ -689,8 +689,29 @@ inline double embeddedZ1(double x, void *params)
 	return SQRT((1.0 / alpha2) + (POW2(a, EXACT) * x) / (alpha2 * alpha + POW3(x, EXACT)), STL);
 }
 
+//Returns the exact FLRW distance between two nodes
+//O(xxx) Efficiency (revise this)
+inline double distanceFLRW(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe, const bool &compact)
+{
+	if (DEBUG) {
+		assert (dim == 3);
+		assert (manifold == DE_SITTER);
+		assert (a > 0.0);
+		if (universe)
+			assert (alpha > 0.0);
+		assert (compact);
+	}
+
+	//Check if they are the same node
+	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
+		return 0.0;
+
+	double distance;
+
+	return distance;
+}
+
 //Returns the embedded FLRW distance between two nodes
-//Modify this to handle 3+1 DS without matter!
 //O(xxx) Efficiency (revise this)
 inline double distanceEmbFLRW(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe, const bool &compact)
 {
@@ -709,7 +730,6 @@ inline double distanceEmbFLRW(const float4 &node_a, const float &tau_a, const fl
 
 	double z0_a, z0_b;
 	double z1_a, z1_b;
-	//double norm;
 	double inner_product_ab;
 	double distance;
 
@@ -740,13 +760,11 @@ inline double distanceEmbFLRW(const float4 &node_a, const float &tau_a, const fl
 	}
 
 	if (universe) {
-		//norm = POW2(alpha, EXACT);
 		if (DIST_V2)
 			inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
 		else
 			inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
 	} else {
-		//norm = POW2(a, EXACT);
 		if (DIST_V2)
 			inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
 		else

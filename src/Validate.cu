@@ -932,7 +932,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 //Generate confusion matrix for geodesic distances in universe with matter
 //Save matrix values as well as d_theta and d_eta to file
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, long &seed, const int &num_mpi_threads, const int &rank, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, long &seed, const int &num_mpi_threads, const int &rank, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -942,12 +942,18 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const bool *
 		assert (nodes.crd->y() != NULL);
 		assert (nodes.crd->z() != NULL);
 		assert (N_tar > 0);
+		assert (k_tar > 0.0);
 		assert (dim == 3);
+		assert (manifold == DE_SITTER);
+		assert (a > 0.0);
+		if (universe)
+			assert (alpha > 0.0);
+		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (edge_buffer >= 0);
 		#ifdef MPI_ENABLED
 		assert (num_mpi_threads > 0);
 		assert (rank >= 0);
 		#endif
-		assert (manifold == DE_SITTER);
 	}
 
 	uint64_t stride = static_cast<uint64_t>(static_cast<double>(N_tar) * (N_tar - 1) / (N_emb * 2));
@@ -955,6 +961,8 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const bool *
 	uint64_t k;
 
 	#ifdef MPI_ENABLED
+	int edges_size = static_cast<int>(N_tar * k_tar / 2 + edge_buffer);
+	int core_edges_size = static_cast<int>(POW2(core_edge_fraction * N_tar, EXACT));
 	//uint64_t *rcounts = NULL;	//Receive counts used for MPI_Gatherv
 	//uint64_t *displs = NULL;	//Displacements used for MPI_Gatherv
 	#endif
@@ -1008,34 +1016,28 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const bool *
 	}
 
 	#ifdef MPI_ENABLED
-	//BEGIN DEBUG
-	MPI_Barrier(MPI_COMM_WORLD);
-	if (rank == 0)
-		printf("My rank is %d\n", rank);
-	MPI_Barrier(MPI_COMM_WORLD);
-	if (rank == 1)
-		printf("My rank is %d\n", rank);
-	MPI_Barrier(MPI_COMM_WORLD);
-	if (rank == 2)
-		printf("My rank is %d\n", rank);
-	MPI_Barrier(MPI_COMM_WORLD);
-	if (rank == 3)
-		printf("My rank is %d\n", rank);
-	MPI_Barrier(MPI_COMM_WORLD);
-	//END DEBUG
-
-	//Broadcast:
+	// Broadcast:
 	// > nodes.crd.w
 	// > nodes.crd.x
 	// > nodes.crd.y
 	// > nodes.crd.z
 	// > nodes.id.tau
+	// If 'nodesAreConnected' is used
+	// > nodes.k_out
+	// > edges.future_edges
+	// > edges.future_edge_row_start
+	// > core_edge_exists
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Bcast(nodes.crd->w(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(nodes.crd->z(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(nodes.id.tau, N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+
+	MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(core_edge_exists, core_edges_size, MPI::BOOL, 0, MPI_COMM_WORLD);
 	#endif
 
 	uint64_t start = 0;
@@ -1043,10 +1045,8 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const bool *
 
 	#ifdef MPI_ENABLED
 	uint64_t mpi_chunk = npairs / num_mpi_threads;
-	//Define start based on num_mpi_threads and mpi_rank
 	start = rank * mpi_chunk;
-	//Define end based on num_mpi_threads and mpi_rank
-	finish = start + mpi_chunk - 1;
+	finish = start + mpi_chunk;
 	#endif
 
 	#ifdef _OPENMP
@@ -1127,14 +1127,14 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const bool *
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	//Reduce (In-Place):
+	// Reduce (In-Place):
 	// > evd.confusion[0-3]
 	if (rank == 0)
 		MPI_Reduce(MPI_IN_PLACE, evd.confusion, 4, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
 	else
 		MPI_Reduce(evd.confusion, NULL, 4, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
 
-	//Gather (In-Place):
+	// Gather (In-Place):
 	// > rcounts
 	/*if (rank == 0) {
 		rcounts[0] = evd.fn_idx;
@@ -1149,7 +1149,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const bool *
 			displs[i] = displs[i-1] + rcounts[i-1];
 	}*/
 
-	//Gatherv (In-Place):
+	// Gatherv (In-Place):
 	// > evd.fn
 	// > evd.fp
 	/*if (rank == 0)
