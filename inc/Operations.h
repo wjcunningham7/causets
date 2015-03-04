@@ -99,6 +99,37 @@ inline double theta1_Prime4D(const double &x)
 	return POW2(SIN(x, APPROX ? FAST : STL), EXACT) / HALF_PI;
 }
 
+inline double lambda4D(const double &x, const double &a, const float &tau1, const float &tau2, const float &omega12)
+{
+	double st1 = SINH(tau1, APPROX ? FAST : STL);
+	double st2 = SINH(tau2, APPROX ? FAST : STL);
+
+	double xi1 = SQRT(2.0 + x * (1.0 + COSH(2.0 * a * tau1, APPROX ? FAST : STL)), STL);
+	double xi2 = SQRT(2.0 + x * (1.0 + COSH(2.0 * a * tau2, APPROX ? FAST : STL)), STL);
+
+	return SQRT(2.0, STL) * (xi1 * st2 - xi2 * st1) / (xi1 * xi2 + 2.0 * st1 * st2);
+}
+
+inline double lambdaPrime4D(const double &x, const double &a, const float &tau1, const float &tau2)
+{
+	double st1 = SINH(tau1, APPROX ? FAST : STL);
+	double st2 = SINH(tau2, APPROX ? FAST : STL);
+
+	double xi1 = SQRT(2.0 + x * (1.0 + COSH(2.0 * a * tau1, APPROX ? FAST : STL)), STL);
+	double xi2 = SQRT(2.0 + x * (1.0 + COSH(2.0 * a * tau2, APPROX ? FAST : STL)), STL);
+
+	double xi1_2 = POW2(xi1, EXACT);
+	double xi1_3 = POW3(xi1, EXACT);
+
+	double xi2_2 = POW2(xi2, EXACT);
+	double xi2_3 = POW3(xi2, EXACT);
+
+	double psi1 = (SQRT(2.0, STL) / 2.0) * (1.0 + COSH(2.0 * a * tau1, APPROX ? FAST : STL));
+	double psi2 = (SQRT(2.0, STL) / 2.0) * (1.0 + COSH(2.0 * a * tau2, APPROX ? FAST : STL));
+
+	return (xi1_2 * st1 * (xi2_2 * xi2_3 + 2.0 * xi2_3 * psi1 * POW2(st2, EXACT)) - xi1_2 * xi1_3 * psi2 * st2 - 2.0 * xi1_3 * xi2_2 * psi2 * POW2(st1, EXACT) * st2) / (xi1_3 * xi2_3 * POW2(xi1 * xi2 + 2.0 * st1 * st2, EXACT));
+}
+
 //Returns zeta Residual
 //Used in 1+1 and 3+1 Causets
 inline double solveZeta(const double &x, const double * const p1, const float * const p2, const int * const p3)
@@ -196,6 +227,22 @@ inline double solveTheta1(const double &x, const double * const p1, const float 
 	}
 
 	return (-1.0 * theta1_4D(x, p1[0]) / theta1_Prime4D(x));
+}
+
+//Returns lambda Residual
+//Used in 3+1 Geodesic Calculations
+inline double solveLambda4D(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	if (DEBUG) {
+		assert (p1 != NULL);
+		assert (p2 != NULL);
+		assert (p1[0] > 0.0);	//a
+		assert (p2[0] > 0.0f);	//tau1
+		assert (p2[1] > 0.0f);	//tau2
+		assert (p2[2] > 0.0f);	//omega12
+	}
+
+	return (-1.0 * lambda4D(x, p1[0], p2[0], p2[1], p2[2]) / lambdaPrime4D(x, p1[0], p2[0], p2[1]));
 }
 
 //Functions used for solving constraints in NetworkCreator.cu/initVars()
@@ -507,7 +554,7 @@ inline double etaToTauUniverse(const double &eta, const double &a, const double 
 	return g;
 }
 
-//Rescaled Average Degree in Universe Causet
+//Rescaled Average Degree in Universe Causet (Compact)
 
 //Approximates (108) in [2]
 inline double xi(double &r)
@@ -557,7 +604,7 @@ inline double rescaledDegreeUniverse(int dim, double x[], double *params)
 	return z;
 }
 
-//Average Degree in Universe Causet (not rescaled)
+//Average Degree in Universe Causet (not rescaled, compact)
 
 //Gives rescaled scale factor as a function of eta
 inline double rescaledScaleFactor(double *table, double size, double eta, double a, double alpha)
@@ -668,7 +715,7 @@ inline double degreeFieldTheory(double eta, void *params)
 //Geodesic Distances
 
 //Embedded Z1 Coordinate
-//Used to calculate geodesic distances in universe
+//Used to calculate geodesic distances in (embedded) universe
 //For use with GNU Scientific Library
 inline double embeddedZ1(double x, void *params)
 {
@@ -689,31 +736,136 @@ inline double embeddedZ1(double x, void *params)
 	return SQRT((1.0 / alpha2) + (POW2(a, EXACT) * x) / (alpha2 * alpha + POW3(x, EXACT)), STL);
 }
 
-//Returns the exact FLRW distance between two nodes
-//O(xxx) Efficiency (revise this)
-inline double distanceFLRW(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe, const bool &compact)
+inline double geodesicMaxRescaledTime(const double &lambda, const double &a, const bool &universe)
 {
 	if (DEBUG) {
+		assert (lambda != 0.0);
+		assert (a > 0.0);
+	}
+
+	if (lambda >= 0.0)
+		return 0.0f;
+
+	if (universe)
+		return (2.0 / 3.0) * ASINH(POW(ABS(lambda, STL), -0.75, STL), STL, VERY_HIGH_PRECISION);
+	else
+		return ACOSH(POW(ABS(lambda, STL), -0.5, STL) / a, STL, VERY_HIGH_PRECISION);
+}
+
+//Integrands in Exact Geodesic Calculations
+//For use with GNU Scientific Library
+
+inline double deSitterDistKernel(double x, void *params)
+{
+	if (DEBUG) {
+		assert (params != NULL);
+		assert (x >= 0);
+	}
+
+	double *p = (double*)params;
+	double lambda = p[0];
+	double a = p[1];
+
+	if (DEBUG) {
+		assert (lambda != 0.0);
+		assert (a > 0.0);
+	}
+
+	return POW(ABS(1.0 / (lambda * POW2(a, EXACT) * POW2(COSH(x / a, STL), EXACT)) - 1.0, STL), -0.5, STL);
+}
+
+inline double flrwDistKernel(double x, void *params)
+{
+	if (DEBUG) {
+		assert (params != NULL);
+		assert (x >= 0);
+	}
+
+	double *p = (double*)params;
+	double lambda = p[0];
+	double a = p[1];
+
+	if (DEBUG) {
+		assert (lambda != 0.0);
+		assert (a > 0.0);
+	}
+
+	return POW(ABS(POW(SINH(1.5 * x / a, STL), -4.0 / 3.0, STL) / lambda - 1.0, STL), -0.5, STL);
+}
+
+//Returns the exact distance between two nodes
+//O(xxx) Efficiency (revise this)
+inline double distance(const double * const table, const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const long &size, const bool &universe, const bool &compact)
+{
+	if (DEBUG) {
+		assert (table != NULL);
 		assert (dim == 3);
 		assert (manifold == DE_SITTER);
 		assert (a > 0.0);
-		if (universe)
-			assert (alpha > 0.0);
-		assert (compact);
+		assert (alpha > 0.0);
+		assert (size > 0);
+		assert (!compact);
 	}
 
 	//Check if they are the same node
 	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
 		return 0.0;
 
+	double (*kernel)(double x, void *params);
 	double distance;
+	double lambda;
+
+	if (universe) {
+		lambda = lookupValue4D(table, size, tau_a, tau_b, (alpha / a) * flatProduct_v2(node_a, node_b));
+		kernel = &flrwDistKernel;
+	} else {
+		float p2[3];
+		p2[0] = tau_a;
+		p2[1] = tau_b;
+		p2[2] = flat_product_v2(node_a, node_b);
+
+		double x = 0.5;
+		if (!newton(&solveLambda4D, &x, 10000, TOL, &a, p2, NULL))
+			return -1.0;
+		lambda = x;
+		kernel = &deSitterDistKernel;
+	}
+
+	//Check for NaN
+	if (lambda != lambda)
+		return -1.0;
+
+	IntData idata = IntData();
+	idata.tol = 1e-5;
+	
+	double p[2];
+	p[0] = lambda;
+	p[1] = a;
+
+	if (DEBUG)
+		assert (lambda != 0.0);
+
+	if (lambda > 0.0) {
+		idata.lower = a * tau_a;
+		idata.upper = a * tau_b;
+		distance = integrate1D(&kernel, (void*)p, &idata, QNG);
+	} else {
+		double tau_max = geodesicMaxRescaledTime(lambda, universe);
+
+		idata.lower = a * tau_a;
+		idata.upper = a * tau_max;
+		distance = integrate1D(&kernel, (void*)p, &idata, QNG);
+
+		idata.lower = a * tau_b;
+		distance += integrate1D(&kernel, (void*)p, &idata, QNG);
+	}
 
 	return distance;
 }
 
 //Returns the embedded FLRW distance between two nodes
 //O(xxx) Efficiency (revise this)
-inline double distanceEmbFLRW(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe, const bool &compact)
+inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe, const bool &compact)
 {
 	if (DEBUG) {
 		assert (dim == 3);

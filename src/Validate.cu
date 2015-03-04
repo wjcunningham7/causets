@@ -1065,7 +1065,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 		}
 
 		//Embedded distance
-		double distance = distanceEmbFLRW(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact);
+		double distance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact);
 
 		//Check light cone condition for 4D vs 5D
 		//Null hypothesis is the nodes are not connected

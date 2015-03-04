@@ -117,6 +117,7 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 
 //Lookup value in table of (t1, t2, omega12, lambda) coordinates -> 4D parameter space
 //Used for geodesic distance calculations
+//Returns the transcendental integration parameter 'lambda'
 double lookupValue4D(const double *table, const long &size, const double &t1, const double &t2, const double &omega12)
 {
 	if (DEBUG) {
@@ -128,7 +129,60 @@ double lookupValue4D(const double *table, const long &size, const double &t1, co
 		assert (t2 > t1);
 	}
 
-	return 0.0;
+	double tau1_val = 0.0;
+	double tau2_val = 0.0;
+	double omega12_val = 0.0;
+	double lambda = 0.0;
+
+	int tau_step = table[0];
+	int lambda_step = table[1];
+	int step = 4 * tau_step * lambda_step;
+	int i;
+
+	try {
+		//Identify Value in Table
+		//Assumes values are written (tau1, tau2, omega12, lambda)
+		for (i = 2; i < size / (int)sizeof(double); i += step) {
+			if (tau1_val == 0.0 && table[i] > t1) {
+				tau1_val = table[i-step];
+				i -= (step - 1);
+				step = 4 * lambda_step;
+			} else if (tau2_val == 0.0 && table[i] > t2) {
+				tau2_val = table[i-step];
+				i -= (step - 1);
+				step = 4;
+			} else if (omega12_val == 0.0 && table[i] > omega12) {
+				omega12_val = table[i-step];
+				i -= (step - 1);
+				step = 1;
+			} else {
+				lambda = table[i];
+				break;
+			}				
+		}
+
+		//Perhaps do some linear interpolation here?
+
+		//If no value found
+		if (lambda == 0.0) {
+			if (step == 4 * tau_step * lambda_step)
+				throw CausetException("tau1 value not found in geodesic lookup table.\n");
+			else if (step == 4 * lambda_step)
+				throw CausetException("tau2 value not found in geodesic lookup table.\n");
+			else if (step == 4)
+				throw CausetException("lambda value not found in geodesic lookup table.\n");
+			else
+				throw std::exception();
+		}
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		lambda = std::numeric_limits<double>::quiet_NaN();
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		lambda = std::numeric_limits<double>::quiet_NaN();
+	}
+
+	return lambda;
 }
 
 //Sort nodes temporally

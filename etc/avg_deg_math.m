@@ -1,7 +1,5 @@
 (* ::Package:: *)
 
-Needs["ToMatlab`", "./ToMatlab.m"];
-
 (* Constants and Functions *)
 
 Print[StandardForm["Avg_Deg_Math Output..."]];
@@ -24,7 +22,7 @@ ABCD1\[Theta][\[Tau]\[DoublePrime]_, \[Tau]\[Prime]_, \[Theta]\[Prime]_] = Limit
 ABCD1\[Tau][\[Tau]\[Prime]_, \[Theta]\[Prime]_] = Integrate[g[\[Tau]\[DoublePrime]]*ABCD1\[Theta][\[Tau]\[DoublePrime], \[Tau]\[Prime], \[Theta]\[Prime]], {\[Tau]\[DoublePrime], \[Tau]\[Prime], \[Tau]\[Prime] + h1[\[Theta]\[Prime]]}];
 ABCD1[\[Tau]\[Prime]_, \[Theta]\[Prime]_] = (4*Pi*a*\[Alpha]^3)*ABCD1\[Tau][\[Tau]\[Prime], \[Theta]\[Prime]];
 Print[StandardForm["ABCD1:"]];
-Print[StandardForm[ToString[ABCD1[\[Tau]\[Prime], \[Theta]\[Prime]], CharacterEncoding -> "ASCII"]]];
+Print[StandardForm[ToString[ABCD1[\[Tau]\[Prime], \[Theta]\[Prime]], InputForm, CharacterEncoding -> "ASCII"]]];
 Print[StandardForm[""]];
 
 (* Case I: Region E *)
@@ -32,7 +30,7 @@ E1\[Theta][\[Tau]\[DoublePrime]_, \[Tau]\[Prime]_, \[Theta]\[Prime]_] = Limit[In
 E1\[Tau][\[Tau]\[Prime]_, \[Theta]\[Prime]_] = Integrate[g[\[Tau]\[DoublePrime]]*E1\[Theta][\[Tau]\[DoublePrime], \[Tau]\[Prime], \[Theta]\[Prime]], {\[Tau]\[DoublePrime], \[Tau]\[Prime], \[Tau]0}];
 E1[\[Tau]\[Prime]_, \[Theta]\[Prime]_] = (4*Pi*a*\[Alpha]^3)*E1\[Tau][\[Tau]\[Prime], \[Theta]\[Prime]];
 Print[StandardForm["E1:"]];
-Print[StandardForm[ToString[E1[\[Tau]\[Prime], \[Theta]\[Prime]], CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[E1[\[Tau]\[Prime], \[Theta]\[Prime]], InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Case II: Region A *)
@@ -40,7 +38,7 @@ A2\[Theta][\[Tau]\[DoublePrime]_, \[Tau]\[Prime]_, \[Theta]\[Prime]_] = Limit[In
 A2\[Tau][\[Tau]\[Prime]_, \[Theta]\[Prime]_] = Integrate[g[\[Tau]\[DoublePrime]]*A2\[Theta][\[Tau]\[DoublePrime], \[Tau]\[Prime], \[Theta]\[Prime]], {\[Tau]\[DoublePrime], \[Tau]\[Prime] + h1[\[Theta]\[Prime]], \[Tau]\[Prime] + (h2[\[Theta]\[Prime]] - h1[\[Theta]\[Prime]])}];
 A2[\[Tau]\[Prime]_, \[Theta]\[Prime]_] = (4*Pi*a*\[Alpha]^3)*A2\[Tau][\[Tau]\[Prime], \[Theta]\[Prime]];
 Print[StandardForm["A2:"]];
-Print[StandardForm[ToString[A2[\[Tau]\[Prime], \[Theta]\[Prime]], CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[A2[\[Tau]\[Prime], \[Theta]\[Prime]], InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Case II: Region B *)
@@ -48,7 +46,7 @@ B2\[Theta][\[Tau]\[DoublePrime]_, \[Tau]\[Prime]_, \[Theta]\[Prime]_] = Limit[In
 B2\[Tau][\[Tau]\[Prime]_, \[Theta]\[Prime]_] = Integrate[g[\[Tau]\[DoublePrime]]*B2\[Theta][\[Tau]\[DoublePrime], \[Tau]\[Prime], \[Theta]\[Prime]], {\[Tau]\[DoublePrime], \[Tau]\[Prime] + h1[\[Theta]\[Prime]], \[Tau]\[Prime] + (h2[\[Theta]\[Prime]] - h1[\[Theta]\[Prime]])}];
 B2[\[Tau]\[Prime]_, \[Theta]\[Prime]_] = (4*Pi*a*\[Alpha]^3)*B2\[Tau][\[Tau]\[Prime], \[Theta]\[Prime]];
 Print[StandardForm["B2:"]];
-Print[StandardForm[ToString[B2[\[Tau]\[Prime], \[Theta]\[Prime]], CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[B2[\[Tau]\[Prime], \[Theta]\[Prime]], InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Case II: Region C *)
@@ -56,7 +54,7 @@ C2\[Theta][\[Tau]\[DoublePrime]_, \[Tau]\[Prime]_, \[Theta]\[Prime]_] = Limit[In
 C2\[Tau][\[Tau]\[Prime]_, \[Theta]\[Prime]_] = Integrate[g[\[Tau]\[DoublePrime]]*C2\[Theta][\[Tau]\[DoublePrime], \[Tau]\[Prime], \[Theta]\[Prime]], {\[Tau]\[DoublePrime], \[Tau]\[Prime] + h1[\[Theta]\[Prime]], \[Tau]0}];
 C2[\[Tau]\[Prime]_, \[Theta]\[Prime]_] = (4*Pi*a*\[Alpha]^3)*C2\[Tau][\[Tau]\[Prime], \[Theta]\[Prime]];
 Print[StandardForm["C2:"]];
-Print[StandardForm[ToString[C2[\[Tau]\[Prime], \[Theta]\[Prime]], CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[C2[\[Tau]\[Prime], \[Theta]\[Prime]], InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Case II: Region D *)
@@ -64,7 +62,7 @@ D2\[Theta][\[Tau]\[DoublePrime]_, \[Tau]\[Prime]_, \[Theta]\[Prime]_] = Limit[In
 D2\[Tau][\[Tau]\[Prime]_, \[Theta]\[Prime]_] = Integrate[g[\[Tau]\[DoublePrime]]*D2\[Theta][\[Tau]\[DoublePrime], \[Tau]\[Prime], \[Theta]\[Prime]], {\[Tau]\[DoublePrime], \[Tau]\[Prime] + h1[\[Theta]\[Prime]], \[Tau]0}];
 D2[\[Tau]\[Prime]_, \[Theta]\[Prime]_] = (4*Pi*a*\[Alpha]^3)*D2\[Tau][\[Tau]\[Prime], \[Theta]\[Prime]];
 Print[StandardForm["D2:"]];
-Print[StandardForm[ToString[D2[\[Tau]\[Prime], \[Theta]\[Prime]], CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[D2[\[Tau]\[Prime], \[Theta]\[Prime]], InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Case III: Regions A and B *)
@@ -72,7 +70,7 @@ AB3\[Theta][\[Tau]\[DoublePrime]_, \[Tau]\[Prime]_, \[Theta]\[Prime]_] = Limit[I
 AB3\[Tau][\[Tau]\[Prime]_, \[Theta]\[Prime]_] = Integrate[g[\[Tau]\[DoublePrime]]*AB3\[Theta][\[Tau]\[DoublePrime], \[Tau]\[Prime], \[Theta]\[Prime]], {\[Tau]\[DoublePrime], \[Tau]\[Prime] + h2[\[Theta]\[Prime]], \[Tau]0}];
 AB3[\[Tau]\[Prime]_, \[Theta]\[Prime]_] = (4*Pi*a*\[Alpha]^3)*AB3\[Tau][\[Tau]\[Prime], \[Theta]\[Prime]];
 Print[StandardForm["AB3:"]];
-Print[StandardForm[ToString[AB3[\[Tau]\[Prime], \[Theta]\[Prime]], CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[AB3[\[Tau]\[Prime], \[Theta]\[Prime]], InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Averaged Future Light Cone *)
@@ -86,7 +84,7 @@ Print[StandardForm[""]];
 \[Alpha]A2 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Alpha]A2\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], h3, h3 + R0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > 2*R0 && h3 > 0];
 \[Alpha]A = FullSimplify[\[Alpha]A1 + \[Alpha]A2, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > 2*R0];
 Print[StandardForm["\[Alpha]A:"]];
-Print[StandardForm[ToString[\[Alpha]A, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Alpha]A, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Region B *)
@@ -96,7 +94,7 @@ Print[StandardForm[""]];
 \[Alpha]B2 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Alpha]B2\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], h3, h3 + R0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > 2*R0 && h3 > 0];
 \[Alpha]B = FullSimplify[\[Alpha]B1 + \[Alpha]B2, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > 2*R0];
 Print[StandardForm["\[Alpha]B:"]];
-Print[StandardForm[ToString[\[Alpha]B, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Alpha]B, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Region C *)
@@ -106,7 +104,7 @@ Print[StandardForm[""]];
 \[Alpha]C2 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Alpha]C2\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], h3 + R0, \[Tau]0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && h3 > 0 && h3 + R0 < \[Tau]0 && \[Tau]0 > 2*R0];
 \[Alpha]C = FullSimplify[\[Alpha]C1 + \[Alpha]C2, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > 2*R0];
 Print[StandardForm["\[Alpha]C:"]];
-Print[StandardForm[ToString[\[Alpha]C, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Alpha]C, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Region D *)
@@ -116,7 +114,7 @@ Print[StandardForm[""]];
 \[Alpha]D2 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Alpha]D2\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], h3 + R0, \[Tau]0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && h3 > 0 && h3 + R0 < \[Tau]0 && \[Tau]0 > 2*R0];
 \[Alpha]D = FullSimplify[\[Alpha]D1 + \[Alpha]D2, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > 2*R0];
 Print[StandardForm["\[Alpha]D:"]];
-Print[StandardForm[ToString[\[Alpha]D, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Alpha]D, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Region E *)
@@ -124,7 +122,7 @@ Print[StandardForm[""]];
 \[Alpha]E1 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Alpha]E1\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], h3 + R0, \[Tau]0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && h3 > 0 && \[Tau]0 > 2*R0];
 \[Alpha]E = FullSimplify[\[Alpha]E1, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > 2*R0];
 Print[StandardForm["\[Alpha]E:"]];
-Print[StandardForm[ToString[\[Alpha]E, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Alpha]E, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Case \[Beta] : R0 < \[Tau]0 < 2R0 *)
@@ -134,7 +132,7 @@ Print[StandardForm[""]];
 \[Beta]A1 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Beta]A1\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], 0, w2}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && w2 > 0 && \[Tau]0 > R0 && \[Tau]0 < 2*R0];
 \[Beta]A = FullSimplify[\[Beta]A1, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > R0 && \[Tau]0 < 2*R0];
 Print[StandardForm["\[Beta]A:"]];
-Print[StandardForm[ToString[\[Beta]A, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Beta]A, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Region B *)
@@ -142,7 +140,7 @@ Print[StandardForm[""]];
 \[Beta]B1 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Beta]B1\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], 0, w2}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && w2 > 0 && \[Tau]0 > R0 && \[Tau]0 < 2*R0];
 \[Beta]B = FullSimplify[\[Beta]B1, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > R0 && \[Tau]0 < 2*R0];
 Print[StandardForm["\[Beta]B:"]];
-Print[StandardForm[ToString[\[Beta]B, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Beta]B, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Region C *)
@@ -152,7 +150,7 @@ Print[StandardForm[""]];
 \[Beta]C2 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Beta]C2\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], w2, \[Tau]0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && w2 > 0 && w2 < \[Tau]0 && \[Tau]0 > R0 && \[Tau]0 < 2*R0];
 \[Beta]C = FullSimplify[\[Beta]C1 + \[Beta]C2, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > R0 && \[Tau]0 < 2*R0];
 Print[StandardForm["\[Beta]C:"]];
-Print[StandardForm[ToString[\[Beta]C, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Beta]C, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Region D *)
@@ -162,7 +160,7 @@ Print[StandardForm[""]];
 \[Beta]D2 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Beta]D2\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], w2, \[Tau]0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && w2 > 0 && w2 < \[Tau]0 && \[Tau]0 > R0 && \[Tau]0 < 2*R0];
 \[Beta]D = FullSimplify[\[Beta]D1 + \[Beta]D2, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > R0 && \[Tau]0 < 2*R0];
 Print[StandardForm["\[Beta]D:"]];
-Print[StandardForm[ToString[\[Beta]D, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Beta]D, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Region E *)
@@ -170,7 +168,7 @@ Print[StandardForm[""]];
 \[Beta]E1 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Beta]E1\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], w2, \[Tau]0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && w2 > 0 && w2 < \[Tau]0 && \[Tau]0 > R0 && \[Tau]0 < 2*R0];
 \[Beta]E = FullSimplify[\[Beta]E1, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > R0 && \[Tau]0 < 2*R0];
 Print[StandardForm["\[Beta]E:"]];
-Print[StandardForm[ToString[\[Beta]E, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Beta]E, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Case \[Gamma] : \[Tau]0 < R0 *)
@@ -180,7 +178,7 @@ Print[StandardForm[""]];
 \[Gamma]C1 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Gamma]C1\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], 0, \[Tau]0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 < R0];
 \[Gamma]C = FullSimplify[\[Gamma]C1, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 < R0];
 Print[StandardForm["\[Gamma]C:"]];
-Print[StandardForm[ToString[\[Gamma]C, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Gamma]C, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Region D *)
@@ -188,7 +186,7 @@ Print[StandardForm[""]];
 \[Gamma]D1 = Integrate[(\[Rho]\[Tau][\[Tau]\[Prime]] & )*\[Gamma]D1\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], 0, \[Tau]0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 < R0];
 \[Gamma]D = FullSimplify[\[Gamma]D1, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 < R0];
 Print[StandardForm["\[Gamma]D:"]];
-Print[StandardForm[ToString[\[Gamma]D, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Gamma]D, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Region E *)
@@ -196,7 +194,7 @@ Print[StandardForm[""]];
 \[Gamma]E1 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Gamma]E1\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], 0, \[Tau]0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 < R0];
 \[Gamma]E = FullSimplify[\[Gamma]E1, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 < R0];
 Print[StandardForm["\[Gamma]E:"]];
-Print[StandardForm[ToString[\[Gamma]E, CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[\[Gamma]E, InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Average Out-Degree *)
@@ -204,19 +202,19 @@ Print[StandardForm[""]];
 (* Case \[Alpha] : \[Tau]0 > 2 R0 *)
 k\[Alpha] = FullSimplify[\[Delta]*(\[Alpha]A + \[Alpha]B + \[Alpha]C + \[Alpha]D + \[Alpha]E), Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > 2*R0 && \[Delta] > 0];
 Print[StandardForm["k\[Alpha]:"]];
-Print[StandardForm[ToString[k\[Alpha], CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[k\[Alpha], InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Case \[Beta] : R0 < \[Tau]0 < 2 R0 *)
 k\[Beta] = FullSimplify[\[Delta]*(\[Beta]A + \[Beta]B + \[Beta]C + \[Beta]D + \[Beta]E), Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 > R0 && \[Tau]0 < 2*R0 && \[Delta] > 0];
 Print[StandardForm["k\[Beta]:"]];
-Print[StandardForm[ToString[k\[Beta], CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[k\[Beta], InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 (* Case \[Gamma] : \[Tau]0 < R0 *)
 k\[Gamma] = FullSimplify[\[Delta]*(\[Gamma]C + \[Gamma]D + \[Gamma]E), Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 < R0 && \[Delta] > 0];
 Print[StandardForm["k\[Gamma]:"]];
-Print[StandardForm[ToString[k\[Gamma], CharacterEncoding -> "ASCII"]]]; 
+Print[StandardForm[ToString[k\[Gamma], InputForm, CharacterEncoding -> "ASCII"]]]; 
 Print[StandardForm[""]];
 
 Print[StandardForm["PROGRAM COMPLETED"]];

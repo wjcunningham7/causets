@@ -22,10 +22,16 @@
 # Average Degree in FLRW #
 #------------------------#
 
-./lsf/mbat --name 'avg_deg_math'
+#./lsf/mbat --name 'avg_deg_math' --ncores 1
 
 #---------------------------------#
 # Puiseux Expansion for Geodesics #
 #---------------------------------#
 
-./lsf/mbat --name 'puiseux_geodesics'
+#./lsf/mbat --name 'puiseux_geodesics' --ncores 1
+
+#./lsf/mbat --name 'puiseux_geodesics2' --ncores 32
+
+#./lsf/mbat --name 'puiseux_geodesics3' --ncores 32
+
+./lsf/mbat --name 'puiseux_geodesics4' --ncores 1

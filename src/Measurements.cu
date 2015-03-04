@@ -364,7 +364,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		memset(used + N_tar * omp_get_thread_num(), 0, sizeof(bool) * N_tar);
 
 		//Begin Traversal from i to j
-		bool success = traversePath(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, universe, compact, i, j);
+		bool success = traversePath(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, universe, compact, i, j);
 
 		n_trav++;
 		if (success)
@@ -415,7 +415,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //O(xxx) Efficiency (revise this)
-bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const bool &universe, const bool &compact, int source, int dest)
+bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &universe, const bool &compact, int source, int dest)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
@@ -444,6 +444,7 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
 		assert (used != NULL);
+		assert (table != NULL);
 		
 		assert (N_tar > 0);
 		if (manifold == DE_SITTER) {
@@ -453,6 +454,7 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 				assert (alpha > 0.0);
 		}
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (size > 0);
 		assert (source >= 0 && source < N_tar);
 		assert (dest >= 0 && dest < N_tar);
 	}
@@ -497,10 +499,14 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 			//(C) Otherwise find the past neighbor closest to the destination
 			if (manifold == DE_SITTER) {
 				if (compact)
-					dist = distanceEmbFLRW(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
-				//else Use Michel's version
+					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+				else
+					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+
+			if (dist < 0)
+				return false;
 
 			//Save the minimum distance
 			if (dist <= min_dist) {
@@ -525,7 +531,7 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 		#endif
 		for (int m = 0; m < nodes.k_out[loc]; m++) {
 			#ifdef _OPENMP
-			if (priv_next == idx_b)
+			if (priv_next == idx_b || priv_next == -1)
 				continue;
 			#endif
 
@@ -556,10 +562,14 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 			//(F) Otherwise find the future neighbor closest to the destination
 			if (manifold == DE_SITTER) {
 				if (compact)
-					dist = distanceEmbFLRW(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
-				//else Use Michel's version
+					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+				else
+					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+
+			if (dist < 0)
+				idx_a = -1;
 
 			#ifdef _OPENMP
 			if (dist <= priv_min_dist) {
@@ -592,6 +602,8 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 
 		if (next == idx_b)
 			return true;
+		else if (next == -1)
+			return false;
 
 		if (!used[next])
 			loc = next;
