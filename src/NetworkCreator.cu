@@ -247,11 +247,15 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 		}
 			
 		//Check other parameters if applicable
+		uint64_t pair_multiplier = static_cast<uint64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
 		if (network_properties->flags.validate_embedding)
-			network_properties->N_emb *= static_cast<uint64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
+			network_properties->N_emb *= pair_multiplier;
 
 		if (network_properties->flags.calc_success_ratio)
-			network_properties->N_sr *= static_cast<uint64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
+			network_properties->N_sr *= pair_multiplier;
+
+		if (network_properties->flags.validate_distances)
+			network_properties->N_dst *= pair_multiplier;
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;

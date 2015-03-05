@@ -28,7 +28,7 @@ do
   echo Trial $i of ${samples}
 #  ./bin/CausalSet --nodes 20480 --degrees 10 --radius 2 --seed 18100 --link --compact --verbose -y --embedding 1
 #  ./bin/CausalSet --universe --nodes 20480 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --gpu --print
-  ./bin/CausalSet --universe --graph 1423690159 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --success 0.01
+#  ./bin/CausalSet --universe --graph 1423690159 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --success 0.01
 done
 
 ######################################

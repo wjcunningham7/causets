@@ -28,6 +28,8 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, long &seed, const int &num_mpi_threads, const int &rank, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose);
 
+bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &alpha, Stopwatch &sValidateDistances, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose);
+
 bool printValues(Node &nodes, const int num_vals, const char *filename, const char *coord);
 
 bool printDegrees(const Node &nodes, const int num_vals, const char *filename_in, const char *filename_out);

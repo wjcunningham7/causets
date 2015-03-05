@@ -522,10 +522,10 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 		float priv_min_dist = min_dist;
 		int priv_next = next;
 		//bool make_parallel = nodes.k_out[loc] > 10000;
-		bool make_parallel = false;
+		//bool make_parallel = false;
 		#pragma omp parallel shared (next, min_dist) \
 				     firstprivate (idx_a, priv_min_dist, priv_next) \
-				     if (make_parallel)
+				     if (false)
 		{
 		#pragma omp for schedule (dynamic, 1)
 		#endif

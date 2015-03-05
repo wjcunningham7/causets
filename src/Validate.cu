@@ -941,6 +941,9 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 		assert (nodes.crd->x() != NULL);
 		assert (nodes.crd->y() != NULL);
 		assert (nodes.crd->z() != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.future_edge_row_start != NULL);
+		assert (core_edge_exists != NULL);
 		assert (N_tar > 0);
 		assert (k_tar > 0.0);
 		assert (dim == 3);
@@ -1181,7 +1184,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 
 	stopwatchStop(&sValidateEmbedding);
 
-	printf_mpi(rank, "\tCalculated Confusion Matrix.\n");
+	printf_mpi(rank, "\tCalculated Embedding Confusion Matrix.\n");
 	if (rank == 0) printf_cyan();
 	printf_mpi(rank, "\t\tTrue  Positives: %f\t(4D spacelike, 5D spacelike)\n", static_cast<double>(evd.confusion[0]) / evd.A1S);
 	printf_mpi(rank, "\t\tTrue  Negatives: %f\t(4D timelike,  5D timelike)\n", static_cast<double>(evd.confusion[1]) / evd.A1T);
@@ -1193,6 +1196,112 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 
 	if (verbose) {
 		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sValidateEmbedding.elapsedTime);
+		fflush(stdout);
+	}
+
+	return true;
+}
+
+bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &alpha, Stopwatch &sValidateDistances, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
+{
+	if (DEBUG) {
+		assert (nodes.crd->getDim() == 4);
+		assert (!nodes.crd->isNull());
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+		assert (nodes.crd->z() != NULL);
+		assert (N_tar > 0);
+		assert (dim == 3);
+		assert (manifold == DE_SITTER);
+		assert (a > 0.0);
+		assert (!universe);
+	}
+
+	uint64_t stride = static_cast<uint64_t>(static_cast<double>(N_tar) * (N_tar - 1) / (N_dst * 2));
+	uint64_t npairs = static_cast<uint64_t>(N_dst);
+	uint64_t k;
+
+	double tol = 0.01;
+
+	stopwatchStart(&sValidateDistances);
+
+	try {
+		dvd.confusion = (uint64_t*)malloc(sizeof(uint64_t) * 2);
+		if (dvd.confusion == NULL)
+			throw std::bad_alloc();
+		memset(dvd.confusion, 0, sizeof(uint64_t) * 2);
+		hostMemUsed += sizeof(uint64_t) * 2;
+
+		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+		if (verbose)
+			printMemUsed("for Distance Validation", hostMemUsed, devMemUsed, 0);
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	}
+
+	uint64_t start = 0;
+	uint64_t finish = npairs;
+
+	#ifdef _OPENMP
+	#pragma omp parallel for
+	#endif
+	for (k = start; k < finish; k++) {
+		//Choose a pair (i,j) from a single index k
+		uint64_t vec_idx = k * stride + 1;
+		int i = static_cast<int>(vec_idx / (N_tar - 1));
+		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
+		int do_map = i >= j;
+
+		if (j < N_tar >> 1) {
+			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
+			j = j + do_map * (((N_tar >> 1) - j) << 1);
+		}
+
+		//DEBUG
+		//printf("i: %d\tj: %d\n", i, j);
+
+		//if (nodes.id.tau[i] == nodes.id.tau[j])
+		//	printf("ERROR!\n");
+
+		//Distance using embedding
+		double embeddedDistance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact);
+
+		//Distance using exact formula
+		double exactDistance = distance(NULL, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, 0, universe, compact);
+
+		double dx = ACOS(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)), STL, VERY_HIGH_PRECISION);
+
+		if (ABS(embeddedDistance - exactDistance, STL) / embeddedDistance < tol || dx > HALF_PI) {
+			#ifdef _OPENMP
+			#pragma omp atomic
+			#endif
+			dvd.confusion[0]++;
+		} else {
+			#ifdef _OPENMP
+			#pragma omp atomic
+			#endif
+			dvd.confusion[1]++;
+			printf("Embedding: %f\n", embeddedDistance);
+			printf("Exact:     %f\n\n", exactDistance);
+		}
+	}
+
+	dvd.norm = static_cast<double>(npairs);
+
+	stopwatchStop(&sValidateDistances);
+
+	printf("\tCalculated Distances Confusion Matrix.\n");
+	printf_cyan();
+	printf("\t\tMatching    Pairs: %f\n", static_cast<double>(dvd.confusion[0]) / dvd.norm);
+	printf_red();
+	printf("\t\tConflicting Pairs: %f\n", static_cast<double>(dvd.confusion[1]) / dvd.norm);
+	printf_std();
+	fflush(stdout);
+
+	if (verbose) {
+		printf("\t\tExecution Time: %5.6f sec\n", sValidateDistances.elapsedTime);
 		fflush(stdout);
 	}
 

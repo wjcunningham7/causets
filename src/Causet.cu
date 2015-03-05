@@ -128,6 +128,7 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 		{ "test",	no_argument,		NULL, 'T' },
 		{ "age",	required_argument,	NULL, 't' },
 		{ "universe",	no_argument,		NULL, 'u' },
+		{ "distances",	required_argument,	NULL, 'V' },
 		{ "verbose", 	no_argument, 		NULL, 'v' },
 		{ "maxchi",	required_argument,	NULL, 'x' },
 		{ "zeta",	required_argument,	NULL, 'z' },
@@ -322,6 +323,12 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 			case 'u':	//Flag for creating universe causet
 				network_properties.flags.universe = true;
 				break;
+			case 'V':	//Flag for comparing distance methods
+				network_properties.flags.validate_distances = true;
+				network_properties.N_dst = atof(optarg);
+				if (network_properties.N_dst <= 0.0 || network_properties.N_dst > 1.0)
+					throw CausetException("Invalid argument for 'distances' parameter!\n");
+				break;
 			case 'v':	//Verbose output
 				network_properties.flags.verbose = true;
 				break;
@@ -418,6 +425,7 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				printf_mpi(rank, "  -T, --test\t\tTest Universe Parameters\n");
 				printf_mpi(rank, "  -t, --age\t\tRescaled Age of Universe\t0.85\n");
 				printf_mpi(rank, "  -u, --universe\tUniverse Causet\n");
+				printf_mpi(rank, "  -V, --distances\tValidate Distance Methods\t\t0.01\n");
 				printf_mpi(rank, "  -v, --verbose\t\tVerbose Output\n");
 				printf_mpi(rank, "  -x, --maxchi\t\tSize of Spatial Slice\t\t100\n");
 				printf_mpi(rank, "  -y\t\t\tSuppress User Queries\n");
@@ -622,7 +630,7 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 		assert (bm != NULL);
 	}
 	
-	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio && !network->network_properties.flags.calc_deg_field)
+	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio && !network->network_properties.flags.calc_deg_field && !network->network_properties.flags.validate_distances)
 		return true;
 
 	int rank = network->network_properties.rank;
@@ -723,6 +731,12 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 
 		if (nb)
 			bm->bMeasureDegreeField = cp->sMeasureDegreeField.elapsedTime / NBENCH;
+	}
+
+	//Validate Distance Methods
+	if (network->network_properties.flags.validate_distances) {
+		if (!validateDistances(network->network_observables.dvd, network->nodes, network->network_properties.N_tar, network->network_properties.N_dst, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, cp->sValidateDistances, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose))
+			return false;
 	}
 	#ifdef MPI_ENABLED
 	}
@@ -1689,6 +1703,12 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 			free(network->network_observables.out_degree_field);
 			network->network_observables.out_degree_field = NULL;
 			hostMemUsed -= sizeof(int) * network->network_properties.N_df;
+		}
+
+		if (network->network_properties.flags.validate_distances) {
+			free(network->network_observables.dvd.confusion);
+			network->network_observables.dvd.confusion = NULL;
+			hostMemUsed -= sizeof(uint64_t) * 2;
 		}
 	}
 }

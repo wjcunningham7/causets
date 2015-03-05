@@ -22,6 +22,7 @@
 # GPU Acceleration #
 #==================#
 
+./lsf/cbat --ncores 32 --flags '--nodes 20480 --degrees 10 --delta 500 --radius 2.0 --link --verbose -y --compact --seed 18100 --gpu --distances 0.001' --start 60 --queue 'par-gpu' --nsamples 1
 #./lsf/cbat --ncores 32 --flags '--universe --nodes 65536 --degrees 10 --delta 500 --radius 0.8 --link --verbose -y --compact --gpu --print' --start 59 --queue 'par-gpu' --nsamples 1
 
 #=======================#
@@ -38,10 +39,11 @@
 # No Acceleration #
 #=================#
 
+#./lsf/cbat --ncores 40 --flags '--degrees 10 --delta 500 --radius 2.0 --link --compact --verbose -y --distances 0.001' --graph 1425566890 --start 60 --queue 'ser-par-10g-3' --readjob 59
 #./lsf/cbat --ncores 16 --flags '--universe --degrees 10 --delta 500 --radius 0.8 --link --compact --verbose -y --success 0.001' --graph 1423781940 --start 60 --queue 'ser-par-10g' --readjob 59
 
 #==================#
 # MPI Acceleration #
 #==================#
 
-./lsf/cbat --ncores 40 --flags '--universe --degrees 10 --delta 500 --radius 0.8 --link --compact --verbose -y --success 0.001' --graph 1423781940 --start 60 --mpi 8 --queue 'ser-par-10g-2' --readjob 59
+#./lsf/cbat --ncores 40 --flags '--universe --degrees 10 --delta 500 --radius 0.8 --link --compact --verbose -y --success 0.001' --graph 1423781940 --start 60 --mpi 8 --queue 'ser-par-10g-2' --readjob 59

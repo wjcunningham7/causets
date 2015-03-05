@@ -107,7 +107,7 @@ inline double lambda4D(const double &x, const double &a, const float &tau1, cons
 	double xi1 = SQRT(2.0 + x * (1.0 + COSH(2.0 * a * tau1, APPROX ? FAST : STL)), STL);
 	double xi2 = SQRT(2.0 + x * (1.0 + COSH(2.0 * a * tau2, APPROX ? FAST : STL)), STL);
 
-	return SQRT(2.0, STL) * (xi1 * st2 - xi2 * st1) / (xi1 * xi2 + 2.0 * st1 * st2);
+	return SQRT(2.0, STL) * (xi1 * st2 - xi2 * st1) / (xi1 * xi2 + 2.0 * st1 * st2) - TAN(omega12, APPROX ? FAST : STL);
 }
 
 inline double lambdaPrime4D(const double &x, const double &a, const float &tau1, const float &tau2)
@@ -243,6 +243,22 @@ inline double solveLambda4D(const double &x, const double * const p1, const floa
 	}
 
 	return (-1.0 * lambda4D(x, p1[0], p2[0], p2[1], p2[2]) / lambdaPrime4D(x, p1[0], p2[0], p2[1]));
+}
+
+//Returns lambda Residual in Bisection Algorithm
+//Used in 3+1 Geodesic Calculations
+inline double solveLambda4DBisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	if (DEBUG) {
+		assert (p1 != NULL);
+		assert (p2 != NULL);
+		assert (p1[0] > 0.0);	//a
+		assert (p2[0] > 0.0f);	//tau1
+		assert (p2[1] > 0.0f);	//tau2
+		assert (p2[2] > 0.0f);	//omega12
+	}
+
+	return lambda4D(x, p1[0], p2[0], p2[1], p2[1]);
 }
 
 //Functions used for solving constraints in NetworkCreator.cu/initVars()
@@ -798,45 +814,58 @@ inline double flrwDistKernel(double x, void *params)
 inline double distance(const double * const table, const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const long &size, const bool &universe, const bool &compact)
 {
 	if (DEBUG) {
-		assert (table != NULL);
+		if (universe) {
+			assert (table != NULL);
+			assert (alpha > 0.0);
+			assert (size > 0);
+			assert (!compact);
+		}
 		assert (dim == 3);
 		assert (manifold == DE_SITTER);
 		assert (a > 0.0);
-		assert (alpha > 0.0);
-		assert (size > 0);
-		assert (!compact);
 	}
 
 	//Check if they are the same node
 	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
 		return 0.0;
 
+	FastIntMethod method;
 	double (*kernel)(double x, void *params);
 	double distance;
 	double lambda;
 
 	if (universe) {
-		lambda = lookupValue4D(table, size, tau_a, tau_b, (alpha / a) * flatProduct_v2(node_a, node_b));
+		lambda = lookupValue4D(table, size, tau_a, tau_b, (alpha / a) * SQRT(flatProduct_v2(node_a, node_b), STL));
 		kernel = &flrwDistKernel;
+		method = QNG;
 	} else {
 		float p2[3];
 		p2[0] = tau_a;
 		p2[1] = tau_b;
-		p2[2] = flat_product_v2(node_a, node_b);
+		p2[2] = ACOS(sphProduct_v2(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 
 		double x = 0.5;
-		if (!newton(&solveLambda4D, &x, 10000, TOL, &a, p2, NULL))
+		//if (!newton(&solveLambda4D, &x, 10000, TOL, &a, p2, NULL))
+		//	return -1.0;
+		if (!bisection(&solveLambda4DBisec, &x, 10000, -100.0, 10000.0, TOL, false, &a, p2, NULL))
 			return -1.0;
 		lambda = x;
 		kernel = &deSitterDistKernel;
+		method = QAGS;
 	}
+
+	//DEBUG
+	printf("Lambda: %f\n", lambda);
+	//printf("Lambda: %f\tt1: %f\tt2: %f\n", lambda, tau_a, tau_b);
 
 	//Check for NaN
 	if (lambda != lambda)
 		return -1.0;
 
 	IntData idata = IntData();
+	idata.limit = 50;
 	idata.tol = 1e-5;
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 	
 	double p[2];
 	p[0] = lambda;
@@ -848,17 +877,19 @@ inline double distance(const double * const table, const float4 &node_a, const f
 	if (lambda > 0.0) {
 		idata.lower = a * tau_a;
 		idata.upper = a * tau_b;
-		distance = integrate1D(&kernel, (void*)p, &idata, QNG);
+		distance = integrate1D(kernel, (void*)p, &idata, method);
 	} else {
-		double tau_max = geodesicMaxRescaledTime(lambda, universe);
+		double tau_max = geodesicMaxRescaledTime(lambda, a, universe);
 
 		idata.lower = a * tau_a;
 		idata.upper = a * tau_max;
-		distance = integrate1D(&kernel, (void*)p, &idata, QNG);
+		distance = integrate1D(kernel, (void*)p, &idata, method);
 
 		idata.lower = a * tau_b;
-		distance += integrate1D(&kernel, (void*)p, &idata, QNG);
+		distance += integrate1D(kernel, (void*)p, &idata, method);
 	}
+
+	gsl_integration_workspace_free(idata.workspace);
 
 	return distance;
 }

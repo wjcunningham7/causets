@@ -313,7 +313,7 @@ struct Edge {
 struct EVData {
 	EVData() : confusion(NULL), fn(NULL), fp(NULL), fn_idx(0), fp_idx(0), A1T(0.0), A1S(0.0) {}
 
-	uint64_t *confusion;		//Confusion Matrix for Embedding
+	uint64_t *confusion;		//Confusion Matrix
 	float *fn;			//False Negatives
 	float *fp;			//False Positives
 
@@ -322,6 +322,15 @@ struct EVData {
 
 	double A1T;			//Normalization for timelike distances
 	double A1S;			//Normalization for spacelike distances
+};
+
+//Distance Validation Data
+struct DVData {
+	DVData() : confusion(NULL), norm(0.0) {}
+
+	uint64_t *confusion;		//Confusion Matrix
+
+	double norm;			//Normalization constant
 };
 
 //These are conflicts which arise due to over-constraining
@@ -342,7 +351,7 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), link(false), relink(false), read_old_format(false), universe(false), compact(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), validate_embedding(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), link(false), relink(false), read_old_format(false), universe(false), compact(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), validate_embedding(false), validate_distances(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	CausetConflicts cc;		//Conflicting Parameters
 
@@ -363,6 +372,7 @@ struct CausetFlags {
 	bool calc_deg_field;		//Measure Degree Field
 
 	bool validate_embedding;	//Find Embedding Statistics
+	bool validate_distances;	//Compare Distance Methods
 	
 	bool verbose;			//Verbose Output
 	bool bench;			//Benchmark Algorithms
@@ -372,7 +382,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), dim(3), manifold(DE_SITTER), a(1.0), lambda(3.0), zeta(1.0), chi_max(M_PI), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), num_mpi_threads(0), rank(0) {}
+	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), N_dst(0.0), dim(3), manifold(DE_SITTER), a(1.0), lambda(3.0), zeta(1.0), chi_max(M_PI), tau0(0.587582), alpha(0.0), delta(0.0), R0(1.0), omegaM(0.5), omegaL(0.5), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), num_mpi_threads(0), rank(0) {}
 
 	CausetFlags flags;
 
@@ -383,6 +393,7 @@ struct NetworkProperties {
 	double N_sr;			//Number of Pairs Used in Success Ratio
 	int N_df;			//Number of Samples Used in Degree Field Measurements
 	double tau_m;			//Rescaled Time of Nodes used for Measuring Degree Field
+	double N_dst;			//Number of Pairs Used in Distance Validation
 
 	int dim;			//Spacetime Dimension (2 or 4)
 	Manifold manifold;		//Manifold of the Network
@@ -416,7 +427,7 @@ struct NetworkProperties {
 
 //Measured values of the network
 struct NetworkObservables {
-	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), success_ratio(0.0), evd(EVData()), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0) {}
+	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), evd(EVData()), success_ratio(0.0), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0), dvd(DVData()) {}
 	
 	int N_res;			//Resulting Number of Connected Nodes
 	float k_res;			//Resulting Average Degree
@@ -429,15 +440,17 @@ struct NetworkObservables {
 	float *clustering;		//Clustering Coefficients
 	float average_clustering;	//Average Clustering over All Nodes
 
-	float success_ratio;		//Success Ratio
+	EVData evd;			//Embedding Validation Data
 
-	EVData evd;			//Embedding Verification Data
+	float success_ratio;		//Success Ratio
 
 	int *in_degree_field;		//In-Degree Field Measurements
 	float avg_idf;			//Average In-Degree Field Value
 
 	int *out_degree_field;		//Out-Degree Field Measurements
 	float avg_odf;			//Average Out-Degree Field Value
+
+	DVData dvd;			//Distance Validation Data
 };
 
 //Network object containing minimal unique information
@@ -455,7 +468,7 @@ struct Network {
 
 //Algorithmic Performance
 struct CausetPerformance {
-	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sValidateEmbedding(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureDegreeField(Stopwatch()) {}
+	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sValidateEmbedding(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureDegreeField(Stopwatch()), sValidateDistances(Stopwatch()) {}
 
 	Stopwatch sCauset;
 	Stopwatch sCalcDegrees;
@@ -470,6 +483,7 @@ struct CausetPerformance {
 	Stopwatch sValidateEmbedding;
 	Stopwatch sMeasureSuccessRatio;
 	Stopwatch sMeasureDegreeField;
+	Stopwatch sValidateDistances;
 };
 
 //Benchmark Statistics
