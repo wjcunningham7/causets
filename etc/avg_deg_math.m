@@ -183,7 +183,7 @@ Print[StandardForm[""]];
 
 (* Region D *)
 \[Gamma]D1\[Theta][\[Tau]\[Prime]_] = Integrate[\[Rho]\[Theta][\[Theta]\[Prime]]*(ABCD1[\[Tau]\[Prime], \[Theta]\[Prime]] + D2[\[Tau]\[Prime], \[Theta]\[Prime]]), {\[Theta]\[Prime], w1 + \[Tau]\[Prime], R0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && w1 > 0 && w1 + \[Tau]\[Prime] > 0 && w1 + \[Tau]\[Prime] < R0 && \[Tau]0 < R0];
-\[Gamma]D1 = Integrate[(\[Rho]\[Tau][\[Tau]\[Prime]] & )*\[Gamma]D1\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], 0, \[Tau]0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 < R0];
+\[Gamma]D1 = Integrate[\[Rho]\[Tau][\[Tau]\[Prime]]*\[Gamma]D1\[Theta][\[Tau]\[Prime]], {\[Tau]\[Prime], 0, \[Tau]0}, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 < R0];
 \[Gamma]D = FullSimplify[\[Gamma]D1, Assumptions -> \[Tau]0 > 0 && R0 > 0 && \[Tau]0 < R0];
 Print[StandardForm["\[Gamma]D:"]];
 Print[StandardForm[ToString[\[Gamma]D, InputForm, CharacterEncoding -> "ASCII"]]]; 

@@ -24,14 +24,14 @@
 
 #./lsf/mbat --name 'avg_deg_math' --ncores 1
 
+#---------------------#
+# de Sitter Geodesics #
+#---------------------#
+
+./lsf/mbat --name 'de_sitter_geodesics' --ncores 1
+
 #---------------------------------#
 # Puiseux Expansion for Geodesics #
 #---------------------------------#
 
 #./lsf/mbat --name 'puiseux_geodesics' --ncores 1
-
-#./lsf/mbat --name 'puiseux_geodesics2' --ncores 32
-
-#./lsf/mbat --name 'puiseux_geodesics3' --ncores 32
-
-./lsf/mbat --name 'puiseux_geodesics4' --ncores 1

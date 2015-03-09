@@ -100,52 +100,66 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":A:a:Cc:D:d:E:F:Gg:hk:Ll:m:n:Oo:Rr:S:s:Tt:uvxyz:";
+	static const char *optString = ":a:A:Cc:k:d:e:F:fg:hl:m:n:r:s:S:vyz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
+		{ "age",	required_argument,	NULL, 'a'  },
 		{ "alpha",	required_argument,	NULL, 'A' },
-		{ "radius",	required_argument,	NULL, 'a' },
-		{ "clustering",	no_argument,		NULL, 'C' },
-		{ "core",	required_argument,	NULL, 'c' },
-		{ "delta",	required_argument,	NULL, 'D' },
-		{ "dim",	required_argument,	NULL, 'd' },
-		{ "embedding",  required_argument,	NULL, 'E' },
-		{ "fields",	required_argument,	NULL, 'F' },
-		{ "components", no_argument,		NULL, 'G' },
-		{ "graph",	required_argument,	NULL, 'g' },
-		{ "help", 	no_argument,		NULL, 'h' },
-		{ "degrees",	required_argument,	NULL, 'k' },
-		{ "link",	no_argument,		NULL, 'L' },
-		{ "lambda",	required_argument,	NULL, 'l' },
-		{ "manifold",	required_argument,	NULL, 'm' },
-		{ "nodes", 	required_argument,	NULL, 'n' },
-		{ "read-old-format", no_argument,	NULL, 'O' },
-		{ "energy",	required_argument,	NULL, 'o' },
-		{ "relink",	no_argument,		NULL, 'R' },
-		{ "ratio",	required_argument,	NULL, 'r' },
-		{ "success",	required_argument,	NULL, 'S' },
-		{ "seed",	required_argument,	NULL, 's' },
-		{ "test",	no_argument,		NULL, 'T' },
-		{ "age",	required_argument,	NULL, 't' },
-		{ "universe",	no_argument,		NULL, 'u' },
-		{ "distances",	required_argument,	NULL, 'V' },
-		{ "verbose", 	no_argument, 		NULL, 'v' },
-		{ "maxchi",	required_argument,	NULL, 'x' },
-		{ "zeta",	required_argument,	NULL, 'z' },
-
 		{ "autocorr",	no_argument,		NULL,  0  },
 		{ "benchmark",	no_argument,		NULL,  0  },
+		{ "clustering",	no_argument,		NULL, 'C' },
 		{ "compact",	no_argument,		NULL,  0  },
+		{ "components", no_argument,		NULL,  0  },
 		{ "conflicts",  no_argument,		NULL,  0  },
+		{ "core",	required_argument,	NULL, 'c' },
+		{ "degrees",	required_argument,	NULL,  0  },
+		{ "delta",	required_argument,	NULL, 'd' },
 		{ "display", 	no_argument, 		NULL,  0  },
+		{ "dim",	required_argument,	NULL,  0  },
+		{ "distances",	required_argument,	NULL,  0  },
+		{ "embedding",  required_argument,	NULL,  0  },
+		{ "energy",	required_argument,	NULL, 'e' },
+		{ "fields",	required_argument,	NULL, 'F' },
+		{ "flrw",	no_argument,		NULL, 'f' },
 		{ "gpu", 	no_argument, 		NULL,  0  },
+		{ "graph",	required_argument,	NULL, 'g' },
+		{ "help", 	no_argument,		NULL, 'h' },
+		{ "lambda",	required_argument,	NULL, 'l' },
+		{ "link",	no_argument,		NULL,  0  },
+		{ "manifold",	required_argument,	NULL, 'm' },
 		{ "print", 	no_argument, 		NULL,  0  },
+		{ "nodes", 	required_argument,	NULL, 'n' },
+		{ "radius",	required_argument,	NULL, 'r' },
+		{ "read-old-format", no_argument,	NULL,  0  },
+		{ "ratio",	required_argument,	NULL,  0  },
+		{ "relink",	no_argument,		NULL,  0  },
+		{ "seed",	required_argument,	NULL, 's' },
+		{ "slice",	required_argument,	NULL,  0  },
+		{ "success",	required_argument,	NULL, 'S' },
+		{ "test",	no_argument,		NULL,  0  },
+		{ "verbose", 	no_argument, 		NULL, 'v' },
+		{ "zeta",	required_argument,	NULL, 'z' },
 		{ NULL,		0,			0,     0  }
 	};
 
 	try {
 		while ((c = getopt_long(argc, argv, optString, longOpts, &longIndex)) != -1) {
 			switch (c) {
+			case 'a':
+				//Age of universe
+				network_properties.tau0 = atof(optarg);
+
+				if (network_properties.tau0 <= 0.0)
+					throw CausetException("Invalid argument for 'age' parameter!\n");
+
+				network_properties.ratio = POW2(SINH(1.5 * network_properties.tau0, STL), EXACT);
+				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
+				network_properties.omegaL = 1.0 - network_properties.omegaM;
+
+				network_properties.flags.cc.conflicts[2]++;
+				network_properties.flags.cc.conflicts[3]++;
+				network_properties.flags.cc.conflicts[6]++;
+				break;
 			case 'A':	//Rescaled ratio of dark energy density to matter density
 				network_properties.alpha = atof(optarg);
 
@@ -157,17 +171,6 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				network_properties.flags.cc.conflicts[6]++;
 
 				break;
-			case 'a':	//Pseudoradius
-				network_properties.a = atof(optarg);
-				
-				if (network_properties.a <= 0.0)
-					throw CausetException("Invalid argument for 'a' parameter!\n");
-
-				network_properties.lambda = 3.0 / POW2(network_properties.a, EXACT);
-
-				network_properties.flags.cc.conflicts[0]++;
-
-				break;
 			case 'C':	//Flag for calculating clustering
 				network_properties.flags.calc_clustering = true;
 				break;
@@ -176,7 +179,7 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				if (network_properties.core_edge_fraction <= 0.0 || network_properties.core_edge_fraction >= 1.0)
 					throw CausetException("Invalid argument for 'c' parameter!\n");
 				break;
-			case 'D':	//Density of nodes
+			case 'd':	//Density of nodes
 				network_properties.delta = atof(optarg);
 
 				if (network_properties.delta <= 0.0)
@@ -187,23 +190,27 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				network_properties.flags.cc.conflicts[6]++;
 
 				break;
-			case 'd':	//Spatial dimensions
-				network_properties.dim = atoi(optarg);
-				if (!(atoi(optarg) == 1 || atoi(optarg) == 3))
-					throw CausetException("Invalid argument for 'dimension' parameter!\n");
-				break;
-			case 'E':	//Flag for Validating Embedding of 3+1 DS Manifold
-				network_properties.flags.validate_embedding = true;
-				network_properties.N_emb = atof(optarg);
-				if (network_properties.N_emb <= 0.0 || network_properties.N_emb > 1.0)
-					throw CausetException("Invalid argument for 'embedding' parameter!\n");
+			case 'e':	//Density of dark energy
+				network_properties.omegaL = atof(optarg);
+
+				if (network_properties.omegaL <= 0.0 || network_properties.omegaL >= 1.0)
+					throw CausetException("Invalid input for 'energy' parameter!\n");
+
+				network_properties.omegaM = 1.0 - network_properties.omegaL;
+				network_properties.ratio = network_properties.omegaL / network_properties.omegaM;
+				network_properties.tau0 = (2.0 / 3.0) * ASINH(SQRT(network_properties.ratio, STL), STL, DEFAULT);
+					
+				network_properties.flags.cc.conflicts[1]++;
+				network_properties.flags.cc.conflicts[2]++;
+				network_properties.flags.cc.conflicts[5]++;
+
 				break;
 			case 'F':	//Measure Degree Field with Test Nodes
 				network_properties.flags.calc_deg_field = true;
 				network_properties.tau_m = atof(optarg);
 				break;
-			case 'G':	//Flag for Finding (Giant) Connected Component
-				network_properties.flags.calc_components = true;
+			case 'f':	//Flag for creating flrw causet
+				network_properties.flags.universe = true;
 				break;
 			case 'g':	//Graph ID
 				network_properties.graphID = atoi(optarg);
@@ -211,19 +218,6 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 					throw CausetException("Invalid argument for 'Graph ID' parameter!\n");
 				break;
 			//case 'h' is located at the end
-			case 'k':	//Average expected degrees
-				network_properties.k_tar = atof(optarg);
-
-				if (network_properties.k_tar <= 0.0)
-					throw CausetException("Invalid argument for 'degrees' parameter!\n");
-
-				network_properties.flags.cc.conflicts[2]++;
-				network_properties.flags.cc.conflicts[3]++;
-				network_properties.flags.cc.conflicts[6]++;
-				break;
-			case 'L':	//Flag for Reading Nodes (and not links) and Re-Linking
-				network_properties.flags.link = true;
-				break;
 			case 'l':	//Cosmological constant
 				network_properties.lambda = atof(optarg);
 
@@ -236,7 +230,7 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 
 				break;
 			case 'm':	//Manifold
-				if (!strcmp(optarg, "d"))
+				if (!strcmp(optarg, "d") || !strcmp(optarg, "f"))
 					network_properties.manifold = DE_SITTER;
 				else if (!strcmp(optarg, "h"))
 					network_properties.manifold = HYPERBOLIC;
@@ -254,40 +248,15 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				network_properties.flags.cc.conflicts[6]++;
 
 				break;
-			case 'O':
-				network_properties.flags.read_old_format = true;
-				break;
-			case 'o':	//Density of dark energy
-				network_properties.omegaL = atof(optarg);
-
-				if (network_properties.omegaL <= 0.0 || network_properties.omegaL >= 1.0)
-					throw CausetException("Invalid input for 'energy' parameter!\n");
-
-				network_properties.omegaM = 1.0 - network_properties.omegaL;
-				network_properties.ratio = network_properties.omegaL / network_properties.omegaM;
-				network_properties.tau0 = (2.0 / 3.0) * ASINH(SQRT(network_properties.ratio, STL), STL, DEFAULT);
-					
-				network_properties.flags.cc.conflicts[1]++;
-				network_properties.flags.cc.conflicts[2]++;
-				network_properties.flags.cc.conflicts[5]++;
-
-				break;
-			case 'R':	//Flag for Reading Nodes (and not links) and Re-Linking
-				network_properties.flags.relink = true;
-				break;
-			case 'r':	//Ratio of dark energy density to matter density
-				network_properties.ratio = atof(optarg);
-
-				if (network_properties.ratio <= 0.0)
-					throw CausetException("Invalid argument for 'ratio' parameter!\n");
-
-				network_properties.tau0 = (2.0 / 3.0) * ASINH(SQRT(network_properties.ratio, STL), STL, DEFAULT);
-				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
-				network_properties.omegaL = 1.0 - network_properties.omegaM;
+			case 'r':	//Pseudoradius
+				network_properties.a = atof(optarg);
 				
-				network_properties.flags.cc.conflicts[1]++;
-				network_properties.flags.cc.conflicts[3]++;
-				network_properties.flags.cc.conflicts[4]++;
+				if (network_properties.a <= 0.0)
+					throw CausetException("Invalid argument for 'a' parameter!\n");
+
+				network_properties.lambda = 3.0 / POW2(network_properties.a, EXACT);
+
+				network_properties.flags.cc.conflicts[0]++;
 
 				break;
 			case 'S':	//Flag for calculating success ratio
@@ -302,38 +271,8 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				if (network_properties.seed >= 0.0L)
 					throw CausetException("Invalid argument for 'seed' parameter!\n");
 				break;
-			case 'T':	//Test parameters
-				network_properties.flags.test = true;
-				break;
-			case 't':	//Age of universe
-				network_properties.tau0 = atof(optarg);
-
-				if (network_properties.tau0 <= 0.0)
-					throw CausetException("Invalid argument for 'age' parameter!\n");
-
-				network_properties.ratio = POW2(SINH(1.5 * network_properties.tau0, STL), EXACT);
-				network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
-				network_properties.omegaL = 1.0 - network_properties.omegaM;
-
-				network_properties.flags.cc.conflicts[2]++;
-				network_properties.flags.cc.conflicts[3]++;
-				network_properties.flags.cc.conflicts[6]++;
-
-				break;
-			case 'u':	//Flag for creating universe causet
-				network_properties.flags.universe = true;
-				break;
-			case 'V':	//Flag for comparing distance methods
-				network_properties.flags.validate_distances = true;
-				network_properties.N_dst = atof(optarg);
-				if (network_properties.N_dst <= 0.0 || network_properties.N_dst > 1.0)
-					throw CausetException("Invalid argument for 'distances' parameter!\n");
-				break;
 			case 'v':	//Verbose output
 				network_properties.flags.verbose = true;
-				break;
-			case 'x':	//Size of spatial slice
-				network_properties.chi_max = atof(optarg);
 				break;
 			case 'y':	//Suppress user input
 				network_properties.flags.yes = true;
@@ -353,6 +292,9 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				else if (!strcmp("compact", longOpts[longIndex].name))
 					//Flag to use compactification of radial coordinate
 					network_properties.flags.compact = true;
+				else if (!strcmp("components", longOpts[longIndex].name))
+					//Flag for Finding Connected Components
+					network_properties.flags.calc_components = true;
 				else if (!strcmp("conflicts", longOpts[longIndex].name)) {
 					//Print conflicting parameters
 					printf_mpi(rank, "\nParameter Conflicts:\n");
@@ -370,20 +312,75 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 					#else
 					exit(0);
 					#endif
+				} else if (!strcmp("degrees", longOpts[longIndex].name)) {
+					//Average expected degrees
+					network_properties.k_tar = atof(optarg);
+
+					if (network_properties.k_tar <= 0.0)
+						throw CausetException("Invalid argument for 'degrees' parameter!\n");
+
+					network_properties.flags.cc.conflicts[2]++;
+					network_properties.flags.cc.conflicts[3]++;
+					network_properties.flags.cc.conflicts[6]++;
+				} else if (!strcmp("dim", longOpts[longIndex].name)) {
+					//Spatial dimensions (1 or 3)
+					network_properties.dim = atoi(optarg);
+					if (!(atoi(optarg) == 1 || atoi(optarg) == 3))
+						throw CausetException("Invalid argument for 'dimension' parameter!\n");
 				} else if (!strcmp("display", longOpts[longIndex].name)) {
 					//Flag to use OpenGL to display network
 					//network_properties.flags.disp_network = true;
 					printf_mpi(rank, "Display not supported:  Ignoring Flag.\n");
 					fflush(stdout);
+				} else if (!strcmp("distances", longOpts[longIndex].name)) {
+					//Flag for comparing distance methods
+					network_properties.flags.validate_distances = true;
+					network_properties.N_dst = atof(optarg);
+					if (network_properties.N_dst <= 0.0 || network_properties.N_dst > 1.0)
+						throw CausetException("Invalid argument for 'distances' parameter!\n");
+				} else if (!strcmp("embedding", longOpts[longIndex].name)) {
+					//Flag to validate embedding of FLRW into de Sitter
+					network_properties.flags.validate_embedding = true;
+					network_properties.N_emb = atof(optarg);
+					if (network_properties.N_emb <= 0.0 || network_properties.N_emb > 1.0)
+						throw CausetException("Invalid argument for 'embedding' parameter!\n");
 				} else if (!strcmp("gpu", longOpts[longIndex].name)) {
 					//Flag to use GPU accelerated routines
 					network_properties.flags.use_gpu = true;
 					#ifndef CUDA_ENABLED
 					throw CausetException("Recompile with 'make gpu' to use the --gpu flag!\n");
 					#endif
-				} else if (!strcmp("print", longOpts[longIndex].name))
+				} else if (!strcmp("link", longOpts[longIndex].name))
+					//Flag for Reading Nodes (and not links) and Re-Linking
+					network_properties.flags.link = true;
+				else if (!strcmp("print", longOpts[longIndex].name))
 					//Flag to print results to file in 'dat' folder
 					network_properties.flags.print_network = true;
+				else if (!strcmp("ratio", longOpts[longIndex].name)) {
+					//Ratio of dark energy density to matter density
+					network_properties.ratio = atof(optarg);
+
+					if (network_properties.ratio <= 0.0)
+						throw CausetException("Invalid argument for 'ratio' parameter!\n");
+
+					network_properties.tau0 = (2.0 / 3.0) * ASINH(SQRT(network_properties.ratio, STL), STL, DEFAULT);
+					network_properties.omegaM = 1.0 / (network_properties.ratio + 1.0);
+					network_properties.omegaL = 1.0 - network_properties.omegaM;
+				
+					network_properties.flags.cc.conflicts[1]++;
+					network_properties.flags.cc.conflicts[3]++;
+					network_properties.flags.cc.conflicts[4]++;
+				} else if (!strcmp("read-old-format", longOpts[longIndex].name))
+					network_properties.flags.read_old_format = true;
+				else if (!strcmp("relink", longOpts[longIndex].name))
+					//Flag for Reading Nodes (and not links) and Re-Linking
+					network_properties.flags.relink = true;
+				else if (!strcmp("slice", longOpts[longIndex].name))
+					//Size of spatial slice
+					network_properties.chi_max = atof(optarg);
+				else if (!strcmp("test", longOpts[longIndex].name))
+					//Test parameters
+					network_properties.flags.test = true;
 				else {
 					//Unrecognized options
 					fprintf(stderr, "Option --%s is not recognized.\n", longOpts[longIndex].name);
@@ -399,49 +396,46 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				printf_mpi(rank, "\nUsage  :  CausalSet [options]\n\n");
 				printf_mpi(rank, "CausalSet Options...................\n");
 				printf_mpi(rank, "====================================\n");
-				printf_mpi(rank, "Flag:\t\t\tVariable:\t\t\tSuggested Values:\n");
-				printf_mpi(rank, "  -A, --alpha\t\tUnphysical Parameter\t\t2.0\n");
-				printf_mpi(rank, "  -a, --radius\t\tPseudoradius\t\t\t1.0\n");
-				printf_mpi(rank, "  -C, --clustering\tCalculate Clustering\n");
-				printf_mpi(rank, "  -c, --core\t\tCore Edge Ratio\t\t\t0.01\n");
-				printf_mpi(rank, "  -D, --delta\t\tNode Density\t\t\t10000\n");
-				printf_mpi(rank, "  -d, --dim\t\tSpatial Dimensions\t\t1 or 3\n");
-				printf_mpi(rank, "  -E, --embedding\tValidate Embedding\t\t0.01\n");
+				printf_mpi(rank, "Flag:\t\t\tMeaning:\t\t\tSuggested Values:\n");
+				printf_mpi(rank, "  -a, --age\t\tRescaled Age of (FLRW) Universe\t0.85\n");
+				printf_mpi(rank, "  -A, --alpha\t\tScaling Parameter\t\t2.0\n");
+				//printf_mpi(rank, "      --autocorr\tCalculate Autocorrelations\n");
+				printf_mpi(rank, "      --benchmark\tBenchmark Algorithms\n");
+				printf_mpi(rank, "  -C, --clustering\tMeasure Clustering\n");
+				printf_mpi(rank, "      --compact\t\tUse Compactification\n");
+				printf_mpi(rank, "      --components\tMeasure Graph Components\n");
+				printf_mpi(rank, "      --conflicts\tShow Parameter Conflicts\n");
+				printf_mpi(rank, "  -c, --core\t\tCore Edge Fraction\t\t0.01\n");
+				printf_mpi(rank, "      --degrees\t\tExpected Average Degrees\t8, 10, 12\n");
+				printf_mpi(rank, "  -d, --delta\t\tNode Density\t\t\t10000\n");
+				printf_mpi(rank, "      --dim\t\tSpatial Dimensions\t\t1 or 3\n");
+				//printf_mpi(rank, "      --display\t\tDisplay Graph\n");
+				printf_mpi(rank, "      --distances\tValidate Distance Methods\t0.01\n");
+				printf_mpi(rank, "      --embedding\tValidate Embedding\t\t0.01\n");
+				printf_mpi(rank, "  -e, --energy\t\tDark Energy Density\t\t0.73\n");
 				printf_mpi(rank, "  -F, --fields\t\tMeasure Degree Fields\n");
-				printf_mpi(rank, "  -G, --components\tIdentify Giant Component\n");
+				printf_mpi(rank, "  -f, --flrw\t\tFLRW Causet\n");
+				#ifdef CUDA_ENABLED
+				printf_mpi(rank, "      --gpu\t\t\tUse GPU Acceleration\n");
+				#endif
 				printf_mpi(rank, "  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
 				printf_mpi(rank, "  -h, --help\t\tDisplay This Menu\n");
-				printf_mpi(rank, "  -k, --degrees\t\tExpected Average Degrees\t10-100\n");
-				printf_mpi(rank, "  -L, --link\t\tLink Nodes to Create Graph\n");
 				printf_mpi(rank, "  -l, --lambda\t\tCosmological Constant\t\t3.0\n");
-				printf_mpi(rank, "  -m, --manifold\tManifold\t\t\t[d]e sitter, [h]yperbolic\n");
-				printf_mpi(rank, "  -n, --nodes\t\tNumber of Nodes\t\t\t100-100000\n");
-				printf_mpi(rank, "  -O, --read-old-format\tRead Positions in Old Format\n");
-				printf_mpi(rank, "  -o, --energy\t\tDark Energy Density\t\t0.73\n");
-				printf_mpi(rank, "  -R, --relink\t\tIgnore Pre-Existing Links\n");
-				printf_mpi(rank, "  -r, --ratio\t\tEnergy to Matter Ratio\t\t2.7\n");
+				printf_mpi(rank, "      --link\t\tLink Nodes to Create Graph\n");
+				printf_mpi(rank, "  -m, --manifold\tManifold\t\t\t[d]e sitter, [f]lrw, [h]yperbolic\n");
+				printf_mpi(rank, "  -n, --nodes\t\tNumber of Nodes\t\t\t1000, 10000, 100000\n");
+				printf_mpi(rank, "      --print\t\tPrint Results\n");
+				printf_mpi(rank, "  -r, --radius\t\tPseudoradius\t\t\t1.0\n");
+				printf_mpi(rank, "      --ratio\t\tEnergy to Matter Ratio\t\t2.7\n");
+				printf_mpi(rank, "      --read-old-format\tRead Positions in Old Format\n");
+				printf_mpi(rank, "      --relink\t\tIgnore Pre-Existing Links\n");
 				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.5\n");
-				printf_mpi(rank, "  -s, --seed\t\tRNG Seed\t\t\t18100L\n");
-				printf_mpi(rank, "  -T, --test\t\tTest Universe Parameters\n");
-				printf_mpi(rank, "  -t, --age\t\tRescaled Age of Universe\t0.85\n");
-				printf_mpi(rank, "  -u, --universe\tUniverse Causet\n");
-				printf_mpi(rank, "  -V, --distances\tValidate Distance Methods\t\t0.01\n");
+				printf_mpi(rank, "  -s, --seed\t\tRandom Seed\t\t\t18100\n");
+				printf_mpi(rank, "      --slice\t\tSize of Spatial Slice\t\t3.1415\n");
+				printf_mpi(rank, "      --test\t\tTest FLRW Parameters\n");
 				printf_mpi(rank, "  -v, --verbose\t\tVerbose Output\n");
-				printf_mpi(rank, "  -x, --maxchi\t\tSize of Spatial Slice\t\t100\n");
 				printf_mpi(rank, "  -y\t\t\tSuppress User Queries\n");
 				printf_mpi(rank, "  -z, --zeta\t\tHyperbolic Curvature\t\t1.0\n");
-				printf_mpi(rank, "\n");
-
-				printf_mpi(rank, "Flag:\t\t\tPurpose:\n");
-				printf_mpi(rank, "  --autocorr\t\tCalculate Autocorrelations\n");
-				printf_mpi(rank, "  --benchmark\t\tBenchmark Algorithms\n");
-				printf_mpi(rank, "  --compact\t\tUse Compactification of Radial Coordinate\n");
-				printf_mpi(rank, "  --conflicts\t\tShow Parameter Conflicts\n");
-				printf_mpi(rank, "  --display\t\tDisplay Graph\n");
-				#ifdef CUDA_ENABLED
-				printf_mpi(rank, "  --gpu\t\t\tUse GPU Acceleration\n");
-				#endif
-				printf_mpi(rank, "  --print\t\tPrint Results\n");
 				printf_mpi(rank, "\n");
 
 				printf_mpi(rank, "Report bugs to w.cunningham@neu.edu\n");

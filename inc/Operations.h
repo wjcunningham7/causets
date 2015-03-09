@@ -99,7 +99,7 @@ inline double theta1_Prime4D(const double &x)
 	return POW2(SIN(x, APPROX ? FAST : STL), EXACT) / HALF_PI;
 }
 
-inline double lambda4D(const double &x, const double &a, const float &tau1, const float &tau2, const float &omega12)
+/*inline double lambda4D(const double &x, const double &a, const float &tau1, const float &tau2, const float &omega12)
 {
 	double st1 = SINH(tau1, APPROX ? FAST : STL);
 	double st2 = SINH(tau2, APPROX ? FAST : STL);
@@ -128,7 +128,7 @@ inline double lambdaPrime4D(const double &x, const double &a, const float &tau1,
 	double psi2 = (SQRT(2.0, STL) / 2.0) * (1.0 + COSH(2.0 * a * tau2, APPROX ? FAST : STL));
 
 	return (xi1_2 * st1 * (xi2_2 * xi2_3 + 2.0 * xi2_3 * psi1 * POW2(st2, EXACT)) - xi1_2 * xi1_3 * psi2 * st2 - 2.0 * xi1_3 * xi2_2 * psi2 * POW2(st1, EXACT) * st2) / (xi1_3 * xi2_3 * POW2(xi1 * xi2 + 2.0 * st1 * st2, EXACT));
-}
+}*/
 
 //Returns zeta Residual
 //Used in 1+1 and 3+1 Causets
@@ -231,7 +231,7 @@ inline double solveTheta1(const double &x, const double * const p1, const float 
 
 //Returns lambda Residual
 //Used in 3+1 Geodesic Calculations
-inline double solveLambda4D(const double &x, const double * const p1, const float * const p2, const int * const p3)
+/*inline double solveLambda4D(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	if (DEBUG) {
 		assert (p1 != NULL);
@@ -259,7 +259,7 @@ inline double solveLambda4DBisec(const double &x, const double * const p1, const
 	}
 
 	return lambda4D(x, p1[0], p2[0], p2[1], p2[1]);
-}
+}*/
 
 //Functions used for solving constraints in NetworkCreator.cu/initVars()
 
@@ -711,6 +711,41 @@ inline double psi(double eta, void *params)
 	return POW2(POW2(rescaledScaleFactor(&((double*)params)[3], ((double*)params)[2], eta, ((double*)params)[0], ((double*)params)[1]), EXACT), EXACT);
 }
 
+//Average Degree in Non-Compact FLRW Spacetime
+
+//Case 1: tau0 > 2.0 * chi_max
+/*inline double averageDegreeFLRW_C1(const double &a, const double &chi_max, const double &tau0, const double &alpha, const double &delta)
+{
+	return (a * M_PI * POW3(alpha, EXACT) * delta * (24605 + 27 * POW3(chi_max, EXACT) * (2100 * tau0 + chi_max * (7700 + 55539 * POW2(POW2(chi_max, EXACT), EXACT) + 6048 * chi_max * tau0 - 63720 * POW3(chi_max, EXACT) * tau0 + 3360 * POW2(chi_max, EXACT) * (2 + 9 * POW2(tau0, EXACT)))) - 5040 * (2 + chi_max * (chi_max * (13 + 12 * chi_max * (chi_max - tau0)) - 4 * tau0)) * COSH(3 * chi_max, STL) + 35 * (-415 + 54 * chi_max * (14 * tau0 + chi_max * (-131 + chi_max * (chi_max * (-71 + 72 * chi_max * (2 * chi_max - tau0)) + 38 * tau0)))) * COSH(6 * chi_max, STL) - 156800 * COSH(3 * chi_max - 3 * tau0, STL) + 62720 * COSH(6 * chi_max - 3 * tau0, STL) + 94080 * COSH(3 * tau0, STL) - 1120 * COSH(6 * tau0, STL) + 2 * (280 * (2 + 9 * POW2(chi_max, EXACT)) * COSH(3 * chi_max - 6 * tau0, STL) + 3 * (210 * POW2(chi_max, EXACT) * (16 + 33 * POW2(chi_max, EXACT) + 27 * POW2(POW2(chi_max, EXACT), EXACT)) * COSH(6 * chi_max - 6 * tau0, STL) + 560 * (-2 * tau0 + chi_max * (11 + 36 * POW2(chi_max, EXACT) - 9 * chi_max * tau0)) * SINH(3 * chi_max, STL) - 35 * (21 * tau0 + 2 * chi_max * (-202 + 27 * chi_max * (7 * tau0 + chi_max * (-29 + 18 * POW2(chi_max, EXACT) - 3 * chi_max * tau0)))) * SINH(6 * chi_max, STL) + 280 * chi_max * COSH(3 * tau0, STL) * (45 * POW3(chi_max, EXACT) * COSH(3 * chi_max, STL) + 6 * chi_max * (40 + 45 * POW2(chi_max, EXACT) + 36 * POW2(POW2(chi_max, EXACT), EXACT) + (22 + 24 * POW2(chi_max, EXACT)) * COSH(6 * chi_max, STL) + 4 * chi_max * SINH(3 * chi_max, STL)) - 4 * (26 + 36 * POW2(chi_max, EXACT) + 27 * POW2(POW2(chi_max, EXACT), EXACT)) * SINH(6 * chi_max, STL)) - 28 * chi_max * COSH(6 * tau0, STL) * (135 * POW3(chi_max, EXACT) - 20 * (1 + 3 * POW2(chi_max, EXACT)) * SINH(3 * chi_max, STL) + (40 + 210 * POW2(chi_max, EXACT) + 189 * POW2(POW2(chi_max, EXACT), EXACT)) * SINH(6 * chi_max, STL)) + 8 * chi_max * (-5600 + 6 * POW2(chi_max, EXACT) * (-1610 + 27 * POW2(chi_max, EXACT) * (-49 + 60 * POW2(chi_max, EXACT) - 70 * chi_max * tau0)) + 3640 * COSH(6 * chi_max, STL) + 105 * chi_max * (-8 * chi_max * COSH(3 * chi_max, STL) + 12 * chi_max * (4 + 3 * POW2(chi_max, EXACT)) * COSH(6 * chi_max, STL) - 15 * POW2(chi_max, EXACT) * SINH(3 * chi_max, STL) - 4 * (11 + 12 * POW2(chi_max, EXACT)) * SINH(6 * chi_max, STL))) * SINH(3 * tau0, STL) + 28 * chi_max * (6 * POW2(chi_max, EXACT) * (10 + 27 * POW2(chi_max, EXACT)) - 20 * (1 + 3 * POW2(chi_max, EXACT)) * COSH(3 * chi_max, STL) + (40 + 210 * POW2(chi_max, EXACT) + 189 * POW2(POW2(chi_max, EXACT), EXACT)) * COSH(6 * chi_max, STL)) * SINH(6 * tau0, STL))))) / (204120 * POW3(chi_max, EXACT) * (-3 * tau0 + SINH(3 * tau0, STL)));
+}
+
+//Case 2: chi_max < tau0 < 2.0 * chi_max
+inline double averageDegreeFLRW_C2(const double &a, const double &chi_max, const double &tau0, const double &alpha, const double &delta)
+{
+//	return -1 * (a * M_PI * POW3(alpha, EXACT) * delta * (-87325 + 9 * (40743 * POW2(POW2(POW2(chi_max, EXACT), EXACT), EXACT) - 171720 * POW2(POW2(chi_max, EXACT), EXACT) * POW3(chi_max, EXACT) * tau0 + 30240 * POW2(POW3(chi_max, EXACT), EXACT) * (2 + 9 * POW2(tau0, EXACT)) - 6048 * POW2(chi_max, EXACT) * POW3(chi_max, EXACT) * tau0 * (29 + 39 * POW2(tau0, EXACT)) + 420 * POW3(chi_max, EXACT) * tau0 * (145 + 240 * POW2(tau0, EXACT) + 108 * POW2(POW2(tau0, EXACT), EXACT)) + 120 * chi_max * tau0 * (560 + 840 * POW2(tau0, EXACT) + 378 * POW2(POW2(tau0, EXACT), EXACT) + 81 * POW2(POW3(tau0, EXACT), EXACT)) - 14 * POW2(tau0, EXACT) * (2240 + 1680 * POW2(tau0, EXACT) + 504 * POW2(POW2(tau0, EXACT), EXACT) + 81 * POW2(POW3(tau0, EXACT), EXACT)) + 420 * POW2(POW2(chi_max, EXACT), EXACT) * (-23 + 36 * POW2(tau0, EXACT) * (4 + 3 * POW2(tau0, EXACT))) - 420 * POW2(chi_max, EXACT) * (80 + 9 * POW2(tau0, EXACT) * (40 + 30 * POW2(tau0, EXACT) + 9 * POW2(POW2(tau0, EXACT), EXACT)))) + 5040 * (2 + chi_max * (chi_max * (13 + 12 * chi_max * (chi_max - tau0)) - 4 * tau0)) * COSH(3 * chi_max, STL) - 84035 * COSH(6 * chi_max - 6 * tau0, STL) + 156800 * COSH(3 * chi_max - 3 * tau0, STL) + 4480 * COSH(3 * tau0, STL) + 1120 * COSH(6 * tau0, STL) - 2 * (280 * (2 + 9 * POW2(chi_max, EXACT)) * COSH(3 * chi_max - 6 * tau0, STL) - 3 * (105 * (chi_max - tau0) * (18 * POW2(chi_max, EXACT) * POW3(chi_max, EXACT) + 523 * tau0 + 18 * POW2(POW2(chi_max, EXACT), EXACT) * tau0 + 45 * POW2(chi_max, EXACT) * tau0 * (17 + 4 * POW2(tau0, EXACT)) + 3 * POW3(tau0, EXACT) * (85 + 6 * POW2(tau0, EXACT)) - 9 * POW3(chi_max, EXACT) * (21 + 16 * POW2(tau0, EXACT)) - chi_max * (523 + 765 * POW2(tau0, EXACT) + 90 * POW2(POW2(tau0, EXACT), EXACT))) * COSH(6 * chi_max - 6 * tau0, STL) + 560 * (2 * tau0 + chi_max * (-11 + 9 * chi_max * (-4 * chi_max + tau0))) * SINH(3 * chi_max, STL) + 84 * COSH(3 * tau0, STL) * (40 * POW2(chi_max, EXACT) + 15 * POW2(POW2(chi_max, EXACT), EXACT) + 9 * POW2(POW3(chi_max, EXACT), EXACT)) - 16 * chi_max * (5 + 60 * POW2(chi_max, EXACT) + 108 * POW2(POW2(chi_max, EXACT), EXACT)) * tau0 + 10 * (8 + 18 * POW2(chi_max, EXACT) + 189 * POW2(POW2(chi_max, EXACT), EXACT)) * POW2(tau0, EXACT) - 120 * chi_max * (1 + 6 * POW2(chi_max, EXACT)) * POW3(tau0, EXACT) + 60 * POW2(POW2(tau0, EXACT), EXACT) + 9 * POW2(POW3(tau0, EXACT), EXACT) - 10 * POW3(chi_max, EXACT) * (15 * chi_max * COSH(3 * chi_max, STL) + 8 * SINH(3 * chi_max, STL))) + 14 * COSH(6 * tau0, STL) * (270 * POW2(POW2(chi_max, EXACT), EXACT) - 40 * (chi_max + 3 * POW3(chi_max, EXACT)) * SINH(3 * chi_max, STL) + (chi_max * (2855 + 3165 * POW2(chi_max, EXACT) + 162 * POW2(POW2(chi_max, EXACT), EXACT)) - 5 * (571 + 2016 * POW2(chi_max, EXACT) + 486 * POW2(POW2(chi_max, EXACT), EXACT)) * tau0 + 720 * chi_max * (14 + 9 * POW2(chi_max, EXACT)) * POW2(tau0, EXACT) - 60 * (56 + 117 * POW2(chi_max, EXACT)) * POW3(tau0, EXACT) + 3510 * chi_max * POW2(POW2(tau0, EXACT), EXACT) - 702 * POW2(tau0, EXACT) * POW3(tau0, EXACT)) * 
+//	SINH(6 * chi_max, STL)) + 4 * (1260 * POW2(chi_max, EXACT) * tau0 * (2 + 3 * POW2(tau0, EXACT)) - 1890 * POW2(POW2(chi_max, EXACT), EXACT) * tau0 * (14 + 9 * POW2(tau0, EXACT)) + 756 * POW2(chi_max, EXACT) * POW3(chi_max, EXACT) * (23 + 27 * POW2(tau0, EXACT)) - tau0 * (1120 + 1680 * POW2(tau0, EXACT) + 756 * POW2(POW2(tau0, EXACT), EXACT) + 81 * POW2(POW3(tau0, EXACT), EXACT)) + 210 * POW3(chi_max, EXACT) * (32 + 27 * POW2(tau0, EXACT) * (2 + POW2(tau0, EXACT))) + 210 * POW3(chi_max, EXACT) * (8 * COSH(3 * chi_max, STL) + 15 * chi_max * SINH(3 * chi_max, STL))) * SINH(3 * tau0, STL) - 14 * (12 * POW3(chi_max, EXACT) * (10 + 27 * POW2(chi_max, EXACT)) - 40 * (chi_max + 3 * POW3(chi_max, EXACT)) * COSH(3 * chi_max, STL) + (chi_max * (2855 + 3165 * POW2(chi_max, EXACT) + 162 * POW2(POW2(chi_max, EXACT), EXACT) - 5 * (571 + 2016 * POW2(chi_max, EXACT) + 486 * POW2(POW2(chi_max, EXACT), EXACT)) * tau0 + 720 * chi_max * (14 + 9 * POW2(chi_max, EXACT)) * POW2(tau0, EXACT) - 60 * (56 + 117 * POW2(chi_max, EXACT)) * POW3(tau0, EXACT) + 3510 * chi_max * POW2(POW2(tau0, EXACT), EXACT) - 702 * POW2(tau0, EXACT) * POW3(tau0, EXACT)) * COSH(6 * chi_max, STL)) * SINH(6 * tau0, STL))))) / (204120 * POW3(chi_max, EXACT) * (-3 * tau0 + SINH(3 * tau0, STL)));
+}
+
+//Case 3: tau0 < chi_max
+inline double averageDegreeFLRW_C3(const double &a, const double &chi_max, const double &tau0, const double &alpha, const double &delta)
+{
+	return 0.0;
+}
+
+//Wrapper Function
+inline double averageDegreeFLRW(const double &a, const double &chi_max, const double &tau0, const double &alpha, const double &delta)
+{
+	if (tau0 > 2.0 * chi_max)
+		return averageDegreeFLRW_C1(a, chi_max, tau0, alpha, delta);
+	else if (chi_max < tau0 && tau0 < 2.0 * chi_max)
+		return averageDegreeFLRW_C2(a, chi_max, tau0, alpha, delta);
+	else if (tau0 < chi_max)
+		return averageDegreeFLRW_C3(a, chi_max, tau0, alpha, delta);
+
+	//This statement will never be called in practice
+	return 0.0;
+}*/
+
 //For use with GNU Scientific Library
 inline double degreeFieldTheory(double eta, void *params)
 {
@@ -839,16 +874,16 @@ inline double distance(const double * const table, const float4 &node_a, const f
 		kernel = &flrwDistKernel;
 		method = QNG;
 	} else {
-		float p2[3];
-		p2[0] = tau_a;
-		p2[1] = tau_b;
-		p2[2] = ACOS(sphProduct_v2(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+		//float p2[3];
+		//p2[0] = tau_a;
+		//p2[1] = tau_b;
+		//p2[2] = ACOS(sphProduct_v2(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 
 		double x = 0.5;
 		//if (!newton(&solveLambda4D, &x, 10000, TOL, &a, p2, NULL))
 		//	return -1.0;
-		if (!bisection(&solveLambda4DBisec, &x, 10000, -100.0, 10000.0, TOL, false, &a, p2, NULL))
-			return -1.0;
+		//if (!bisection(&solveLambda4DBisec, &x, 10000, -100.0, 10000.0, TOL, false, &a, p2, NULL))
+		//	return -1.0;
 		lambda = x;
 		kernel = &deSitterDistKernel;
 		method = QAGS;

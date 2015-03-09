@@ -20,15 +20,15 @@
 #./bin/CausalSet --nodes 10240 --degrees 10 --radius 2.0 --gpu --print
 
 # Measure properties of Universe
-#./bin/CausalSet --universe --nodes 1048576 --age 4.0 --delta 1.0 --radius 1.0 --seed 18100 --verbose -y --gpu
+#./bin/CausalSet --flrw --nodes 1048576 --age 4.0 --delta 1.0 --radius 1.0 --seed 18100 --verbose -y --gpu
 
 samples=1
 for (( i=1; i<=${samples}; i++ ))
 do
   echo Trial $i of ${samples}
 #  ./bin/CausalSet --nodes 20480 --degrees 10 --radius 2 --seed 18100 --link --compact --verbose -y --embedding 1
-#  ./bin/CausalSet --universe --nodes 20480 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --gpu --print
-#  ./bin/CausalSet --universe --graph 1423690159 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --success 0.01
+#  ./bin/CausalSet --flrw --nodes 20480 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --gpu --print
+#  ./bin/CausalSet --flrw --graph 1423690159 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --success 0.01
 done
 
 ######################################
@@ -44,7 +44,7 @@ done
 # Should find eta0 = 1.5296963, gamma = 1.75
 
 # Generate causal set for universe (mix of dark energy and matter)
-#./bin/CausalSet --universe --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 -y --print --verbose &> causet.log &
+#./bin/CausalSet --flrw --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 -y --print --verbose &> causet.log &
 # Should find N = 10^6, tau given by (12), in-degree given by Fig. (S3), out-degree given by Fig. (3a)
 # Note this takes ~ 3.5 days to run!!!
 
@@ -54,7 +54,7 @@ done
 
 # Compare to Dima's Fortran Code
 # Make sure to manually alter parameters in fortran code and re-compile!
-#./bin/CausalSet --universe --age 1.5 --delta 1 --radius 1 --gpu --graph 22222 --components
+#./bin/CausalSet --flrw --age 1.5 --delta 1 --radius 1 --gpu --graph 22222 --components
 #./etc/dk_stats_direct.pl 22222
 
 #mv Makefile~ Makefile
