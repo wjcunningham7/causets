@@ -10,7 +10,7 @@
 // Northeastern University //
 /////////////////////////////
 
-__host__ __device__ uint64_t vec2MatIdx(const int &N, const uint64_t &vecIdx);
+//__host__ __device__ uint64_t vec2MatIdx(const int &N, const uint64_t &vecIdx);
 
 __global__ void BitonicSort(uint64_t *edges, int j, int k);
 
