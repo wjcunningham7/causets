@@ -397,6 +397,7 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				printf_mpi(rank, "CausalSet Options...................\n");
 				printf_mpi(rank, "====================================\n");
 				printf_mpi(rank, "Flag:\t\t\tMeaning:\t\t\tSuggested Values:\n");
+				printf_mpi(rank, "      --action\t\tMeasure Action\n");
 				printf_mpi(rank, "  -a, --age\t\tRescaled Age of (FLRW) Universe\t0.85\n");
 				printf_mpi(rank, "  -A, --alpha\t\tScaling Parameter\t\t2.0\n");
 				//printf_mpi(rank, "      --autocorr\tCalculate Autocorrelations\n");
@@ -415,6 +416,7 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				printf_mpi(rank, "  -e, --energy\t\tDark Energy Density\t\t0.73\n");
 				printf_mpi(rank, "  -F, --fields\t\tMeasure Degree Fields\n");
 				printf_mpi(rank, "  -f, --flrw\t\tFLRW Causet\n");
+				printf_mpi(rank, "      --geodesics\tGeodesic Estimator\n");
 				#ifdef CUDA_ENABLED
 				printf_mpi(rank, "      --gpu\t\t\tUse GPU Acceleration\n");
 				#endif
