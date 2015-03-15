@@ -510,14 +510,18 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const
 		assert (x <= y);
 	}
 
+	uint64_t idx1, idx2;
 	unsigned int i, j;
+
 	for (i = 0; i < buffer_size; i++) {
 		for (j = 0; j < buffer_size; j++) {
 			if (h_edges[i*buffer_size+j] && g_idx[0] < (int)d_edges_size) {
 				edges[g_idx[0]++] = ((uint64_t)(x*buffer_size+i)) << 32 | ((uint64_t)(y*buffer_size+j));
 				if (x*buffer_size+i < core_limit && y*buffer_size+j < core_limit) {
-					core_edge_exists[(x*buffer_size+i)*core_limit+y*buffer_size+j] = true;
-					core_edge_exists[(y*buffer_size+j)*core_limit+x*buffer_size+i] = true;
+					idx1 = (static_cast<uint64_t>(x)*buffer_size+i)*core_limit+static_cast<uint64_t>(y)*buffer_size+j;
+					idx2 = (static_cast<uint64_t>(y)*buffer_size+j)*core_limit+static_cast<uint64_t>(x)*buffer_size+i;
+					core_edge_exists[idx1] = true;
+					core_edge_exists[idx2] = true;
 				}
 			}
 		}

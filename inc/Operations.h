@@ -965,9 +965,9 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		z1_b = POW(SINH(1.5 * tau_b, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
 
 		//Use Numerical Integration for z0
-		idata.upper = z1_a;
+		idata.upper = alpha * z1_a;
 		z0_a = integrate1D(&embeddedZ1, (void*)p, &idata, QNG);
-		idata.upper = z1_b;
+		idata.upper = alpha * z1_b;
 		z0_b = integrate1D(&embeddedZ1, (void*)p, &idata, QNG);
 	} else {
 		z0_a = SINH(tau_a, APPROX ? FAST : STL);
@@ -977,17 +977,10 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		z1_b = COSH(tau_b, APPROX ? FAST : STL);
 	}
 
-	if (universe) {
-		if (DIST_V2)
-			inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
-		else
-			inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
-	} else {
-		if (DIST_V2)
-			inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
-		else
-			inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
-	}
+	if (DIST_V2)
+		inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
+	else
+		inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
 
 	if (inner_product_ab > 1.0)
 		//Timelike

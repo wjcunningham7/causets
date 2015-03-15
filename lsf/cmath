@@ -25,6 +25,13 @@ mkdir -p /scratch/cunningham/math/%jobname%
 cp $homedir/etc/%jobname%.m $work/
 cp $homedir/etc/ToMatlab.m $work/
 
+let nkernels=%ncores%-1
+
+if [ $nkernels -eq 0 ] ; then
+  echo 'Mathematica requires at least two cores!'
+  exit 2
+fi
+
 # Do not edit below this
 
 cd $work
@@ -43,7 +50,7 @@ done
 # Do not edit above this
 
 echo "Starting Mathematica Job..."
-math -noprompt -run '<<%jobname%.m' > %jobname%.out
+math -noprompt -run '<<%jobname%.m' $nkernels > %jobname%.out
 sleep 1
 
 wait

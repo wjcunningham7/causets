@@ -22,9 +22,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	}
 
-	float c_i, c_k, c_max;
 	float c_avg = 0.0f;
-	int i, j, k;
 
 	stopwatchStart(&sMeasureClustering);
 
@@ -48,7 +46,11 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 	//k represents the third node in the triplet
 	//j and k are not interchanging or else the number of triangles would be doubly counted
 
-	for (i = 0; i < N_tar; i++) {
+
+	#ifdef _OPENMP
+	#pragma omp parallel for schedule (dynamic, 1) reduction(+ : c_avg)
+	#endif
+	for (int i = 0; i < N_tar; i++) {
 		//printf("\nNode %d:\n", i);
 		//printf("\tDegrees: %d\n", (nodes.k_in[i] + nodes.k_out[i]));
 		//printf("\t\tIn-Degrees: %d\n", nodes.k_in[i]);
@@ -61,30 +63,30 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 			continue;
 		}
 
-		c_i = 0.0f;
-		c_k = static_cast<float>((nodes.k_in[i] + nodes.k_out[i]));
-		c_max = c_k * (c_k - 1.0f) / 2.0f;
+		float c_i = 0.0f;
+		float c_k = static_cast<float>((nodes.k_in[i] + nodes.k_out[i]));
+		float c_max = c_k * (c_k - 1.0f) / 2.0f;
 
 		//(1) Consider both neighbors in the past
 		if (edges.past_edge_row_start[i] != -1)
-			for (j = 0; j < nodes.k_in[i]; j++)
+			for (int j = 0; j < nodes.k_in[i]; j++)
 				//3 < 2 < 1
-				for (k = 0; k < j; k++)
+				for (int k = 0; k < j; k++)
 					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.past_edges[edges.past_edge_row_start[i]+k], edges.past_edges[edges.past_edge_row_start[i]+j]))
 						c_i += 1.0f;
 
 		//(2) Consider both neighbors in the future
 		if (edges.future_edge_row_start[i] != -1)
-			for (j = 0; j < nodes.k_out[i]; j++)
+			for (int j = 0; j < nodes.k_out[i]; j++)
 				//1 < 3 < 2
-				for (k = 0; k < j; k++)
+				for (int k = 0; k < j; k++)
 					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.future_edges[edges.future_edge_row_start[i]+k], edges.future_edges[edges.future_edge_row_start[i]+j]))
 						c_i += 1.0f;
 
 		//(3) Consider one neighbor in the past and one in the future
 		if (edges.past_edge_row_start[i] != -1 && edges.future_edge_row_start[i] != -1)
-			for (j = 0; j < nodes.k_out[i]; j++)
-				for (k = 0; k < nodes.k_in[i]; k++)
+			for (int j = 0; j < nodes.k_out[i]; j++)
+				for (int k = 0; k < nodes.k_in[i]; k++)
 					//3 < 1 < 2
 					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.past_edges[edges.past_edge_row_start[i]+k], edges.future_edges[edges.future_edge_row_start[i]+j]))
 						c_i += 1.0f;
@@ -115,7 +117,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 		fflush(stdout);
 		if (calc_autocorr) {
 			autocorr2 acClust(5);
-			for (i = 0; i < N_tar; i++)
+			for (int i = 0; i < N_tar; i++)
 				acClust.accum_data(clustering[i]);
 			acClust.analysis();
 			std::ofstream fout("clustAutoCorr.dat");
@@ -338,7 +340,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	#endif
 
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (runtime) reduction (+ : n_trav, n_succ)
+	#pragma omp parallel for schedule (dynamic, 1) reduction (+ : n_trav, n_succ)
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		//Pick Unique Pair
@@ -848,5 +850,11 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		fflush(stdout);
 	}
 
+	return true;
+}
+
+//Measure Causal Set Action
+bool measureAction()
+{
 	return true;
 }

@@ -7,10 +7,14 @@
 (* This program generates the lookup table used for geodesics in the CasualSet program *)
 (* Output is stored in binary format *)
 
+nkernels = ToExpression[$CommandLine[[Length[$CommandLine]]]];
+CloseKernels[];
+LaunchKernels[nkernels];
+
 Print[StandardForm["Initializing Constants..."]];
 
 (* Number of Terms in Puiseux Series *)
-Nc = 4;
+Nc = 5;
 
 (* Fatness Parameter *)
 \[Alpha] = 1;
@@ -19,15 +23,14 @@ Nc = 4;
 cstep = 0.1;
 
 (* Fine Step Size *)
-fstep = 0.01;
+fstep = 0.02;
 
 (* Granularity *)
 gran = cstep / fstep;
 
 (* Rescaled Time Interval *)
 \[Tau]min = 0;
-(* \[Tau]max = 2; *)
-\[Tau]max = 0.5;
+\[Tau]max = 2;
 \[Tau]cells = (\[Tau]max - \[Tau]min) / cstep;
 \[Tau]cellsf = \[Tau]cells * gran;
 
@@ -96,7 +99,7 @@ Print@tp1; *)
 Print[StandardForm["Generating Raw Lookup Table..."]];
 
 (* Lookup Table *)
-t2 = Table[With[{i = a, j = b, k = c}, Module[{ic, jc, kc},
+t2 = ParallelTable[With[{i = a, j = b, k = c}, Module[{ic, jc, kc},
 	ic = Floor[(i - 1) / gran] + 1;
 	jc = Floor[(j - 1) / gran] + 1;
 	kc = Floor[(k - 1) / gran] + 1;
@@ -110,7 +113,7 @@ t2 = Table[With[{i = a, j = b, k = c}, Module[{ic, jc, kc},
 Print[StandardForm["Formatting Lookup Table..."]];
 
 (* Create Points {\[Tau]1, \[Tau]2, \[Omega]12, \[Lambda]} *)
-t3 = Table[With[{i = a}, Module[{x0, y0, \[Lambda]0},
+t3 = ParallelTable[With[{i = a}, Module[{x0, y0, \[Lambda]0},
 	x0 = Floor[(i - 1) / (xcellsf * \[Lambda]cellsf)] + 1;
 	y0 = Floor[Mod[(i - 1), xcellsf * \[Lambda]cellsf] / \[Lambda]cellsf] + 1;
 	\[Lambda]0 = Floor[Mod[Mod[(i - 1), xcellsf * \[Lambda]cellsf], \[Lambda]cellsf]] + 1;

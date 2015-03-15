@@ -103,6 +103,51 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 	}
 }
 
+bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction)
+{
+	if (DEBUG) {
+		assert (k_out != NULL);
+		assert (future_edges != NULL);
+		assert (future_edge_row_start != NULL);
+		assert (core_edge_exists != NULL);
+		assert (N_tar > 0);
+		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	}
+	
+	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
+	int idx1, idx2;
+	int i, j;
+
+	try {
+		for (i = 0; i < core_limit; i++) {
+			idx1 = i;
+
+			if (DEBUG) {
+				assert (!(future_edge_row_start[idx1] == -1 && k_out[idx1] > 0));
+				assert (!(future_edge_row_start[idx1] != -1 && k_out[idx1] == 0));
+			}
+
+			for (j = 0; j < k_out[idx1]; j++) {
+				idx2 = future_edges[future_edge_row_start[idx1]+j];
+
+				if (idx2 >= core_limit)
+					continue;
+
+				if (!core_edge_exists[idx1*core_limit+idx2] || !core_edge_exists[idx2*core_limit+idx1])
+					throw CausetException("Adjacency matrix does not match sparse list!\n");
+			}
+		}
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		return false;
+	}
+
+	return true;
+}
+
 #ifdef CUDA_ENABLED
 //Note that core_edge_exists has not been implemented in this version of the linkNodesGPU subroutine.
 bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose, const bool &bench)
@@ -558,14 +603,14 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	}
 	
 	//Print Results
-	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v1.cset.dbg.dat", "out-degrees_GPU_v1.cset.dbg.dat")) return false;
+	if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v1.cset.dbg.dat", "out-degrees_GPU_v1.cset.dbg.dat")) return false;
 	if (!printEdgeLists(edges, *g_idx, "past-edges_GPU_v1.cset.dbg.dat", "future-edges_GPU_v1.cset.dbg.dat")) return false;
 	if (!printEdgeListPointers(edges, N_tar, "past-edge-pointers_GPU_v1.cset.dbg.dat", "future-edge-pointers_GPU_v1.cset.dbg.dat")) return false;
 	printf_red();
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(0);*/
+	exit(0);
 
 	//Free Host Memory
 	free(g_idx);

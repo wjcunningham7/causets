@@ -224,7 +224,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			printf_mpi(rank, "\t > Pseudoradius:\t\t%.6f\n", network_properties->a);
 			printf_mpi(rank, "\t > Cosmological Constant:\t%.6f\n", network_properties->lambda);
 			printf_mpi(rank, "\t > Rescaled Age:\t\t%.6f\n", network_properties->tau0);
+			if (rank == 0) printf_red();
 			printf_mpi(rank, "\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
+			if (rank == 0) printf_cyan();
 			printf_mpi(rank, "\t > Rescaled Energy Density:\t%.6f\n", network_properties->rhoL);
 			printf_mpi(rank, "\t > Matter Density:\t\t%.6f\n", network_properties->omegaM);
 			printf_mpi(rank, "\t > Rescaled Matter Density:\t%.6f\n", network_properties->rhoM);
@@ -557,11 +559,11 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			memset(edges.future_edge_row_start, 0, sizeof(int) * N_tar);
 			hostMemUsed += sizeof(int) * N_tar;
 
-			core_edge_exists = (bool*)malloc(sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT)));
+			core_edge_exists = (bool*)malloc(sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)));
 			if (core_edge_exists == NULL)
 				throw std::bad_alloc();
-			memset(core_edge_exists, 0, sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT)));
-			hostMemUsed += sizeof(bool) * static_cast<unsigned int>(POW2(core_edge_fraction * N_tar, EXACT));
+			memset(core_edge_exists, 0, sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)));
+			hostMemUsed += sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
 		}
 
 		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
@@ -738,30 +740,33 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			//and from PDF identified in (12) of [2] for universe  //
 			/////////////////////////////////////////////////////////
 
-			nodes.id.tau[i] = static_cast<float>(tau0) + 1.0f;
-			rval = ran2(&seed);
+			//nodes.id.tau[i] = static_cast<float>(tau0) + 1.0f;
 
-			double p1[2];
-			p1[1] = rval;
+			do {
+				rval = ran2(&seed);
 
-			if (universe) {
-				x = 0.5;
-				p1[0] = tau0;
-				if (tau0 > 1.8) {	//Cutoff of 1.8 determined by trial and error
-					if (!bisection(&solveTauUnivBisec, &x, 2000, 0.0, tau0, TOL, true, p1, NULL, NULL))
-						return false;
+				double p1[2];
+				p1[1] = rval;
+
+				if (universe) {
+					x = 0.5;
+					p1[0] = tau0;
+					if (tau0 > 1.8) {	//Cutoff of 1.8 determined by trial and error
+						if (!bisection(&solveTauUnivBisec, &x, 2000, 0.0, tau0, TOL, true, p1, NULL, NULL))
+							return false;
+					} else {
+						if (!newton(&solveTauUniverse, &x, 1000, TOL, p1, NULL, NULL))
+							return false;
+					}
 				} else {
-					if (!newton(&solveTauUniverse, &x, 1000, TOL, p1, NULL, NULL))
+					x = 3.5;
+					p1[0] = zeta;
+					if (!newton(&solveTau, &x, 1000, TOL, p1, NULL, NULL))
 						return false;
 				}
-			} else {
-				x = 3.5;
-				p1[0] = zeta;
-				if (!newton(&solveTau, &x, 1000, TOL, p1, NULL, NULL))
-					return false;
-			}
 
-			nodes.id.tau[i] = static_cast<float>(x);
+				nodes.id.tau[i] = static_cast<float>(x);
+			} while (nodes.id.tau[i] > static_cast<float>(tau0));
 
 			if (DEBUG) {
 				assert (nodes.id.tau[i] > 0.0f);
@@ -941,12 +946,14 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {
+				uint64_t idx1 = static_cast<uint64_t>(i) * core_limit + j;
+				uint64_t idx2 = static_cast<uint64_t>(j) * core_limit + i;
 				if (dx > dt) {
-					core_edge_exists[(i * core_limit) + j] = false;
-					core_edge_exists[(j * core_limit) + i] = false;
+					core_edge_exists[idx1] = false;
+					core_edge_exists[idx2] = false;
 				} else {
-					core_edge_exists[(i * core_limit) + j] = true;
-					core_edge_exists[(j * core_limit) + i] = true;
+					core_edge_exists[idx1] = true;
+					core_edge_exists[idx2] = true;
 				}
 			}
 						
@@ -1028,16 +1035,18 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	//Debugging options used to visually inspect the adjacency lists and the adjacency pointer lists
 	//compareAdjacencyLists(nodes, edges);
 	//compareAdjacencyListIndices(nodes, edges);
+	//if (!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
+	//	return false;
 
 	//Print Results
-	/*if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
+	if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
 	if (!printEdgeLists(edges, past_idx, "past-edges_CPU.cset.dbg.dat", "future-edges_CPU.cset.dbg.dat")) return false;
 	if (!printEdgeListPointers(edges, N_tar, "past-edge-pointers_CPU.cset.dbg.dat", "future-edge-pointers_CPU.cset.dbg.dat")) return false;
 	printf_red();
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(0);*/
+	exit(0);
 
 	stopwatchStop(&sLinkNodes);
 

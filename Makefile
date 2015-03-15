@@ -88,8 +88,8 @@ MPIFLAGS2	:=
 # OpenMP or MPI Acceleration #
 ##############################
 
-USE_OMP		:= 0
-USE_MPI		:= 0
+USE_OMP		:= 1
+USE_MPI		:= 1
 
 ifneq ($(USE_OMP), 0)
 OMPFLAGS1 += -fopenmp
@@ -129,7 +129,7 @@ OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.o, $(SOURCES))
 # Top-Level Compilation Sequences #
 ###################################
 
-all : cpu
+all : gpu
 
 cpu : $(COBJS) $(CEXTOBJS) $(OBJS) link
 

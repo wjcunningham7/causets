@@ -100,11 +100,12 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":a:A:Cc:k:d:e:F:fg:hl:m:n:r:s:S:vyz:";
+	static const char *optString = ":Aa:Cc:k:d:e:F:fGg:hl:m:n:r:s:S:vyz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
-		{ "age",	required_argument,	NULL, 'a'  },
-		{ "alpha",	required_argument,	NULL, 'A' },
+		{ "action",	no_argument,		NULL, 'A' },
+		{ "age",	required_argument,	NULL, 'a' },
+		{ "alpha",	required_argument,	NULL,  0  },
 		{ "autocorr",	no_argument,		NULL,  0  },
 		{ "benchmark",	no_argument,		NULL,  0  },
 		{ "clustering",	no_argument,		NULL, 'C' },
@@ -121,6 +122,7 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 		{ "energy",	required_argument,	NULL, 'e' },
 		{ "fields",	required_argument,	NULL, 'F' },
 		{ "flrw",	no_argument,		NULL, 'f' },
+		{ "geodesics",	no_argument,		NULL, 'G' },
 		{ "gpu", 	no_argument, 		NULL,  0  },
 		{ "graph",	required_argument,	NULL, 'g' },
 		{ "help", 	no_argument,		NULL, 'h' },
@@ -145,6 +147,9 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 	try {
 		while ((c = getopt_long(argc, argv, optString, longOpts, &longIndex)) != -1) {
 			switch (c) {
+			case 'A':	//Flag for calculating action
+				network_properties.flags.calc_action = true;
+				break;
 			case 'a':
 				//Age of universe
 				network_properties.tau0 = atof(optarg);
@@ -159,17 +164,6 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				network_properties.flags.cc.conflicts[2]++;
 				network_properties.flags.cc.conflicts[3]++;
 				network_properties.flags.cc.conflicts[6]++;
-				break;
-			case 'A':	//Rescaled ratio of dark energy density to matter density
-				network_properties.alpha = atof(optarg);
-
-				if (network_properties.alpha <= 0.0)
-					throw CausetException("Invalid argument for 'alpha' parameter!\n");
-
-				network_properties.flags.cc.conflicts[4]++;
-				network_properties.flags.cc.conflicts[5]++;
-				network_properties.flags.cc.conflicts[6]++;
-
 				break;
 			case 'C':	//Flag for calculating clustering
 				network_properties.flags.calc_clustering = true;
@@ -211,6 +205,9 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				break;
 			case 'f':	//Flag for creating flrw causet
 				network_properties.flags.universe = true;
+				break;
+			case 'G':	//Flag for estimating geodesics
+				network_properties.flags.calc_geodesics = true;
 				break;
 			case 'g':	//Graph ID
 				network_properties.graphID = atoi(optarg);
@@ -283,7 +280,17 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				if (network_properties.zeta == 0.0)
 					throw CausetException("Invalid argument for 'zeta' parameter!\n");
 			case 0:
-				if (!strcmp("autocorr", longOpts[longIndex].name))
+				if (!strcmp("alpha", longOpts[longIndex].name)) {
+					//Rescaled ratio of dark energy density to matter density
+					network_properties.alpha = atof(optarg);
+
+					if (network_properties.alpha <= 0.0)
+						throw CausetException("Invalid argument for 'alpha' parameter!\n");
+
+					network_properties.flags.cc.conflicts[4]++;
+					network_properties.flags.cc.conflicts[5]++;
+					network_properties.flags.cc.conflicts[6]++;
+				} else if (!strcmp("autocorr", longOpts[longIndex].name))
 					//Flag to calculate autocorrelation of selected variables
 					network_properties.flags.calc_autocorr = true;
 				else if (!strcmp("benchmark", longOpts[longIndex].name))
@@ -397,9 +404,9 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				printf_mpi(rank, "CausalSet Options...................\n");
 				printf_mpi(rank, "====================================\n");
 				printf_mpi(rank, "Flag:\t\t\tMeaning:\t\t\tSuggested Values:\n");
-				printf_mpi(rank, "      --action\t\tMeasure Action\n");
+				printf_mpi(rank, "  -A, --action\t\tMeasure Action\n");
 				printf_mpi(rank, "  -a, --age\t\tRescaled Age of (FLRW) Universe\t0.85\n");
-				printf_mpi(rank, "  -A, --alpha\t\tScaling Parameter\t\t2.0\n");
+				printf_mpi(rank, "      --alpha\t\tScaling Parameter\t\t2.0\n");
 				//printf_mpi(rank, "      --autocorr\tCalculate Autocorrelations\n");
 				printf_mpi(rank, "      --benchmark\tBenchmark Algorithms\n");
 				printf_mpi(rank, "  -C, --clustering\tMeasure Clustering\n");
@@ -416,9 +423,9 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				printf_mpi(rank, "  -e, --energy\t\tDark Energy Density\t\t0.73\n");
 				printf_mpi(rank, "  -F, --fields\t\tMeasure Degree Fields\n");
 				printf_mpi(rank, "  -f, --flrw\t\tFLRW Causet\n");
-				printf_mpi(rank, "      --geodesics\tGeodesic Estimator\n");
+				printf_mpi(rank, "  -G, --geodesics\tGeodesic Estimator\n");
 				#ifdef CUDA_ENABLED
-				printf_mpi(rank, "      --gpu\t\t\tUse GPU Acceleration\n");
+				printf_mpi(rank, "      --gpu\t\tUse GPU Acceleration\n");
 				#endif
 				printf_mpi(rank, "  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
 				printf_mpi(rank, "  -h, --help\t\tDisplay This Menu\n");
@@ -626,7 +633,7 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 		assert (bm != NULL);
 	}
 	
-	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio && !network->network_properties.flags.calc_deg_field && !network->network_properties.flags.validate_distances)
+	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio && !network->network_properties.flags.calc_deg_field && !network->network_properties.flags.validate_distances && !network->network_properties.flags.calc_action && !network->network_properties.flags.calc_geodesics)
 		return true;
 
 	int rank = network->network_properties.rank;
@@ -734,6 +741,11 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 		if (!validateDistances(network->network_observables.dvd, network->nodes, network->network_properties.N_tar, network->network_properties.N_dst, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, cp->sValidateDistances, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose))
 			return false;
 	}
+
+	//Measure Action
+	
+	//Measure Geodesics w/ Geodesic Estimator
+
 	#ifdef MPI_ENABLED
 	}
 	#endif
@@ -1656,7 +1668,7 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 
 		free(network->core_edge_exists);
 		network->core_edge_exists = NULL;
-		hostMemUsed -= sizeof(bool) * static_cast<unsigned int>(POW2(network->network_properties.core_edge_fraction * network->network_properties.N_tar, EXACT));
+		hostMemUsed -= sizeof(bool) * static_cast<uint64_t>(POW2(network->network_properties.core_edge_fraction * network->network_properties.N_tar, EXACT));
 	}
 
 	if (network->network_properties.flags.bench)

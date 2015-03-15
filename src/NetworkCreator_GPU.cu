@@ -411,16 +411,19 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		printf_std();
 		fflush(stdout);
 	}
-	
+
+	if (!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
+		return false;
+
 	//Print Results
-	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
+	if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
 	if (!printEdgeLists(edges, *g_idx, "past-edges_GPU_v2.cset.dbg.dat", "future-edges_GPU_v2.cset.dbg.dat")) return false;
 	if (!printEdgeListPointers(edges, N_tar, "past-edge-pointers_GPU_v2.cset.dbg.dat", "future-edge-pointers_GPU_v2.cset.dbg.dat")) return false;
 	printf_red();
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(0);*/
+	exit(0);
 
 	//Free Host Memory
 	free(g_idx);
@@ -450,7 +453,6 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 		assert (nodes.crd->z() != NULL);
 		assert (nodes.k_in != NULL);
 		assert (nodes.k_out != NULL);
-		assert (edges != NULL);
 		assert (core_edge_exists != NULL);
 		assert (g_idx != NULL);
 		assert (N_tar > 0);
@@ -534,18 +536,10 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	unsigned int gridy = mblock_size;
 	dim3 threads_per_block(1, BLOCK_SIZE, 1);
 	dim3 blocks_per_grid(gridx, gridy, 1);
-	
+
 	//Index 'i' marks the row and 'j' marks the column
 	for (i = 0; i < 2 * GROUP_SIZE; i++) {
 		for (j = 0; j < 2 * GROUP_SIZE / NBUFFERS; j++) {
-			//I don't think OpenMP generates enough threads for this to be efficient
-			//#ifdef _OPENMP
-			//#pragma omp parallel
-			//{
-			//checkCudaErrors(cuCtxSetCurrent(ctx));
-
-			//#pragma omp for schedule(dynamic, 1)
-			//#endif
 			for (m = 0; m < NBUFFERS; m++) {
 				if (i > j * NBUFFERS + m)
 					continue;
@@ -577,9 +571,6 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 				checkCudaErrors(cuMemcpyDtoHAsync(h_k_out[m], d_k_out[m], sizeof(int) * mthread_size, stream[m]));
 				checkCudaErrors(cuMemcpyDtoHAsync(h_edges[m], d_edges[m], sizeof(bool) * m_edges_size, stream[m]));
 			}
-			//#ifdef _OPENMP
-			//}
-			//#endif
 
 			for (m = 0; m < NBUFFERS; m++) {
 				if (i > j * NBUFFERS + m)

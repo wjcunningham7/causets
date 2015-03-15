@@ -22,7 +22,7 @@
 
 #define USE_GSL true	//Use GNU Scientific Library for numerical integration
 
-#define DIST_V2 true	//Use factored or expanded distance formulae
+#define DIST_V2 true	//Use factored (v2) or expanded (v1) distance formulae
 
 //Debugging Flags
 #define DEBUG true	//Determines whether unit testing is in effect
@@ -48,11 +48,11 @@
 
 //Options for GPU Algorithms
 //See src/NetworkCreator_GPU.cu
-#define LINK_NODES_GPU_V2 true
+#define LINK_NODES_GPU_V2 false
 
-#define GEN_ADJ_LISTS_GPU_V2 true
+#define GEN_ADJ_LISTS_GPU_V2 false
 
-#define DECODE_LISTS_GPU_V2 true
+#define DECODE_LISTS_GPU_V2 false
 
 #endif
 

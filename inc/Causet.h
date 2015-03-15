@@ -351,7 +351,7 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), link(false), relink(false), read_old_format(false), universe(false), compact(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), validate_embedding(false), validate_distances(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), link(false), relink(false), read_old_format(false), universe(false), compact(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_geodesics(false), validate_embedding(false), validate_distances(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	CausetConflicts cc;		//Conflicting Parameters
 
@@ -370,6 +370,8 @@ struct CausetFlags {
 	bool calc_success_ratio;	//Find Success Ratio
 	bool calc_autocorr;		//Autocorrelation
 	bool calc_deg_field;		//Measure Degree Field
+	bool calc_action;		//Measure Action
+	bool calc_geodesics;		//Geodesic Estimator
 
 	bool validate_embedding;	//Find Embedding Statistics
 	bool validate_distances;	//Compare Distance Methods
@@ -427,7 +429,7 @@ struct NetworkProperties {
 
 //Measured values of the network
 struct NetworkObservables {
-	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), evd(EVData()), success_ratio(0.0), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0), dvd(DVData()) {}
+	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), evd(EVData()), success_ratio(0.0), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0), dvd(DVData()), action(0.0f) {}
 	
 	int N_res;			//Resulting Number of Connected Nodes
 	float k_res;			//Resulting Average Degree
@@ -451,6 +453,8 @@ struct NetworkObservables {
 	float avg_odf;			//Average Out-Degree Field Value
 
 	DVData dvd;			//Distance Validation Data
+
+	float action;			//Action
 };
 
 //Network object containing minimal unique information

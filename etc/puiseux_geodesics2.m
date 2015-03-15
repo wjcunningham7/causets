@@ -8,6 +8,10 @@
 (* Output is stored in binary format *)
 
 SetOptions[$Output, FormatType->OutputForm];
+nkernels = ToExpression[$CommandLine[[Length[$CommandLine]]]];
+CloseKernels[];
+LaunchKernels[nkernels];
+
 Print[StandardForm["Initializing Constants..."]];
 
 (* Number of Terms in Puiseux Series *)

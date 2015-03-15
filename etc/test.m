@@ -1,10 +1,14 @@
 Get["/home/cunningham.wi/local/etc/ToMatlab.m"];
 
-(* gr2rom[x_] := Module[{s},
-	s = ToString[FullForm[x]];
-	s = StringReplace[s, RegularExpression["\\\\\[(\\w+)\\]"] -> "$1"];
-	ToExpression[s]
-	] *)
+(* Print[$CommandLine];
+
+n = Length[$CommandLine];
+Print[n];
+k = ToExpression[$CommandLine[[n]]];
+Print[k]; *)
+
+kern = ToExpression[$CommandLine[[Length[$CommandLine]]]];
+Print@kern;
 
 a = \[Alpha];
 b = gr2rom[a];
