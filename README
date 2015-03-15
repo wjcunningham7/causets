@@ -8,7 +8,37 @@
 # CAUSAL SET SOFTWARE GUIDE #
 #---------------------------#
 
-This guide is intended for developers.
+=================
+Usage Guidelines:
+=================
+
+When first downloading, use 'configure' to create directories.
+To compile, use 'make'.  To compile for the GPU, use 'make gpu'.
+
+NOTE: This requires a number of external source and header files:
+ > ran2.cpp, ran2.h
+ > stopwatch.cpp, stopwatch.h
+ > nintlib.hpp
+ > printcolor.h
+
+as well as the following static libraries:
+ > libfastmath.a
+ > libnint.a
+ > libprintcolor.a
+
+These are not currently included here.
+
+To run, see examples in the 'test' executable.
+To run on LSF, see examples in the lsf/test executable.
+
+A summary of the simulation is printed to stdout when the program is run, and
+when the '--print' flag is included, all data is printed to file in the 
+'dat' directory.
+
+For a full set of options, run the program with the '--help' flag.
+
+A series of scripts used for analysis are included in the 'etc' directory.
+Lookup tables used in the program are also stored here.
 
 =====================================
 Summary of Files and Functions (CPU):
