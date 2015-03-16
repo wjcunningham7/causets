@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Iteration variable
+i=1
+
+# Maximum number of iterations
+iter=100
+
+# Sleep time between job checks
+sleeptime=10
+
+# Number of active jobs
+njobs=$(bjobs | wc -l)
+
+while [ $i -lt $iter ] ; do
+  clear
+
+  if [ $njobs -eq 1 ] ; then
+    echo 'No jobs currently active.'
+    break
+  fi
+
+  let "i++"
+  j=$njobs
+  njobs=$(bjobs | wc -l)
+
+  if [ $j -ne $njobs ] ; then
+    echo 'JOB FINISHED!'
+    break
+  else
+    bjobs
+  fi
+
+  sleep $sleeptime
+done
+
+echo 'PROGRAM COMPLETED'

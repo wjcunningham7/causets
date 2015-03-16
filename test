@@ -27,7 +27,7 @@ for (( i=1; i<=${samples}; i++ ))
 do
   echo Trial $i of ${samples}
 #  ./bin/CausalSet --nodes 20480 --degrees 10 --radius 0.8 --seed 18100 --link --compact --verbose -y --gpu --embedding 1
-  ./bin/CausalSet --flrw --nodes 51200 --degrees 10 --delta 500 --radius 0.5 --link --verbose -y --seed 18100 --compact --gpu
+  ./bin/CausalSet --flrw --nodes 20480 --degrees 10 --delta 500 --radius 1.0 --link --verbose -y --seed 18100 --slice 0.98 --core 0.95 --gpu
 #  ./bin/CausalSet --flrw --graph 1423690159 --degrees 10 --delta 500 --radius 0.7 --seed 18100 --link --compact --verbose -y --success 0.01
 done
 

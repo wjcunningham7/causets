@@ -56,6 +56,9 @@ __device__ float sphProduct_GPU_v2(const float4 &sc0, const float4 &sc1)
 	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z));
 }
 
+//NOTE: v1 and v2 for flatProduct can lead to very slightly different results (not entirely sure why)
+//      v1 matches for CPU/GPU and v2 leads to the erroneous anomaly
+
 __device__ float flatProduct_GPU_v1(const float4 &sc0, const float4 &sc1)
 {
 	return POW2_GPU(X_FLAT_GPU(sc0.x, sc0.y, sc0.z) - X_FLAT_GPU(sc1.x, sc1.y, sc1.z)) +

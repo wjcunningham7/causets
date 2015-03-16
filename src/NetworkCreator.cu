@@ -740,8 +740,6 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			//and from PDF identified in (12) of [2] for universe  //
 			/////////////////////////////////////////////////////////
 
-			//nodes.id.tau[i] = static_cast<float>(tau0) + 1.0f;
-
 			do {
 				rval = ran2(&seed);
 
