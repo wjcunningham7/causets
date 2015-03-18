@@ -484,20 +484,19 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 			bfsearch(nodes, edges, edges.future_edges[fs+i], id, elements);
 }
 
-void readDegrees(int * const &degrees, const int * const h_k, const int &index, const size_t &offset_size)
+void readDegrees(int * const &degrees, const int * const h_k, const size_t &offset, const size_t &size)
 {
 	if (DEBUG) {
 		assert (degrees != NULL);
 		assert (h_k != NULL);
-		assert (index >= 0);
 	}
 
 	unsigned int i;
-	for (i = 0; i < offset_size; i++)
-		degrees[index*offset_size+i] += h_k[i];
+	for (i = 0; i < size; i++)
+		degrees[offset+i] += h_k[i];
 }
 
-void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const core_edge_exists, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &buffer_size, const int x, const int y)
+void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const core_edge_exists, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y)
 {
 	if (DEBUG) {
 		assert (edges != NULL);
@@ -513,18 +512,39 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const
 	uint64_t idx1, idx2;
 	unsigned int i, j;
 
-	for (i = 0; i < buffer_size; i++) {
-		for (j = 0; j < buffer_size; j++) {
-			if (h_edges[i*buffer_size+j] && g_idx[0] < (int)d_edges_size) {
-				edges[g_idx[0]++] = ((uint64_t)(x*buffer_size+i)) << 32 | ((uint64_t)(y*buffer_size+j));
-				if (x*buffer_size+i < core_limit && y*buffer_size+j < core_limit) {
-					idx1 = (static_cast<uint64_t>(x)*buffer_size+i)*core_limit+static_cast<uint64_t>(y)*buffer_size+j;
-					idx2 = (static_cast<uint64_t>(y)*buffer_size+j)*core_limit+static_cast<uint64_t>(x)*buffer_size+i;
+	for (i = 0; i < size0; i++) {
+		for (j = 0; j < size1; j++) {
+			if (h_edges[i*mthread_size+j] && g_idx[0] < (int)d_edges_size) {
+				edges[g_idx[0]++] = (static_cast<uint64_t>(x*mthread_size+i)) << 32 | (static_cast<uint64_t>(y*mthread_size+j));
+				if (x*mthread_size+i < core_limit && y*mthread_size+j < core_limit) {
+					idx1 = static_cast<uint64_t>(x * mthread_size + i) * core_limit + y * mthread_size + j;
+					idx2 = static_cast<uint64_t>(y * mthread_size + j) * core_limit + x * mthread_size + i;
+
 					core_edge_exists[idx1] = true;
 					core_edge_exists[idx2] = true;
 				}
 			}
 		}
+	}
+}
+
+void scan(const int * const k_in, const int * const k_out, int * const &past_edge_pointers, int * const &future_edge_pointers, const int &N_tar)
+{
+	int past_idx = 0, future_idx = 0;
+	int i;
+
+	for (i = 0; i < N_tar; i++) {
+		if (k_in[i] != 0) {
+			past_edge_pointers[i] = past_idx;
+			past_idx += k_in[i];
+		} else
+			past_edge_pointers[i] = -1;
+
+		if (k_out[i] != 0) {
+			future_edge_pointers[i] = future_idx;
+			future_idx += k_out[i];
+		} else
+			future_edge_pointers[i] = -1;
 	}
 }
 

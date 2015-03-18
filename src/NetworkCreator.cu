@@ -41,6 +41,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 	//Optimize Parameters for GPU
 	if (network_properties->flags.use_gpu && network_properties->N_tar % (BLOCK_SIZE << 1)) {
 		printf_mpi(rank, "If you are using the GPU, set the target number of nodes (--nodes) to be a multiple of double the thread block size (%d)!\n", BLOCK_SIZE << 1);
+		printf_mpi(rank, "For best results, use a power of 2.\n");
 		fflush(stdout);
 		return false;
 	}
@@ -946,6 +947,7 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 			if (i < core_limit && j < core_limit) {
 				uint64_t idx1 = static_cast<uint64_t>(i) * core_limit + j;
 				uint64_t idx2 = static_cast<uint64_t>(j) * core_limit + i;
+
 				if (dx > dt) {
 					core_edge_exists[idx1] = false;
 					core_edge_exists[idx2] = false;
@@ -1033,18 +1035,18 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	//Debugging options used to visually inspect the adjacency lists and the adjacency pointer lists
 	//compareAdjacencyLists(nodes, edges);
 	//compareAdjacencyListIndices(nodes, edges);
-	//if (!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
-	//	return false;
+	if (DEBUG && !compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
+		return false;
 
 	//Print Results
-	if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
+	/*if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
 	if (!printEdgeLists(edges, past_idx, "past-edges_CPU.cset.dbg.dat", "future-edges_CPU.cset.dbg.dat")) return false;
 	if (!printEdgeListPointers(edges, N_tar, "past-edge-pointers_CPU.cset.dbg.dat", "future-edge-pointers_CPU.cset.dbg.dat")) return false;
 	printf_red();
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(0);
+	exit(0);*/
 
 	stopwatchStop(&sLinkNodes);
 

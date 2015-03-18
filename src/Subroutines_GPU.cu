@@ -9,7 +9,7 @@
 //Input:  Index from vectorized upper diagonal matrix
 //Output: i*N+j where i,j are matrix indices
 //Efficiency: O(N)
-/*__host__ __device__ uint64_t vec2MatIdx(const int &N, const uint64_t &vecIdx)
+__host__ __device__ uint64_t vec2MatIdx(const int &N, const uint64_t &vecIdx)
 {
 	int i = 0, j = 0;
 	int delta = 1;
@@ -25,7 +25,7 @@
 	}
 
 	return i * static_cast<uint64_t>(N) + j;
-}*/
+}
 
 //Bitonic Sort
 //Borrowed from https://gist.github.com/mre/1392067
