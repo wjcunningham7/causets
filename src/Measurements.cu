@@ -63,6 +63,13 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 			continue;
 		}
 
+		if (DEBUG) {
+			assert (!(edges.past_edge_row_start[i] == -1 && nodes.k_in[i] > 0));
+			assert (!(edges.past_edge_row_start[i] != -1 && nodes.k_in[i] == 0));
+			assert (!(edges.future_edge_row_start[i] == -1 && nodes.k_out[i] > 0));
+			assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
+		}
+
 		float c_i = 0.0f;
 		float c_k = static_cast<float>((nodes.k_in[i] + nodes.k_out[i]));
 		float c_max = c_k * (c_k - 1.0f) / 2.0f;
@@ -303,8 +310,16 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		return false;
 	}
 
-	if (!getLookupTable("./etc/geodesic_table.cset.bin", &table, &size))
+	if (!getLookupTable("./etc/geodesics_table.cset.bin", &table, &size))
 		return false;
+
+	//DEBUG
+	//printf("(tau_a\t\ttau_b\t\tomega_12\tlambda)\n");
+	//for (int i = 0; i < 200; i += 4)
+	//	printf("(%f\t%f\t%f\t%f)\n", table[i], table[i+1], table[i+2], table[i+3]);
+	//printf("\n");
+	//fflush(stdout);
+	//exit(0);
 	
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
@@ -354,6 +369,9 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
+		//printf("i: %d\tj: %d\n", i, j);
+		//fflush(stdout);
+
 		//If either node is isolated, continue
 		if (!(nodes.k_in[i] + nodes.k_out[i]) || !(nodes.k_in[j] + nodes.k_out[j]))
 			continue;
@@ -366,7 +384,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		memset(used + N_tar * omp_get_thread_num(), 0, sizeof(bool) * N_tar);
 
 		//Begin Traversal from i to j
-		bool success = traversePath(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, universe, compact, i, j);
+		//NOTE: Make sure when OpenMP or MPI are used, this 'return false' can make its way back to the master thread!
+		bool success = false;
+		if (!traversePath(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, universe, compact, i, j, success))
+			return false;
 
 		n_trav++;
 		if (success)
@@ -417,7 +438,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //O(xxx) Efficiency (revise this)
-bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &universe, const bool &compact, int source, int dest)
+bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &universe, const bool &compact, int source, int dest, bool &success)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
@@ -469,8 +490,6 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 	float dist;
 	int next;
 
-	bool success = false;
-
 	//While the current location (loc) is not equal to the destination (dest)
 	while (loc != dest) {
 		next = loc;
@@ -491,12 +510,16 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 			idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
 
 			//(A) If the current location's (loc's) past neighbor (idx_a) is the destination (idx_b) then return true
-			if (idx_a == idx_b)
+			if (idx_a == idx_b) {
+				success = true;
 				return true;
+			}
 
 			//(B) If the current location's past neighbor is directly connected to the destination then return true
-			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b))
+			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
+				success = true;
 				return true;
+			}
 
 			//(C) Otherwise find the past neighbor closest to the destination
 			if (manifold == DE_SITTER) {
@@ -507,7 +530,7 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 
-			if (dist < 0)
+			if (dist == -1)
 				return false;
 
 			//Save the minimum distance
@@ -535,6 +558,9 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 			#ifdef _OPENMP
 			if (priv_next == idx_b || priv_next == -1)
 				continue;
+			#else
+			if (next == idx_b || next == -1)
+				continue;
 			#endif
 
 			idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
@@ -546,6 +572,7 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 				priv_next = idx_b;
 				continue;
 				#else
+				success = true;
 				return true;
 				#endif
 			}
@@ -557,6 +584,7 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 				priv_next = idx_b;
 				continue;
 				#else
+				success = true;
 				return true;
 				#endif
 			}
@@ -570,7 +598,7 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 
-			if (dist < 0)
+			if (dist == -1)
 				idx_a = -1;
 
 			#ifdef _OPENMP
@@ -602,10 +630,13 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 		}
 		#endif
 
-		if (next == idx_b)
+		if (next == idx_b) {
+			success = true;
 			return true;
-		else if (next == -1)
+		} else if (next == -1) {
+			success = false;
 			return false;
+		}
 
 		if (!used[next])
 			loc = next;
@@ -613,7 +644,8 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 			break;
 	}
 
-	return success;
+	success = false;
+	return true;
 }
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m

@@ -118,47 +118,79 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 //Lookup value in table of (t1, t2, omega12, lambda) coordinates -> 4D parameter space
 //Used for geodesic distance calculations
 //Returns the transcendental integration parameter 'lambda'
-double lookupValue4D(const double *table, const long &size, const double &t1, const double &t2, const double &omega12)
+double lookupValue4D(const double *table, const long &size, const double &omega12, double t1, double t2)
 {
 	if (DEBUG) {
 		assert (table != NULL);
 		assert (size > 0);
+		assert (omega12 >= 0.0);
 		assert (t1 >= 0.0);
 		assert (t2 >= 0.0);
-		assert (omega12 >= 0.0);
-		assert (t2 > t1);
 	}
 
-	double tau1_val = 0.0;
-	double tau2_val = 0.0;
-	double omega12_val = 0.0;
+	if (t2 < t1) {
+		double temp = t1;
+		t1 = t2;
+		t2 = temp;
+	}
+
+	//double tau1_val = 0.0;
+	//double tau2_val = 0.0;
+	//double omega12_val = 0.0;
 	double lambda = 0.0;
 
-	int tau_step = table[0];
-	int lambda_step = table[1];
+	//NOTE: these values are currently HARD CODED.  This will later be changed,
+	//but it requires re-generating the lookup table.
+
+	int tau_step = 150;
+	int lambda_step = 20;
 	int step = 4 * tau_step * lambda_step;
+	int counter = 0;
 	int i;
 
+	//DEBUG
+	//printf("tau1: %f\ttau2: %f\tomega12: %f\n", t1, t2, omega12);
+	//fflush(stdout);
+
 	try {
+		//printf("Looking for tau1.\n");
 		//Identify Value in Table
 		//Assumes values are written (tau1, tau2, omega12, lambda)
-		for (i = 2; i < size / (int)sizeof(double); i += step) {
-			if (tau1_val == 0.0 && table[i] > t1) {
-				tau1_val = table[i-step];
+		for (i = 0; i < size / (int)sizeof(double); i += step) {
+			//printf("i: %d\tvalue: %f\n", i, table[i]);
+			counter++;
+			if (step == 4 * tau_step * lambda_step && table[i] > t1) {
+				//tau1_val = table[i-step];
 				i -= (step - 1);
 				step = 4 * lambda_step;
-			} else if (tau2_val == 0.0 && table[i] > t2) {
-				tau2_val = table[i-step];
+				//printf("Found tau1: %f\tat index: %d\n", tau1_val, i - 1);
+				//printf("Looking for tau2 beginning at %d.\n", i);
+				i -= step;
+				counter = 0;
+			} else if (step == 4 * lambda_step && table[i] > t2) {
+				//tau2_val = table[i-step];
 				i -= (step - 1);
 				step = 4;
-			} else if (omega12_val == 0.0 && table[i] > omega12) {
-				omega12_val = table[i-step];
-				i -= (step - 1);
+				//printf("Found tau2: %f\tat index: %d\n", tau2_val, i - 1);
+				//printf("Looking for omega12 beginning at %d.\n", i);
+				i -= step;
+				counter = 0;
+			} else if (step == 4 && table[i] > omega12) {
+				//omega12_val = table[i-step];
+				i -= step;
 				step = 1;
-			} else {
+				//printf("Found omega12: %f\tat index: %d\n", omega12_val, i);
+				//printf("Identifying corresponding lambda at %d.\n", i + 1);
+			} else if (step == 1) {
 				lambda = table[i];
+				//printf("Found lambda: %f\n", lambda);
 				break;
-			}				
+			}
+
+			if ((step == 4 * tau_step * lambda_step && counter == tau_step) ||
+			    (step == 4 * lambda_step && counter == tau_step) ||
+			    (step == 4 && counter == lambda_step))
+				break;
 		}
 
 		//Perhaps do some linear interpolation here?
@@ -170,7 +202,7 @@ double lookupValue4D(const double *table, const long &size, const double &t1, co
 			else if (step == 4 * lambda_step)
 				throw CausetException("tau2 value not found in geodesic lookup table.\n");
 			else if (step == 4)
-				throw CausetException("lambda value not found in geodesic lookup table.\n");
+				throw CausetException("omega12 value not found in geodesic lookup table.\n");
 			else
 				throw std::exception();
 		}
@@ -423,6 +455,9 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 		assert (past_idx >= 0 && past_idx < N_tar);
 		assert (future_idx >= 0 && future_idx < N_tar);
 		assert (past_idx != future_idx);
+
+		assert (!(future_edge_row_start[past_idx] == -1 && nodes.k_out[past_idx] > 0));
+		assert (!(future_edge_row_start[past_idx] != -1 && nodes.k_out[past_idx] == 0));
 	}
 
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
@@ -437,7 +472,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 	//Check if the adjacency matrix can be used
 	if (past_idx < core_limit && future_idx < core_limit)
-		return (core_edge_exists[(past_idx * core_limit) + future_idx]);
+		return core_edge_exists[static_cast<uint64_t>(past_idx) * core_limit + future_idx];
 	//Check if past node is not connected to anything
 	else if (future_edge_row_start[past_idx] == -1)
 		return false;

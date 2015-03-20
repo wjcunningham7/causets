@@ -215,6 +215,12 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2)
 				network_properties->core_edge_fraction = 0.0;
 			#endif
+
+			//Generate FLRW geodesic lookup table (can take a while...)
+			if (network_properties->rank == 0 && network_properties->flags.gen_flrw_table) {
+				if (!generateGeodesicLookupTable("geodesics_table.cset.bin", 2.0, -5, 5, 0.01, 0.01, network_properties->a, network_properties->flags.universe, network_properties->flags.verbose))
+					return false;
+			}
 				
 			printf_mpi(rank, "\n");
 			printf_mpi(rank, "\tParameters Constraining Universe Causal Set:\n");

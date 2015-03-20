@@ -122,6 +122,7 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 		{ "energy",	required_argument,	NULL, 'e' },
 		{ "fields",	required_argument,	NULL, 'F' },
 		{ "flrw",	no_argument,		NULL, 'f' },
+		{ "gen-flrw-table", no_argument,	NULL,  0  },
 		{ "geodesics",	no_argument,		NULL, 'G' },
 		{ "gpu", 	no_argument, 		NULL,  0  },
 		{ "graph",	required_argument,	NULL, 'g' },
@@ -170,7 +171,7 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				break;
 			case 'c':	//Core edge fraction (used for adjacency matrix)
 				network_properties.core_edge_fraction = atof(optarg);
-				if (network_properties.core_edge_fraction <= 0.0 || network_properties.core_edge_fraction >= 1.0)
+				if (network_properties.core_edge_fraction < 0.0 || network_properties.core_edge_fraction > 1.0)
 					throw CausetException("Invalid argument for 'c' parameter!\n");
 				break;
 			case 'd':	//Density of nodes
@@ -351,7 +352,9 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 					network_properties.N_emb = atof(optarg);
 					if (network_properties.N_emb <= 0.0 || network_properties.N_emb > 1.0)
 						throw CausetException("Invalid argument for 'embedding' parameter!\n");
-				} else if (!strcmp("gpu", longOpts[longIndex].name)) {
+				} else if (!strcmp("gen-flrw-table", longOpts[longIndex].name))
+					network_properties.flags.gen_flrw_table = true;
+				else if (!strcmp("gpu", longOpts[longIndex].name)) {
 					//Flag to use GPU accelerated routines
 					network_properties.flags.use_gpu = true;
 					#ifndef CUDA_ENABLED
@@ -423,6 +426,7 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				printf_mpi(rank, "  -e, --energy\t\tDark Energy Density\t\t0.73\n");
 				printf_mpi(rank, "  -F, --fields\t\tMeasure Degree Fields\n");
 				printf_mpi(rank, "  -f, --flrw\t\tFLRW Causet\n");
+				printf_mpi(rank, "      --gen-flrw-table\tGenerate FLRW Geodesic Table\n");
 				printf_mpi(rank, "  -G, --geodesics\tGeodesic Estimator\n");
 				#ifdef CUDA_ENABLED
 				printf_mpi(rank, "      --gpu\t\tUse GPU Acceleration\n");
@@ -1073,6 +1077,15 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 			free(edges);
 			edges = NULL;
 			hostMemUsed -= sizeof(uint64_t) * N_edg;
+
+			/*if (!printDegrees(network->nodes, network->network_properties.N_tar, "in-degrees_FILE.cset.dbg.dat", "out-degrees_FILE.cset.dbg.dat")) return false;
+			if (!printEdgeLists(network->edges, N_edg, "past-edges_FILE.cset.dbg.dat", "future-edges_FILE.cset.dbg.dat")) return false;
+			if (!printEdgeListPointers(network->edges, network->network_properties.N_tar, "past-edge-pointers_FILE.cset.dbg.dat", "future-edge-pointers_FILE.cset.dbg.dat")) return false;
+			printf_red();
+			printf("Check files now.\n");
+			printf_std();
+			fflush(stdout);
+			exit(0);*/
 
 			//Identify Resulting Properties
 			for (i = 0; i < network->network_properties.N_tar; i++) {

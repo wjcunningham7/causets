@@ -7,6 +7,10 @@
 (* This program generates the lookup table used for geodesics in de Sitter spacetime in the CausalSet program *)
 (* Output is stored in binary format *)
 
+nkernels = ToExpression[$CommandLine[[Length[$CommandLine]]]];
+CloseKernels[];
+LaunchKernels[nkernels];
+
 Print[StandardForm["Initializing Constants..."]];
 
 (* de Sitter Pseudoradius *)
@@ -17,7 +21,7 @@ step = 0.01;
 
 (* Rescaled Time Interval *)
 \[Tau]min = 0.0;
-\[Tau]max = 0.5;
+\[Tau]max = 2.0
 \[Tau]cells = (\[Tau]max - \[Tau]min) / step;
 
 (* Lambda Parameter Interval *)
@@ -64,5 +68,6 @@ BinaryWrite[file, Flatten[t1], "Real64"];
 Close[file];
 
 Print[StandardForm["PROGRAM COMPLETED."]];
+CloseKernels[];
 
 Exit[];

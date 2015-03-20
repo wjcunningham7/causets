@@ -40,4 +40,6 @@ bool printEdgeLists(const Edge &edges, const int num_vals, const char *filename_
 
 bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future);
 
+bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const double &a, const bool &universe, const bool &verbose);
+
 #endif

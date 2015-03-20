@@ -128,5 +128,6 @@ BinaryWrite[file, Flatten[t3], "Real64"];
 Close[file];
 
 Print[StandardForm["PROGRAM COMPLETED."]];
+CloseKernels[];
 
 Exit[];

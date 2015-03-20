@@ -351,7 +351,7 @@ struct CausetConflicts {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), link(false), relink(false), read_old_format(false), universe(false), compact(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_geodesics(false), validate_embedding(false), validate_distances(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), link(false), relink(false), read_old_format(false), gen_flrw_table(false), universe(false), compact(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_geodesics(false), validate_embedding(false), validate_distances(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	CausetConflicts cc;		//Conflicting Parameters
 
@@ -361,6 +361,7 @@ struct CausetFlags {
 	bool link;			//Link Nodes after Generation
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
 	bool read_old_format;		//Read Node Positions in the Format (theta3, theta2, theta1)
+	bool gen_flrw_table;		//Generate FLRW geodesic lookup table
 	
 	bool universe;			//Simulate FLRW Spacetime
 	bool compact;			//Use Compactification of theta1 Coordinate

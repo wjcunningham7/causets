@@ -28,10 +28,10 @@
 # de Sitter Geodesics #
 #---------------------#
 
-#./lsf/mbat --name 'de_sitter_geodesics' --ncores 1
+./lsf/mbat --name 'de_sitter_geodesics' --ncores 33
 
 #---------------------------------#
 # Puiseux Expansion for Geodesics #
 #---------------------------------#
 
-./lsf/mbat --name 'puiseux_geodesics' --ncores 33
+#./lsf/mbat --name 'puiseux_geodesics' --ncores 33

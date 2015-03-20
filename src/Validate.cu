@@ -1419,3 +1419,104 @@ bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *fi
 
 	return true;
 }
+
+bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const double &a, const bool &universe, const bool &verbose)
+{
+	if (DEBUG) {
+		assert (filename != NULL);
+		assert (max_tau > 0.0);
+		assert (min_lambda < max_lambda);
+		assert (tau_step > 0.0);
+		assert (lambda_step > 0.0);
+		assert (a > 0.0);
+		assert (universe);
+	}
+
+	printf("\tGenerating FLRW geodesic lookup table...\n");
+	fflush(stdout);
+
+	Stopwatch sLookup = Stopwatch();
+	IntData idata = IntData();
+	idata.limit = 50;
+	idata.tol = 1e-5;
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+
+	int n_tau = max_tau / tau_step;
+	int n_lambda = (max_lambda - min_lambda) / lambda_step;
+
+	double tau1, tau2;
+	int i, j;
+
+	try {
+		FILE *table = fopen(filename, "wb");
+		if (table == NULL)
+			throw CausetException("Failed to open geodesic lookup table!\n");
+
+		stopwatchStart(&sLookup);
+
+		//printf("tau1\t\ttau2\t\tomega12\tlambda\n");
+		for (i = 0; i < n_tau; i++) {
+			tau1 = i * tau_step;
+			for (j = 0; j < n_tau; j++) {
+				tau2 = j * tau_step;
+
+				//NOT yet ready for openmp
+
+				//#ifdef _OPENMP
+				//#pragma omp parallel for schedule (dynamic, 1)
+				//#endif
+				for (int k = 0; k < n_lambda; k++) {
+					double lambda = k * lambda_step + min_lambda;
+					double omega12;
+
+					if (tau1 >= tau2 || lambda == 0.0)
+						omega12 = 0.0;
+					else if (lambda > 0) {
+						idata.lower = tau1;
+						idata.upper = tau2;
+						omega12 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+					} else if (lambda < 0) {
+						double tau_m = geodesicMaxRescaledTime(lambda, a, universe);
+						idata.lower = tau1;
+						idata.upper = tau_m;
+						//Integrate
+						omega12 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+
+						idata.lower = tau2;
+						omega12 += integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+					}
+
+					//printf("%f\t%f\t%f\t%f\n", tau1, tau2, omega12, lambda);
+
+					//Write to file
+					fwrite(&tau1, sizeof(double), 1, table);
+					fwrite(&tau2, sizeof(double), 1, table);
+					fwrite(&omega12, sizeof(double), 1, table);
+					fwrite(&lambda, sizeof(double), 1, table);
+				}
+			}
+		}
+
+		stopwatchStop(&sLookup);
+
+		fclose(table);
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		return false;
+	}
+
+	gsl_integration_workspace_free(idata.workspace);
+
+	printf("\tCompleted!\n");
+	fflush(stdout);
+
+	if (verbose) {
+		printf("\t\tExecution Time: %5.6f sec\n", sLookup.elapsedTime);
+		fflush(stdout);
+	}
+	
+	return true;
+}
