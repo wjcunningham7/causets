@@ -790,7 +790,7 @@ inline double embeddedZ1(double x, void *params)
 inline double geodesicMaxRescaledTime(const double &lambda, const double &a, const bool &universe)
 {
 	if (DEBUG) {
-		assert (lambda != 0.0);
+		//assert (lambda != 0.0);
 		assert (a > 0.0);
 	}
 
@@ -859,14 +859,17 @@ inline double flrwLookupKernel(double x, void *params)
 	}
 
 	double sx = SINH(1.5 * x, STL);
+	double sx43 = POW(sx, 4.0 / 3.0, STL);
+	double g = sx43 + lambda * POW2(sx43, EXACT);
 
-	//Double check formula, maybe ABS should not be here...
-	return POW(ABS(POW(sx, 4.0 / 3.0, STL) + lambda * POW(sx, 8.0 / 3.0, STL), STL), -0.5, STL) / 1.5;
+	double omega12 = g > 0 ? 1.5 * POW(g, -0.5, STL) : 0.0;
+
+	return omega12;
 }
 
 //Returns the exact distance between two nodes
 //O(xxx) Efficiency (revise this)
-inline double distance(const double * const table, const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const long &size, const bool &universe, const bool &compact)
+inline double distance(const double * const table, const float4 &node_a, const float tau_a, const float4 &node_b, const float tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const long &size, const bool &universe, const bool &compact)
 {
 	if (DEBUG) {
 		if (universe) {
@@ -884,10 +887,21 @@ inline double distance(const double * const table, const float4 &node_a, const f
 	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
 		return 0.0;
 
+	//Check if they occur at the same time
+	if (tau_a == tau_b) {
+		//Return spacelike separation \tilde(\alpha) * R(t) * \delta\Omega
+	}
+
+	IntData idata = IntData();
+	idata.limit = 50;
+	idata.tol = 1e-4;
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	
 	FastIntMethod method;
 	double (*kernel)(double x, void *params);
 	double distance;
 	double lambda;
+	double tau_max;
 
 	if (universe) {
 		lambda = lookupValue4D(table, size, (alpha / a) * SQRT(flatProduct_v2(node_a, node_b), STL), tau_a, tau_b);
@@ -913,45 +927,43 @@ inline double distance(const double * const table, const float4 &node_a, const f
 	if (lambda != lambda)
 		return -1.0;
 
-	//DEBUG
+	//if (DEBUG)
+	//	assert (lambda != 0.0);
+
 	//printf("Lambda: %f\n", lambda);
 
-	IntData idata = IntData();
-	idata.limit = 50;
-	idata.tol = 1e-4;
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	
+	tau_max = geodesicMaxRescaledTime(lambda, a, universe);
+
 	double p[2];
 	p[0] = lambda;
 	p[1] = a;
 
-	if (DEBUG)
-		assert (lambda != 0.0);
-
-	if (lambda > 0.0) {
+	if (lambda == 0.0)
+		distance = INF;
+	else if (lambda > 0.0 || (tau_a > tau_max && tau_b > tau_max)) {
 		if (tau_a < tau_b) {
-			idata.lower = a * tau_a;
-			idata.upper = a * tau_b;
+			idata.lower = tau_a;
+			idata.upper = tau_b;
 		} else {
-			idata.lower = a * tau_b;
-			idata.upper = a * tau_a;
+			idata.lower = tau_b;
+			idata.upper = tau_a;
 		}
 		distance = integrate1D(kernel, (void*)p, &idata, method);
-	} else {
-		double tau_max = geodesicMaxRescaledTime(lambda, a, universe);
+	} else if (lambda < 0 && (tau_a < tau_max && tau_b < tau_max)) {
 
-		if (DEBUG) {
+		/*if (DEBUG) {
 			assert (tau_a < tau_max);
 			assert (tau_b < tau_max);
-		}
+		}*/
 
-		idata.lower = a * tau_a;
-		idata.upper = a * tau_max;
+		idata.lower = tau_a;
+		idata.upper = tau_max;
 		distance = integrate1D(kernel, (void*)p, &idata, method);
 
-		idata.lower = a * tau_b;
+		idata.lower = tau_b;
 		distance += integrate1D(kernel, (void*)p, &idata, method);
-	}
+	} else
+		distance = INF;
 
 	gsl_integration_workspace_free(idata.workspace);
 

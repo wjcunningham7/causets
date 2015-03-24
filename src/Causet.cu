@@ -195,8 +195,8 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 				network_properties.ratio = network_properties.omegaL / network_properties.omegaM;
 				network_properties.tau0 = (2.0 / 3.0) * ASINH(SQRT(network_properties.ratio, STL), STL, DEFAULT);
 					
-				network_properties.flags.cc.conflicts[1]++;
-				network_properties.flags.cc.conflicts[2]++;
+				//network_properties.flags.cc.conflicts[1]++;
+				//network_properties.flags.cc.conflicts[2]++;
 				network_properties.flags.cc.conflicts[5]++;
 
 				break;
@@ -497,6 +497,11 @@ NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const
 		srand(time(NULL));
 		network_properties.seed = -1.0 * static_cast<long>(time(NULL));
 	}
+
+	//Remove degree of freedom (modeled using 'delta')
+	network_properties.flags.cc.conflicts[4]++;
+	network_properties.flags.cc.conflicts[5]++;
+	network_properties.flags.cc.conflicts[6]++;
 
 	return network_properties;
 }

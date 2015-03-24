@@ -138,12 +138,13 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 	//double tau2_val = 0.0;
 	//double omega12_val = 0.0;
 	double lambda = 0.0;
+	double tol = 1e-3;
 
 	//NOTE: these values are currently HARD CODED.  This will later be changed,
 	//but it requires re-generating the lookup table.
 
-	int tau_step = 150;
-	int lambda_step = 20;
+	int tau_step = 200;
+	int lambda_step = 1000;
 	int step = 4 * tau_step * lambda_step;
 	int counter = 0;
 	int i;
@@ -154,11 +155,13 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 
 	try {
 		//printf("Looking for tau1.\n");
+
 		//Identify Value in Table
 		//Assumes values are written (tau1, tau2, omega12, lambda)
 		for (i = 0; i < size / (int)sizeof(double); i += step) {
 			//printf("i: %d\tvalue: %f\n", i, table[i]);
 			counter++;
+
 			if (step == 4 * tau_step * lambda_step && table[i] > t1) {
 				//tau1_val = table[i-step];
 				i -= (step - 1);
@@ -175,7 +178,7 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 				//printf("Looking for omega12 beginning at %d.\n", i);
 				i -= step;
 				counter = 0;
-			} else if (step == 4 && table[i] > omega12) {
+			} else if (step == 4 && ABS(table[i] - omega12, STL) / omega12 < tol && table[i] != 0.0) {
 				//omega12_val = table[i-step];
 				i -= step;
 				step = 1;
@@ -183,7 +186,9 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 				//printf("Identifying corresponding lambda at %d.\n", i + 1);
 			} else if (step == 1) {
 				lambda = table[i];
-				//printf("Found lambda: %f\n", lambda);
+				//printf_red();
+				//printf("Found lambda: %f\n\n", lambda);
+				//printf_std();
 				break;
 			}
 
@@ -203,8 +208,8 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 				throw CausetException("tau2 value not found in geodesic lookup table.\n");
 			else if (step == 4)
 				throw CausetException("omega12 value not found in geodesic lookup table.\n");
-			else
-				throw std::exception();
+			//else
+			//	throw std::exception();
 		}
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);

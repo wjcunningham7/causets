@@ -52,6 +52,14 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			//Check for conflicting topological parameters
 			if (network_properties->dim == 1 || network_properties->manifold != DE_SITTER)
 				throw CausetException("Universe causet must be 3+1 DS topology!\n");
+
+			//DEBUG
+			/*printf_red();
+			printf("\nConflicts:\n");
+			for (int i = 0; i < 7; i++)
+				printf("\t%d\n", network_properties->flags.cc.conflicts[i]);
+			printf("\n");
+			printf_std();*/
 				
 			//Check for too many parameters
 			if (network_properties->flags.cc.conflicts[0] > 1 || network_properties->flags.cc.conflicts[1] > 1 || network_properties->flags.cc.conflicts[2] > 1 || network_properties->flags.cc.conflicts[3] > 1 || network_properties->flags.cc.conflicts[4] > 3 || network_properties->flags.cc.conflicts[5] > 3 || network_properties->flags.cc.conflicts[6] > 3)
@@ -108,7 +116,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				network_properties->omegaL = 1.0 - network_properties->omegaM;
 			} else if (network_properties->flags.cc.conflicts[1] == 0 || network_properties->flags.cc.conflicts[2] == 0 || network_properties->flags.cc.conflicts[3] == 0) {
 				//If k_tar != 0 solve for tau0 here
-				if (network_properties->k_tar != 0.0) {
+				if (network_properties->k_tar != 0.0 && network_properties->tau0 == 0.0) {
 					if (DEBUG)
 						assert (network_properties->delta != 0.0);
 
@@ -131,6 +139,10 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					if (network_properties->tau0 != network_properties->tau0)
 						return false;
 
+					//Free Memory
+					free(table);
+					table = NULL;
+
 					//Solve for ratio, omegaM, and omegaL
 					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
 						network_properties->ratio = exp(3.0 * network_properties->tau0) / 4.0;
@@ -147,7 +159,25 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					printf_mpi(rank, "\tTask Completed.\n");
 					fflush(stdout);
 				}
-				
+
+				if (network_properties->a == 0.0) {
+					double *table;
+					long size = 0L;
+
+					if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
+						return false;
+
+					double rescaledAverageDegree = lookupValue(table, size, &network_properties->tau0, NULL, true);
+					if (rescaledAverageDegree != rescaledAverageDegree)
+						return false;
+
+					free(table);
+					table = NULL;
+
+					network_properties->a = POW(network_properties->k_tar / (rescaledAverageDegree * network_properties->delta), 0.25, STL);
+					network_properties->lambda = 3.0 / POW2(network_properties->a, EXACT);
+				}
+	
 				if (network_properties->N_tar > 0 && network_properties->alpha > 0.0) {
 					//Solve for delta
 					if (network_properties->flags.compact)

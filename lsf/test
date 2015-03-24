@@ -18,7 +18,7 @@
 
 #./lsf/cbat --ncores 40 --flags '--flrw --nodes 131072 --degrees 10 --delta 500 --radius 0.8 --link --verbose -y --print --compact' --start 51 --queue 'ser-par-10g-3' --nsamples 10
 
-./lsf/cbat --ncores 1 --flags '--flrw --nodes 1024 --degrees 10 --delta 500 --radius 1.0 --verbose -y --gen-flrw-table' --start 59 --queue 'krioukov' --nsamples 1
+./lsf/cbat --ncores 1 --flags '--flrw --nodes 1024 --degrees 10 --delta 500 --radius 1.0 --verbose -y --gen-flrw-table' --start 60 --queue 'krioukov' --nsamples 1
 
 #==================#
 # GPU Acceleration #

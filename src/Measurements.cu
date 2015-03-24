@@ -278,6 +278,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	int core_edges_size = static_cast<int>(POW2(core_edge_fraction * N_tar, EXACT));
 	#endif
 
+	//printf("Stride: %" PRIu64 "\n", stride);
+
 	//Check out-degrees of earliest nodes
 	//for (int t = 0; t < 100; t++)
 	//	printf("%d\n", nodes.k_out[t]);
@@ -345,7 +347,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	MPI_Bcast(core_edge_exists, core_edges_size, MPI::BOOL, 0, MPI_COMM_WORLD);
 	#endif
 
-	uint64_t start = 0;
+	//uint64_t start = 0;
+	uint64_t start = 6;
 	uint64_t finish = npairs;
 
 	#ifdef MPI_ENABLED
@@ -361,7 +364,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		//Pick Unique Pair
 		uint64_t vec_idx = k * stride + 1;
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
-		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
+		int j = static_cast<int>(vec_idx % (N_tar - 1));
 		int do_map = i >= j;
 
 		if (j < N_tar >> 1) {
@@ -392,6 +395,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		n_trav++;
 		if (success)
 			n_succ++;
+
+		return true;
 	}
 
 	#ifdef MPI_ENABLED
@@ -490,6 +495,12 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 	float dist;
 	int next;
 
+	printf_cyan();
+	printf("Beginning at %d. Looking for %d.\n", source, dest);
+	//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(source), nodes.crd->x(source), nodes.crd->y(source), nodes.crd->z(source));
+	printf_std();
+	fflush(stdout);
+
 	//While the current location (loc) is not equal to the destination (dest)
 	while (loc != dest) {
 		next = loc;
@@ -508,15 +519,27 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 		//(1) Check past relations
 		for (int m = 0; m < nodes.k_in[loc]; m++) {
 			idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
+			printf_cyan();
+			printf("\tConsidering past neighbor %d\n", idx_a);
+			printf_std();
 
 			//(A) If the current location's (loc's) past neighbor (idx_a) is the destination (idx_b) then return true
 			if (idx_a == idx_b) {
+				printf_cyan();
+				printf("Moving to %d.\n", idx_a);
+				printf_std();
+				fflush(stdout);
 				success = true;
 				return true;
 			}
 
 			//(B) If the current location's past neighbor is directly connected to the destination then return true
 			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
+				printf_cyan();
+				printf("Moving to %d.\n", idx_a);
+				printf("Moving to %d.\n", idx_b);
+				printf_std();
+				fflush(stdout);
 				success = true;
 				return true;
 			}
@@ -525,8 +548,18 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 			if (manifold == DE_SITTER) {
 				if (compact)
 					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
-				else
+				else {
+					//DEBUG
+					//printf_cyan();
+					//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(idx_a), nodes.crd->x(idx_a), nodes.crd->y(idx_a), nodes.crd->z(idx_a));
+					//printf_std();
+
+					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10.0, 10.0, 0.1, a, universe);
+					//printf("CHECKPOINT\n");
+					//exit(0);
+
 					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
+				}
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 
@@ -564,9 +597,16 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 			#endif
 
 			idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
+			printf_cyan();
+			printf("\tConsidering future neighbor %d.\n", idx_a);
+			printf_std();
 
 			//(D) If the current location's future neighbor is the destination then return true
 			if (idx_a == idx_b) {
+				printf_cyan();
+				printf("Moving to %d.\n", idx_a);
+				printf_std();
+				fflush(stdout);
 				#ifdef _OPENMP
 				priv_min_dist = 0.0f;
 				priv_next = idx_b;
@@ -579,6 +619,11 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 
 			//(E) If the current location's future neighbor is directly connected to the destination then return true
 			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
+				printf_cyan();
+				printf("Moving to %d.\n", idx_a);
+				printf("Moving to %d.\n", idx_b);
+				printf_std();
+				fflush(stdout);
 				#ifdef _OPENMP
 				priv_min_dist = 0.0f;
 				priv_next = idx_b;
@@ -593,8 +638,18 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 			if (manifold == DE_SITTER) {
 				if (compact)
 					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
-				else
+				else {
+					//DEBUG
+					//printf_cyan();
+					//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(idx_a), nodes.crd->x(idx_a), nodes.crd->y(idx_a), nodes.crd->z(idx_a));
+					//printf_std();
+
+					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10, 10, 0.01, a, universe);
+					//printf("CHECKPOINT\n");
+					//exit(0);
+
 					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
+				}
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 
@@ -629,6 +684,11 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 		}
 		}
 		#endif
+
+		printf_cyan();
+		printf("Moving to %d.\n", next);
+		printf_std();
+		fflush(stdout);
 
 		if (next == idx_b) {
 			success = true;

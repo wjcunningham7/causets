@@ -1420,6 +1420,89 @@ bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *fi
 	return true;
 }
 
+bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const double &a, const bool &universe)
+{
+	if (DEBUG) {
+		assert (tau1 > 0.0f);
+		assert (tau2 > 0.0f);
+		assert (omega12 > 0.0);
+		assert (min_lambda < max_lambda);
+		assert (lambda_step > 0.0);
+	}
+
+	printf("\tTesting Geodesic Lookup Algorithm...\n");
+	fflush(stdout);
+
+	if (tau1 > tau2) {
+		float temp = tau1;
+		tau1 = tau2;
+		tau2 = temp;
+	}
+
+	IntData idata = IntData();
+	idata.limit = 50;
+	idata.tol = 1e-5;
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+
+	double tol = 1e-3;
+	int n_lambda = static_cast<int>((max_lambda - min_lambda) / lambda_step);
+
+	double omega_val;
+	int i;
+
+	printf("tau1: %f\ttau2: %f\tomega12: %f\n", tau1, tau2, omega12);
+	fflush(stdout);
+
+	for (i = 0; i < n_lambda; i++) {
+		double lambda = i * lambda_step + min_lambda;
+		double tau_m = geodesicMaxRescaledTime(lambda, a, universe);
+
+		if (tau1 >= tau2 || lambda == 0.0)
+			omega_val = 0.0;
+		else if (lambda > 0 || (tau1 > tau_m && tau2 > tau_m)) {
+			idata.lower = tau1;
+			idata.upper = tau2;
+			omega_val = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+		} else if (lambda < 0 && (tau1 < tau_m && tau2 < tau_m)) {
+			printf("tau_m: %f\t\t", tau_m);
+
+			//if (tau1 < tau_m && tau2 < tau_m) {
+				idata.lower = tau1;
+				idata.upper = tau_m;
+				//Integrate
+				omega_val = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+				printf("ov1: %f\t", omega_val);
+
+				idata.lower = tau2;
+				//idata.lower = a * tau_m;
+				//idata.upper = a * tau2;
+				double omega_val2 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+				printf("ov2: %f\t", omega_val2);
+				omega_val += omega_val2;
+			/*} else {
+				idata.lower = a * tau1;
+				idata.upper = a * tau2;
+				omega_val = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+			}*/
+		} else
+			omega_val = -1.0;
+
+		printf("lambda: %f\tomega12: %f\n", lambda, omega_val);
+
+		if (ABS(omega12 - omega_val, STL) / omega12 < tol) {
+			printf("MATCH!\n");
+			break;
+		}
+	}
+	
+	gsl_integration_workspace_free(idata.workspace);
+
+	printf("\tTask Completed.\n");
+	fflush(stdout);
+
+	return true;
+}
+
 bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const double &a, const bool &universe, const bool &verbose)
 {
 	if (DEBUG) {
@@ -1441,8 +1524,8 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 	idata.tol = 1e-5;
 	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
-	int n_tau = max_tau / tau_step;
-	int n_lambda = (max_lambda - min_lambda) / lambda_step;
+	int n_tau = static_cast<int>(max_tau / tau_step);
+	int n_lambda = static_cast<int>((max_lambda - min_lambda) / lambda_step);
 
 	double tau1, tau2;
 	int i, j;
@@ -1472,17 +1555,17 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 					if (tau1 >= tau2 || lambda == 0.0)
 						omega12 = 0.0;
 					else if (lambda > 0) {
-						idata.lower = tau1;
-						idata.upper = tau2;
+						idata.lower = a * tau1;
+						idata.upper = a * tau2;
 						omega12 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
 					} else if (lambda < 0) {
 						double tau_m = geodesicMaxRescaledTime(lambda, a, universe);
-						idata.lower = tau1;
-						idata.upper = tau_m;
+						idata.lower = a * tau1;
+						idata.upper = a * tau_m;
 						//Integrate
 						omega12 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
 
-						idata.lower = tau2;
+						idata.lower = a * tau2;
 						omega12 += integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
 					}
 
@@ -1510,13 +1593,13 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 
 	gsl_integration_workspace_free(idata.workspace);
 
-	printf("\tCompleted!\n");
-	fflush(stdout);
-
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sLookup.elapsedTime);
 		fflush(stdout);
 	}
 	
+	printf("\tTask Completed.\n");
+	fflush(stdout);
+
 	return true;
 }
