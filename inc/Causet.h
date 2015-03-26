@@ -349,6 +349,14 @@ struct CausetConflicts {
 	int conflicts[7];
 };
 
+struct CausetMPI {
+	CausetMPI() : num_mpi_threads(1), rank(0), fail(NULL) {}
+	int num_mpi_threads;		//Number of MPI Threads
+	int rank;			//ID of this MPI Thread
+
+	int *fail;			//Flags used to tell all nodes to return
+};
+
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
 	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), link(false), relink(false), read_old_format(false), gen_flrw_table(false), universe(false), compact(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_geodesics(false), validate_embedding(false), validate_distances(false), verbose(false), bench(false), yes(false), test(false) {}
@@ -385,7 +393,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), N_dst(0.0), dim(3), manifold(DE_SITTER), a(0.0), lambda(0.0), zeta(1.0), chi_max(1.0), tau0(0.0), alpha(0.0), delta(500.0), R0(0.0), omegaM(0.0), omegaL(0.0), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), num_mpi_threads(0), rank(0) {}
+	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), N_dst(0.0), dim(3), manifold(DE_SITTER), a(0.0), lambda(0.0), zeta(1.0), chi_max(1.0), tau0(0.0), alpha(0.0), delta(500.0), R0(0.0), omegaM(0.0), omegaL(0.0), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), cmpi(CausetMPI()) {}
 
 	CausetFlags flags;
 
@@ -424,8 +432,7 @@ struct NetworkProperties {
 	long seed;			//Random Seed
 	int graphID;			//Unique Simulation ID
 
-	int num_mpi_threads;		//Number of MPI Threads
-	int rank;			//ID of this MPI Thread
+	CausetMPI cmpi;			//MPI Flags
 };
 
 //Measured values of the network
@@ -522,7 +529,7 @@ protected:
 };
 
 //Function prototypes for those described in src/Causet.cu
-NetworkProperties parseArgs(int argc, char **argv, const int &num_threads, const int &rank);
+NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi);
 
 bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
 

@@ -31,6 +31,7 @@ cp $homedir/etc/min_tau $work/etc/
 
 cp $homedir/etc/raduc_table.cset.bin $work/etc/
 cp $homedir/etc/ctuc_table.cset.bin $work/etc/
+cp $homedir/etc/geodesics_table.cset.bin $work/etc/
 
 cp $homedir/etc/mkdat $work/etc/
 

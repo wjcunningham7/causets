@@ -866,7 +866,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 //Generate confusion matrix for geodesic distances in universe with matter
 //Save matrix values as well as d_theta and d_eta to file
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, long &seed, const int &num_mpi_threads, const int &rank, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, long &seed, CausetMPI &cmpi, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -887,15 +887,11 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 			assert (alpha > 0.0);
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 		assert (edge_buffer >= 0);
-		#ifdef MPI_ENABLED
-		assert (num_mpi_threads > 0);
-		assert (rank >= 0);
-		#endif
 	}
 
 	uint64_t stride = static_cast<uint64_t>(static_cast<double>(N_tar) * (N_tar - 1) / (N_emb * 2));
 	uint64_t npairs = static_cast<uint64_t>(N_emb);
-	uint64_t k;
+	int rank = cmpi.rank;
 
 	#ifdef MPI_ENABLED
 	int edges_size = static_cast<int>(N_tar * k_tar / 2 + edge_buffer);
@@ -911,8 +907,10 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 
 	try {
 		evd.confusion = (uint64_t*)malloc(sizeof(uint64_t) * 4);
-		if (evd.confusion == NULL)
-			throw std::bad_alloc();
+		if (evd.confusion == NULL) {
+			cmpi.fail[rank] = 1;
+			goto ValEmbPoint;
+		}
 		memset(evd.confusion, 0, sizeof(uint64_t) * 4);
 		hostMemUsed += sizeof(uint64_t) * 4;
 
@@ -943,6 +941,14 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 			hostMemUsed += sizeof(uint64_t) * num_mpi_threads;
 		}
 		#endif*/
+
+		ValEmbPoint:
+		if (checkMpiErrors(cmpi)) {
+			if (!rank)
+				throw std::bad_alloc();
+			else
+				return false;
+		}
 
 		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 		if (verbose)
@@ -981,15 +987,20 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	uint64_t finish = npairs;
 
 	#ifdef MPI_ENABLED
-	uint64_t mpi_chunk = npairs / num_mpi_threads;
+	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
 	start = rank * mpi_chunk;
 	finish = start + mpi_chunk;
 	#endif
 
+	uint64_t c0 = evd.confusion[0];
+	uint64_t c1 = evd.confusion[1];
+	uint64_t c2 = evd.confusion[2];
+	uint64_t c3 = evd.confusion[3];
+
 	#ifdef _OPENMP
-	#pragma omp parallel for
+	#pragma omp parallel for schedule (dynamic, 1) reduction (+ : c0, c1, c2, c3)
 	#endif
-	for (k = start; k < finish; k++) {
+	for (uint64_t k = start; k < finish; k++) {
 		//Choose a pair (i,j) from a single index k
 		uint64_t vec_idx = k * stride + 1;
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
@@ -1006,23 +1017,13 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 
 		//Check light cone condition for 4D vs 5D
 		//Null hypothesis is the nodes are not connected
-		//double d_eta = ABS(static_cast<double>(nodes.crd->w(j) - nodes.crd->w(i)), STL);
-		//double d_theta = ACOS(static_cast<double>(DIST_V2 ? sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)) : sphProduct_v1(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-
-		//if (d_theta < d_eta) {	//Actual Timelike (Negative)
 		if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, i, j)) {
 			if (distance > 0) {
 				//True Negative (both timelike)
-				#ifdef _OPENMP
-				#pragma omp atomic
-				#endif
-				evd.confusion[1]++;
+				c1++;
 			} else {
 				//False Positive
-				#ifdef _OPENMP
-				#pragma omp atomic
-				#endif
-				evd.confusion[2]++;
+				c2++;
 
 				/*#ifdef _OPENMP
 				#pragma omp critical (tn)
@@ -1037,10 +1038,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 		} else {	//Actual Spacelike (Positive)
 			if (distance > 0) {
 				//False Negative
-				#ifdef _OPENMP
-				#pragma omp atomic
-				#endif
-				evd.confusion[3]++;
+				c3++;
 
 				/*#ifdef _OPENMP
 				#pragma omp critical (fp)
@@ -1053,13 +1051,15 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 				#endif*/
 			} else {
 				//True Positive (both spacelike)
-				#ifdef _OPENMP
-				#pragma omp atomic
-				#endif
-				evd.confusion[0]++;
+				c0++;
 			}
 		}		
 	}
+
+	evd.confusion[0] = c0;
+	evd.confusion[1] = c1;
+	evd.confusion[2] = c2;
+	evd.confusion[3] = c3;
 
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -1154,7 +1154,6 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 
 	uint64_t stride = static_cast<uint64_t>(static_cast<double>(N_tar) * (N_tar - 1) / (N_dst * 2));
 	uint64_t npairs = static_cast<uint64_t>(N_dst);
-	uint64_t k;
 
 	double tol = 0.01;
 
@@ -1178,10 +1177,13 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 	uint64_t start = 0;
 	uint64_t finish = npairs;
 
+	uint64_t c0 = dvd.confusion[0];
+	uint64_t c1 = dvd.confusion[1];
+
 	#ifdef _OPENMP
-	#pragma omp parallel for
+	#pragma omp parallel for schedule (dynamic, 1) reduction(+ : c0, c1)
 	#endif
-	for (k = start; k < finish; k++) {
+	for (uint64_t k = start; k < finish; k++) {
 		//Choose a pair (i,j) from a single index k
 		uint64_t vec_idx = k * stride + 1;
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
@@ -1193,12 +1195,6 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
-		//DEBUG
-		//printf("i: %d\tj: %d\n", i, j);
-
-		//if (nodes.id.tau[i] == nodes.id.tau[j])
-		//	printf("ERROR!\n");
-
 		//Distance using embedding
 		double embeddedDistance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact);
 
@@ -1207,21 +1203,14 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 
 		double dx = ACOS(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)), STL, VERY_HIGH_PRECISION);
 
-		if (ABS(embeddedDistance - exactDistance, STL) / embeddedDistance < tol || dx > HALF_PI) {
-			#ifdef _OPENMP
-			#pragma omp atomic
-			#endif
-			dvd.confusion[0]++;
-		} else {
-			#ifdef _OPENMP
-			#pragma omp atomic
-			#endif
-			dvd.confusion[1]++;
-			printf("Embedding: %f\n", embeddedDistance);
-			printf("Exact:     %f\n\n", exactDistance);
-		}
+		if (ABS(embeddedDistance - exactDistance, STL) / embeddedDistance < tol || dx > HALF_PI)
+			c0++;
+		else
+			c1++;
 	}
 
+	dvd.confusion[0] = c0;
+	dvd.confusion[1] = c1;
 	dvd.norm = static_cast<double>(npairs);
 
 	stopwatchStop(&sValidateDistances);
@@ -1466,26 +1455,18 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 		} else if (lambda < 0 && (tau1 < tau_m && tau2 < tau_m)) {
 			printf("tau_m: %f\t\t", tau_m);
 
-			//if (tau1 < tau_m && tau2 < tau_m) {
-				idata.lower = tau1;
-				idata.upper = tau_m;
-				//Integrate
-				omega_val = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
-				printf("ov1: %f\t", omega_val);
+			idata.lower = tau1;
+			idata.upper = tau_m;
+			//Integrate
+			omega_val = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+			printf("ov1: %f\t", omega_val);
 
-				idata.lower = tau2;
-				//idata.lower = a * tau_m;
-				//idata.upper = a * tau2;
-				double omega_val2 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
-				printf("ov2: %f\t", omega_val2);
-				omega_val += omega_val2;
-			/*} else {
-				idata.lower = a * tau1;
-				idata.upper = a * tau2;
-				omega_val = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
-			}*/
+			idata.lower = tau2;
+			double omega_val2 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+			printf("ov2: %f\t", omega_val2);
+			omega_val += omega_val2;
 		} else
-			omega_val = -1.0;
+			omega_val = 0.0;
 
 		printf("lambda: %f\tomega12: %f\n", lambda, omega_val);
 
@@ -1527,8 +1508,8 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 	int n_tau = static_cast<int>(max_tau / tau_step);
 	int n_lambda = static_cast<int>((max_lambda - min_lambda) / lambda_step);
 
-	double tau1, tau2;
-	int i, j;
+	double tau1, tau2, tau_m, omega12, lambda;
+	int i, j, k;
 
 	try {
 		FILE *table = fopen(filename, "wb");
@@ -1543,31 +1524,26 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 			for (j = 0; j < n_tau; j++) {
 				tau2 = j * tau_step;
 
-				//NOT yet ready for openmp
-
-				//#ifdef _OPENMP
-				//#pragma omp parallel for schedule (dynamic, 1)
-				//#endif
-				for (int k = 0; k < n_lambda; k++) {
-					double lambda = k * lambda_step + min_lambda;
-					double omega12;
+				for (k = 0; k < n_lambda; k++) {
+					lambda = k * lambda_step + min_lambda;
+					tau_m = geodesicMaxRescaledTime(lambda, a, universe);
 
 					if (tau1 >= tau2 || lambda == 0.0)
 						omega12 = 0.0;
-					else if (lambda > 0) {
-						idata.lower = a * tau1;
-						idata.upper = a * tau2;
+					else if (lambda > 0 || (tau1 > tau_m && tau2 > tau_m)) {
+						idata.lower = tau1;
+						idata.upper = tau2;
 						omega12 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
-					} else if (lambda < 0) {
-						double tau_m = geodesicMaxRescaledTime(lambda, a, universe);
-						idata.lower = a * tau1;
-						idata.upper = a * tau_m;
+					} else if (lambda < 0 && (tau1 < tau_m && tau2 < tau_m)) {
+						idata.lower = tau1;
+						idata.upper = tau_m;
 						//Integrate
 						omega12 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
 
-						idata.lower = a * tau2;
+						idata.lower = tau2;
 						omega12 += integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
-					}
+					} else
+						omega12 = 0.0;
 
 					//printf("%f\t%f\t%f\t%f\n", tau1, tau2, omega12, lambda);
 

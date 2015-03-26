@@ -42,4 +42,7 @@ void scan(const int * const k_in, const int * const k_out, int * const &past_edg
 //Print Statements for MPI
 int printf_mpi(int rank, const char * format, ...);
 
+//Check for MPI Errors
+bool checkMpiErrors(CausetMPI &cmpi);
+
 #endif

@@ -138,7 +138,7 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 	//double tau2_val = 0.0;
 	//double omega12_val = 0.0;
 	double lambda = 0.0;
-	double tol = 1e-3;
+	double tol = 1e-2;
 
 	//NOTE: these values are currently HARD CODED.  This will later be changed,
 	//but it requires re-generating the lookup table.
@@ -206,9 +206,9 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 				throw CausetException("tau1 value not found in geodesic lookup table.\n");
 			else if (step == 4 * lambda_step)
 				throw CausetException("tau2 value not found in geodesic lookup table.\n");
-			else if (step == 4)
-				throw CausetException("omega12 value not found in geodesic lookup table.\n");
-			//else
+			//else if (step == 4)
+			//	throw CausetException("omega12 value not found in geodesic lookup table.\n");
+			//else if (step == 1)
 			//	throw std::exception();
 		}
 	} catch (CausetException c) {
@@ -603,4 +603,21 @@ int printf_mpi(int rank, const char * format, ...)
 	}
 
 	return retval;
+}
+
+bool checkMpiErrors(CausetMPI &cmpi)
+{
+	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	if (!cmpi.rank)
+		MPI_Allreduce(MPI_IN_PLACE, cmpi.fail, cmpi.num_mpi_threads, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+	else
+		MPI_Allreduce(cmpi.fail, NULL, cmpi.num_mpi_threads, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+	#endif
+
+	if (cmpi.fail[cmpi.rank])
+		return true;
+
+	return false;
 }

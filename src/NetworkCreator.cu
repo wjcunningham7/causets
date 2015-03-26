@@ -19,7 +19,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 		network_properties->flags.print_network = false;
 	}
 
-	int rank = network_properties->rank;
+	int rank = network_properties->cmpi.rank;
 
 	#ifdef MPI_ENABLED
 	//Suppress queries if MPI is enabled
@@ -43,8 +43,11 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 		printf_mpi(rank, "If you are using the GPU, set the target number of nodes (--nodes) to be a multiple of double the thread block size (%d)!\n", BLOCK_SIZE << 1);
 		printf_mpi(rank, "For best results, use a power of 2.\n");
 		fflush(stdout);
-		return false;
+		network_properties->cmpi.fail[rank] = 1;
 	}
+
+	if(checkMpiErrors(network_properties->cmpi))
+		return false;
 	#endif
 
 	try {
@@ -90,15 +93,18 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					if (t > MTAU)
 						x = LOG(t, STL) / 3.0;
 					else if (!newton(&solveTau0Compact, &x, 10000, TOL, p1, NULL, &network_properties->N_tar))
-						return false;
+						network_properties->cmpi.fail[rank] = 1;
 				} else {
 					p1[3] = network_properties->chi_max;
 					t = 9.0 * network_properties->N_tar / (M_PI * network_properties->delta * network_properties->a * POW3(network_properties->alpha * network_properties->chi_max, EXACT));
 					if (t > MTAU)
 						x = LOG(t, STL) / 3.0;
 					else if (!newton(&solveTau0Flat, &x, 10000, TOL, p1, NULL, &network_properties->N_tar))
-						return false;
+						network_properties->cmpi.fail[rank] = 1;
 				}
+
+				if(checkMpiErrors(network_properties->cmpi))
+					return false;
 
 				network_properties->tau0 = x;
 				if (DEBUG)
@@ -133,10 +139,14 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					double *table;
 					long size = 0L;
 					if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
+						network_properties->cmpi.fail[rank] = 1;
+					if (checkMpiErrors(network_properties->cmpi))
 						return false;
 					network_properties->tau0 = lookupValue(table, size, NULL, &kappa2, true);
 					//Check for NaN
 					if (network_properties->tau0 != network_properties->tau0)
+						network_properties->cmpi.fail[rank] = 1;
+					if (checkMpiErrors(network_properties->cmpi))
 						return false;
 
 					//Free Memory
@@ -165,10 +175,14 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					long size = 0L;
 
 					if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
+						network_properties->cmpi.fail[rank] = 1;
+					if (checkMpiErrors(network_properties->cmpi))
 						return false;
 
 					double rescaledAverageDegree = lookupValue(table, size, &network_properties->tau0, NULL, true);
 					if (rescaledAverageDegree != rescaledAverageDegree)
+						network_properties->cmpi.fail[rank] = 1;
+					if(checkMpiErrors(network_properties->cmpi))
 						return false;
 
 					free(table);
@@ -233,7 +247,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			
 			if (network_properties->k_tar == 0.0) {
 				int method = 1;	//Use lookup table
-				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->a, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->rank, cp->sCalcDegrees, bm->bCalcDegrees, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network_properties->flags.verbose, network_properties->flags.bench, method))
+				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->a, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, cp->sCalcDegrees, bm->bCalcDegrees, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network_properties->flags.verbose, network_properties->flags.bench, method))
+					network_properties->cmpi.fail[rank] = 1;
+				if(checkMpiErrors(network_properties->cmpi))
 					return false;
 			}
 			
@@ -247,10 +263,12 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			#endif
 
 			//Generate FLRW geodesic lookup table (can take a while...)
-			if (network_properties->rank == 0 && network_properties->flags.gen_flrw_table) {
+			if (network_properties->cmpi.rank == 0 && network_properties->flags.gen_flrw_table)
 				if (!generateGeodesicLookupTable("geodesics_table.cset.bin", 2.0, -5, 5, 0.01, 0.01, network_properties->a, network_properties->flags.universe, network_properties->flags.verbose))
-					return false;
-			}
+					network_properties->cmpi.fail[rank] = 1;
+
+			if (checkMpiErrors(network_properties->cmpi))
+				return false;
 				
 			printf_mpi(rank, "\n");
 			printf_mpi(rank, "\tParameters Constraining Universe Causal Set:\n");
@@ -297,14 +315,17 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			network_properties->N_dst *= pair_multiplier;
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		return false;
+		network_properties->cmpi.fail[rank] = 1;
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
-		return false;
+		network_properties->cmpi.fail[rank] = 1;
 	} catch (std::exception e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__,  e.what(), __LINE__);
-		return false;
+		network_properties->cmpi.fail[rank] = 1;
 	}
+
+	if (checkMpiErrors(network_properties->cmpi))
+		return false;
 
 	return true;
 }
@@ -445,7 +466,7 @@ bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alph
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const float &core_edge_fraction, const int &edge_buffer, const int &rank, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &link, const bool &relink, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const float &core_edge_fraction, const int &edge_buffer, CausetMPI &cmpi, Stopwatch &sCreateNetwork, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &use_gpu, const bool &link, const bool &relink, const bool &verbose, const bool &bench, const bool &yes)
 {
 	if (DEBUG) {
 		//Variables in correct ranges
@@ -458,6 +479,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 		assert (edge_buffer >= 0);
 	}
 
+	int rank = cmpi.rank;
 	bool links_exist = link || relink;
 
 	if (verbose && !yes) {
@@ -608,8 +630,11 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			printMemUsed("for Network", hostMemUsed, devMemUsed, rank);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
-		return false;
+		cmpi.fail[rank] = 1;
 	}
+
+	if (checkMpiErrors(cmpi))
+		return false;
 
 	stopwatchStop(&sCreateNetwork);
 
@@ -626,8 +651,10 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 	return true;
 }
 
-bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const double &a, double &zeta, double &tau0, const double &alpha, const int &rank, const bool &universe)
+bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const double &a, double &zeta, double &tau0, const double &alpha, CausetMPI &cmpi, const bool &universe)
 {
+	int rank = cmpi.rank;
+	
 	if (universe) {
 		if (DEBUG) {
 			assert (a > 0.0);
@@ -675,6 +702,9 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 		p3[1] = dim;
 
 		if (!newton(&solveZeta, &x, 10000, TOL, NULL, &k_tar, p3))
+			cmpi.fail[rank] = 1;
+
+		if (checkMpiErrors(cmpi))
 			return false;
 
 		if (dim == 1)

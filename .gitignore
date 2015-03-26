@@ -5,3 +5,4 @@ net/**
 debug/**
 matlab/**
 core*
+etc/geodesics_table.cset.bin

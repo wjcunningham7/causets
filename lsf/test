@@ -18,7 +18,7 @@
 
 #./lsf/cbat --ncores 40 --flags '--flrw --nodes 131072 --degrees 10 --delta 500 --radius 0.8 --link --verbose -y --print --compact' --start 51 --queue 'ser-par-10g-3' --nsamples 10
 
-./lsf/cbat --ncores 1 --flags '--flrw --nodes 1024 --degrees 10 --delta 500 --radius 1.0 --verbose -y --gen-flrw-table' --start 60 --queue 'krioukov' --nsamples 1
+#./lsf/cbat --ncores 1 --flags '--flrw --nodes 1024 --degrees 10 --energy 0.5 --verbose -y --gen-flrw-table' --start 59 --queue 'krioukov' --nsamples 1
 
 #==================#
 # GPU Acceleration #
@@ -34,7 +34,7 @@
 
 #./lsf/cbat --ncores 32 --flags '--nodes 20480 --degrees 10 --radius 0.8 --link --compact --verbose -y --gpu --embedding 1' --start 61 --mpi 4 --queue 'par-gpu' --nsamples 1
 
-#./lsf/cbat --ncores 32 --flags '--flrw --nodes 131072 --degrees 10 --delta 500 --radius 0.7 --compact --link --verbose -y --gpu --embedding 1' --start 59 --mpi 4 --queue 'par-gpu' --nsamples 1
+./lsf/cbat --ncores 32 --flags '--flrw --nodes 10240 --degrees 10 --energy 0.7 --link --compact --verbose -y --gpu --embedding 0.1' --start 61 --mpi 4 --queue 'par-gpu' --nsamples 1
 
 ###########################
 # STUDY EXISTING NETWORKS #

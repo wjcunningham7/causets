@@ -146,7 +146,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 //Calculates the number of connected components in the graph
 //as well as the size of the giant connected component
 //Efficiency: O(xxx)
-bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar, const int &rank, int &N_cc, int &N_gcc, Stopwatch &sMeasureConnectedComponents, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, Stopwatch &sMeasureConnectedComponents, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (edges.past_edges != NULL);
@@ -154,11 +154,9 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
 		assert (N_tar > 0);
-		#ifdef MPI_ENABLED
-		assert (rank >= 0);
-		#endif
 	}
 
+	int rank = cmpi.rank;
 	int elements;
 	int i;
 
@@ -166,10 +164,20 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 	try {
 		nodes.cc_id = (int*)malloc(sizeof(int) * N_tar);
-		if (nodes.cc_id == NULL)
-			throw std::bad_alloc();
+		if (nodes.cc_id == NULL) {
+			cmpi.fail[rank] = 1;
+			goto MccPoint;
+		}
 		memset(nodes.cc_id, 0, sizeof(int) * N_tar);
 		hostMemUsed += sizeof(int) * N_tar;
+
+		MccPoint:
+		if (checkMpiErrors(cmpi)) {
+			if (!rank)
+				throw std::bad_alloc();
+			else
+				return false;
+		}
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d\n", __FILE__, __LINE__);
 		return false;
@@ -179,7 +187,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 	if (verbose)
 		printMemUsed("to Measure Components", hostMemUsed, devMemUsed, rank);
 
-	if (rank == 0) {
+	if (!rank) {
 		for (i = 0; i < N_tar; i++) {
 			elements = 0;
 			if (!nodes.cc_id[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0) {
@@ -223,7 +231,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, const int &num_mpi_threads, const int &rank, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, CausetMPI &cmpi, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
@@ -257,10 +265,6 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 			assert (alpha > 0);
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 		assert (edge_buffer >= 0);
-		#ifdef MPI_ENABLED
-		assert (num_mpi_threads > 0);
-		assert (rank >= 0);
-		#endif
 	}
 
 	uint64_t stride = (uint64_t)N_tar * (N_tar - 1) / (static_cast<uint64_t>(N_sr) << 1);
@@ -272,6 +276,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	bool *used;
 	long size = 0L;
 	size_t u_size;
+	int rank = cmpi.rank;
+	bool method_fail = false;
 
 	#ifdef MPI_ENABLED
 	int edges_size = static_cast<int>(N_tar * k_tar / 2 + edge_buffer);
@@ -303,16 +309,28 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 
 	try {
 		used = (bool*)malloc(u_size);
-		if (used == NULL)
-			throw std::bad_alloc();
+		if (used == NULL) {
+			cmpi.fail[rank] = 1;
+			goto SrPoint1;
+		}
 		memset(used, 0, u_size);
 		hostMemUsed += u_size;
+
+		SrPoint1:
+		if (checkMpiErrors(cmpi)) {
+			if (!rank)
+				throw std::bad_alloc();
+			else
+				return false;
+		}
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
 
 	if (!getLookupTable("./etc/geodesics_table.cset.bin", &table, &size))
+		cmpi.fail[rank] = 1;
+	if (checkMpiErrors(cmpi))
 		return false;
 
 	//DEBUG
@@ -347,12 +365,11 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	MPI_Bcast(core_edge_exists, core_edges_size, MPI::BOOL, 0, MPI_COMM_WORLD);
 	#endif
 
-	//uint64_t start = 0;
-	uint64_t start = 6;
+	uint64_t start = 0;
 	uint64_t finish = npairs;
 
 	#ifdef MPI_ENABLED
-	uint64_t mpi_chunk = npairs / num_mpi_threads;
+	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
 	start = rank * mpi_chunk;
 	finish = start + mpi_chunk;
 	#endif
@@ -361,6 +378,13 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	#pragma omp parallel for schedule (dynamic, 1) reduction (+ : n_trav, n_succ)
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
+		#ifdef _OPENMP
+		if (!k && !(k % 16))
+			#pragma omp flush (method_fail)
+		#endif
+		if (method_fail)
+			continue;
+
 		//Pick Unique Pair
 		uint64_t vec_idx = k * stride + 1;
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
@@ -387,17 +411,26 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		memset(used + N_tar * omp_get_thread_num(), 0, sizeof(bool) * N_tar);
 
 		//Begin Traversal from i to j
-		//NOTE: Make sure when OpenMP or MPI are used, this 'return false' can make its way back to the master thread!
 		bool success = false;
 		if (!traversePath(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, universe, compact, i, j, success))
-			return false;
+			method_fail = true;
 
 		n_trav++;
 		if (success)
 			n_succ++;
 
-		return true;
+		//if (k == 10)
+		//	break;
 	}
+
+	free(used);
+	used = NULL;
+	hostMemUsed -= u_size;
+
+	if (method_fail)
+		cmpi.fail[rank] = 1;
+	if (checkMpiErrors(cmpi))
+		return false;
 
 	#ifdef MPI_ENABLED
 	//Reduce (In-Place):
@@ -416,10 +449,6 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 
 	if (rank == 0 && n_trav > 0)
 		success_ratio = static_cast<float>(n_succ) / n_trav;
-
-	free(used);
-	used = NULL;
-	hostMemUsed -= u_size;
 
 	stopwatchStop(&sMeasureSuccessRatio);
 
@@ -487,6 +516,8 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 		assert (dest >= 0 && dest < N_tar);
 	}
 
+	bool TRAV_DEBUG = true;
+
 	float min_dist = 0.0f;
 	int loc = source;
 	int idx_a = source;
@@ -495,11 +526,13 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 	float dist;
 	int next;
 
-	printf_cyan();
-	printf("Beginning at %d. Looking for %d.\n", source, dest);
-	//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(source), nodes.crd->x(source), nodes.crd->y(source), nodes.crd->z(source));
-	printf_std();
-	fflush(stdout);
+	if (TRAV_DEBUG) {
+		printf_cyan();
+		printf("Beginning at %d. Looking for %d.\n", source, dest);
+		//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(source), nodes.crd->x(source), nodes.crd->y(source), nodes.crd->z(source));
+		printf_std();
+		fflush(stdout);
+	}
 
 	//While the current location (loc) is not equal to the destination (dest)
 	while (loc != dest) {
@@ -519,27 +552,33 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 		//(1) Check past relations
 		for (int m = 0; m < nodes.k_in[loc]; m++) {
 			idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
-			printf_cyan();
-			printf("\tConsidering past neighbor %d\n", idx_a);
-			printf_std();
+			if (TRAV_DEBUG) {
+				printf_cyan();
+				printf("\tConsidering past neighbor %d\n", idx_a);
+				printf_std();
+			}
 
 			//(A) If the current location's (loc's) past neighbor (idx_a) is the destination (idx_b) then return true
 			if (idx_a == idx_b) {
-				printf_cyan();
-				printf("Moving to %d.\n", idx_a);
-				printf_std();
-				fflush(stdout);
+				if (TRAV_DEBUG) {
+					printf_cyan();
+					printf("Moving to %d.\n", idx_a);
+					printf_std();
+					fflush(stdout);
+				}
 				success = true;
 				return true;
 			}
 
 			//(B) If the current location's past neighbor is directly connected to the destination then return true
 			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
-				printf_cyan();
-				printf("Moving to %d.\n", idx_a);
-				printf("Moving to %d.\n", idx_b);
-				printf_std();
-				fflush(stdout);
+				if (TRAV_DEBUG) {
+					printf_cyan();
+					printf("Moving to %d.\n", idx_a);
+					printf("Moving to %d.\n", idx_b);
+					printf_std();
+					fflush(stdout);
+				}
 				success = true;
 				return true;
 			}
@@ -559,6 +598,12 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 					//exit(0);
 
 					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
+
+					/*if (dist + 1 > INF) {
+						printf_red();
+						printf("\t\tInfinite distance detected.\n");
+						printf_std();
+					}*/
 				}
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
@@ -597,16 +642,20 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 			#endif
 
 			idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
-			printf_cyan();
-			printf("\tConsidering future neighbor %d.\n", idx_a);
-			printf_std();
+			if (TRAV_DEBUG) {
+				printf_cyan();
+				printf("\tConsidering future neighbor %d.\n", idx_a);
+				printf_std();
+			}
 
 			//(D) If the current location's future neighbor is the destination then return true
 			if (idx_a == idx_b) {
-				printf_cyan();
-				printf("Moving to %d.\n", idx_a);
-				printf_std();
-				fflush(stdout);
+				if (TRAV_DEBUG) {
+					printf_cyan();
+					printf("Moving to %d.\n", idx_a);
+					printf_std();
+					fflush(stdout);
+				}
 				#ifdef _OPENMP
 				priv_min_dist = 0.0f;
 				priv_next = idx_b;
@@ -619,11 +668,13 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 
 			//(E) If the current location's future neighbor is directly connected to the destination then return true
 			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
-				printf_cyan();
-				printf("Moving to %d.\n", idx_a);
-				printf("Moving to %d.\n", idx_b);
-				printf_std();
-				fflush(stdout);
+				if (TRAV_DEBUG) {
+					printf_cyan();
+					printf("Moving to %d.\n", idx_a);
+					printf("Moving to %d.\n", idx_b);
+					printf_std();
+					fflush(stdout);
+				}
 				#ifdef _OPENMP
 				priv_min_dist = 0.0f;
 				priv_next = idx_b;
@@ -649,6 +700,12 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 					//exit(0);
 
 					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
+
+					/*if (dist + 1 > INF) {
+						printf_red();
+						printf("\t\tInfinite distance detected.\n");
+						printf_std();
+					}*/
 				}
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
@@ -685,10 +742,12 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 		}
 		#endif
 
-		printf_cyan();
-		printf("Moving to %d.\n", next);
-		printf_std();
-		fflush(stdout);
+		if (TRAV_DEBUG) {
+			printf_cyan();
+			printf("Moving to %d.\n", next);
+			printf_std();
+			fflush(stdout);
+		}
 
 		if (next == idx_b) {
 			success = true;
@@ -700,8 +759,10 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 
 		if (!used[next])
 			loc = next;
-		else
+		else {
+			printf("Found dead end.\n");
 			break;
+		}
 	}
 
 	success = false;
