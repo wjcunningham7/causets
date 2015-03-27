@@ -59,4 +59,6 @@
 
 #endif
 
+#define SR_RANDOM true	//Pick random pairs when calculating success ratio
+
 #endif

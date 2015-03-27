@@ -1004,7 +1004,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 		//Choose a pair (i,j) from a single index k
 		uint64_t vec_idx = k * stride + 1;
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
-		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
+		int j = static_cast<int>(vec_idx % (N_tar - 1));
 		int do_map = i >= j;
 
 		if (j < N_tar >> 1) {
@@ -1187,7 +1187,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 		//Choose a pair (i,j) from a single index k
 		uint64_t vec_idx = k * stride + 1;
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
-		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
+		int j = static_cast<int>(vec_idx % (N_tar - 1));
 		int do_map = i >= j;
 
 		if (j < N_tar >> 1) {
@@ -1582,5 +1582,66 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 	printf("\tTask Completed.\n");
 	fflush(stdout);
 
+	return true;
+}
+
+bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &universe, const bool &compact, int source, int dest, bool &success)
+{
+	if (DEBUG) {
+		assert (!nodes.crd->isNull());
+		assert (dim == 1 || dim == 3);
+		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+
+		if (manifold == HYPERBOLIC)
+			assert (dim == 1);
+
+		if (dim == 1)
+			assert (nodes.crd->getDim() == 2);
+		else if (dim == 3) {
+			assert (nodes.crd->getDim() == 4);
+			assert (nodes.crd->w() != NULL);
+			assert (nodes.crd->z() != NULL);
+			assert (manifold == DE_SITTER);
+		}
+
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+		assert (nodes.k_in != NULL);
+		assert (nodes.k_out != NULL);
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
+		assert (core_edge_exists != NULL);
+		assert (used != NULL);
+		assert (table != NULL);
+
+		assert (N_tar > 0);
+		if (manifold == DE_SITTER) {
+			assert (a > 0.0);
+			assert (HALF_PI - zeta > 0.0);
+			if (universe)
+				assert (alpha > 0.0);
+		}
+		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (size > 0);
+		assert (source >= 0 && source < N_tar);
+		assert (dest >= 0 && dest < N_tar);
+	}
+
+	float min_dist = 0.0f;
+	int loc = source;
+	int idx_a = source;
+	int idx_b = source;
+
+	float dist;
+	int next;
+
+	//While the current location (loc) is not equal to the destination (dest)
+	while (loc != dest) {
+
+	}
+
+	success = false;
 	return true;
 }

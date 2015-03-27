@@ -263,12 +263,8 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			#endif
 
 			//Generate geodesic lookup tables (can take a while...)
-			if (!network_properties->cmpi.rank) {
-				if (network_properties->flags.gen_ds_table && !network_properties->flags.universe && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 2.0, -5.0, 5.0, 0.01, 0.01, network_properties->flags.universe, network_properties->flags.verbose))
+			if (!network_properties->cmpi.rank && network_properties->flags.gen_flrw_table && !generateGeodesicLookupTable("geodesics_flrw_table.cset.bin", 2.0, -5.0, 5.0, 0.01, 0.01, network_properties->flags.universe, network_properties->flags.verbose))
 					network_properties->cmpi.fail = 1;
-				if (network_properties->flags.gen_flrw_table && network_properties->flags.universe && !generateGeodesicLookupTable("geodesics_flrw_table.cset.bin", 2.0, -5.0, 5.0, 0.01, 0.01, network_properties->flags.universe, network_properties->flags.verbose))
-					network_properties->cmpi.fail = 1;
-			}
 
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
@@ -299,11 +295,18 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				throw CausetException("Flag '-n', number of nodes, must be specified!\n");
 			else if (network_properties->k_tar == 0.0)
 				throw CausetException("Flag '-k', expected average degrees, must be specified!\n");
-				
+			
+			network_properties->flags.compact = true;
+	
 			if (network_properties->dim == 1) {
 				network_properties->zeta = HALF_PI - network_properties->tau0;
 				network_properties->tau0 = etaToTau(HALF_PI - network_properties->zeta);
 			}
+				
+			if (!network_properties->cmpi.rank && network_properties->flags.gen_ds_table && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 2.0, -5.0, 5.0, 0.01, 0.01, network_properties->flags.universe, network_properties->flags.verbose))
+					network_properties->cmpi.fail = 1;
+			if (checkMpiErrors(network_properties->cmpi))
+				return false;
 		}
 			
 		//Check other parameters if applicable
@@ -311,7 +314,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 		if (network_properties->flags.validate_embedding)
 			network_properties->N_emb *= pair_multiplier;
 
-		if (network_properties->flags.calc_success_ratio)
+		if (network_properties->flags.calc_success_ratio && network_properties->N_sr <= 1.0)
 			network_properties->N_sr *= pair_multiplier;
 
 		if (network_properties->flags.validate_distances)

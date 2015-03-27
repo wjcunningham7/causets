@@ -231,7 +231,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, CausetMPI &cmpi, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, long &seed, CausetMPI &cmpi, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
@@ -267,44 +267,33 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		assert (edge_buffer >= 0);
 	}
 
-	uint64_t stride = (uint64_t)N_tar * (N_tar - 1) / (static_cast<uint64_t>(N_sr) << 1);
+	double *table;
+	long size = 0L;
+
+	bool *used;
+	size_t u_size;
+
+	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
+	uint64_t stride = max_pairs / static_cast<uint64_t>(N_sr);
 	uint64_t npairs = static_cast<uint64_t>(N_sr);
 	uint64_t n_trav = 0;
 	uint64_t n_succ = 0;
+	uint64_t start = 0;
+	uint64_t finish = npairs;
 
-	double *table;
-	bool *used;
-	long size = 0L;
-	size_t u_size;
 	int rank = cmpi.rank;
-	bool method_fail = false;
+	bool fail = false;
 
 	#ifdef MPI_ENABLED
 	int edges_size = static_cast<int>(N_tar * k_tar / 2 + edge_buffer);
 	int core_edges_size = static_cast<int>(POW2(core_edge_fraction * N_tar, EXACT));
 	#endif
 
-	//printf("Stride: %" PRIu64 "\n", stride);
-
-	//Check out-degrees of earliest nodes
-	//for (int t = 0; t < 100; t++)
-	//	printf("%d\n", nodes.k_out[t]);
-	//exit(11);
-
 	stopwatchStart(&sMeasureSuccessRatio);
 
-	//TEST THESE PARAMETERS
 	u_size = sizeof(bool) * N_tar;
-	//printf_mpi(rank, "Original u_size: %zu\n", u_size);
 	#ifdef _OPENMP
 	u_size *= omp_get_max_threads();
-	//printf_mpi(rank, "OpenMP Threads:  %d\n", omp_get_max_threads());
-	//printf_mpi(rank, "Max u_size:      %zu\n", u_size);
-	#endif
-	#ifdef MPI_ENABLED
-	//u_size /= (num_mpi_threads / omp_get_max_threads());
-	//printf_mpi(rank, "MPI Threads:     %d\n", num_mpi_threads);
-	//printf_mpi(rank, "Divided u_size:  %zu\n", u_size);
 	#endif
 
 	try {
@@ -328,6 +317,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		return false;
 	}
 
+	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	if (verbose)
+		printMemUsed("to Measure Success Ratio", hostMemUsed, devMemUsed, rank);
+
 	if (universe && !getLookupTable("./etc/geodesics_flrw_table.cset.bin", &table, &size))
 		cmpi.fail = 1;
 	else if (!universe && !getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
@@ -335,20 +328,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	if (checkMpiErrors(cmpi))
 		return false;
 
-	//DEBUG
-	//printf("(tau_a\t\ttau_b\t\tomega_12\tlambda)\n");
-	//for (int i = 0; i < 200; i += 4)
-	//	printf("(%f\t%f\t%f\t%f)\n", table[i], table[i+1], table[i+2], table[i+3]);
-	//printf("\n");
-	//fflush(stdout);
-	//exit(0);
-	
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
-	if (verbose)
-		printMemUsed("to Measure Success Ratio", hostMemUsed, devMemUsed, rank);
-
 	#ifdef MPI_ENABLED
-	//Broadcast:
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
@@ -365,15 +345,15 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	MPI_Bcast(edges.past_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(core_edge_exists, core_edges_size, MPI::BOOL, 0, MPI_COMM_WORLD);
-	#endif
 
-	uint64_t start = 0;
-	uint64_t finish = npairs;
-
-	#ifdef MPI_ENABLED
 	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
 	start = rank * mpi_chunk;
 	finish = start + mpi_chunk;
+
+	//Randomize seed differently for each thread
+	if (SR_RANDOM)
+		for (int i = 0; i < rank; i++)
+			ran2(&seed);
 	#endif
 
 	#ifdef _OPENMP
@@ -382,14 +362,19 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	for (uint64_t k = start; k < finish; k++) {
 		#ifdef _OPENMP
 		if (!k && !(k % 16)) {
-			#pragma omp flush (method_fail)
+			#pragma omp flush (fail)
 		}
 		#endif
-		if (method_fail)
+		if (fail)
 			continue;
 
-		//Pick Unique Pair
-		uint64_t vec_idx = k * stride + 1;
+		//Pick Pair
+		uint64_t vec_idx;
+		if (SR_RANDOM)
+			vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
+		else
+			vec_idx = k * stride + 1;
+
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
 		int j = static_cast<int>(vec_idx % (N_tar - 1));
 		int do_map = i >= j;
@@ -399,8 +384,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
-		//printf("i: %d\tj: %d\n", i, j);
-		//fflush(stdout);
+		//DEBUG
+		printf("k: %" PRIu64 "\ti: %d\tj: %d\n", k, i, j);
 
 		//If either node is isolated, continue
 		if (!(nodes.k_in[i] + nodes.k_out[i]) || !(nodes.k_in[j] + nodes.k_out[j]))
@@ -415,8 +400,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 
 		//Begin Traversal from i to j
 		bool success = false;
-		if (!traversePath(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, universe, compact, i, j, success))
-			method_fail = true;
+		if (!traversePath_v2(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, universe, compact, i, j, success))
+			fail = true;
 
 		n_trav++;
 		if (success)
@@ -427,13 +412,12 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	used = NULL;
 	hostMemUsed -= u_size;
 
-	if (method_fail)
+	if (fail)
 		cmpi.fail = 1;
 	if (checkMpiErrors(cmpi))
 		return false;
 
 	#ifdef MPI_ENABLED
-	//Reduce (In-Place):
 	MPI_Barrier(MPI_COMM_WORLD);
 	if (rank == 0)
 		MPI_Reduce(MPI_IN_PLACE, &n_succ, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -472,7 +456,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //O(xxx) Efficiency (revise this)
-bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &universe, const bool &compact, int source, int dest, bool &success)
+bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &universe, const bool &compact, int source, int dest, bool &success)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
@@ -482,9 +466,9 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 		if (manifold == HYPERBOLIC)
 			assert (dim == 1);
 
-		if (dim == 1) {
+		if (dim == 1)
 			assert (nodes.crd->getDim() == 2);
-		} else if (dim == 3) {
+		else if (dim == 3) {
 			assert (nodes.crd->getDim() == 4);
 			assert (nodes.crd->w() != NULL);
 			assert (nodes.crd->z() != NULL);
@@ -516,7 +500,7 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 		assert (dest >= 0 && dest < N_tar);
 	}
 
-	bool TRAV_DEBUG = true;
+	bool TRAV_DEBUG = false;
 
 	float min_dist = 0.0f;
 	int loc = source;
@@ -759,10 +743,8 @@ bool traversePath(const Node &nodes, const Edge &edges, const bool * const core_
 
 		if (!used[next])
 			loc = next;
-		else {
-			printf("Found dead end.\n");
+		else
 			break;
-		}
 	}
 
 	success = false;

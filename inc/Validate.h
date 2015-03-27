@@ -44,4 +44,6 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 
 bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const bool &universe, const bool &verbose);
 
+bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &universe, const bool &compact, int source, int dest, bool &success);
+
 #endif

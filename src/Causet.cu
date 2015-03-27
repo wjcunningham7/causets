@@ -273,7 +273,8 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				network_properties.flags.calc_success_ratio = true;
 				network_properties.flags.calc_components = true;
 				network_properties.N_sr = atof(optarg);
-				if (network_properties.N_sr <= 0.0 || network_properties.N_sr > 1.0)
+				//if (network_properties.N_sr <= 0.0 || network_properties.N_sr > 1.0)
+				if (network_properties.N_sr <= 0.0)
 					throw CausetException("Invalid argument for 'success' parameter!\n");
 				break;
 			case 's':	//Random seed
@@ -457,7 +458,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --ratio\t\tEnergy to Matter Ratio\t\t2.7\n");
 				printf_mpi(rank, "      --read-old-format\tRead Positions in Old Format\n");
 				printf_mpi(rank, "      --relink\t\tIgnore Pre-Existing Links\n");
-				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.5\n");
+				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.5, 10000\n");
 				printf_mpi(rank, "  -s, --seed\t\tRandom Seed\t\t\t18100\n");
 				printf_mpi(rank, "      --slice\t\tSize of Spatial Slice\t\t3.1415\n");
 				printf_mpi(rank, "      --test\t\tTest FLRW Parameters\n");
@@ -755,7 +756,7 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 				break;
 			}
 
-			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.seed, network->network_properties.cmpi, cp->sMeasureSuccessRatio, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
 

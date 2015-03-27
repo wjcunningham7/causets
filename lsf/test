@@ -18,13 +18,15 @@
 
 #./lsf/cbat --ncores 40 --flags '--flrw --nodes 131072 --degrees 10 --delta 500 --radius 0.8 --link --verbose -y --print --compact' --start 51 --queue 'ser-par-10g-3' --nsamples 10
 
-./lsf/cbat --ncores 1 --flags '--flrw --nodes 1024 --degrees 10 --energy 0.5 --verbose -y --gen-ds-table' --start 61 --queue 'krioukov' --nsamples 1
+./lsf/cbat --ncores 1 --flags '--nodes 1024 --degrees 10 --radius 1.0 --verbose -y --gen-ds-table --test' --start 61 --queue 'krioukov' --nsamples 1
+
+#./lsf/cbat --ncores 1 --flags '--flrw --nodes 1024 --degrees 10 --energy 0.5 --verbose -y --gen-flrw-table --test' --start 59 --queue 'krioukov' --nsamples 1
 
 #==================#
 # GPU Acceleration #
 #==================#
 
-#./lsf/cbat --ncores 32 --flags '--nodes 20480 --degrees 10 --delta 500 --radius 1 --link --verbose -y --compact --seed 18100 --gpu --components --print' --start 61 --queue 'par-gpu' --nsamples 1
+#./lsf/cbat --ncores 32 --flags '--nodes 20480 --degrees 10 --radius 0.8 --radius 1 --link --verbose -y --compact --seed 18100 --gpu --components --print' --start 61 --queue 'par-gpu' --nsamples 1
 
 #./lsf/cbat --ncores 32 --flags '--flrw --nodes 131072 --degrees 10 --delta 500 --radius 0.9 --link --verbose -y --gpu --print --core 0.95 --compact --clustering --components' --start 71 --queue 'par-gpu' --nsamples 100
 
@@ -44,7 +46,7 @@
 # No Acceleration #
 #=================#
 
-#./lsf/cbat --ncores 40 --flags '--degrees 10 --delta 500 --radius 2.0 --link --compact --verbose -y --distances 0.001' --graph 1425566890 --start 60 --queue 'ser-par-10g-3' --readjob 59
+#./lsf/cbat --ncores 40 --flags '--degrees 10 --radius 2.0 --link --compact --verbose -y --distances 0.001' --graph 1425566890 --start 60 --queue 'ser-par-10g-3' --readjob 59
 
 #./lsf/cbat --ncores 16 --flags '--flrw --degrees 100 --delta 1000 --radius 1.0 --link --compact --verbose -y --read-old-format' --graph 1415296494 --start '17a' --queue 'ser-par-10g' --readjob 17
 
@@ -58,6 +60,6 @@
 # MPI Acceleration #
 #==================#
 
-#./lsf/cbat --ncores 40 --flags '--degrees 10 --delta 500 --radius 1 --link --compact --verbose -y --embedding 1 --print' --graph 1426166280 --start 62 --mpi 4 --queue 'ser-par-10g-2' --readjob 61
+#./lsf/cbat --ncores 40 --flags '--degrees 10 --radius 1 --link --compact --verbose -y --embedding 1 --print' --graph 1426166280 --start 62 --mpi 4 --queue 'ser-par-10g-2' --readjob 61
 
 #./lsf/cbat --ncores 40 --flags '--flrw --degrees 10 --delta 500 --radius 0.8 --link --compact --verbose -y --embedding 1 --print' --graph 1426105545 --start 60 --mpi 4 --queue 'ser-par-10g-2' --readjob 59
