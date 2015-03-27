@@ -787,20 +787,15 @@ inline double embeddedZ1(double x, void *params)
 	return SQRT((1.0 / alpha2) + (POW2(a, EXACT) * x) / (alpha2 * alpha + POW3(x, EXACT)), STL);
 }
 
-inline double geodesicMaxRescaledTime(const double &lambda, const double &a, const bool &universe)
+inline double geodesicMaxTau(const double &lambda, const bool &universe)
 {
-	if (DEBUG) {
-		//assert (lambda != 0.0);
-		assert (a > 0.0);
-	}
-
 	if (lambda >= 0.0)
 		return 0.0f;
 
 	if (universe)
 		return (2.0 / 3.0) * ASINH(POW(ABS(lambda, STL), -0.75, STL), STL, VERY_HIGH_PRECISION);
 	else
-		return ACOSH(POW(ABS(lambda, STL), -0.5, STL) / a, STL, VERY_HIGH_PRECISION);
+		return ACOSH(POW(ABS(lambda, STL), -0.5, STL), STL, VERY_HIGH_PRECISION);
 }
 
 //Integrands in Exact Geodesic Calculations
@@ -815,14 +810,14 @@ inline double deSitterDistKernel(double x, void *params)
 
 	double *p = (double*)params;
 	double lambda = p[0];
-	double a = p[1];
 
-	if (DEBUG) {
+	if (DEBUG)
 		assert (lambda != 0.0);
-		assert (a > 0.0);
-	}
 
-	return POW(ABS(1.0 / (lambda * POW2(a, EXACT) * POW2(COSH(x / a, STL), EXACT)) - 1.0, STL), -0.5, STL);
+	double lcx2 = lambda * POW2(COSH(x, STL), EXACT);
+	double distance = SQRT(ABS(lcx2 / (1.0 + lcx2), STL), STL);
+
+	return distance;
 }
 
 inline double flrwDistKernel(double x, void *params)
@@ -840,10 +835,29 @@ inline double flrwDistKernel(double x, void *params)
 
 	double sx = SINH(1.5 * x, STL);
 	double lsx83 = lambda * POW(sx, 8.0 / 3.0, STL);
-
 	double distance = SQRT(ABS(lsx83 / (1.0 + lsx83), STL), STL);
 
 	return distance;
+}
+
+inline double deSitterLookupKernel(double x, void *params)
+{
+	if (DEBUG) {
+		assert (params != NULL);
+		assert (x >= 0);
+	}
+
+	double *p = (double*)params;
+	double lambda = p[0];
+
+	if (DEBUG)
+		assert (lambda != 0.0);
+
+	double cx2 = POW2(COSH(x, STL), EXACT);
+	double g = cx2 + lambda * POW2(cx2, EXACT);
+	double omega12 = g > 0 ? POW(g, -0.5, STL) : 0.0;
+
+	return omega12;
 }
 
 inline double flrwLookupKernel(double x, void *params)
@@ -856,14 +870,12 @@ inline double flrwLookupKernel(double x, void *params)
 	double *p = (double*)params;
 	double lambda = p[0];
 
-	if (DEBUG) {
+	if (DEBUG)
 		assert (lambda != 0.0);
-	}
 
 	double sx = SINH(1.5 * x, STL);
 	double sx43 = POW(sx, 4.0 / 3.0, STL);
 	double g = sx43 + lambda * POW2(sx43, EXACT);
-
 	double omega12 = g > 0 ? POW(g, -0.5, STL) : 0.0;
 
 	return omega12;
@@ -889,11 +901,6 @@ inline double distance(const double * const table, const float4 &node_a, const f
 	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
 		return 0.0;
 
-	//Check if they occur at the same time
-	if (tau_a == tau_b) {
-		//Return spacelike separation \tilde(\alpha) * R(t) * \delta\Omega
-	}
-
 	bool DIST_DEBUG = false;
 
 	IntData idata = IntData();
@@ -913,38 +920,22 @@ inline double distance(const double * const table, const float4 &node_a, const f
 		method = QAG;
 		idata.key = GSL_INTEG_GAUSS61;
 	} else {
-		//float p2[3];
-		//p2[0] = tau_a;
-		//p2[1] = tau_b;
-		//p2[2] = ACOS(sphProduct_v2(node_a, node_b), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
-
-		double x = 0.5;
-		//if (!newton(&solveLambda4D, &x, 10000, TOL, &a, p2, NULL))
-		//	return -1.0;
-		//if (!bisection(&solveLambda4DBisec, &x, 10000, -100.0, 10000.0, TOL, false, &a, p2, NULL))
-		//	return -1.0;
-		lambda = x;
+		lambda = lookupValue4D(table, size, ACOS(sphProduct_v2(node_a, node_b), STL, VERY_HIGH_PRECISION), tau_a, tau_b);
 		kernel = &deSitterDistKernel;
-		method = QAGS;
+		method = QAG;
+		idata.key = GSL_INTEG_GAUSS61;
 	}
 
 	//Check for NaN
 	if (lambda != lambda)
 		return -1.0;
 
-	//if (DEBUG)
-	//	assert (lambda != 0.0);
-
 	if (DIST_DEBUG) {
 		printf("\t\tLambda: %f\n", lambda);
 		fflush(stdout);
 	}
 
-	tau_max = geodesicMaxRescaledTime(lambda, a, universe);
-
-	//double p[2];
-	//p[0] = lambda;
-	//p[1] = a;
+	tau_max = geodesicMaxTau(lambda, universe);
 
 	if (lambda == 0.0)
 		distance = INF;
@@ -958,12 +949,6 @@ inline double distance(const double * const table, const float4 &node_a, const f
 		}
 		distance = integrate1D(kernel, (void*)&lambda, &idata, method);
 	} else if (lambda < 0 && (tau_a < tau_max && tau_b < tau_max)) {
-
-		/*if (DEBUG) {
-			assert (tau_a < tau_max);
-			assert (tau_b < tau_max);
-		}*/
-
 		idata.lower = tau_a;
 		idata.upper = tau_max;
 		distance = integrate1D(kernel, (void*)&lambda, &idata, method);

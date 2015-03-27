@@ -40,8 +40,8 @@ bool printEdgeLists(const Edge &edges, const int num_vals, const char *filename_
 
 bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future);
 
-bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const double &a, const bool &universe);
+bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const bool &universe);
 
-bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const double &a, const bool &universe, const bool &verbose);
+bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const bool &universe, const bool &verbose);
 
 #endif

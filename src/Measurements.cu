@@ -165,7 +165,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 	try {
 		nodes.cc_id = (int*)malloc(sizeof(int) * N_tar);
 		if (nodes.cc_id == NULL) {
-			cmpi.fail[rank] = 1;
+			cmpi.fail = 1;
 			goto MccPoint;
 		}
 		memset(nodes.cc_id, 0, sizeof(int) * N_tar);
@@ -310,7 +310,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	try {
 		used = (bool*)malloc(u_size);
 		if (used == NULL) {
-			cmpi.fail[rank] = 1;
+			cmpi.fail = 1;
 			goto SrPoint1;
 		}
 		memset(used, 0, u_size);
@@ -328,8 +328,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		return false;
 	}
 
-	if (!getLookupTable("./etc/geodesics_table.cset.bin", &table, &size))
-		cmpi.fail[rank] = 1;
+	if (universe && !getLookupTable("./etc/geodesics_flrw_table.cset.bin", &table, &size))
+		cmpi.fail = 1;
+	else if (!universe && !getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
+		cmpi.fail = 1;
 	if (checkMpiErrors(cmpi))
 		return false;
 
@@ -379,8 +381,9 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		#ifdef _OPENMP
-		if (!k && !(k % 16))
+		if (!k && !(k % 16)) {
 			#pragma omp flush (method_fail)
+		}
 		#endif
 		if (method_fail)
 			continue;
@@ -418,9 +421,6 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		n_trav++;
 		if (success)
 			n_succ++;
-
-		//if (k == 10)
-		//	break;
 	}
 
 	free(used);
@@ -428,7 +428,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	hostMemUsed -= u_size;
 
 	if (method_fail)
-		cmpi.fail[rank] = 1;
+		cmpi.fail = 1;
 	if (checkMpiErrors(cmpi))
 		return false;
 

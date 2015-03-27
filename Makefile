@@ -88,8 +88,8 @@ MPIFLAGS2	:=
 # OpenMP or MPI Acceleration #
 ##############################
 
-USE_OMP		:= 1
-USE_MPI		:= 1
+USE_OMP		:= 0
+USE_MPI		:= 0
 
 ifneq ($(USE_OMP), 0)
 OMPFLAGS1 += -fopenmp

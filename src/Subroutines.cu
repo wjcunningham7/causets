@@ -608,16 +608,15 @@ int printf_mpi(int rank, const char * format, ...)
 bool checkMpiErrors(CausetMPI &cmpi)
 {
 	#ifdef MPI_ENABLED
-	MPI_Barrier(MPI_COMM_WORLD);
-
 	if (!cmpi.rank)
-		MPI_Allreduce(MPI_IN_PLACE, cmpi.fail, cmpi.num_mpi_threads, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+		MPI_Reduce(MPI_IN_PLACE, &cmpi.fail, cmpi.num_mpi_threads, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 	else
-		MPI_Allreduce(cmpi.fail, NULL, cmpi.num_mpi_threads, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+		MPI_Reduce(&cmpi.fail, NULL, cmpi.num_mpi_threads, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&cmpi.fail, cmpi.num_mpi_threads, MPI_INT, 0, MPI_COMM_WORLD);
 	#endif
 
-	if (cmpi.fail[cmpi.rank])
+	if (cmpi.fail)
 		return true;
-
-	return false;
+	else
+		return false;
 }

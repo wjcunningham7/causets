@@ -908,7 +908,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	try {
 		evd.confusion = (uint64_t*)malloc(sizeof(uint64_t) * 4);
 		if (evd.confusion == NULL) {
-			cmpi.fail[rank] = 1;
+			cmpi.fail = 1;
 			goto ValEmbPoint;
 		}
 		memset(evd.confusion, 0, sizeof(uint64_t) * 4);
@@ -1155,7 +1155,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 	uint64_t stride = static_cast<uint64_t>(static_cast<double>(N_tar) * (N_tar - 1) / (N_dst * 2));
 	uint64_t npairs = static_cast<uint64_t>(N_dst);
 
-	double tol = 0.01;
+	double tol = 1e-3;
 
 	stopwatchStart(&sValidateDistances);
 
@@ -1409,7 +1409,7 @@ bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *fi
 	return true;
 }
 
-bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const double &a, const bool &universe)
+bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const bool &universe)
 {
 	if (DEBUG) {
 		assert (tau1 > 0.0f);
@@ -1428,6 +1428,8 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 		tau2 = temp;
 	}
 
+	double (*kernel)(double x, void *params) = universe ? &flrwLookupKernel : &deSitterLookupKernel;
+
 	IntData idata = IntData();
 	idata.limit = 50;
 	idata.tol = 1e-5;
@@ -1444,25 +1446,25 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 
 	for (i = 0; i < n_lambda; i++) {
 		double lambda = i * lambda_step + min_lambda;
-		double tau_m = geodesicMaxRescaledTime(lambda, a, universe);
+		double tau_m = geodesicMaxTau(lambda, universe);
 
 		if (tau1 >= tau2 || lambda == 0.0)
 			omega_val = 0.0;
 		else if (lambda > 0 || (tau1 > tau_m && tau2 > tau_m)) {
 			idata.lower = tau1;
 			idata.upper = tau2;
-			omega_val = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+			omega_val = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
 		} else if (lambda < 0 && (tau1 < tau_m && tau2 < tau_m)) {
 			printf("tau_m: %f\t\t", tau_m);
 
 			idata.lower = tau1;
 			idata.upper = tau_m;
 			//Integrate
-			omega_val = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+			omega_val = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
 			printf("ov1: %f\t", omega_val);
 
 			idata.lower = tau2;
-			double omega_val2 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+			double omega_val2 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
 			printf("ov2: %f\t", omega_val2);
 			omega_val += omega_val2;
 		} else
@@ -1484,7 +1486,7 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 	return true;
 }
 
-bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const double &a, const bool &universe, const bool &verbose)
+bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const bool &universe, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (filename != NULL);
@@ -1492,12 +1494,15 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 		assert (min_lambda < max_lambda);
 		assert (tau_step > 0.0);
 		assert (lambda_step > 0.0);
-		assert (a > 0.0);
-		assert (universe);
 	}
 
-	printf("\tGenerating FLRW geodesic lookup table...\n");
+	if (universe)
+		printf("\tGenerating FLRW geodesic lookup table...\n");
+	else
+		printf("\tGenerating de Sitter geodesic lookup table...\n");
 	fflush(stdout);
+
+	double (*kernel)(double x, void *params) = universe ? &flrwLookupKernel : &deSitterLookupKernel;
 
 	Stopwatch sLookup = Stopwatch();
 	IntData idata = IntData();
@@ -1526,22 +1531,22 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 
 				for (k = 0; k < n_lambda; k++) {
 					lambda = k * lambda_step + min_lambda;
-					tau_m = geodesicMaxRescaledTime(lambda, a, universe);
+					tau_m = geodesicMaxTau(lambda, universe);
 
 					if (tau1 >= tau2 || lambda == 0.0)
 						omega12 = 0.0;
 					else if (lambda > 0 || (tau1 > tau_m && tau2 > tau_m)) {
 						idata.lower = tau1;
 						idata.upper = tau2;
-						omega12 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+						omega12 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
 					} else if (lambda < 0 && (tau1 < tau_m && tau2 < tau_m)) {
 						idata.lower = tau1;
 						idata.upper = tau_m;
 						//Integrate
-						omega12 = integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+						omega12 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
 
 						idata.lower = tau2;
-						omega12 += integrate1D(&flrwLookupKernel, (void*)&lambda, &idata, QAGS);
+						omega12 += integrate1D(kernel, (void*)&lambda, &idata, QAGS);
 					} else
 						omega12 = 0.0;
 

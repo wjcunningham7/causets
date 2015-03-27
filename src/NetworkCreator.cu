@@ -43,7 +43,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 		printf_mpi(rank, "If you are using the GPU, set the target number of nodes (--nodes) to be a multiple of double the thread block size (%d)!\n", BLOCK_SIZE << 1);
 		printf_mpi(rank, "For best results, use a power of 2.\n");
 		fflush(stdout);
-		network_properties->cmpi.fail[rank] = 1;
+		network_properties->cmpi.fail = 1;
 	}
 
 	if(checkMpiErrors(network_properties->cmpi))
@@ -93,14 +93,14 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					if (t > MTAU)
 						x = LOG(t, STL) / 3.0;
 					else if (!newton(&solveTau0Compact, &x, 10000, TOL, p1, NULL, &network_properties->N_tar))
-						network_properties->cmpi.fail[rank] = 1;
+						network_properties->cmpi.fail = 1;
 				} else {
 					p1[3] = network_properties->chi_max;
 					t = 9.0 * network_properties->N_tar / (M_PI * network_properties->delta * network_properties->a * POW3(network_properties->alpha * network_properties->chi_max, EXACT));
 					if (t > MTAU)
 						x = LOG(t, STL) / 3.0;
 					else if (!newton(&solveTau0Flat, &x, 10000, TOL, p1, NULL, &network_properties->N_tar))
-						network_properties->cmpi.fail[rank] = 1;
+						network_properties->cmpi.fail = 1;
 				}
 
 				if(checkMpiErrors(network_properties->cmpi))
@@ -139,13 +139,13 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					double *table;
 					long size = 0L;
 					if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
-						network_properties->cmpi.fail[rank] = 1;
+						network_properties->cmpi.fail = 1;
 					if (checkMpiErrors(network_properties->cmpi))
 						return false;
 					network_properties->tau0 = lookupValue(table, size, NULL, &kappa2, true);
 					//Check for NaN
 					if (network_properties->tau0 != network_properties->tau0)
-						network_properties->cmpi.fail[rank] = 1;
+						network_properties->cmpi.fail = 1;
 					if (checkMpiErrors(network_properties->cmpi))
 						return false;
 
@@ -175,13 +175,13 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					long size = 0L;
 
 					if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
-						network_properties->cmpi.fail[rank] = 1;
+						network_properties->cmpi.fail = 1;
 					if (checkMpiErrors(network_properties->cmpi))
 						return false;
 
 					double rescaledAverageDegree = lookupValue(table, size, &network_properties->tau0, NULL, true);
 					if (rescaledAverageDegree != rescaledAverageDegree)
-						network_properties->cmpi.fail[rank] = 1;
+						network_properties->cmpi.fail = 1;
 					if(checkMpiErrors(network_properties->cmpi))
 						return false;
 
@@ -248,7 +248,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			if (network_properties->k_tar == 0.0) {
 				int method = 1;	//Use lookup table
 				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->a, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, cp->sCalcDegrees, bm->bCalcDegrees, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network_properties->flags.verbose, network_properties->flags.bench, method))
-					network_properties->cmpi.fail[rank] = 1;
+					network_properties->cmpi.fail = 1;
 				if(checkMpiErrors(network_properties->cmpi))
 					return false;
 			}
@@ -262,10 +262,13 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				network_properties->core_edge_fraction = 0.0;
 			#endif
 
-			//Generate FLRW geodesic lookup table (can take a while...)
-			if (network_properties->cmpi.rank == 0 && network_properties->flags.gen_flrw_table)
-				if (!generateGeodesicLookupTable("geodesics_table.cset.bin", 2.0, -5, 5, 0.01, 0.01, network_properties->a, network_properties->flags.universe, network_properties->flags.verbose))
-					network_properties->cmpi.fail[rank] = 1;
+			//Generate geodesic lookup tables (can take a while...)
+			if (!network_properties->cmpi.rank) {
+				if (network_properties->flags.gen_ds_table && !network_properties->flags.universe && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 2.0, -5.0, 5.0, 0.01, 0.01, network_properties->flags.universe, network_properties->flags.verbose))
+					network_properties->cmpi.fail = 1;
+				if (network_properties->flags.gen_flrw_table && network_properties->flags.universe && !generateGeodesicLookupTable("geodesics_flrw_table.cset.bin", 2.0, -5.0, 5.0, 0.01, 0.01, network_properties->flags.universe, network_properties->flags.verbose))
+					network_properties->cmpi.fail = 1;
+			}
 
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
@@ -315,13 +318,13 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			network_properties->N_dst *= pair_multiplier;
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		network_properties->cmpi.fail[rank] = 1;
+		network_properties->cmpi.fail = 1;
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
-		network_properties->cmpi.fail[rank] = 1;
+		network_properties->cmpi.fail = 1;
 	} catch (std::exception e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__,  e.what(), __LINE__);
-		network_properties->cmpi.fail[rank] = 1;
+		network_properties->cmpi.fail = 1;
 	}
 
 	if (checkMpiErrors(network_properties->cmpi))
@@ -630,7 +633,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			printMemUsed("for Network", hostMemUsed, devMemUsed, rank);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
-		cmpi.fail[rank] = 1;
+		cmpi.fail = 1;
 	}
 
 	if (checkMpiErrors(cmpi))
@@ -702,7 +705,7 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 		p3[1] = dim;
 
 		if (!newton(&solveZeta, &x, 10000, TOL, NULL, &k_tar, p3))
-			cmpi.fail[rank] = 1;
+			cmpi.fail = 1;
 
 		if (checkMpiErrors(cmpi))
 			return false;
