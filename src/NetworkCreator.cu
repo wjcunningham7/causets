@@ -303,7 +303,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				network_properties->tau0 = etaToTau(HALF_PI - network_properties->zeta);
 			}
 				
-			if (!network_properties->cmpi.rank && network_properties->flags.gen_ds_table && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 2.0, -5.0, 5.0, 0.01, 0.01, network_properties->flags.universe, network_properties->flags.verbose))
+			if (!network_properties->cmpi.rank && network_properties->flags.gen_ds_table && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 5.0, -5.0, 5.0, 0.01, 0.01, network_properties->flags.universe, network_properties->flags.verbose))
 					network_properties->cmpi.fail = 1;
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
@@ -311,13 +311,13 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			
 		//Check other parameters if applicable
 		uint64_t pair_multiplier = static_cast<uint64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
-		if (network_properties->flags.validate_embedding)
+		if (network_properties->flags.validate_embedding && network_properties->N_emb <= 1.0)
 			network_properties->N_emb *= pair_multiplier;
 
 		if (network_properties->flags.calc_success_ratio && network_properties->N_sr <= 1.0)
 			network_properties->N_sr *= pair_multiplier;
 
-		if (network_properties->flags.validate_distances)
+		if (network_properties->flags.validate_distances && network_properties->N_dst <= 1.0)
 			network_properties->N_dst *= pair_multiplier;
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);

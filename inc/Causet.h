@@ -100,6 +100,9 @@ typedef int CUcontext;
 #endif
 
 //Manifold Types
+//NOTE: FLRW is indicated by a DE_SITTER manifold along with
+//the flag 'universe' equal to true.  This is a misnomer that will
+//later be corrected.
 enum Manifold {
 	DE_SITTER,
 	HYPERBOLIC

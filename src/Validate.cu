@@ -155,6 +155,136 @@ bool compareCoreEdgeExists(const int * const k_out, const int * const future_edg
 }
 
 #ifdef CUDA_ENABLED
+__global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width, bool compact)
+{
+	///////////////////////////////////////
+	// Identify Node Pair with Thread ID //
+	///////////////////////////////////////
+
+	__shared__ float shr_w0_c;
+	__shared__ float shr_x0_c;
+	__shared__ float shr_y0_c;
+	__shared__ float shr_z0_c;
+	__shared__ int n_a[BLOCK_SIZE];
+	__shared__ int n_b[BLOCK_SIZE];
+	__shared__ int n_c[BLOCK_SIZE];
+	float4 node0_ab, node0_c, node1_ab, node1_c;
+
+	unsigned int tid = threadIdx.y;
+	unsigned int i = blockIdx.x;
+	unsigned int j = blockDim.y * blockIdx.y + threadIdx.y;
+	int do_map = i >= j;
+
+	// a -> upper triangle of upper left block (do_map == 0)
+	// b -> lower triangle of upper left block (do_map == 1)
+	// c -> upper right block
+
+	unsigned int i_ab = i + do_map * (((width - i) << 1) - 1);
+	unsigned int j_ab = j + do_map * ((width - j) << 1);
+
+	unsigned int i_c = i;
+	unsigned int j_c = j + width;
+
+	if (!tid) {
+		shr_w0_c = w[i_c];
+		shr_x0_c = x[i_c];
+		shr_y0_c = y[i_c];
+		shr_z0_c = z[i_c];
+	}
+	__syncthreads();
+
+	float dt_ab = 0.0f, dt_c = 0.0f, dx_ab = 0.0f, dx_c = 0.0f;
+	if (j < width) {
+		node0_c.w = shr_w0_c;
+		node0_c.x = shr_x0_c;
+		node0_c.y = shr_y0_c;
+		node0_c.z = shr_z0_c;
+
+		node1_c.w = w[j_c];
+		node1_c.x = x[j_c];
+		node1_c.y = y[j_c];
+		node1_c.z = z[j_c];
+
+		node0_ab.w = do_map ? w[i_ab] : node0_c.w;
+		node0_ab.x = do_map ? x[i_ab] : node0_c.x;
+		node0_ab.y = do_map ? y[i_ab] : node0_c.y;
+		node0_ab.z = do_map ? z[i_ab] : node0_c.z;
+
+		node1_ab.w = !j ? node0_ab.w : w[j_ab];
+		node1_ab.x = !j ? node0_ab.x : x[j_ab];
+		node1_ab.y = !j ? node0_ab.y : y[j_ab];
+		node1_ab.z = !j ? node0_ab.z : z[j_ab];
+
+		//////////////////////////////////
+		// Identify Causal Relationship //
+		//////////////////////////////////
+
+		//Calculate dt (assumes nodes are already temporally ordered)
+		dt_ab = node1_ab.w - node0_ab.w;
+		dt_c  = node1_c.w  - node0_c.w;
+
+		//Calculate dx
+		if (compact) {
+			if (DIST_V2) {
+				dx_ab = acosf(sphProduct_GPU_v2(node0_ab, node1_ab));
+				dx_c = acosf(sphProduct_GPU_v2(node0_c, node1_c));
+			} else {
+				dx_ab = acosf(sphProduct_GPU_v1(node0_ab, node1_ab));
+				dx_c = acosf(sphProduct_GPU_v1(node0_c, node1_c));
+			}
+		} else {
+			if (DIST_V2) {
+				dx_ab = sqrtf(flatProduct_GPU_v2(node0_ab, node1_ab));
+				dx_c = sqrtf(flatProduct_GPU_v2(node0_c, node1_c));
+			} else {
+				dx_ab = sqrtf(flatProduct_GPU_v1(node0_ab, node1_ab));
+				dx_c = sqrtf(flatProduct_GPU_v1(node0_c, node1_c));
+			}
+		}
+	}
+
+	//Reduction in Shared Memory
+	int edge_ab = dx_ab < dt_ab;
+	int edge_c = dx_c < dt_c;
+	n_a[tid] = edge_ab * !do_map;
+	n_b[tid] = edge_ab * do_map;
+	n_c[tid] = edge_c;
+	__syncthreads();
+
+	int stride;
+	for (stride = 1; stride < BLOCK_SIZE; stride <<= 1) {
+		if (!(tid % (stride << 1))) {
+			n_a[tid] += n_a[tid+stride];
+			n_b[tid] += n_b[tid+stride];
+			n_c[tid] += n_c[tid+stride];
+		}
+		__syncthreads();
+	}
+
+	//Write Degrees to Global Memory
+	if (edge_ab)
+		atomicAdd(&k_in[j_ab], 1);
+	if (edge_c)
+		atomicAdd(&k_in[j_c], 1);
+	if (!tid) {
+		if (n_a[0])
+			atomicAdd(&k_out[i], n_a[0]);
+		if (n_b[0])
+			atomicAdd(&k_out[i_ab], n_b[0]);
+		if (n_c[0])
+			atomicAdd(&k_out[i_c], n_c[0]);
+	}
+
+	//Write Edges to Global Memory
+	int idx = 0;
+	if (edge_ab | edge_c)
+		idx = atomicAdd(g_idx, edge_ab + edge_c);
+	if (edge_ab)
+		edges[idx++] = ((uint64_t)i_ab) << 32 | ((uint64_t)j_ab);
+	if (edge_c)
+		edges[idx] = ((uint64_t)i_c) << 32 | ((uint64_t)j_c);
+}
+
 //Note that core_edge_exists has not been implemented in this version of the linkNodesGPU subroutine.
 bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose, const bool &bench)
 {
@@ -889,7 +1019,8 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 		assert (edge_buffer >= 0);
 	}
 
-	uint64_t stride = static_cast<uint64_t>(static_cast<double>(N_tar) * (N_tar - 1) / (N_emb * 2));
+	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
+	uint64_t stride = max_pairs / static_cast<uint64_t>(N_emb);
 	uint64_t npairs = static_cast<uint64_t>(N_emb);
 	int rank = cmpi.rank;
 
@@ -1001,8 +1132,18 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	#pragma omp parallel for schedule (dynamic, 1) reduction (+ : c0, c1, c2, c3)
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
-		//Choose a pair (i,j) from a single index k
-		uint64_t vec_idx = k * stride + 1;
+		//Choose a pair
+		uint64_t vec_idx;
+
+		if (VE_RANDOM) {
+			#ifdef _OPENMP
+			vec_idx = static_cast<uint64_t>(ran2ts(&seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
+			#else
+			vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
+			#endif
+		} else
+			vec_idx = k * stride + 1;
+
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
 		int j = static_cast<int>(vec_idx % (N_tar - 1));
 		int do_map = i >= j;
@@ -1136,7 +1277,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	return true;
 }
 
-bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &alpha, Stopwatch &sValidateDistances, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
+bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sValidateDistances, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -1152,8 +1293,16 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 		assert (!universe);
 	}
 
-	uint64_t stride = static_cast<uint64_t>(static_cast<double>(N_tar) * (N_tar - 1) / (N_dst * 2));
+	bool DST_DEBUG = true;
+
+	double *table;
+	long size = 0L;
+
+	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
+	uint64_t stride = max_pairs / static_cast<uint64_t>(N_dst);
 	uint64_t npairs = static_cast<uint64_t>(N_dst);
+	uint64_t start = 0;
+	uint64_t finish = npairs;
 
 	double tol = 1e-3;
 
@@ -1174,18 +1323,31 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 		return false;
 	}
 
-	uint64_t start = 0;
-	uint64_t finish = npairs;
+	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	if (verbose)
+		printMemUsed("to Validate de Sitter Distance Algorithm", hostMemUsed, devMemUsed, 0);
+
+	if (!getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
+		return false;
 
 	uint64_t c0 = dvd.confusion[0];
 	uint64_t c1 = dvd.confusion[1];
 
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 1) reduction(+ : c0, c1)
+	#pragma omp parallel for schedule (dynamic, 1) firstprivate (seed) lastprivate (seed) reduction(+ : c0, c1)
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
-		//Choose a pair (i,j) from a single index k
-		uint64_t vec_idx = k * stride + 1;
+		//Choose a pair
+		uint64_t vec_idx;
+		if (VD_RANDOM) {
+			#ifdef _OPENMP
+			vec_idx = static_cast<uint64_t>(ran2ts(&seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
+			#else
+			vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
+			#endif
+		} else
+			vec_idx = k * stride + 1;
+
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
 		int j = static_cast<int>(vec_idx % (N_tar - 1));
 		int do_map = i >= j;
@@ -1195,18 +1357,37 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
+		if (DST_DEBUG) {
+			printf("k: %" PRIu64 "    \ti: %d    \tj: %d    \t", k, i, j);
+			fflush(stdout);
+		}
+
 		//Distance using embedding
 		double embeddedDistance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact);
 
 		//Distance using exact formula
-		double exactDistance = distance(NULL, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, 0, universe, compact);
+		double exactDistance = distance(table, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, size, universe, compact);
 
-		double dx = ACOS(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)), STL, VERY_HIGH_PRECISION);
+		double abserr = ABS(embeddedDistance - exactDistance, STL) / embeddedDistance;
 
-		if (ABS(embeddedDistance - exactDistance, STL) / embeddedDistance < tol || dx > HALF_PI)
+		if (exactDistance != -1 && abserr < tol) {
+			if (DST_DEBUG) {
+				printf_cyan();
+				printf("SUCCESS\n");
+			}
 			c0++;
-		else
+		} else {
+			if (DST_DEBUG) {
+				printf_red();
+				printf("FAILURE\t%f\n", abserr);
+			}
 			c1++;
+		}
+
+		if (DST_DEBUG) {
+			printf_std();
+			fflush(stdout);
+		}
 	}
 
 	dvd.confusion[0] = c0;
@@ -1629,17 +1810,175 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 		assert (dest >= 0 && dest < N_tar);
 	}
 
+	bool TRAV_DEBUG = false;
+
 	float min_dist = 0.0f;
 	int loc = source;
 	int idx_a = source;
-	int idx_b = source;
+	int idx_b = dest;
 
 	float dist;
 	int next;
+	int m;
+
+	if (TRAV_DEBUG) {
+		printf_cyan();
+		printf("Beginning at %d. Looking for %d.\n", source, dest);
+		printf_std();
+		fflush(stdout);
+	}
 
 	//While the current location (loc) is not equal to the destination (dest)
 	while (loc != dest) {
+		next = loc;
+		dist = INF;
+		min_dist = INF;
+		used[loc] = true;
 
+		//These indicate corrupted data
+		if (DEBUG) {
+			assert (!(edges.past_edge_row_start[loc] == -1 && nodes.k_in[loc] > 0));
+			assert (!(edges.past_edge_row_start[loc] != -1 && nodes.k_in[loc] == 0));
+			assert (!(edges.future_edge_row_start[loc] == -1 && nodes.k_out[loc] > 0));
+			assert (!(edges.future_edge_row_start[loc] != -1 && nodes.k_out[loc] == 0));
+		}
+
+		//(1) Check past relations
+		for (m = 0; m < nodes.k_in[loc]; m++) {
+			idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
+			if (TRAV_DEBUG) {
+				printf_cyan();
+				printf("\tConsidering past neighbor %d.\n", idx_a);
+				printf_std();
+				fflush(stdout);
+			}
+
+			//(A) If the current location's past neighbor is the destination, return true
+			if (idx_a == idx_b) {
+				if (TRAV_DEBUG) {
+					printf_cyan();
+					printf("Moving to %d.\n", idx_a);
+					printf_red();
+					printf("SUCCESS\n");
+					printf_std();
+					fflush(stdout);
+				}
+				success = true;
+				return true;
+			}
+
+			//(B) If the current location's past neighbor is directly connected to the destination then return true
+			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
+				if (TRAV_DEBUG) {
+					printf_cyan();
+					printf("Moving to %d.\n", idx_a);
+					printf("Moving to %d.\n", idx_b);
+					printf_red();
+					printf("SUCCESS\n");
+					printf_std();
+					fflush(stdout);
+				}
+				success = true;
+				return true;
+			}
+
+			//(C) Otherwise find the past neighbor closest to the destination
+			if (manifold == DE_SITTER) {
+				if (compact)
+					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+				else
+					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
+			} else if (manifold == HYPERBOLIC)
+				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+
+			//Check for errors in the 'distance' function
+			if (dist == -1)
+				return false;
+
+			//Save the minimum distance
+			if (dist <= min_dist) {
+				min_dist = dist;
+				next = idx_a;
+			}
+		}
+
+		//(2) Check future relations
+		for (m = 0; m < nodes.k_out[loc]; m++) {
+			idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
+			if (TRAV_DEBUG) {
+				printf_cyan();
+				printf("\tConsidering past neighbor %d.\n", idx_a);
+				printf_std();
+				fflush(stdout);
+			}
+
+			//(D) If the current location's future neighbor is the destination, return true
+			if (idx_a == idx_b) {
+				if (TRAV_DEBUG) {
+					printf_cyan();
+					printf("Moving to %d.\n", idx_a);
+					printf_red();
+					printf("SUCCESS\n");
+					printf_std();
+					fflush(stdout);
+				}
+				success = true;
+				return true;
+			}
+
+			//(E) If the current location's future neighbor is directly connected to the destination then return true
+			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
+				if (TRAV_DEBUG) {
+					printf_cyan();
+					printf("Moving to %d.\n", idx_a);
+					printf("Moving to %d.\n", idx_b);
+					printf_red();
+					printf("SUCCESS\n");
+					printf_std();
+					fflush(stdout);
+				}
+				success = true;
+				return true;
+			}
+
+			//(F) Otherwise find the future neighbor closest to the destination
+			if (manifold == DE_SITTER) {
+				if (compact)
+					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+				else
+					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
+			} else if (manifold == HYPERBOLIC)
+				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+
+			//Check for errors in the 'distance' function
+			if (dist == -1)
+				return false;
+
+			//Save the minimum distance
+			if (dist <= min_dist) {
+				min_dist = dist;
+				next = idx_a;
+			}
+		}
+
+		if (TRAV_DEBUG) {
+			printf_cyan();
+			printf("Moving to %d.\n", next);
+			printf_std();
+			fflush(stdout);
+		}
+
+		if (!used[next])
+			loc = next;
+		else {
+			if (TRAV_DEBUG) {
+				printf_red();
+				printf("FAILURE\n");
+				printf_std();
+				fflush(stdout);
+			}
+			break;
+		}
 	}
 
 	success = false;

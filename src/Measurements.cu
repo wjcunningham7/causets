@@ -267,6 +267,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		assert (edge_buffer >= 0);
 	}
 
+	bool SR_DEBUG = true;
+
 	double *table;
 	long size = 0L;
 
@@ -352,12 +354,11 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 
 	//Randomize seed differently for each thread
 	if (SR_RANDOM)
-		for (int i = 0; i < rank; i++)
-			ran2(&seed);
+		ran2ts(&seed, rank);
 	#endif
 
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 1) reduction (+ : n_trav, n_succ)
+	#pragma omp parallel for schedule (dynamic, 1) firstprivate (seed) lastprivate (seed) reduction (+ : n_trav, n_succ)
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		#ifdef _OPENMP
@@ -370,9 +371,13 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 
 		//Pick Pair
 		uint64_t vec_idx;
-		if (SR_RANDOM)
+		if (SR_RANDOM) {
+			#ifdef _OPENMP
+			vec_idx = static_cast<uint64_t>(ran2ts(&seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
+			#else
 			vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
-		else
+			#endif
+		} else
 			vec_idx = k * stride + 1;
 
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
@@ -384,24 +389,53 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
-		//DEBUG
-		printf("k: %" PRIu64 "\ti: %d\tj: %d\n", k, i, j);
+		if (SR_DEBUG) {
+			printf("k: %" PRIu64 "    \ti: %d    \tj: %d    \t", k, i, j);
+			fflush(stdout);
+		}
 
 		//If either node is isolated, continue
-		if (!(nodes.k_in[i] + nodes.k_out[i]) || !(nodes.k_in[j] + nodes.k_out[j]))
+		if (!(nodes.k_in[i] + nodes.k_out[i]) || !(nodes.k_in[j] + nodes.k_out[j])) {
+			if (SR_DEBUG) {
+				printf("  ---\n");
+				fflush(stdout);
+			}
 			continue;
+		}
 
 		//If the nodes are in different components, continue
-		if (nodes.cc_id[i] != nodes.cc_id[j])
+		if (nodes.cc_id[i] != nodes.cc_id[j]) {
+			if (SR_DEBUG) {
+				printf("  ---\n");
+				fflush(stdout);
+			}
 			continue;
+		}
 
 		//Set all nodes to "not yet used"
 		memset(used + N_tar * omp_get_thread_num(), 0, sizeof(bool) * N_tar);
 
 		//Begin Traversal from i to j
 		bool success = false;
-		if (!traversePath_v2(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, universe, compact, i, j, success))
-			fail = true;
+		if (TRAVERSE_V2) {
+			if (!traversePath_v2(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, universe, compact, i, j, success))
+				fail = true;
+		} else {
+			if (!traversePath_v1(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, universe, compact, i, j, success))
+				fail = true;
+		}
+
+		if (SR_DEBUG) {
+			if (success) {
+				printf_cyan();
+				printf("SUCCESS\n");
+			} else {
+				printf_red();
+				printf("FAILURE\n");
+			}
+			printf_std();
+			fflush(stdout);
+		}
 
 		n_trav++;
 		if (success)
@@ -540,6 +574,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 				printf_cyan();
 				printf("\tConsidering past neighbor %d\n", idx_a);
 				printf_std();
+				fflush(stdout);
 			}
 
 			//(A) If the current location's (loc's) past neighbor (idx_a) is the destination (idx_b) then return true
@@ -547,6 +582,8 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 				if (TRAV_DEBUG) {
 					printf_cyan();
 					printf("Moving to %d.\n", idx_a);
+					printf_red();
+					printf("SUCCESS\n");
 					printf_std();
 					fflush(stdout);
 				}
@@ -560,6 +597,8 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 					printf_cyan();
 					printf("Moving to %d.\n", idx_a);
 					printf("Moving to %d.\n", idx_b);
+					printf_red();
+					printf("SUCCESS\n");
 					printf_std();
 					fflush(stdout);
 				}
@@ -637,6 +676,8 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 				if (TRAV_DEBUG) {
 					printf_cyan();
 					printf("Moving to %d.\n", idx_a);
+					printf_red();
+					printf("SUCCESS\n");
 					printf_std();
 					fflush(stdout);
 				}
@@ -656,6 +697,8 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 					printf_cyan();
 					printf("Moving to %d.\n", idx_a);
 					printf("Moving to %d.\n", idx_b);
+					printf_red();
+					printf("SUCCESS\n");
 					printf_std();
 					fflush(stdout);
 				}
@@ -734,6 +777,12 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 		}
 
 		if (next == idx_b) {
+			if (TRAV_DEBUG) {
+				printf_red();
+				printf("SUCCESS\n");
+				printf_std();
+				fflush(stdout);
+			}
 			success = true;
 			return true;
 		} else if (next == -1) {
@@ -743,8 +792,15 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 
 		if (!used[next])
 			loc = next;
-		else
+		else {
+			if (TRAV_DEBUG) {
+				printf_red();
+				printf("FAILURE\n");
+				printf_std();
+				fflush(stdout);
+			}
 			break;
+		}
 	}
 
 	success = false;

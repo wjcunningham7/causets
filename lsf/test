@@ -18,7 +18,7 @@
 
 #./lsf/cbat --ncores 40 --flags '--flrw --nodes 131072 --degrees 10 --delta 500 --radius 0.8 --link --verbose -y --print --compact' --start 51 --queue 'ser-par-10g-3' --nsamples 10
 
-./lsf/cbat --ncores 1 --flags '--nodes 1024 --degrees 10 --radius 1.0 --verbose -y --gen-ds-table --test' --start 61 --queue 'krioukov' --nsamples 1
+./lsf/cbat --ncores 1 --flags '--nodes 1024 --degrees 10 --radius 1.0 --verbose -y --gen-ds-table --test' --start 59 --queue 'krioukov' --nsamples 1
 
 #./lsf/cbat --ncores 1 --flags '--flrw --nodes 1024 --degrees 10 --energy 0.5 --verbose -y --gen-flrw-table --test' --start 59 --queue 'krioukov' --nsamples 1
 
@@ -28,7 +28,7 @@
 
 #./lsf/cbat --ncores 32 --flags '--nodes 20480 --degrees 10 --radius 0.8 --radius 1 --link --verbose -y --compact --seed 18100 --gpu --components --print' --start 61 --queue 'par-gpu' --nsamples 1
 
-#./lsf/cbat --ncores 32 --flags '--flrw --nodes 131072 --degrees 10 --delta 500 --radius 0.9 --link --verbose -y --gpu --print --core 0.95 --compact --clustering --components' --start 71 --queue 'par-gpu' --nsamples 100
+#./lsf/cbat --ncores 32 --flags '--flrw --nodes 10240 --degrees 10 --energy 0.7 --link --verbose -y --gpu --print --core 0.95 --seed 18100 --success 50000' --start 60 --queue 'par-gpu' --nsamples 1
 
 #=======================#
 # GPU, MPI Acceleration #

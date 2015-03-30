@@ -357,13 +357,15 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					//Flag for comparing distance methods
 					network_properties.flags.validate_distances = true;
 					network_properties.N_dst = atof(optarg);
-					if (network_properties.N_dst <= 0.0 || network_properties.N_dst > 1.0)
+					//if (network_properties.N_dst <= 0.0 || network_properties.N_dst > 1.0)
+					if (network_properties.N_dst <= 0.0)
 						throw CausetException("Invalid argument for 'distances' parameter!\n");
 				} else if (!strcmp("embedding", longOpts[longIndex].name)) {
 					//Flag to validate embedding of FLRW into de Sitter
 					network_properties.flags.validate_embedding = true;
 					network_properties.N_emb = atof(optarg);
-					if (network_properties.N_emb <= 0.0 || network_properties.N_emb > 1.0)
+					//if (network_properties.N_emb <= 0.0 || network_properties.N_emb > 1.0)
+					if (network_properties.N_emb <= 0.0)
 						throw CausetException("Invalid argument for 'embedding' parameter!\n");
 				} else if (!strcmp("gen-ds-table", longOpts[longIndex].name))
 					network_properties.flags.gen_ds_table = true;
@@ -436,8 +438,8 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -d, --delta\t\tNode Density\t\t\t10000\n");
 				printf_mpi(rank, "      --dim\t\tSpatial Dimensions\t\t1 or 3\n");
 				//printf_mpi(rank, "      --display\t\tDisplay Graph\n");
-				printf_mpi(rank, "      --distances\tValidate Distance Methods\t0.01\n");
-				printf_mpi(rank, "      --embedding\tValidate Embedding\t\t0.01\n");
+				printf_mpi(rank, "      --distances\tValidate Distance Methods\t0.01, 10000\n");
+				printf_mpi(rank, "      --embedding\tValidate Embedding\t\t0.01, 10000\n");
 				printf_mpi(rank, "  -e, --energy\t\tDark Energy Density\t\t0.73\n");
 				printf_mpi(rank, "  -F, --fields\t\tMeasure Degree Fields\n");
 				printf_mpi(rank, "  -f, --flrw\t\tFLRW Causet\n");
@@ -458,7 +460,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --ratio\t\tEnergy to Matter Ratio\t\t2.7\n");
 				printf_mpi(rank, "      --read-old-format\tRead Positions in Old Format\n");
 				printf_mpi(rank, "      --relink\t\tIgnore Pre-Existing Links\n");
-				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.5, 10000\n");
+				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.01, 10000\n");
 				printf_mpi(rank, "  -s, --seed\t\tRandom Seed\t\t\t18100\n");
 				printf_mpi(rank, "      --slice\t\tSize of Spatial Slice\t\t3.1415\n");
 				printf_mpi(rank, "      --test\t\tTest FLRW Parameters\n");
@@ -782,7 +784,7 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 
 	//Validate Distance Methods
 	if (network->network_properties.flags.validate_distances) {
-		if (!validateDistances(network->network_observables.dvd, network->nodes, network->network_properties.N_tar, network->network_properties.N_dst, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, cp->sValidateDistances, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose)) {
+		if (!validateDistances(network->network_observables.dvd, network->nodes, network->network_properties.N_tar, network->network_properties.N_dst, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.seed, cp->sValidateDistances, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose)) {
 			network->network_properties.cmpi.fail = 1;
 			goto MeasureExit;
 		}

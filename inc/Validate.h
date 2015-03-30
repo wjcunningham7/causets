@@ -21,6 +21,8 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges);
 bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction);
 
 #ifdef CUDA_ENABLED
+__global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width, bool compact);
+
 bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose, const bool &bench);
 
 bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose);
@@ -30,7 +32,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, long &seed, CausetMPI &cmpi, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose);
 
-bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &alpha, Stopwatch &sValidateDistances, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose);
+bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sValidateDistances, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose);
 
 bool printValues(Node &nodes, const int num_vals, const char *filename, const char *coord);
 

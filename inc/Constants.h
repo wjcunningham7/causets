@@ -24,6 +24,14 @@
 
 #define DIST_V2 true	//Use factored (v2) or expanded (v1) distance formulae
 
+#define VE_RANDOM true	//Pick random pairs when performing embedding validation test
+
+#define VD_RANDOM true	//Pick random pairs when performing distance validation test
+
+#define SR_RANDOM true	//Pick random pairs when calculating success ratio
+
+#define TRAVERSE_V2 false	//Version 2 uses (nested) OpenMP
+
 //Debugging Flags
 #define DEBUG true	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements
@@ -59,6 +67,5 @@
 
 #endif
 
-#define SR_RANDOM true	//Pick random pairs when calculating success ratio
 
 #endif
