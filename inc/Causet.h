@@ -396,7 +396,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), N_dst(0.0), dim(3), manifold(DE_SITTER), a(0.0), lambda(0.0), zeta(1.0), chi_max(1.0), tau0(0.0), alpha(0.0), delta(500.0), R0(0.0), omegaM(0.0), omegaL(0.0), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), cmpi(CausetMPI()) {}
+	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), N_dst(0.0), max_cardinality(5), dim(3), manifold(DE_SITTER), a(0.0), lambda(0.0), zeta(1.0), chi_max(1.0), tau0(0.0), alpha(0.0), delta(500.0), R0(0.0), omegaM(0.0), omegaL(0.0), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(25000), seed(-12345L), graphID(0), cmpi(CausetMPI()) {}
 
 	CausetFlags flags;
 
@@ -408,6 +408,7 @@ struct NetworkProperties {
 	int N_df;			//Number of Samples Used in Degree Field Measurements
 	double tau_m;			//Rescaled Time of Nodes used for Measuring Degree Field
 	double N_dst;			//Number of Pairs Used in Distance Validation
+	int max_cardinality;		//Elements used in Action Calculation
 
 	int dim;			//Spacetime Dimension (2 or 4)
 	Manifold manifold;		//Manifold of the Network
@@ -440,7 +441,7 @@ struct NetworkProperties {
 
 //Measured values of the network
 struct NetworkObservables {
-	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), evd(EVData()), success_ratio(0.0), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0), dvd(DVData()), action(0.0f) {}
+	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), evd(EVData()), success_ratio(0.0), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0), dvd(DVData()), cardinalities(NULL), action(0.0f) {}
 	
 	int N_res;			//Resulting Number of Connected Nodes
 	float k_res;			//Resulting Average Degree
@@ -465,6 +466,7 @@ struct NetworkObservables {
 
 	DVData dvd;			//Distance Validation Data
 
+	int *cardinalities;		//M-Element Inclusive-Order-Interval Cardinalities
 	float action;			//Action
 };
 
@@ -483,7 +485,7 @@ struct Network {
 
 //Algorithmic Performance
 struct CausetPerformance {
-	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sValidateEmbedding(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureDegreeField(Stopwatch()), sValidateDistances(Stopwatch()) {}
+	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sValidateEmbedding(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureDegreeField(Stopwatch()), sValidateDistances(Stopwatch()), sMeasureAction(Stopwatch()) {}
 
 	Stopwatch sCauset;
 	Stopwatch sCalcDegrees;
@@ -499,11 +501,12 @@ struct CausetPerformance {
 	Stopwatch sMeasureSuccessRatio;
 	Stopwatch sMeasureDegreeField;
 	Stopwatch sValidateDistances;
+	Stopwatch sMeasureAction;
 };
 
 //Benchmark Statistics
 struct Benchmark {
-	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0), bMeasureDegreeField(0.0) {}
+	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0), bMeasureDegreeField(0.0), bMeasureAction(0.0) {}
 
 	double bCalcDegrees;
 	double bCreateNetwork;
@@ -516,6 +519,7 @@ struct Benchmark {
 	double bMeasureConnectedComponents;
 	double bMeasureSuccessRatio;
 	double bMeasureDegreeField;
+	double bMeasureAction;
 };
 
 //Custom exception class used in this program

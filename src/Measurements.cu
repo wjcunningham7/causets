@@ -329,6 +329,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		cmpi.fail = 1;
 	if (checkMpiErrors(cmpi))
 		return false;
+	hostMemUsed += size;
 
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -381,7 +382,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 			vec_idx = k * stride + 1;
 
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
-		int j = static_cast<int>(vec_idx % (N_tar - 1));
+		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
 		int do_map = i >= j;
 
 		if (j < N_tar >> 1) {
@@ -445,6 +446,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	free(used);
 	used = NULL;
 	hostMemUsed -= u_size;
+
+	free(table);
+	table = NULL;
+	hostMemUsed -= size;
 
 	if (fail)
 		cmpi.fail = 1;
@@ -616,7 +621,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 					//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(idx_a), nodes.crd->x(idx_a), nodes.crd->y(idx_a), nodes.crd->z(idx_a));
 					//printf_std();
 
-					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10.0, 10.0, 0.1, a, universe);
+					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10.0, 10.0, 0.1, universe);
 					//printf("CHECKPOINT\n");
 					//exit(0);
 
@@ -722,7 +727,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 					//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(idx_a), nodes.crd->x(idx_a), nodes.crd->y(idx_a), nodes.crd->z(idx_a));
 					//printf_std();
 
-					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10, 10, 0.01, a, universe);
+					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10, 10, 0.01, universe);
 					//printf("CHECKPOINT\n");
 					//exit(0);
 
@@ -879,6 +884,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		if (theoretical) {
 			if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
 				return false;
+			hostMemUsed += size;
 
 			params = (double*)malloc(size + sizeof(double) * 4);
 			if (params == NULL)
@@ -1045,7 +1051,93 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 }
 
 //Measure Causal Set Action
-bool measureAction()
+bool measureAction(int *& cardinalities, float &action, Coordinates *& c, const int &N_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, Stopwatch &sMeasureAction, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose, const bool &bench)
 {
+	if (DEBUG) {
+		assert (!c->isNull());
+		assert (dim == 1 || dim == 3);
+		assert (manifold == DE_SITTER);
+
+		if (dim == 1)
+			assert (c->getDim() == 2);
+		else if (dim == 3) {
+			assert (c->getDim() == 4);
+			assert (c->w() != NULL);
+			assert (c->z() != NULL);
+		}
+
+		assert (c->x() != NULL);
+		assert (c->y() != NULL);
+		
+		assert (N_tar > 0);
+		assert (max_cardinality > 0);
+		assert (HALF_PI - zeta > 0.0);
+		assert (chi_max > 0.0);
+	}
+
+	int elements;
+	int i, j, k;
+	bool too_many;
+
+	stopwatchStart(&sMeasureAction);
+
+	//Allocate memory for cardinality data
+	try {
+		cardinalities = (int*)malloc(sizeof(int) * max_cardinality);
+		if (cardinalities == NULL)
+			throw std::bad_alloc();
+		memset(cardinalities, 0, max_cardinality);
+		hostMemUsed += sizeof(int) * max_cardinality;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	}
+
+	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	if (verbose)
+		printMemUsed("to Measure Action", hostMemUsed, devMemUsed, 0);
+
+	cardinalities[0] = N_tar;
+
+	if (max_cardinality == 1)
+		goto ActionExit;
+
+	too_many = false;
+	for (i = 0; i < N_tar - 1; i++) {
+		for (j = i + 1; !too_many && j < N_tar; j++) {
+			elements = 0;
+			for (k = i + 1; k < j; k++) {
+				if (nodesAreRelated(c, N_tar, dim, manifold, zeta, chi_max, compact, i, k) && nodesAreRelated(c, N_tar, dim, manifold, zeta, chi_max, compact, k, j))
+					elements++;
+				if (elements + 1 > max_cardinality - 1) {
+					too_many = true;
+					break;
+				}
+			}
+			if (!too_many && elements) //
+				printf("Elements found between %d and %d: %d\n", i, j, elements); //
+			if (!too_many)
+				cardinalities[elements+1]++;
+		}
+		too_many = false;
+	}
+
+	ActionExit:
+	stopwatchStop(&sMeasureAction);
+
+	if (!bench) {
+		printf("\tCalculated Action.\n");
+		printf("\t\tTerms Used: %d\n", max_cardinality);
+		printf_cyan();
+		printf("\t\tCausal Set Action: %f\n", action);
+		printf_std();
+		fflush(stdout);
+	}
+
+	if (verbose) {
+		printf("\t\tExecution Time: %5.6f sec\n", sMeasureAction.elapsedTime);
+		fflush(stdout);
+	}
+
 	return true;
 }

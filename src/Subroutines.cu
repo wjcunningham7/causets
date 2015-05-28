@@ -143,10 +143,12 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 	//NOTE: these values are currently HARD CODED.  This will later be changed,
 	//but it requires re-generating the lookup table.
 
-	int tau_step = 200;
-	int lambda_step = 1000;
-	int step = 4 * tau_step * lambda_step;
-	int counter = 0;
+	//int tau_step = 200;	//For FLRW
+	//int tau_step = 500;	//For de Sitter
+	//int lambda_step = 1000;
+	//int step = 4 * tau_step * lambda_step;
+	int tau_step, lambda_step, step;
+	int counter;
 	int i;
 
 	//DEBUG
@@ -154,11 +156,20 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 	//fflush(stdout);
 
 	try {
+		//The first two table elements should be zero
+		if (table[0] != 0.0 || table[1] != 0.0)
+			throw CausetException("Corrupted lookup table!\n");
+
+		tau_step = table[2];
+		lambda_step = table[3];
+		step = 4 * tau_step * lambda_step;
+		counter = 0;
+
 		//printf("Looking for tau1.\n");
 
 		//Identify Value in Table
 		//Assumes values are written (tau1, tau2, omega12, lambda)
-		for (i = 0; i < size / (int)sizeof(double); i += step) {
+		for (i = 4; i < size / (int)sizeof(double); i += step) {
 			//printf("i: %d\tvalue: %f\n", i, table[i]);
 			counter++;
 
@@ -489,6 +500,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 	return false;
 }
+
 
 //Breadth First Search
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements)

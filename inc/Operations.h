@@ -490,6 +490,79 @@ inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z));
 }
 
+//Returns true if two nodes are causally related
+//Differs from 'nodesAreConnected' in that it does not rely on the nodes having already been linked
+//Assumes coordinates have been temporally ordered
+inline bool nodesAreRelated(Coordinates *& c, const int &N_tar, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const bool &compact, int past_idx, int future_idx)
+{
+	if (DEBUG) {
+		assert (!c->isNull());
+		assert (dim == 1 || dim == 3);
+		assert (manifold == DE_SITTER);
+
+		if (dim == 1)
+			assert (c->getDim() == 2);
+		else if (dim == 3) {
+			assert (c->getDim() == 4);
+			assert (c->w() != NULL);
+			assert (c->z() != NULL);
+		}
+
+		assert (c->x() != NULL);
+		assert (c->y() != NULL);
+
+		assert (N_tar > 0);
+		assert (HALF_PI - zeta > 0.0);
+		assert (chi_max > 0.0);
+		assert (past_idx >= 0 && past_idx < N_tar);
+		assert (future_idx >= 0 && future_idx < N_tar);
+		assert (past_idx < future_idx);
+	}
+
+	float dt = 0.0f, dx = 0.0f;
+
+	//Temporal Interval
+	if (dim == 1)
+		dt = c->x(future_idx) - c->x(past_idx);
+	else if (dim == 3)
+		dt = c->w(future_idx) - c->w(past_idx);
+
+	if (DEBUG) {
+		assert (dt >= 0.0f);
+		assert (dt <= static_cast<float>(HALF_PI - zeta));
+	}
+
+	//Spatial Interval
+	if (dim == 1)
+		dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(c->y(future_idx) - c->y(past_idx)), STL), STL));
+	else if (dim == 3) {
+		if (compact) {
+			//Spherical Law of Cosines
+			if (DIST_V2)
+				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			else
+				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+		} else {
+			//Law of Cosines
+			if (DIST_V2)
+				dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? BITWISE : STL));
+			else
+				dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? BITWISE : STL));
+		}
+	}
+
+	if (compact) {
+		if (DEBUG) assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
+	} else {
+		if (DEBUG) assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(chi_max));
+	}
+
+	if (dx < dt)
+		return true;
+	else
+		return false;
+}
+
 //Temporal Transformations
 
 //Conformal to Rescaled Time
@@ -770,21 +843,17 @@ inline double degreeFieldTheory(double eta, void *params)
 //For use with GNU Scientific Library
 inline double embeddedZ1(double x, void *params)
 {
-	if (DEBUG)
-		assert (params != NULL);
-
-	double *p = (double*)params;
-
-	double a = p[0];
-	double alpha = p[1];
-	double alpha2 = POW2(alpha, EXACT);
-
 	if (DEBUG) {
-		assert (a > 0.0);
-		assert (alpha > 0.0);
+		assert (params != NULL);
+		assert (x >= 0.0);
 	}
 
-	return SQRT((1.0 / alpha2) + (POW2(a, EXACT) * x) / (alpha2 * alpha + POW3(x, EXACT)), STL);
+	double alpha_tilde = ((double*)params)[0];
+
+	if (DEBUG)
+		assert (alpha_tilde != 0.0);
+
+	return SQRT(1.0 + (x / (POW3(alpha_tilde, EXACT) + POW3(x, EXACT))), STL);
 }
 
 inline double geodesicMaxTau(const double &lambda, const bool &universe)
@@ -794,8 +863,10 @@ inline double geodesicMaxTau(const double &lambda, const bool &universe)
 
 	if (universe)
 		return (2.0 / 3.0) * ASINH(POW(ABS(lambda, STL), -0.75, STL), STL, VERY_HIGH_PRECISION);
-	else
-		return ACOSH(POW(ABS(lambda, STL), -0.5, STL), STL, VERY_HIGH_PRECISION);
+	else {
+		double g = POW(ABS(lambda, STL), -0.5, STL);
+		return g >= 1.0 ? ACOSH(g, STL, VERY_HIGH_PRECISION) : 0.0;
+	}
 }
 
 //Integrands in Exact Geodesic Calculations
@@ -860,6 +931,44 @@ inline double deSitterLookupKernel(double x, void *params)
 	return omega12;
 }
 
+inline double deSitterLookupExact(const double &tau, const double &lambda)
+{
+	double x = 0.0;
+	double g = 0.0;
+
+	if (tau > LOG(MTAU, STL) / 6.0)
+		x = exp(2.0 * tau) / 2.0;
+	else
+		x = COSH(2.0 * tau, STL);
+	x += 1.0;
+	x *= lambda;
+
+	if (x > -2.0 && x < 0.0) {
+		double tol = 1e-5;
+		double res;
+		int i = 1;
+		do {
+			res = POW(-1.0 * (1.0 + x), static_cast<double>(i), STL) / i;
+			x += res;
+			i++;
+		} while (ABS(res, STL) > tol);
+		//printf("err: %f\n", ABS(POW(1.0 + x, static_cast<double>(maxk + 1), STL) / (maxk + 1), STL));
+		g /= 2.0;
+	} else
+		g = LOG(2.0 + x, STL) / -2.0;
+
+	if (tau > LOG(MTAU, STL) / 6.0)
+		g += 2.0 * tau - LOG(2.0, STL);
+	else
+		g += LOG(SINH(tau, STL), STL);
+	g += LOG(2.0, STL) / 2.0;
+	//printf("g: %.16e\n", g);
+
+	double omega12 = ATAN(exp(g), STL, VERY_HIGH_PRECISION);
+
+	return omega12;
+}
+
 inline double flrwLookupKernel(double x, void *params)
 {
 	if (DEBUG) {
@@ -901,7 +1010,7 @@ inline double distance(const double * const table, const float4 &node_a, const f
 	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
 		return 0.0;
 
-	bool DIST_DEBUG = false;
+	bool DIST_DEBUG = true;
 
 	IntData idata = IntData();
 	idata.limit = 60;
@@ -939,7 +1048,7 @@ inline double distance(const double * const table, const float4 &node_a, const f
 
 	if (lambda == 0.0)
 		distance = INF;
-	else if (lambda > 0.0 || (tau_a > tau_max && tau_b > tau_max)) {
+	else if (lambda > 0.0 /*|| (tau_a > tau_max && tau_b > tau_max)*/) {
 		if (tau_a < tau_b) {
 			idata.lower = tau_a;
 			idata.upper = tau_b;
@@ -975,9 +1084,6 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 	if (DEBUG) {
 		assert (dim == 3);
 		assert (manifold == DE_SITTER);
-		assert (a > 0.0);
-		if (universe)
-			assert (alpha > 0.0);
 		assert (compact);
 	}
 
@@ -985,29 +1091,28 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
 		return 0.0;
 
-	double z0_a, z0_b;
-	double z1_a, z1_b;
+	double alpha_tilde = alpha / a;
 	double inner_product_ab;
 	double distance;
+
+	double z0_a = 0.0, z0_b = 0.0;
+	double z1_a = 0.0, z1_b = 0.0;
 
 	if (universe) {
 		IntData idata = IntData();
 		idata.tol = 1e-5;
 
-		double p[2];
-		p[0] = a;
-		p[1] = alpha;
 
 		//Solve for z1 in Rotated Plane
 		double power = 2.0 / 3.0;
-		z1_a = POW(SINH(1.5 * tau_a, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
-		z1_b = POW(SINH(1.5 * tau_b, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
+		z1_a = alpha_tilde * POW(SINH(1.5 * tau_a, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
+		z1_b = alpha_tilde * POW(SINH(1.5 * tau_b, APPROX ? FAST : STL), power, APPROX ? FAST : STL);
 
 		//Use Numerical Integration for z0
-		idata.upper = alpha * z1_a;
-		z0_a = integrate1D(&embeddedZ1, (void*)p, &idata, QNG);
-		idata.upper = alpha * z1_b;
-		z0_b = integrate1D(&embeddedZ1, (void*)p, &idata, QNG);
+		idata.upper = z1_a;
+		z0_a = integrate1D(&embeddedZ1, (void*)&alpha_tilde, &idata, QNG);
+		idata.upper = z1_b;
+		z1_b = integrate1D(&embeddedZ1, (void*)&alpha_tilde, &idata, QNG);
 	} else {
 		z0_a = SINH(tau_a, APPROX ? FAST : STL);
 		z0_b = SINH(tau_b, APPROX ? FAST : STL);
@@ -1020,6 +1125,9 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
 	else
 		inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
+
+	if (universe)
+		inner_product_ab /= POW2(alpha_tilde, EXACT);
 
 	if (inner_product_ab > 1.0)
 		//Timelike

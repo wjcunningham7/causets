@@ -7,6 +7,7 @@ if [ "$#" -eq 1 ]; then
 fi
 
 mkdir -p $basedir/dat
+mkdir -p $basedir/dat/act
 mkdir -p $basedir/dat/cdk
 mkdir -p $basedir/dat/cls
 mkdir -p $basedir/dat/dst

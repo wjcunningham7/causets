@@ -6,9 +6,6 @@
 # Northeastern University #
 ###########################
 
-# Prevents re-compiling during a long run
-#mv Makefile Makefile~
-
 #####################################
 # These are experimental parameters #
 #####################################
@@ -26,9 +23,12 @@ samples=1
 for (( i=1; i<=${samples}; i++ ))
 do
   echo Trial $i of ${samples}
-#  ./bin/CausalSet --nodes 65536 --degrees 10 --radius 0.8 --seed 18100 --link --verbose -y --gpu
-#  ./bin/CausalSet --flrw --nodes 10240 --degrees 10 --energy 0.7 --compact --link --seed 18100 --gpu --embedding 0.001
-  ./bin/CausalSet --flrw --nodes 10240 --degrees 10 --energy 0.7 --link --gpu --seed 18100 --success 5000
+#  ./bin/CausalSet --nodes 20480 --degrees 200 --radius 1.0 --seed 18200 --link --verbose -y --embedding 100
+#  ./bin/CausalSet --nodes 20480 --degrees 50 --radius 1.0 --seed 18200 --link --gpu --distances 100
+#  ./bin/CausalSet --flrw --nodes 10240 --degrees 10 --energy 0.7 --compact --link --seed 18100 --gpu --distances 100
+#  ./bin/CausalSet --flrw --nodes 10240 --degrees 10 --energy 0.7 --link --gpu --seed 18100 --success 100
+
+  ./bin/CausalSet --flrw --nodes 10240 --degrees 10 --energy 0.7 --seed 18100 --verbose -y --compact --action 5
 done
 
 ######################################
@@ -56,5 +56,3 @@ done
 # Make sure to manually alter parameters in fortran code and re-compile!
 #./bin/CausalSet --flrw --age 1.5 --delta 1 --radius 1 --gpu --graph 22222 --components
 #./etc/dk_stats_direct.pl 22222
-
-#mv Makefile~ Makefile

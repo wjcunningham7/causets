@@ -1145,7 +1145,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 			vec_idx = k * stride + 1;
 
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
-		int j = static_cast<int>(vec_idx % (N_tar - 1));
+		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
 		int do_map = i >= j;
 
 		if (j < N_tar >> 1) {
@@ -1153,8 +1153,12 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
+		printf("k: %" PRIu64 "    \ti: %d    \tj: %d    \t", k, i, j);
+
 		//Embedded distance
 		double distance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact);
+
+		printf("%f\n", distance);
 
 		//Check light cone condition for 4D vs 5D
 		//Null hypothesis is the nodes are not connected
@@ -1314,21 +1318,18 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 			throw std::bad_alloc();
 		memset(dvd.confusion, 0, sizeof(uint64_t) * 2);
 		hostMemUsed += sizeof(uint64_t) * 2;
-
-		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
-		if (verbose)
-			printMemUsed("for Distance Validation", hostMemUsed, devMemUsed, 0);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
 
+	if (!getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
+		return false;
+	hostMemUsed += size;
+
 	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
 	if (verbose)
 		printMemUsed("to Validate de Sitter Distance Algorithm", hostMemUsed, devMemUsed, 0);
-
-	if (!getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
-		return false;
 
 	uint64_t c0 = dvd.confusion[0];
 	uint64_t c1 = dvd.confusion[1];
@@ -1349,7 +1350,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 			vec_idx = k * stride + 1;
 
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
-		int j = static_cast<int>(vec_idx % (N_tar - 1));
+		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
 		int do_map = i >= j;
 
 		if (j < N_tar >> 1) {
@@ -1363,10 +1364,12 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 		}
 
 		//Distance using embedding
-		double embeddedDistance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact);
+		double embeddedDistance = ABS(distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact), STL);
+		//printf("\tEmbedded Distance: %f\n", embeddedDistance);
 
 		//Distance using exact formula
 		double exactDistance = distance(table, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, size, universe, compact);
+		//printf("\tExactDistance: %f\n", exactDistance);
 
 		double abserr = ABS(embeddedDistance - exactDistance, STL) / embeddedDistance;
 
@@ -1380,6 +1383,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 			if (DST_DEBUG) {
 				printf_red();
 				printf("FAILURE\t%f\n", abserr);
+				printf("\t%f\t%f\n", embeddedDistance, exactDistance);
 			}
 			c1++;
 		}
@@ -1388,7 +1392,19 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 			printf_std();
 			fflush(stdout);
 		}
+		
+		if (embeddedDistance < 100) {
+			printf("\nTesting Lookup Table...\n");
+			testOmega12(nodes.id.tau[i], nodes.id.tau[j], ACOS(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)), STL, VERY_HIGH_PRECISION), -0.15, 0.5, 0.001, universe);
+			printf("\n");
+			fflush(stdout);
+			break;
+		}
 	}
+
+	free(table);
+	table = NULL;
+	hostMemUsed -= size;
 
 	dvd.confusion[0] = c0;
 	dvd.confusion[1] = c1;
@@ -1402,6 +1418,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 	printf_red();
 	printf("\t\tConflicting Pairs: %f\n", static_cast<double>(dvd.confusion[1]) / dvd.norm);
 	printf_std();
+	printf("\t\tNumber of Samples: %" PRIu64 "\n", npairs);
 	fflush(stdout);
 
 	if (verbose) {
@@ -1609,6 +1626,8 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 		tau2 = temp;
 	}
 
+	bool DS_EXACT = true;
+
 	double (*kernel)(double x, void *params) = universe ? &flrwLookupKernel : &deSitterLookupKernel;
 
 	IntData idata = IntData();
@@ -1628,33 +1647,59 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 	for (i = 0; i < n_lambda; i++) {
 		double lambda = i * lambda_step + min_lambda;
 		double tau_m = geodesicMaxTau(lambda, universe);
+		printf("tau_m:   %f\t", tau_m);
+		fflush(stdout);
 
 		if (tau1 >= tau2 || lambda == 0.0)
 			omega_val = 0.0;
-		else if (lambda > 0 || (tau1 > tau_m && tau2 > tau_m)) {
-			idata.lower = tau1;
-			idata.upper = tau2;
-			omega_val = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
+		else if (lambda > 0 /*|| (tau1 > tau_m && tau2 > tau_m)*/) {
+			if (DS_EXACT) {
+				double ov0 = deSitterLookupExact(static_cast<double>(tau1), lambda);
+				double ov1 = deSitterLookupExact(static_cast<double>(tau2), lambda);
+				if (ov0 == 0.0 || ov1 == 0.0)
+					omega_val = 0.0;
+				else
+					omega_val = ov1 - ov0;
+				//omega_val = deSitterLookupExact(static_cast<double>(tau2), lambda) - deSitterLookupExact(static_cast<double>(tau1), lambda);
+			} else {
+				idata.lower = tau1;
+				idata.upper = tau2;
+				omega_val = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
+			}
 		} else if (lambda < 0 && (tau1 < tau_m && tau2 < tau_m)) {
-			printf("tau_m: %f\t\t", tau_m);
 
-			idata.lower = tau1;
-			idata.upper = tau_m;
-			//Integrate
-			omega_val = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
-			printf("ov1: %f\t", omega_val);
+			if (DS_EXACT) {
+				double ov0 = deSitterLookupExact(tau_m, lambda);
+				double ov1 = deSitterLookupExact(static_cast<double>(tau1), lambda);
+				double ov2 = deSitterLookupExact(static_cast<double>(tau2), lambda);
+				if (ov0 == 0.0 || ov1 == 0.0 || ov2 == 0.0)
+					omega_val = 0.0;
+				else
+					omega_val = 2.0 * ov0 - ov1 - ov2;
+				//printf("ov0: %f\tov1: %f\tov2: %f\n", ov0, ov1, ov2);
+				//fflush(stdout);
+				//omega_val = 2.0 * deSitterLookupExact(tau_m, lambda) - deSitterLookupExact(tau1, lambda) - deSitterLookupExact(tau2, lambda);
+				//printf("ov: %f\t", omega_val);
+			} else {
+				idata.lower = tau1;
+				idata.upper = tau_m;
+				omega_val = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
+				//printf("ov1: %f\t", omega_val);
 
-			idata.lower = tau2;
-			double omega_val2 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
-			printf("ov2: %f\t", omega_val2);
-			omega_val += omega_val2;
+				idata.lower = tau2;
+				double omega_val2 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
+				//printf("ov2: %f\t", omega_val2);
+				omega_val += omega_val2;
+			}
 		} else
 			omega_val = 0.0;
 
 		printf("lambda: %f\tomega12: %f\n", lambda, omega_val);
+		fflush(stdout);
 
 		if (ABS(omega12 - omega_val, STL) / omega12 < tol) {
 			printf("MATCH!\n");
+			fflush(stdout);
 			break;
 		}
 	}
@@ -1683,6 +1728,8 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 		printf("\tGenerating de Sitter geodesic lookup table...\n");
 	fflush(stdout);
 
+	bool DS_EXACT = true;
+
 	double (*kernel)(double x, void *params) = universe ? &flrwLookupKernel : &deSitterLookupKernel;
 
 	Stopwatch sLookup = Stopwatch();
@@ -1704,6 +1751,14 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 
 		stopwatchStart(&sLookup);
 
+		double zero = 0.0;
+		double n_tau_d = static_cast<double>(n_tau);
+		double n_lambda_d = static_cast<double>(n_lambda);
+		fwrite(&zero, sizeof(double), 1, table);
+		fwrite(&zero, sizeof(double), 1, table);
+		fwrite(&n_tau_d, sizeof(double), 1, table);
+		fwrite(&n_lambda_d, sizeof(double), 1, table);
+
 		//printf("tau1\t\ttau2\t\tomega12\tlambda\n");
 		for (i = 0; i < n_tau; i++) {
 			tau1 = i * tau_step;
@@ -1716,18 +1771,38 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 
 					if (tau1 >= tau2 || lambda == 0.0)
 						omega12 = 0.0;
-					else if (lambda > 0 || (tau1 > tau_m && tau2 > tau_m)) {
-						idata.lower = tau1;
-						idata.upper = tau2;
-						omega12 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
-					} else if (lambda < 0 && (tau1 < tau_m && tau2 < tau_m)) {
-						idata.lower = tau1;
-						idata.upper = tau_m;
-						//Integrate
-						omega12 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
+					else if (lambda > 0 /*|| (tau1 > tau_m && tau2 > tau_m)*/) {
+						if (DS_EXACT) {
+							double ov0 = deSitterLookupExact(static_cast<double>(tau1), lambda);
+							double ov1 = deSitterLookupExact(static_cast<double>(tau2), lambda);
 
-						idata.lower = tau2;
-						omega12 += integrate1D(kernel, (void*)&lambda, &idata, QAGS);
+							if (ov0 == 0.0 || ov1 == 0.0)
+								omega12 = 0.0;
+							else
+								omega12 = ov1 - ov0;
+						} else {
+							idata.lower = tau1;
+							idata.upper = tau2;
+							omega12 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
+						}
+					} else if (lambda < 0 && (tau1 < tau_m && tau2 < tau_m)) {
+						if (DS_EXACT) {
+							double ov0 = deSitterLookupExact(tau_m, lambda);
+							double ov1 = deSitterLookupExact(static_cast<double>(tau1), lambda);
+							double ov2 = deSitterLookupExact(static_cast<double>(tau2), lambda);
+
+							if (ov0 == 0.0 || ov1 == 0.0 || ov2 == 0.0)
+								omega12 = 0.0;
+							else
+								omega12 = 2.0 * ov0 - ov1 - ov2;
+						} else {
+							idata.lower = tau1;
+							idata.upper = tau_m;
+							omega12 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
+
+							idata.lower = tau2;
+							omega12 += integrate1D(kernel, (void*)&lambda, &idata, QAGS);
+						}
 					} else
 						omega12 = 0.0;
 

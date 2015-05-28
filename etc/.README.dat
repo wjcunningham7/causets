@@ -7,6 +7,7 @@
 Data Folders:
 =============
 
+act --> m-element inclusive-order-interval cardinalities
 pos -->	node position list (t x y z)
 edg -->	node edge list (n1 n2)
 dst -->	degree distribution list (k_in(n)+k_out(n))

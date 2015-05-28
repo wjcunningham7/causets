@@ -142,6 +142,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 						network_properties->cmpi.fail = 1;
 					if (checkMpiErrors(network_properties->cmpi))
 						return false;
+					hostMemUsed += size;
 					network_properties->tau0 = lookupValue(table, size, NULL, &kappa2, true);
 					//Check for NaN
 					if (network_properties->tau0 != network_properties->tau0)
@@ -152,6 +153,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					//Free Memory
 					free(table);
 					table = NULL;
+					hostMemUsed -= size;
 
 					//Solve for ratio, omegaM, and omegaL
 					if (network_properties->tau0 > LOG(MTAU, STL) / 3.0)
@@ -178,6 +180,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 						network_properties->cmpi.fail = 1;
 					if (checkMpiErrors(network_properties->cmpi))
 						return false;
+					hostMemUsed += size;
 
 					double rescaledAverageDegree = lookupValue(table, size, &network_properties->tau0, NULL, true);
 					if (rescaledAverageDegree != rescaledAverageDegree)
@@ -187,6 +190,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 					free(table);
 					table = NULL;
+					hostMemUsed -= size;
 
 					network_properties->a = POW(network_properties->k_tar / (rescaledAverageDegree * network_properties->delta), 0.25, STL);
 					network_properties->lambda = 3.0 / POW2(network_properties->a, EXACT);
@@ -253,9 +257,6 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 					return false;
 			}
 			
-			//20% Buffer
-			network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
-
 			#ifdef CUDA_ENABLED
 			//Adjacency matrix not implemented in certain GPU algorithms
 			if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2)
@@ -298,10 +299,10 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			
 			network_properties->flags.compact = true;
 	
-			if (network_properties->dim == 1) {
+			/*if (network_properties->dim == 1) {
 				network_properties->zeta = HALF_PI - network_properties->tau0;
 				network_properties->tau0 = etaToTau(HALF_PI - network_properties->zeta);
-			}
+			}*/
 				
 			if (!network_properties->cmpi.rank && network_properties->flags.gen_ds_table && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 5.0, -5.0, 5.0, 0.01, 0.01, network_properties->flags.universe, network_properties->flags.verbose))
 					network_properties->cmpi.fail = 1;
@@ -309,6 +310,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 				return false;
 		}
 			
+		//20% Buffer
+		network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
+
 		//Check other parameters if applicable
 		uint64_t pair_multiplier = static_cast<uint64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
 		if (network_properties->flags.validate_embedding && network_properties->N_emb <= 1.0)
@@ -319,6 +323,9 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 
 		if (network_properties->flags.validate_distances && network_properties->N_dst <= 1.0)
 			network_properties->N_dst *= pair_multiplier;
+
+		if (network_properties->flags.calc_action && network_properties->max_cardinality >= network_properties->N_tar)
+			throw CausetException("Maximum cardinality (specified by --action) must be less than N.\n");
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		network_properties->cmpi.fail = 1;
@@ -378,6 +385,7 @@ bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alph
 		//Method 2 of 3: Lookup table to approximate method 1
 		if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
 			return false;
+		hostMemUsed += size;
 
 		k_tar = lookupValue(table, size, &tau0, NULL, true) * delta * POW2(POW2(a, EXACT), EXACT);
 		for (i = 0; i <= nb; i++) {
@@ -392,10 +400,12 @@ bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alph
 
 		free(table);
 		table = NULL;
+		hostMemUsed -= size;
 	} else if (method == 2) {
 		//Method 3 of 3: Will's formulation
 		if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
 			return false;
+		hostMemUsed += size;
 
 		double *params = (double*)malloc(size + sizeof(double) * 3);
 		if (params == NULL)
@@ -452,6 +462,7 @@ bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alph
 
 		free(table);
 		table = NULL;
+		hostMemUsed -= size;
 	}
 
 	if (nb)
@@ -958,11 +969,12 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 		assert (edge_buffer >= 0);
 	}
 
-	float dt = 0.0f, dx = 0.0f;
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
 	int future_idx = 0;
 	int past_idx = 0;
 	int i, j, k;
+
+	bool related;
 
 	stopwatchStart(&sLinkNodes);
 
@@ -975,63 +987,25 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 		for (j = i + 1; j < N_tar; j++) {
 			//Apply Causal Condition (Light Cone)
 			//Assume nodes are already temporally ordered
-			if (dim == 1)
-				dt = nodes.crd->x(j) - nodes.crd->x(i);
-			else if (dim == 3)
-				dt = nodes.crd->w(j) - nodes.crd->w(i);
-			//if (i % NPRINT == 0) printf("dt: %.9f\n", dt); fflush(stdout);
-			if (DEBUG) {
-				assert (dt >= 0.0f);
-				assert (dt <= static_cast<float>(HALF_PI - zeta));
-			}
-
-			//////////////////////////////////////////
-			//~~~~~~~~~~~Spatial Distances~~~~~~~~~~//
-			//////////////////////////////////////////
-
-			if (dim == 1) {
-				//Formula given on p. 2 of [2]
-				dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(nodes.crd->y(j) - nodes.crd->y(i)), STL), STL));
-			} else if (dim == 3) {
-				if (compact) {
-					//Spherical Law of Cosines
-					if (DIST_V2)
-						dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-					else
-						dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v1(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-				} else {
-					//Distance on Flat Spacetime
-					if (DIST_V2)
-						dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? BITWISE : STL));
-					else
-						dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v1(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j))), APPROX ? BITWISE : STL));
-				}
-			}
-
-			//if (i % NPRINT == 0) printf("dx: %.5f\n", dx); fflush(stdout);
-			if (compact) {
-				if (DEBUG) assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
-			} else {
-				if (DEBUG) assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(chi_max));
-			}
+			related = nodesAreRelated(nodes.crd, N_tar, dim, manifold, zeta, chi_max, compact, i, j);
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {
 				uint64_t idx1 = static_cast<uint64_t>(i) * core_limit + j;
 				uint64_t idx2 = static_cast<uint64_t>(j) * core_limit + i;
 
-				if (dx > dt) {
-					core_edge_exists[idx1] = false;
-					core_edge_exists[idx2] = false;
-				} else {
+				if (related) {
 					core_edge_exists[idx1] = true;
 					core_edge_exists[idx2] = true;
+				} else {
+					core_edge_exists[idx1] = false;
+					core_edge_exists[idx2] = false;
 				}
 			}
 						
 			//Link timelike relations
 			try {
-				if (dx < dt) {
+				if (related) {
 					//if (i % NPRINT == 0) printf("%d %d\n", i, j); fflush(stdout);
 					edges.future_edges[future_idx++] = j;
 	

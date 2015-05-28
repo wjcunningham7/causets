@@ -152,6 +152,12 @@ void memoryCheckpoint(const size_t &hostMemUsed, size_t &maxHostMemUsed, const s
 		maxDevMemUsed = devMemUsed;
 }
 
+//Print 'CHECKPOINT' for debugging
+void printChk()
+{
+	printf("CHECKPOINT\n");
+}
+
 #ifdef CUDA_ENABLED
 
 //Initialize connection to GPU

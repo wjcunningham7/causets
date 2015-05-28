@@ -26,7 +26,7 @@ bool bisection(double (*solve)(const double &x, const double * const p1, const f
 //Newton-Raphson Algorithm
 bool newton(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double tol, const double * const p1, const float * const p2, const int * const p3);
 
-//Edge Identification Algorithm
+//Causal Relation Identification Algorithm
 bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx);
 
 //Breadth First Search Algorithm

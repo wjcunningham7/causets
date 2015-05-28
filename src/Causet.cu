@@ -111,10 +111,10 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":Aa:Cc:k:d:e:F:fGg:hl:m:n:r:s:S:vyz:";
+	static const char *optString = ":A:a:Cc:k:d:e:F:fGg:hl:m:n:r:s:S:vyz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
-		{ "action",	no_argument,		NULL, 'A' },
+		{ "action",	required_argument,	NULL, 'A' },
 		{ "age",	required_argument,	NULL, 'a' },
 		{ "alpha",	required_argument,	NULL,  0  },
 		{ "autocorr",	no_argument,		NULL,  0  },
@@ -162,6 +162,11 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 			switch (c) {
 			case 'A':	//Flag for calculating action
 				network_properties.flags.calc_action = true;
+				network_properties.max_cardinality = atoi(optarg);
+
+				if (network_properties.max_cardinality <= 0)
+					throw CausetException("Invalid argument for 'action' parameter!\n");
+
 				break;
 			case 'a':
 				//Age of universe
@@ -424,7 +429,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "CausalSet Options...................\n");
 				printf_mpi(rank, "====================================\n");
 				printf_mpi(rank, "Flag:\t\t\tMeaning:\t\t\tSuggested Values:\n");
-				printf_mpi(rank, "  -A, --action\t\tMeasure Action\n");
+				printf_mpi(rank, "  -A, --action\t\tMeasure Action\t\t5\n");
 				printf_mpi(rank, "  -a, --age\t\tRescaled Age of (FLRW) Universe\t0.85\n");
 				printf_mpi(rank, "      --alpha\t\tScaling Parameter\t\t2.0\n");
 				//printf_mpi(rank, "      --autocorr\tCalculate Autocorrelations\n");
@@ -791,6 +796,17 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 	}
 
 	//Measure Action
+	if (network->network_properties.flags.calc_action) {
+		for (i = 0; i <= nb; i++) {
+			if (!measureAction(network->network_observables.cardinalities, network->network_observables.action, network->nodes.crd, network->network_properties.N_tar, network->network_properties.max_cardinality, network->network_properties.dim, network->network_properties.manifold, network->network_properties.zeta, network->network_properties.chi_max, cp->sMeasureAction, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				network->network_properties.cmpi.fail = 1;
+				goto MeasureExit;
+			}
+		}
+
+		if (nb)
+			bm->bMeasureAction = cp->sMeasureAction.elapsedTime / NBENCH;
+	}
 	
 	//Measure Geodesics w/ Geodesic Estimator
 
@@ -1376,6 +1392,9 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			outputStream << "Average Out-Degree Field Value\t\t" << network.network_observables.avg_odf << std::endl;
 		}
 
+		if (network.network_properties.flags.calc_action)
+			outputStream << "Action\t\t\t\t\t" << network.network_observables.action << std::endl;
+
 
 		outputStream << "\nNetwork Analysis Results:" << std::endl;
 		outputStream << "-------------------------" << std::endl;
@@ -1403,6 +1422,9 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			outputStream << "Out-Degree Field Data: \t\t" << "odf/" << network.network_properties.graphID << ".cset.odf.dat" << std::endl;
 		}
 
+		if (network.network_properties.flags.calc_action)
+			outputStream << "Action/Cardinality Data:\t" << "act/" << network.network_properties.graphID << ".cset.act.dat" << std::endl;
+
 		outputStream << "\nAlgorithmic Performance:" << std::endl;
 		outputStream << "--------------------------" << std::endl;
 		outputStream << "calcDegrees:         " << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
@@ -1426,6 +1448,8 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			outputStream << "measureSuccessRatio: " << cp.sMeasureSuccessRatio.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_deg_field)
 			outputStream << "measureDegreeField: " << cp.sMeasureDegreeField.elapsedTime << " sec" << std::endl;
+		if (network.network_properties.flags.calc_action)
+			outputStream << "measureAction:" << "cp.sMeasureAction.elapsedTime" << " sec" << std::endl;
 
 		outputStream.flush();
 		outputStream.close();
@@ -1636,6 +1660,8 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			dataStream.close();
 		}
 
+		//Write action data to file here
+
 		printf("\tFilename: %s.cset.out\n", filename.c_str());
 		fflush(stdout);
 	} catch (CausetException c) {
@@ -1687,6 +1713,8 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link
 			fprintf(f, "\tmeasureSuccessRatio:\t%5.6f sec\n", bm.bMeasureSuccessRatio);
 		if (cf.calc_deg_field)
 			fprintf(f, "\tmeasureDegreeField:\t%5.6f sec\n", bm.bMeasureDegreeField);
+		if (cf.calc_action)
+			fprintf(f, "\tmeasureAction:\t%5.6f sec\n", bm.bMeasureAction);
 
 		fclose(f);
 	} catch (CausetException c) {
@@ -1719,6 +1747,8 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link
 		printf("\tmeasureSuccessRatio:\t%5.6f sec\n", bm.bMeasureSuccessRatio);
 	if (cf.calc_deg_field)
 		printf("\tmeasureDegreeField:\t%5.6f sec\n", bm.bMeasureDegreeField);
+	if (cf.calc_action)
+		printf("\tmeasureAction:\t\t%5.6f sec\n", bm.bMeasureAction);
 	printf("\n");
 	fflush(stdout);
 
@@ -1841,6 +1871,12 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 			free(network->network_observables.dvd.confusion);
 			network->network_observables.dvd.confusion = NULL;
 			hostMemUsed -= sizeof(uint64_t) * 2;
+		}
+
+		if (network->network_properties.flags.calc_action) {
+			free(network->network_observables.cardinalities);
+			network->network_observables.cardinalities = NULL;
+			hostMemUsed -= sizeof(int) * network->network_properties.max_cardinality;
 		}
 	}
 }
