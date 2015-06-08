@@ -344,6 +344,23 @@ void swap(uint64_t *edges, const int i, const int j)
 	edges[j] = tmp;
 }
 
+//Exchanige references to two lists
+//as well as related indices (used in causet_intersection)
+void swap(const int * const *& list0, const int * const *& list1, int &idx0, int &idx1, int &max0, int &max1)
+{
+	const int * const * tmp_list = list0;
+	list0 = list1;
+	list1 = tmp_list;
+
+	int tmp = idx0;
+	idx0 = idx1;
+	idx1 = tmp;
+
+	tmp = max0;
+	max0 = max1;
+	max1 = tmp;
+}
+
 //Bisection Method
 //Use when Newton-Raphson fails
 bool bisection(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const float * const p2, const int * const p3)
@@ -366,6 +383,7 @@ bool bisection(double (*solve)(const double &x, const double * const p1, const f
 			//Residual Value
 			res = (*solve)(*x, p1, p2, p3);
 			//printf("res:   %.16e\n\n", res);
+			//printf("x: %.16e\n\n", *x);
 
 			//Check for NaN
 			if (res != res)
@@ -536,6 +554,95 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 			bfsearch(nodes, edges, edges.future_edges[fs+i], id, elements);
 }
 
+//Intersection of Sorted Lists
+//Used to find the cardinality of an interval
+//Complexity: O(k*log(k))
+void causet_intersection(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many)
+{
+	if (DEBUG) {
+		assert (past_edges != NULL);
+		assert (future_edges != NULL);
+		assert (k_i >= 0);
+		assert (k_o >= 0);
+		assert (!(k_i == 0 && k_o == 0));
+		assert (max_cardinality > 1);
+		assert (pstart >= 0);
+		assert (fstart >= 0);
+	}
+
+	int idx0 = pstart;
+	int idx1 = fstart;
+	int max0 = idx0 + k_i;
+	int max1 = idx1 + k_o;
+
+	if (k_i == 1 || k_o == 1) {
+		elements = 0;
+		return;
+	}
+
+	//Pointers are used here so that 'primary' and 'secondary'
+	//can be switched as needed.  References are static, so they
+	//cannot be used.  The 'const' specifiers are kept since the
+	//edge list values and their locations in memory should
+	//not be modified in this algorithm.
+
+	const int * const * primary = &past_edges;
+	const int * const * secondary = &future_edges;
+
+	/*printf("Future Edge List:\n");
+	for (int i = 0; i < k_o; i++)
+		printf("\t%d\n", (*secondary)[i+fstart]);
+	printf("Past Edge List:\n");
+	for (int i = 0; i < k_i; i++)
+		printf("\t%d\n", (*primary)[i+pstart]);*/
+
+	//printf("idx0: %d\tidx1: %d\n", idx0, idx1);
+
+	while (idx0 < max0 && idx1 < max1) {
+		if ((*secondary)[idx1] > (*primary)[idx0])
+			swap(primary, secondary, idx0, idx1, max0, max1);
+
+		/*if (*primary == past_edges)
+			printf("Primary: PAST\n");
+		else if (*primary == future_edges)
+			printf("Primary: FUTURE\n");
+		if (*secondary == past_edges)
+			printf("Secondary: PAST\n");
+		else if (*secondary == future_edges)
+			printf("Secondary: FUTURE\n");*/
+
+		while (idx1 < max1 && (*secondary)[idx1] < (*primary)[idx0])
+			idx1++;
+
+		if (idx1 == max1)
+			continue;
+
+		//printf("idx0: %d\tidx1: %d\n", idx0, idx1);
+
+		if ((*primary)[idx0] == (*secondary)[idx1]) {
+			//printf_red();
+			//printf("Element Found!\n");
+			//printf_std();
+			elements++;
+			if (elements >= max_cardinality - 1) {
+				too_many = true;
+				//printf("TOO MANY!\n");
+				return;
+			}
+			idx0++;
+			idx1++;
+		}
+	}
+
+	/*printf_red();
+	printf("Found %d Elements.\n", elements);
+	printf_std();
+	if (elements == 2)
+		exit(99);*/
+}
+
+//Data formatting used when reading the degree
+//sequences found on the GPU
 void readDegrees(int * const &degrees, const int * const h_k, const size_t &offset, const size_t &size)
 {
 	if (DEBUG) {
@@ -548,6 +655,8 @@ void readDegrees(int * const &degrees, const int * const h_k, const size_t &offs
 		degrees[offset+i] += h_k[i];
 }
 
+//Data formatting used when reading output of
+//the adjacency list created by the GPU
 void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const core_edge_exists, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y)
 {
 	if (DEBUG) {
@@ -580,6 +689,8 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const
 	}
 }
 
+//Scanning algorithm used when decoding
+//lists found using GPU algorithms
 void scan(const int * const k_in, const int * const k_out, int * const &past_edge_pointers, int * const &future_edge_pointers, const int &N_tar)
 {
 	int past_idx = 0, future_idx = 0;

@@ -11,40 +11,40 @@
 #####################################
 
 # Measure properties of 1+1 de Sitter
-#./bin/CausalSet --nodes 10240 --degrees 5.53 --dim 1 --components --print
+#./bin/CausalSet --nodes 10240 --degrees 5.53 --dim 1 --link --components --print
 
 # Measure properties of 3+1 de Sitter
-#./bin/CausalSet --nodes 10240 --degrees 10 --radius 2.0 --gpu --print
+#./bin/CausalSet --nodes 10240 --degrees 10 --radius 2.0 --link --gpu --print
 
 # Measure properties of Universe
-#./bin/CausalSet --flrw --nodes 1048576 --age 4.0 --radius 1.0 --seed 18100 --verbose -y --gpu
+#./bin/CausalSet --flrw --nodes 1048576 --age 4.0 --radius 1.0 --link --seed 18100 --verbose -y --gpu
 
-samples=1
-for (( i=1; i<=${samples}; i++ ))
-do
-  echo Trial $i of ${samples}
-#  ./bin/CausalSet --nodes 20480 --degrees 200 --radius 1.0 --seed 18200 --link --verbose -y --embedding 100
-#  ./bin/CausalSet --nodes 20480 --degrees 50 --radius 1.0 --seed 18200 --link --gpu --distances 100
-#  ./bin/CausalSet --flrw --nodes 10240 --degrees 10 --energy 0.7 --compact --link --seed 18100 --gpu --distances 100
-#  ./bin/CausalSet --flrw --nodes 10240 --degrees 10 --energy 0.7 --link --gpu --seed 18100 --success 100
+# Validation Tests
+#./bin/CausalSet --nodes 20480 --degrees 200 --radius 1.0 --seed 18200 --link --verbose -y --embedding 100
+#./bin/CausalSet --nodes 20480 --degrees 50 --radius 1.0 --seed 18200 --link --gpu --distances 100
+#./bin/CausalSet --flrw --nodes 10240 --degrees 10 --energy 0.7 --compact --link --seed 18100 --gpu --distances 100
 
-  ./bin/CausalSet --flrw --nodes 10240 --degrees 10 --energy 0.7 --seed 18100 --verbose -y --compact --action 5
-done
+# Greedy Routing
+#./bin/CausalSet --flrw --nodes 10240 --degrees 10 --energy 0.7 --link --gpu --seed 18100 --success 100
+
+# Measure de Sitter Action
+#  ./bin/CausalSet --graph 111 --degrees 3 --radius 2 --quiet-read --seed 18100 --link --action 5
+./bin/CausalSet --nodes 1040 --age 1.2 --seed 18100 --action 5
 
 ######################################
 # These will reproduce known results #
 ######################################
 
 # Generate causal set for 1+1 de Sitter (no matter)
-#./bin/CausalSet --nodes 24586 --degrees 5.53 --dim 1 --seed 18100 --verbose
+#./bin/CausalSet --nodes 24586 --degrees 5.53 --dim 1 --seed 18100 --verbose -y --link --print
 # Should find eta0 = 1.5707577, gamma = 2
 
 # Generate causal set for 3+1 de Sitter (no matter)
-#./bin/CausalSet --nodes 25441 --degrees 5.29 --radius 2.0 --seed 18100 -y --verbose
+#./bin/CausalSet --nodes 25441 --degrees 5.29 --radius 2.0 --seed 18100 --verbose -y --link --print
 # Should find eta0 = 1.5296963, gamma = 1.75
 
 # Generate causal set for universe (mix of dark energy and matter)
-#./bin/CausalSet --flrw --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 -y --print --verbose &> causet.log &
+#./bin/CausalSet --flrw --age 0.8458 --alpha 2.01 --delta 10000 --link --seed 18100 -y --print --verbose &> causet.log &
 # Should find N = 10^6, tau given by (12), in-degree given by Fig. (S3), out-degree given by Fig. (3a)
 # Note this takes ~ 3.5 days to run!!!
 
@@ -54,5 +54,5 @@ done
 
 # Compare to Dima's Fortran Code
 # Make sure to manually alter parameters in fortran code and re-compile!
-#./bin/CausalSet --flrw --age 1.5 --delta 1 --radius 1 --gpu --graph 22222 --components
+#./bin/CausalSet --flrw --age 1.5 --delta 1 --radius 1 --link --gpu --graph 22222 --components
 #./etc/dk_stats_direct.pl 22222

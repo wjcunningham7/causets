@@ -10,7 +10,9 @@
 // Northeastern University //
 /////////////////////////////
 
-//Newton-Raphson Kernels
+//======================//
+// Root-Finding Kernels //
+//======================//
 
 inline double eta02D(const double &x, const int &N_tar, const float &k_tar)
 {
@@ -33,7 +35,7 @@ inline double zeta4D(const double &x, const int &N_tar, const float &k_tar)
 	double _cscx2 = 1.0 / POW2(SIN(x, APPROX ? FAST : STL), EXACT);
 	double _lncscx = 0.5 * LOG(_cscx2, APPROX ? FAST : STL);
 
-	return _tanx * (12.0 * (x * _tanx + _lncscx) + (6.0 * _lncscx - 5.0) * _cscx2 - 7.0) / (3.0 * HALF_PI * POW2(2.0f + _cscx2, EXACT)) - (k_tar / N_tar);
+	return _tanx * (12.0 * (x * _tanx + _lncscx) + (6.0 * _lncscx - 5.0) * _cscx2 - 7.0) / (3.0 * HALF_PI * POW2(2.0 + _cscx2, EXACT)) - (k_tar / N_tar);
 }
 
 inline double zetaPrime4D(const double &x)
@@ -99,37 +101,6 @@ inline double theta1_Prime4D(const double &x)
 	return POW2(SIN(x, APPROX ? FAST : STL), EXACT) / HALF_PI;
 }
 
-/*inline double lambda4D(const double &x, const double &a, const float &tau1, const float &tau2, const float &omega12)
-{
-	double st1 = SINH(tau1, APPROX ? FAST : STL);
-	double st2 = SINH(tau2, APPROX ? FAST : STL);
-
-	double xi1 = SQRT(2.0 + x * (1.0 + COSH(2.0 * a * tau1, APPROX ? FAST : STL)), STL);
-	double xi2 = SQRT(2.0 + x * (1.0 + COSH(2.0 * a * tau2, APPROX ? FAST : STL)), STL);
-
-	return SQRT(2.0, STL) * (xi1 * st2 - xi2 * st1) / (xi1 * xi2 + 2.0 * st1 * st2) - TAN(omega12, APPROX ? FAST : STL);
-}
-
-inline double lambdaPrime4D(const double &x, const double &a, const float &tau1, const float &tau2)
-{
-	double st1 = SINH(tau1, APPROX ? FAST : STL);
-	double st2 = SINH(tau2, APPROX ? FAST : STL);
-
-	double xi1 = SQRT(2.0 + x * (1.0 + COSH(2.0 * a * tau1, APPROX ? FAST : STL)), STL);
-	double xi2 = SQRT(2.0 + x * (1.0 + COSH(2.0 * a * tau2, APPROX ? FAST : STL)), STL);
-
-	double xi1_2 = POW2(xi1, EXACT);
-	double xi1_3 = POW3(xi1, EXACT);
-
-	double xi2_2 = POW2(xi2, EXACT);
-	double xi2_3 = POW3(xi2, EXACT);
-
-	double psi1 = (SQRT(2.0, STL) / 2.0) * (1.0 + COSH(2.0 * a * tau1, APPROX ? FAST : STL));
-	double psi2 = (SQRT(2.0, STL) / 2.0) * (1.0 + COSH(2.0 * a * tau2, APPROX ? FAST : STL));
-
-	return (xi1_2 * st1 * (xi2_2 * xi2_3 + 2.0 * xi2_3 * psi1 * POW2(st2, EXACT)) - xi1_2 * xi1_3 * psi2 * st2 - 2.0 * xi1_3 * xi2_2 * psi2 * POW2(st1, EXACT) * st2) / (xi1_3 * xi2_3 * POW2(xi1 * xi2 + 2.0 * st1 * st2, EXACT));
-}*/
-
 //Returns zeta Residual
 //Used in 1+1 and 3+1 Causets
 inline double solveZeta(const double &x, const double * const p1, const float * const p2, const int * const p3)
@@ -145,6 +116,23 @@ inline double solveZeta(const double &x, const double * const p1, const float * 
 	return ((p3[1] == 1) ?
 		-1.0 * eta02D(x, p3[0], p2[0]) / eta0Prime2D(x) :
 		-1.0 * zeta4D(x, p3[0], p2[0]) / zetaPrime4D(x));
+}
+
+//Returns zeta Residual in Bisection Algorithm
+//Used in 1+1 and 3+1 Causets
+inline double solveZetaBisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	if (DEBUG) {
+		assert (p2 != NULL);
+		assert (p3 != NULL);
+		assert (p2[0] > 0.0f);			//k_tar
+		assert (p3[0] > 0);			//N_tar
+		assert (p3[1] == 1 || p3[1] == 3);	//dim
+	}
+
+	return ((p3[1] == 1) ?
+		eta02D(x, p3[0], p2[0]) :
+		zeta4D(x, p3[0], p2[0]));
 }
 
 //Returns tau0 Residual
@@ -229,39 +217,11 @@ inline double solveTheta1(const double &x, const double * const p1, const float 
 	return (-1.0 * theta1_4D(x, p1[0]) / theta1_Prime4D(x));
 }
 
-//Returns lambda Residual
-//Used in 3+1 Geodesic Calculations
-/*inline double solveLambda4D(const double &x, const double * const p1, const float * const p2, const int * const p3)
-{
-	if (DEBUG) {
-		assert (p1 != NULL);
-		assert (p2 != NULL);
-		assert (p1[0] > 0.0);	//a
-		assert (p2[0] > 0.0f);	//tau1
-		assert (p2[1] > 0.0f);	//tau2
-		assert (p2[2] > 0.0f);	//omega12
-	}
-
-	return (-1.0 * lambda4D(x, p1[0], p2[0], p2[1], p2[2]) / lambdaPrime4D(x, p1[0], p2[0], p2[1]));
-}
-
-//Returns lambda Residual in Bisection Algorithm
-//Used in 3+1 Geodesic Calculations
-inline double solveLambda4DBisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
-{
-	if (DEBUG) {
-		assert (p1 != NULL);
-		assert (p2 != NULL);
-		assert (p1[0] > 0.0);	//a
-		assert (p2[0] > 0.0f);	//tau1
-		assert (p2[1] > 0.0f);	//tau2
-		assert (p2[2] > 0.0f);	//omega12
-	}
-
-	return lambda4D(x, p1[0], p2[0], p2[1], p2[1]);
-}*/
-
-//Functions used for solving constraints in NetworkCreator.cu/initVars()
+//======================//
+// Constrain Causal Set //
+//======================//
+//
+//See NetworkCreator.cu/initVars() for details
 
 inline double solveDeltaCompact(const int &N_tar, const double &a, const double &tau0, const double &alpha)
 {
@@ -392,10 +352,10 @@ inline double solveAlphaFlat(const int &N_tar, const double &a, const double &ch
 	return alpha;
 }
 
-//Math Functions for Gauss Hypergeometric Function
+//========================//
+// Hypergeometric Kernels //
+//========================//
 
-//This is used to solve for a more exact solution than the one provided
-//by numerical integration using the tauToEtaUniverse function
 inline double _2F1_tau(const double &tau, void * const param)
 {
 	if (DEBUG)
@@ -404,59 +364,59 @@ inline double _2F1_tau(const double &tau, void * const param)
 	return 1.0 / POW2(COSH(1.5 * tau, APPROX ? FAST : STL), EXACT);
 }
 
-//This is used to evaluate xi(r) in the rescaledDegreeUniverse
-//function for r > 1
 inline double _2F1_r(const double &r, void * const param)
 {
 	return -1.0 / POW3(r, EXACT);
 }
 
-//De Sitter Spatial Lengths
+//=========================//
+// Spatial Length Formulae //
+//=========================//
 
-//X1 Coordinate of de Sitter Metric
+//X1 Coordinate of de Sitter 3-Metric
 inline float X1_SPH(const float &theta1)
 {
 	return static_cast<float>(COS(theta1, APPROX ? FAST : STL));
 }
 
-//X2 Coordinate of de Sitter Metric
+//X2 Coordinate of Spherical 3-Metric
 inline float X2_SPH(const float &theta1, const float &theta2)
 {
 	return static_cast<float>(SIN(theta1, APPROX ? FAST : STL) * COS(theta2, APPROX ? FAST : STL));
 }
 
-//X3 Coordinate of de Sitter Metric
+//X3 Coordinate of Spherical 3-Metric
 inline float X3_SPH(const float &theta1, const float &theta2, const float &theta3)
 {
 	return static_cast<float>(SIN(theta1, APPROX ? FAST : STL) * SIN(theta2, APPROX ? FAST : STL) * COS(theta3, APPROX ? FAST : STL));
 }
 
-//X4 Coordinate of de Sitter Metric
+//X4 Coordinate of Spherical 3-Metric
 inline float X4_SPH(const float &theta1, const float &theta2, const float &theta3)
 {
 	return static_cast<float>(SIN(theta1, APPROX ? FAST : STL) * SIN(theta2, APPROX ? FAST : STL) * SIN(theta3, APPROX ? FAST : STL));
 }
 
-//X Coordinate from Spherical Basis
+//X Coordinate from Flat 3-Metric
 inline float X_FLAT(const float &theta1, const float &theta2, const float &theta3)
 {
 	return static_cast<float>(theta1 * SIN(theta2, APPROX ? FAST : STL) * COS(theta3, APPROX ? FAST : STL));
 }
 
-//Y Coordinate from Spherical Basis
+//Y Coordinate from Flat 3-Metric
 inline float Y_FLAT(const float &theta1, const float &theta2, const float &theta3)
 {
 	return static_cast<float>(theta1 * SIN(theta2, APPROX ? FAST : STL) * SIN(theta3, APPROX ? FAST : STL));
 }
 
-//Z Coordinate from Spherical Basis
+//Z Coordinate from Flat 3-Metric
 inline float Z_FLAT(const float &theta1, const float &theta2)
 {
 	return static_cast<float>(theta1 * COS(theta2, APPROX ? FAST : STL));
 }
 
 //Spherical Inner Product
-//Returns angle between two points on unit sphere
+//Returns COS(angle) between two points on unit sphere
 inline float sphProduct_v1(const float4 &sc0, const float4 &sc1)
 {
 	return X1_SPH(sc0.x) * X1_SPH(sc1.x) +
@@ -490,10 +450,12 @@ inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z));
 }
 
-//Returns true if two nodes are causally related
-//Differs from 'nodesAreConnected' in that it does not rely on the nodes having already been linked
+//=========================//
+// Node Relation Algorithm //
+//=========================//
+
 //Assumes coordinates have been temporally ordered
-inline bool nodesAreRelated(Coordinates *& c, const int &N_tar, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const bool &compact, int past_idx, int future_idx)
+inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const bool &compact, int past_idx, int future_idx)
 {
 	if (DEBUG) {
 		assert (!c->isNull());
@@ -563,9 +525,13 @@ inline bool nodesAreRelated(Coordinates *& c, const int &N_tar, const int &dim, 
 		return false;
 }
 
-//Temporal Transformations
+//=================================//
+// Conformal/Cosmic Time Relations //
+//=================================//
 
-//Conformal to Rescaled Time
+//Formulae in de Sitter
+
+//Conformal to Rescaled Time (de Sitter)
 inline double etaToTau(const double eta)
 {
 	if (DEBUG)
@@ -574,7 +540,7 @@ inline double etaToTau(const double eta)
 	return ACOSH(1.0 / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 }
 
-//Rescaled to Conformal Time
+//Rescaled to Conformal Time (de Sitter)
 inline double tauToEta(const double tau)
 {
 	if (DEBUG)
@@ -583,10 +549,10 @@ inline double tauToEta(const double tau)
 	return ACOS(1.0 / COSH(tau, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 }
 
-//Minkowski to Conformal Time (Universe)
+//Formulae in FLRW
 
 //For use with GNU Scientific Library
-inline double tToEtaUniverse(double t, void *params)
+inline double tToEtaFLRW(double t, void *params)
 {
 	if (DEBUG) {
 		assert (params != NULL);
@@ -599,8 +565,8 @@ inline double tToEtaUniverse(double t, void *params)
 	return POW(SINH(1.5 * t / a, APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL);
 }
 
-//Exact Solution - Power Series Approximation
-inline double tauToEtaUniverseExact(const double &tau, const double &a, const double &alpha)
+//'Exact' Solution (Hypergeomtric Series)
+inline double tauToEtaFLRWExact(const double &tau, const double &a, const double &alpha)
 {
 	if (DEBUG) {
 		assert (tau > 0.0);
@@ -624,8 +590,8 @@ inline double tauToEtaUniverseExact(const double &tau, const double &a, const do
 	return eta;
 }
 
-//Gives Input to Lookup Table
-inline double etaToTauUniverse(const double &eta, const double &a, const double &alpha)
+//Gives Input to 'ctuc' Lookup Table
+inline double etaToTauFLRW(const double &eta, const double &a, const double &alpha)
 {
 	if (DEBUG) {
 		assert (eta > 0.0);
@@ -643,7 +609,11 @@ inline double etaToTauUniverse(const double &eta, const double &a, const double 
 	return g;
 }
 
-//Rescaled Average Degree in Universe Causet (Compact)
+//=========================//
+// Average Degree Formulae //
+//=========================//
+
+//Rescaled Average Degree in Compact FLRW Causet
 
 //Approximates (108) in [2]
 inline double xi(double &r)
@@ -669,9 +639,10 @@ inline double xi(double &r)
 	return _xi;
 }
 
+//This is a kernel used in numerical integration
 //Note to get the rescaled averge degree this result must still be
 //multiplied by 8pi/(sinh(3tau0)-3tau0)
-inline double rescaledDegreeUniverse(int dim, double x[], double *params)
+inline double rescaledDegreeFLRW(int dim, double x[], double *params)
 {
 	if (DEBUG) {
 		assert (dim > 0);
@@ -693,9 +664,10 @@ inline double rescaledDegreeUniverse(int dim, double x[], double *params)
 	return z;
 }
 
-//Average Degree in Universe Causet (not rescaled, compact)
+//Average Degree in Compact FLRW Causet (not rescaled)
 
 //Gives rescaled scale factor as a function of eta
+//Uses 'ctuc' lookup table
 inline double rescaledScaleFactor(double *table, double size, double eta, double a, double alpha)
 {
 	if (DEBUG) {
@@ -706,7 +678,7 @@ inline double rescaledScaleFactor(double *table, double size, double eta, double
 		assert (alpha > 0.0);
 	}
 
-	double g = etaToTauUniverse(eta, a, alpha);
+	double g = etaToTauFLRW(eta, a, alpha);
 	if (DEBUG) 
 		assert (g > 0.0);
 
@@ -735,9 +707,10 @@ inline double rescaledScaleFactor(double *table, double size, double eta, double
 	return POW(SINH(1.5 * tau, APPROX ? FAST : STL), 2.0 / 3.0, APPROX ? FAST : STL);
 }
 
+//This is a kernel used in numerical integration
 //Note to get the average degree this result must still be
 //multipled by (4pi/3)*delta*alpha^4/psi
-inline double averageDegreeUniverse(int dim, double x[], double *params)
+inline double averageDegreeFLRW(int dim, double x[], double *params)
 {
 	if (DEBUG) {
 		assert (params != NULL);
@@ -784,40 +757,9 @@ inline double psi(double eta, void *params)
 	return POW2(POW2(rescaledScaleFactor(&((double*)params)[3], ((double*)params)[2], eta, ((double*)params)[0], ((double*)params)[1]), EXACT), EXACT);
 }
 
-//Average Degree in Non-Compact FLRW Spacetime
-
-//Case 1: tau0 > 2.0 * chi_max
-/*inline double averageDegreeFLRW_C1(const double &a, const double &chi_max, const double &tau0, const double &alpha, const double &delta)
-{
-	return (a * M_PI * POW3(alpha, EXACT) * delta * (24605 + 27 * POW3(chi_max, EXACT) * (2100 * tau0 + chi_max * (7700 + 55539 * POW2(POW2(chi_max, EXACT), EXACT) + 6048 * chi_max * tau0 - 63720 * POW3(chi_max, EXACT) * tau0 + 3360 * POW2(chi_max, EXACT) * (2 + 9 * POW2(tau0, EXACT)))) - 5040 * (2 + chi_max * (chi_max * (13 + 12 * chi_max * (chi_max - tau0)) - 4 * tau0)) * COSH(3 * chi_max, STL) + 35 * (-415 + 54 * chi_max * (14 * tau0 + chi_max * (-131 + chi_max * (chi_max * (-71 + 72 * chi_max * (2 * chi_max - tau0)) + 38 * tau0)))) * COSH(6 * chi_max, STL) - 156800 * COSH(3 * chi_max - 3 * tau0, STL) + 62720 * COSH(6 * chi_max - 3 * tau0, STL) + 94080 * COSH(3 * tau0, STL) - 1120 * COSH(6 * tau0, STL) + 2 * (280 * (2 + 9 * POW2(chi_max, EXACT)) * COSH(3 * chi_max - 6 * tau0, STL) + 3 * (210 * POW2(chi_max, EXACT) * (16 + 33 * POW2(chi_max, EXACT) + 27 * POW2(POW2(chi_max, EXACT), EXACT)) * COSH(6 * chi_max - 6 * tau0, STL) + 560 * (-2 * tau0 + chi_max * (11 + 36 * POW2(chi_max, EXACT) - 9 * chi_max * tau0)) * SINH(3 * chi_max, STL) - 35 * (21 * tau0 + 2 * chi_max * (-202 + 27 * chi_max * (7 * tau0 + chi_max * (-29 + 18 * POW2(chi_max, EXACT) - 3 * chi_max * tau0)))) * SINH(6 * chi_max, STL) + 280 * chi_max * COSH(3 * tau0, STL) * (45 * POW3(chi_max, EXACT) * COSH(3 * chi_max, STL) + 6 * chi_max * (40 + 45 * POW2(chi_max, EXACT) + 36 * POW2(POW2(chi_max, EXACT), EXACT) + (22 + 24 * POW2(chi_max, EXACT)) * COSH(6 * chi_max, STL) + 4 * chi_max * SINH(3 * chi_max, STL)) - 4 * (26 + 36 * POW2(chi_max, EXACT) + 27 * POW2(POW2(chi_max, EXACT), EXACT)) * SINH(6 * chi_max, STL)) - 28 * chi_max * COSH(6 * tau0, STL) * (135 * POW3(chi_max, EXACT) - 20 * (1 + 3 * POW2(chi_max, EXACT)) * SINH(3 * chi_max, STL) + (40 + 210 * POW2(chi_max, EXACT) + 189 * POW2(POW2(chi_max, EXACT), EXACT)) * SINH(6 * chi_max, STL)) + 8 * chi_max * (-5600 + 6 * POW2(chi_max, EXACT) * (-1610 + 27 * POW2(chi_max, EXACT) * (-49 + 60 * POW2(chi_max, EXACT) - 70 * chi_max * tau0)) + 3640 * COSH(6 * chi_max, STL) + 105 * chi_max * (-8 * chi_max * COSH(3 * chi_max, STL) + 12 * chi_max * (4 + 3 * POW2(chi_max, EXACT)) * COSH(6 * chi_max, STL) - 15 * POW2(chi_max, EXACT) * SINH(3 * chi_max, STL) - 4 * (11 + 12 * POW2(chi_max, EXACT)) * SINH(6 * chi_max, STL))) * SINH(3 * tau0, STL) + 28 * chi_max * (6 * POW2(chi_max, EXACT) * (10 + 27 * POW2(chi_max, EXACT)) - 20 * (1 + 3 * POW2(chi_max, EXACT)) * COSH(3 * chi_max, STL) + (40 + 210 * POW2(chi_max, EXACT) + 189 * POW2(POW2(chi_max, EXACT), EXACT)) * COSH(6 * chi_max, STL)) * SINH(6 * tau0, STL))))) / (204120 * POW3(chi_max, EXACT) * (-3 * tau0 + SINH(3 * tau0, STL)));
-}
-
-//Case 2: chi_max < tau0 < 2.0 * chi_max
-inline double averageDegreeFLRW_C2(const double &a, const double &chi_max, const double &tau0, const double &alpha, const double &delta)
-{
-//	return -1 * (a * M_PI * POW3(alpha, EXACT) * delta * (-87325 + 9 * (40743 * POW2(POW2(POW2(chi_max, EXACT), EXACT), EXACT) - 171720 * POW2(POW2(chi_max, EXACT), EXACT) * POW3(chi_max, EXACT) * tau0 + 30240 * POW2(POW3(chi_max, EXACT), EXACT) * (2 + 9 * POW2(tau0, EXACT)) - 6048 * POW2(chi_max, EXACT) * POW3(chi_max, EXACT) * tau0 * (29 + 39 * POW2(tau0, EXACT)) + 420 * POW3(chi_max, EXACT) * tau0 * (145 + 240 * POW2(tau0, EXACT) + 108 * POW2(POW2(tau0, EXACT), EXACT)) + 120 * chi_max * tau0 * (560 + 840 * POW2(tau0, EXACT) + 378 * POW2(POW2(tau0, EXACT), EXACT) + 81 * POW2(POW3(tau0, EXACT), EXACT)) - 14 * POW2(tau0, EXACT) * (2240 + 1680 * POW2(tau0, EXACT) + 504 * POW2(POW2(tau0, EXACT), EXACT) + 81 * POW2(POW3(tau0, EXACT), EXACT)) + 420 * POW2(POW2(chi_max, EXACT), EXACT) * (-23 + 36 * POW2(tau0, EXACT) * (4 + 3 * POW2(tau0, EXACT))) - 420 * POW2(chi_max, EXACT) * (80 + 9 * POW2(tau0, EXACT) * (40 + 30 * POW2(tau0, EXACT) + 9 * POW2(POW2(tau0, EXACT), EXACT)))) + 5040 * (2 + chi_max * (chi_max * (13 + 12 * chi_max * (chi_max - tau0)) - 4 * tau0)) * COSH(3 * chi_max, STL) - 84035 * COSH(6 * chi_max - 6 * tau0, STL) + 156800 * COSH(3 * chi_max - 3 * tau0, STL) + 4480 * COSH(3 * tau0, STL) + 1120 * COSH(6 * tau0, STL) - 2 * (280 * (2 + 9 * POW2(chi_max, EXACT)) * COSH(3 * chi_max - 6 * tau0, STL) - 3 * (105 * (chi_max - tau0) * (18 * POW2(chi_max, EXACT) * POW3(chi_max, EXACT) + 523 * tau0 + 18 * POW2(POW2(chi_max, EXACT), EXACT) * tau0 + 45 * POW2(chi_max, EXACT) * tau0 * (17 + 4 * POW2(tau0, EXACT)) + 3 * POW3(tau0, EXACT) * (85 + 6 * POW2(tau0, EXACT)) - 9 * POW3(chi_max, EXACT) * (21 + 16 * POW2(tau0, EXACT)) - chi_max * (523 + 765 * POW2(tau0, EXACT) + 90 * POW2(POW2(tau0, EXACT), EXACT))) * COSH(6 * chi_max - 6 * tau0, STL) + 560 * (2 * tau0 + chi_max * (-11 + 9 * chi_max * (-4 * chi_max + tau0))) * SINH(3 * chi_max, STL) + 84 * COSH(3 * tau0, STL) * (40 * POW2(chi_max, EXACT) + 15 * POW2(POW2(chi_max, EXACT), EXACT) + 9 * POW2(POW3(chi_max, EXACT), EXACT)) - 16 * chi_max * (5 + 60 * POW2(chi_max, EXACT) + 108 * POW2(POW2(chi_max, EXACT), EXACT)) * tau0 + 10 * (8 + 18 * POW2(chi_max, EXACT) + 189 * POW2(POW2(chi_max, EXACT), EXACT)) * POW2(tau0, EXACT) - 120 * chi_max * (1 + 6 * POW2(chi_max, EXACT)) * POW3(tau0, EXACT) + 60 * POW2(POW2(tau0, EXACT), EXACT) + 9 * POW2(POW3(tau0, EXACT), EXACT) - 10 * POW3(chi_max, EXACT) * (15 * chi_max * COSH(3 * chi_max, STL) + 8 * SINH(3 * chi_max, STL))) + 14 * COSH(6 * tau0, STL) * (270 * POW2(POW2(chi_max, EXACT), EXACT) - 40 * (chi_max + 3 * POW3(chi_max, EXACT)) * SINH(3 * chi_max, STL) + (chi_max * (2855 + 3165 * POW2(chi_max, EXACT) + 162 * POW2(POW2(chi_max, EXACT), EXACT)) - 5 * (571 + 2016 * POW2(chi_max, EXACT) + 486 * POW2(POW2(chi_max, EXACT), EXACT)) * tau0 + 720 * chi_max * (14 + 9 * POW2(chi_max, EXACT)) * POW2(tau0, EXACT) - 60 * (56 + 117 * POW2(chi_max, EXACT)) * POW3(tau0, EXACT) + 3510 * chi_max * POW2(POW2(tau0, EXACT), EXACT) - 702 * POW2(tau0, EXACT) * POW3(tau0, EXACT)) * 
-//	SINH(6 * chi_max, STL)) + 4 * (1260 * POW2(chi_max, EXACT) * tau0 * (2 + 3 * POW2(tau0, EXACT)) - 1890 * POW2(POW2(chi_max, EXACT), EXACT) * tau0 * (14 + 9 * POW2(tau0, EXACT)) + 756 * POW2(chi_max, EXACT) * POW3(chi_max, EXACT) * (23 + 27 * POW2(tau0, EXACT)) - tau0 * (1120 + 1680 * POW2(tau0, EXACT) + 756 * POW2(POW2(tau0, EXACT), EXACT) + 81 * POW2(POW3(tau0, EXACT), EXACT)) + 210 * POW3(chi_max, EXACT) * (32 + 27 * POW2(tau0, EXACT) * (2 + POW2(tau0, EXACT))) + 210 * POW3(chi_max, EXACT) * (8 * COSH(3 * chi_max, STL) + 15 * chi_max * SINH(3 * chi_max, STL))) * SINH(3 * tau0, STL) - 14 * (12 * POW3(chi_max, EXACT) * (10 + 27 * POW2(chi_max, EXACT)) - 40 * (chi_max + 3 * POW3(chi_max, EXACT)) * COSH(3 * chi_max, STL) + (chi_max * (2855 + 3165 * POW2(chi_max, EXACT) + 162 * POW2(POW2(chi_max, EXACT), EXACT) - 5 * (571 + 2016 * POW2(chi_max, EXACT) + 486 * POW2(POW2(chi_max, EXACT), EXACT)) * tau0 + 720 * chi_max * (14 + 9 * POW2(chi_max, EXACT)) * POW2(tau0, EXACT) - 60 * (56 + 117 * POW2(chi_max, EXACT)) * POW3(tau0, EXACT) + 3510 * chi_max * POW2(POW2(tau0, EXACT), EXACT) - 702 * POW2(tau0, EXACT) * POW3(tau0, EXACT)) * COSH(6 * chi_max, STL)) * SINH(6 * tau0, STL))))) / (204120 * POW3(chi_max, EXACT) * (-3 * tau0 + SINH(3 * tau0, STL)));
-}
-
-//Case 3: tau0 < chi_max
-inline double averageDegreeFLRW_C3(const double &a, const double &chi_max, const double &tau0, const double &alpha, const double &delta)
-{
-	return 0.0;
-}
-
-//Wrapper Function
-inline double averageDegreeFLRW(const double &a, const double &chi_max, const double &tau0, const double &alpha, const double &delta)
-{
-	if (tau0 > 2.0 * chi_max)
-		return averageDegreeFLRW_C1(a, chi_max, tau0, alpha, delta);
-	else if (chi_max < tau0 && tau0 < 2.0 * chi_max)
-		return averageDegreeFLRW_C2(a, chi_max, tau0, alpha, delta);
-	else if (tau0 < chi_max)
-		return averageDegreeFLRW_C3(a, chi_max, tau0, alpha, delta);
-
-	//This statement will never be called in practice
-	return 0.0;
-}*/
+//=======================//
+// Degree Field Formulae //
+//=======================//
 
 //For use with GNU Scientific Library
 inline double degreeFieldTheory(double eta, void *params)
@@ -836,10 +778,11 @@ inline double degreeFieldTheory(double eta, void *params)
 	return POW3(ABS(((double*)params)[0] - eta, STL), EXACT) * POW2(POW2(rescaledScaleFactor(&((double*)params)[4], ((double*)params)[3], eta, ((double*)params)[1], ((double*)params)[2]), EXACT), EXACT);
 }
 
-//Geodesic Distances
+//====================//
+// Geodesic Distances //
+//====================//
 
-//Embedded Z1 Coordinate
-//Used to calculate geodesic distances in (embedded) universe
+//Embedded Z1 Coordinate used in Naive Embedding
 //For use with GNU Scientific Library
 inline double embeddedZ1(double x, void *params)
 {
@@ -856,6 +799,8 @@ inline double embeddedZ1(double x, void *params)
 	return SQRT(1.0 + (x / (POW3(alpha_tilde, EXACT) + POW3(x, EXACT))), STL);
 }
 
+//Maximum Time in Geodesic (non-embedded)
+//Returns tau_max=f(lambda) with lambda < 0
 inline double geodesicMaxTau(const double &lambda, const bool &universe)
 {
 	if (lambda >= 0.0)
@@ -869,8 +814,10 @@ inline double geodesicMaxTau(const double &lambda, const bool &universe)
 	}
 }
 
-//Integrands in Exact Geodesic Calculations
+//Integrands for Exact Geodesic Calculations
 //For use with GNU Scientific Library
+
+//Distance Kernels
 
 inline double deSitterDistKernel(double x, void *params)
 {
@@ -911,6 +858,29 @@ inline double flrwDistKernel(double x, void *params)
 	return distance;
 }
 
+//Transcendental Kernels Solving omega12=f(tau1,tau2,lambda)
+
+inline double flrwLookupKernel(double x, void *params)
+{
+	if (DEBUG) {
+		assert (params != NULL);
+		assert (x >= 0);
+	}
+
+	double *p = (double*)params;
+	double lambda = p[0];
+
+	if (DEBUG)
+		assert (lambda != 0.0);
+
+	double sx = SINH(1.5 * x, STL);
+	double sx43 = POW(sx, 4.0 / 3.0, STL);
+	double g = sx43 + lambda * POW2(sx43, EXACT);
+	double omega12 = g > 0 ? POW(g, -0.5, STL) : 0.0;
+
+	return omega12;
+}
+
 inline double deSitterLookupKernel(double x, void *params)
 {
 	if (DEBUG) {
@@ -931,6 +901,7 @@ inline double deSitterLookupKernel(double x, void *params)
 	return omega12;
 }
 
+//The exact solution in de Sitter
 inline double deSitterLookupExact(const double &tau, const double &lambda)
 {
 	double x = 0.0;
@@ -969,28 +940,11 @@ inline double deSitterLookupExact(const double &tau, const double &lambda)
 	return omega12;
 }
 
-inline double flrwLookupKernel(double x, void *params)
-{
-	if (DEBUG) {
-		assert (params != NULL);
-		assert (x >= 0);
-	}
+//=====================//
+// Distance Algorithms //
+//=====================//
 
-	double *p = (double*)params;
-	double lambda = p[0];
-
-	if (DEBUG)
-		assert (lambda != 0.0);
-
-	double sx = SINH(1.5 * x, STL);
-	double sx43 = POW(sx, 4.0 / 3.0, STL);
-	double g = sx43 + lambda * POW2(sx43, EXACT);
-	double omega12 = g > 0 ? POW(g, -0.5, STL) : 0.0;
-
-	return omega12;
-}
-
-//Returns the exact distance between two nodes
+//Returns the exact distance between two nodes in 4D
 //O(xxx) Efficiency (revise this)
 inline double distance(const double * const table, const float4 &node_a, const float tau_a, const float4 &node_b, const float tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const long &size, const bool &universe, const bool &compact)
 {
@@ -1077,7 +1031,7 @@ inline double distance(const double * const table, const float4 &node_a, const f
 	return distance;
 }
 
-//Returns the embedded FLRW distance between two nodes
+//Returns the embedded distance between two nodes in 5D
 //O(xxx) Efficiency (revise this)
 inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe, const bool &compact)
 {
@@ -1144,7 +1098,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 	return distance;
 }
 
-//Returns the hyperbolic distance between two nodes
+//Returns the hyperbolic distance between two nodes in 2D
 //O(xxx) Efficiency (revise this)
 inline double distanceH(const float2 &hc_a, const float2 &hc_b, const int &dim, const Manifold &manifold, const double &zeta)
 {

@@ -910,11 +910,11 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 			//Numerical Integration
 			idata.upper = tau_m * a;
 			params2[0] = a;
-			eta_m = integrate1D(&tToEtaUniverse, (void*)params2, &idata, QAGS) / alpha;
+			eta_m = integrate1D(&tToEtaFLRW, (void*)params2, &idata, QAGS) / alpha;
 			free(params2);
 		} else
 			//Exact Solution
-			eta_m = tauToEtaUniverseExact(tau_m, a, alpha);
+			eta_m = tauToEtaFLRWExact(tau_m, a, alpha);
 	} else
 		eta_m = tauToEta(tau_m);
 	test_node.w = static_cast<float>(eta_m);
@@ -1051,31 +1051,51 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 }
 
 //Measure Causal Set Action
-bool measureAction(int *& cardinalities, float &action, Coordinates *& c, const int &N_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, Stopwatch &sMeasureAction, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose, const bool &bench)
+//O(N*k^2*ln(k)) Efficiency (Linked)
+//O(N^2*k) Efficiency (No Links)
+bool measureAction(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const float &core_edge_fraction, Stopwatch &sMeasureAction, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
-		assert (!c->isNull());
+		assert (!nodes.crd->isNull());
 		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER);
+
+		if (!(link || relink))
+			assert (manifold == DE_SITTER);
+		if (manifold == HYPERBOLIC)
+			assert (dim == 1);
 
 		if (dim == 1)
-			assert (c->getDim() == 2);
+			assert (nodes.crd->getDim() == 2);
 		else if (dim == 3) {
-			assert (c->getDim() == 4);
-			assert (c->w() != NULL);
-			assert (c->z() != NULL);
+			assert (nodes.crd->getDim() == 4);
+			assert (nodes.crd->w() != NULL);
+			assert (nodes.crd->z() != NULL);
+			assert (manifold == DE_SITTER);
 		}
 
-		assert (c->x() != NULL);
-		assert (c->y() != NULL);
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+		if (link || relink) {
+			assert (nodes.k_in != NULL);
+			assert (nodes.k_out != NULL);
+			assert (edges.past_edges != NULL);
+			assert (edges.future_edges != NULL);
+			assert (edges.past_edge_row_start != NULL);
+			assert (edges.future_edge_row_start != NULL);
+			assert (core_edge_exists != NULL);
+		}
 		
 		assert (N_tar > 0);
 		assert (max_cardinality > 0);
-		assert (HALF_PI - zeta > 0.0);
-		assert (chi_max > 0.0);
+		if (manifold == DE_SITTER) {
+			assert (HALF_PI - zeta > 0.0);
+			assert (chi_max > 0.0);
+		}
+		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	}
 
 	int elements;
+	int fstart, pstart;
 	int i, j, k;
 	bool too_many;
 
@@ -1099,6 +1119,8 @@ bool measureAction(int *& cardinalities, float &action, Coordinates *& c, const 
 
 	cardinalities[0] = N_tar;
 
+	//int tested = 0;	//
+
 	if (max_cardinality == 1)
 		goto ActionExit;
 
@@ -1106,22 +1128,55 @@ bool measureAction(int *& cardinalities, float &action, Coordinates *& c, const 
 	for (i = 0; i < N_tar - 1; i++) {
 		for (j = i + 1; !too_many && j < N_tar; j++) {
 			elements = 0;
-			for (k = i + 1; k < j; k++) {
-				if (nodesAreRelated(c, N_tar, dim, manifold, zeta, chi_max, compact, i, k) && nodesAreRelated(c, N_tar, dim, manifold, zeta, chi_max, compact, k, j))
-					elements++;
-				if (elements + 1 > max_cardinality - 1) {
-					too_many = true;
-					break;
+			if (link || relink) {
+				if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, i, j))
+					continue;
+
+				//These indicate corrupted data
+				if (DEBUG) {
+					assert (!(edges.past_edge_row_start[j] == -1 && nodes.k_in[j] > 0));
+					assert (!(edges.past_edge_row_start[j] != -1 && nodes.k_in[j] == 0));
+					assert (!(edges.future_edge_row_start[i] == -1 && nodes.k_out[i] > 0));
+					assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
+				}
+
+				//printf("Future neighbors of [node 0]:\n");
+				//for (int k = 0; k < nodes.k_out[0]; k++)
+				//	printf("\t%d\n", edges.future_edges[edges.future_edge_row_start[0]+k]);
+
+				pstart = edges.past_edge_row_start[j];
+				fstart = edges.future_edge_row_start[i];
+				//printf("\nLooking at %d future neighbors of [node %d] and %d past neighbors of [node %d].\n", nodes.k_out[i], i, nodes.k_in[j], j);
+				causet_intersection(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], max_cardinality, pstart, fstart, too_many);
+				//tested++;	//
+				//if (tested == 10)
+				//	exit(99);
+			} else {
+				if (!nodesAreRelated(nodes.crd, N_tar, dim, manifold, zeta, chi_max, compact, i, j))
+					continue;
+
+				for (k = i + 1; k < j; k++) {
+					if (nodesAreRelated(nodes.crd, N_tar, dim, manifold, zeta, chi_max, compact, i, k) && nodesAreRelated(nodes.crd, N_tar, dim, manifold, zeta, chi_max, compact, k, j))
+						elements++;
+					if (elements >= max_cardinality - 1) {
+						too_many = true;
+						break;
+					}
 				}
 			}
-			if (!too_many && elements) //
-				printf("Elements found between %d and %d: %d\n", i, j, elements); //
+
 			if (!too_many)
 				cardinalities[elements+1]++;
 		}
 		too_many = false;
 	}
 
+	if (max_cardinality < 5)
+		goto ActionExit;
+
+	action = cardinalities[0] - cardinalities[1] + 9 * cardinalities[2] - 16 * cardinalities[3] + 8 * cardinalities[4];
+	action *= 4 / sqrt(6);
+	
 	ActionExit:
 	stopwatchStop(&sMeasureAction);
 
@@ -1130,6 +1185,9 @@ bool measureAction(int *& cardinalities, float &action, Coordinates *& c, const 
 		printf("\t\tTerms Used: %d\n", max_cardinality);
 		printf_cyan();
 		printf("\t\tCausal Set Action: %f\n", action);
+		if (max_cardinality < 10)
+			for (i = 0; i < max_cardinality; i++)
+				printf("\t\t\tN%d: %d\n", i, cardinalities[i]);
 		printf_std();
 		fflush(stdout);
 	}

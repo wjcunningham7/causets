@@ -994,7 +994,8 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 }
 #endif
 
-//Generate confusion matrix for geodesic distances in universe with matter
+//Generate confusion matrix for geodesic distances
+//Compares timelike/spacelike in 4D/5D
 //Save matrix values as well as d_theta and d_eta to file
 bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, long &seed, CausetMPI &cmpi, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
 {
@@ -1281,6 +1282,10 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	return true;
 }
 
+//Used to compare distance calculated with embedding to
+//distances calculated with exact formula
+//NOTE: This only works with de Sitter since there is not a known
+//formula for the embedded FLRW distance.
 bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sValidateDistances, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
@@ -1607,6 +1612,7 @@ bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *fi
 	return true;
 }
 
+//Searches a range of lambdas for a match to omega12
 bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const bool &universe)
 {
 	if (DEBUG) {
@@ -1652,7 +1658,7 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 
 		if (tau1 >= tau2 || lambda == 0.0)
 			omega_val = 0.0;
-		else if (lambda > 0 /*|| (tau1 > tau_m && tau2 > tau_m)*/) {
+		else if (lambda > 0) {
 			if (DS_EXACT) {
 				double ov0 = deSitterLookupExact(static_cast<double>(tau1), lambda);
 				double ov1 = deSitterLookupExact(static_cast<double>(tau2), lambda);
@@ -1712,6 +1718,7 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 	return true;
 }
 
+//Generates the lookup tables
 bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const bool &universe, const bool &verbose)
 {
 	if (DEBUG) {
@@ -1771,7 +1778,7 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 
 					if (tau1 >= tau2 || lambda == 0.0)
 						omega12 = 0.0;
-					else if (lambda > 0 /*|| (tau1 > tau_m && tau2 > tau_m)*/) {
+					else if (lambda > 0) {
 						if (DS_EXACT) {
 							double ov0 = deSitterLookupExact(static_cast<double>(tau1), lambda);
 							double ov1 = deSitterLookupExact(static_cast<double>(tau2), lambda);
@@ -1841,6 +1848,8 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 	return true;
 }
 
+//Node Traversal Algorithm
+//Not accelerated with OpenMP
 bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &universe, const bool &compact, int source, int dest, bool &success)
 {
 	if (DEBUG) {

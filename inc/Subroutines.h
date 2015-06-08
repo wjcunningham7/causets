@@ -19,6 +19,7 @@ void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, i
 void quicksort(uint64_t *edges, int low, int high);
 void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, const int j);
 void swap(uint64_t *edges, const int i, const int j);
+void swap(const int * const *& list0, const int * const *& list1, int &idx0, int &idx1, int &max0, int &max1);
 
 //Bisection Algorithm
 bool bisection(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const float * const p2, const int * const p3);
@@ -31,6 +32,9 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 //Breadth First Search Algorithm
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements);
+
+//Array Intersection Algorithm
+void causet_intersection(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many);
 
 //Format Partial Adjacency Matrix Data
 void readDegrees(int * const &degrees, const int * const h_k, const size_t &offset, const size_t &size);

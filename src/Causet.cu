@@ -111,7 +111,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":A:a:Cc:k:d:e:F:fGg:hl:m:n:r:s:S:vyz:";
+	static const char *optString = ":A:a:b:Cc:k:d:e:F:fGg:hl:m:n:r:s:S:vyz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
 		{ "action",	required_argument,	NULL, 'A' },
@@ -119,6 +119,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "alpha",	required_argument,	NULL,  0  },
 		{ "autocorr",	no_argument,		NULL,  0  },
 		{ "benchmark",	no_argument,		NULL,  0  },
+		{ "buffer",	required_argument,	NULL, 'b' },
 		{ "clustering",	no_argument,		NULL, 'C' },
 		{ "compact",	no_argument,		NULL,  0  },
 		{ "components", no_argument,		NULL,  0  },
@@ -139,6 +140,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "gpu", 	no_argument, 		NULL,  0  },
 		{ "graph",	required_argument,	NULL, 'g' },
 		{ "help", 	no_argument,		NULL, 'h' },
+		{ "quiet-read",	no_argument,		NULL,  0  },
 		{ "lambda",	required_argument,	NULL, 'l' },
 		{ "link",	no_argument,		NULL,  0  },
 		{ "manifold",	required_argument,	NULL, 'm' },
@@ -182,6 +184,12 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				network_properties.flags.cc.conflicts[2]++;
 				network_properties.flags.cc.conflicts[3]++;
 				network_properties.flags.cc.conflicts[6]++;
+				break;
+			case 'b':
+				//Edge buffer in adjacency lists
+				network_properties.edge_buffer = atoi(optarg);
+				if (network_properties.edge_buffer < 0)
+					throw CausetException("Invalid argument for 'buffer' parameter!\n");
 				break;
 			case 'C':	//Flag for calculating clustering
 				network_properties.flags.calc_clustering = true;
@@ -251,6 +259,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					network_properties.manifold = HYPERBOLIC;
 				else
 					throw CausetException("Invalid argument for 'manifold' parameter!\n");
+
+				if (!strcmp(optarg, "f"))
+					network_properties.flags.universe = true;
 
 				break;
 			case 'n':	//Number of nodes
@@ -388,6 +399,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				else if (!strcmp("print", longOpts[longIndex].name))
 					//Flag to print results to file in 'dat' folder
 					network_properties.flags.print_network = true;
+				else if (!strcmp("quiet-read", longOpts[longIndex].name))
+					//Flag to ignore warnings when reading graph
+					network_properties.flags.quiet_read = true;
 				else if (!strcmp("ratio", longOpts[longIndex].name)) {
 					//Ratio of dark energy density to matter density
 					network_properties.ratio = atof(optarg);
@@ -429,11 +443,12 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "CausalSet Options...................\n");
 				printf_mpi(rank, "====================================\n");
 				printf_mpi(rank, "Flag:\t\t\tMeaning:\t\t\tSuggested Values:\n");
-				printf_mpi(rank, "  -A, --action\t\tMeasure Action\t\t5\n");
-				printf_mpi(rank, "  -a, --age\t\tRescaled Age of (FLRW) Universe\t0.85\n");
+				printf_mpi(rank, "  -A, --action\t\tMeasure Action\t\t\t5\n");
+				printf_mpi(rank, "  -a, --age\t\tRescaled Age of Universe (Use conformal time for de Sitter)\t0.85\n");
 				printf_mpi(rank, "      --alpha\t\tScaling Parameter\t\t2.0\n");
 				//printf_mpi(rank, "      --autocorr\tCalculate Autocorrelations\n");
 				printf_mpi(rank, "      --benchmark\tBenchmark Algorithms\n");
+				printf_mpi(rank, "  -b, --buffer\t\tEdge Buffer\t\t\t25000\n");
 				printf_mpi(rank, "  -C, --clustering\tMeasure Clustering\n");
 				printf_mpi(rank, "      --compact\t\tUse Compactification\n");
 				printf_mpi(rank, "      --components\tMeasure Graph Components\n");
@@ -461,6 +476,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -m, --manifold\tManifold\t\t\t[d]e sitter, [f]lrw, [h]yperbolic\n");
 				printf_mpi(rank, "  -n, --nodes\t\tNumber of Nodes\t\t\t1000, 10000, 100000\n");
 				printf_mpi(rank, "      --print\t\tPrint Results\n");
+				printf_mpi(rank, "      --quiet-read\tIgnore any warnings when reading graph\n");
 				printf_mpi(rank, "  -r, --radius\t\tPseudoradius\t\t\t1.0\n");
 				printf_mpi(rank, "      --ratio\t\tEnergy to Matter Ratio\t\t2.7\n");
 				printf_mpi(rank, "      --read-old-format\tRead Positions in Old Format\n");
@@ -639,7 +655,7 @@ bool initializeNetwork(Network * const network, CausetPerformance * const cp, Be
 				}
 			} else {
 			#endif
-				if (!linkNodes(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!linkNodes(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto InitExit;
 				}
@@ -798,7 +814,7 @@ bool measureNetworkObservables(Network * const network, CausetPerformance * cons
 	//Measure Action
 	if (network->network_properties.flags.calc_action) {
 		for (i = 0; i <= nb; i++) {
-			if (!measureAction(network->network_observables.cardinalities, network->network_observables.action, network->nodes.crd, network->network_properties.N_tar, network->network_properties.max_cardinality, network->network_properties.dim, network->network_properties.manifold, network->network_properties.zeta, network->network_properties.chi_max, cp->sMeasureAction, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+			if (!measureAction(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.max_cardinality, network->network_properties.dim, network->network_properties.manifold, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.core_edge_fraction, cp->sMeasureAction, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
 				goto MeasureExit;
 			}
@@ -953,7 +969,7 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 			return false;
 
 		//Solve for eta0 and tau0 if DE_SITTER
-		if (network->network_properties.manifold == DE_SITTER && !solveMaxTime(network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.cmpi, network->network_properties.flags.universe))
+		if (network->network_properties.manifold == DE_SITTER && !network->network_properties.flags.quiet_read && !solveMaxTime(network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.a, network->network_properties.zeta, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.cmpi, network->network_properties.flags.universe))
 			return false;
 
 		#ifdef MPI_ENABLED
@@ -980,9 +996,9 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 							if (network->network_properties.flags.universe) {
 								if (USE_GSL) {
 									idata.upper = network->nodes.id.tau[i] * network->network_properties.a;
-									network->nodes.crd->w(i) = integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / network->network_properties.alpha;
+									network->nodes.crd->w(i) = integrate1D(&tToEtaFLRW, (void*)param, &idata, QAGS) / network->network_properties.alpha;
 								} else
-									network->nodes.crd->w(i) = tauToEtaUniverseExact(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
+									network->nodes.crd->w(i) = tauToEtaFLRWExact(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
 							} else
 								network->nodes.crd->w(i) = tauToEta(network->nodes.id.tau[i]);
 						} else {
@@ -1006,37 +1022,39 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 					network->nodes.crd->y(i) = atof(strtok(NULL, delimeters));
 				}
 
-				if (network->network_properties.dim == 1) {
-					if (network->nodes.crd->x(i) < 0.0) {
-						message = "Invalid value parsed for 'eta/r' in node position file!\n";
-						network->network_properties.cmpi.fail = 1;
-						goto LoadPoint2;
-					}
-					if (network->nodes.crd->y(i) <= 0.0 || network->nodes.crd->y(i) >= TWO_PI) {
-						message = "Invalid value for 'theta' in node position file!\n";
-						network->network_properties.cmpi.fail = 1;
-						goto LoadPoint2;
-					}
-				} else if (network->network_properties.dim == 3 && network->network_properties.manifold == DE_SITTER) {
-					if (network->nodes.crd->w(i) <= 0.0 || network->nodes.crd->w(i) >= static_cast<float>(HALF_PI - network->network_properties.zeta)) {
-						message = "Invalid value for 'eta' in node position file!\n";
-						network->network_properties.cmpi.fail = 1;
-						goto LoadPoint2;
-					}
-					if (network->nodes.crd->x(i) <= 0.0 || (network->network_properties.flags.compact && network->nodes.crd->x(i) >= M_PI) || (!network->network_properties.flags.compact && network->nodes.crd->x(i) >= network->network_properties.chi_max)) {
-						message = "Invalid value for 'theta_1' in node position file!\n";
-						network->network_properties.cmpi.fail = 1;
-						goto LoadPoint2;
-					}
-					if (network->nodes.crd->y(i) <= 0.0 || network->nodes.crd->y(i) >= M_PI) {
-						message = "Invalid value for 'theta_2' in node position file!\n";
-						network->network_properties.cmpi.fail = 1;
-						goto LoadPoint2;
-					}
-					if (network->nodes.crd->z(i) <= 0.0 || network->nodes.crd->z(i) >= TWO_PI) {
-						message = "Invalid value for 'theta_3' in node position file!\n";
-						network->network_properties.cmpi.fail = 1;
-						goto LoadPoint2;
+				if (!network->network_properties.flags.quiet_read) {
+					if (network->network_properties.dim == 1) {
+						if (network->nodes.crd->x(i) < 0.0) {
+							message = "Invalid value parsed for 'eta/r' in node position file!\n";
+							network->network_properties.cmpi.fail = 1;
+							goto LoadPoint2;
+						}
+						if (network->nodes.crd->y(i) <= 0.0 || network->nodes.crd->y(i) >= TWO_PI) {
+							message = "Invalid value for 'theta' in node position file!\n";
+							network->network_properties.cmpi.fail = 1;
+							goto LoadPoint2;
+						}
+					} else if (network->network_properties.dim == 3 && network->network_properties.manifold == DE_SITTER) {
+						if (network->nodes.crd->w(i) <= 0.0 || network->nodes.crd->w(i) >= static_cast<float>(HALF_PI - network->network_properties.zeta)) {
+							message = "Invalid value for 'eta' in node position file!\n";
+							network->network_properties.cmpi.fail = 1;
+							goto LoadPoint2;
+						}
+						if (network->nodes.crd->x(i) <= 0.0 || (network->network_properties.flags.compact && network->nodes.crd->x(i) >= M_PI) || (!network->network_properties.flags.compact && network->nodes.crd->x(i) >= network->network_properties.chi_max)) {
+							message = "Invalid value for 'theta_1' in node position file!\n";
+							network->network_properties.cmpi.fail = 1;
+							goto LoadPoint2;
+						}
+						if (network->nodes.crd->y(i) <= 0.0 || network->nodes.crd->y(i) >= M_PI) {
+							message = "Invalid value for 'theta_2' in node position file!\n";
+							network->network_properties.cmpi.fail = 1;
+							goto LoadPoint2;
+						}
+						if (network->nodes.crd->z(i) <= 0.0 || network->nodes.crd->z(i) >= TWO_PI) {
+							message = "Invalid value for 'theta_3' in node position file!\n";
+							network->network_properties.cmpi.fail = 1;
+							goto LoadPoint2;
+						}
 					}
 				}
 			}
@@ -1071,7 +1089,7 @@ bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmar
 				}
 			} else {
 			#endif
-				if (!linkNodes(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!linkNodes(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.dim, network->network_properties.manifold, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.universe, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto LoadPoint2;
 				}

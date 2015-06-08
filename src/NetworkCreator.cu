@@ -251,7 +251,7 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			
 			if (network_properties->k_tar == 0.0) {
 				int method = 1;	//Use lookup table
-				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->a, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, cp->sCalcDegrees, bm->bCalcDegrees, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network_properties->flags.verbose, network_properties->flags.bench, method))
+				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->a, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, cp->sCalcDegrees, bm->bCalcDegrees, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network_properties->flags.universe, network_properties->flags.verbose, network_properties->flags.bench, method))
 					network_properties->cmpi.fail = 1;
 				if(checkMpiErrors(network_properties->cmpi))
 					return false;
@@ -293,17 +293,21 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 			fflush(stdout);
 		} else if (network_properties->manifold == DE_SITTER) {
 			if (network_properties->N_tar == 0)
-				throw CausetException("Flag '-n', number of nodes, must be specified!\n");
-			else if (network_properties->k_tar == 0.0)
-				throw CausetException("Flag '-k', expected average degrees, must be specified!\n");
+				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
+			else if (network_properties->k_tar == 0.0) {
+				if (network_properties->tau0 != 0.0) {
+					network_properties->zeta = HALF_PI - network_properties->tau0;
+					network_properties->tau0 = etaToTau(network_properties->tau0);
+					if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->a, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, cp->sCalcDegrees, bm->bCalcDegrees, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, network_properties->flags.universe, network_properties->flags.verbose, network_properties->flags.bench, 0))
+						network_properties->cmpi.fail = 1;
+					if (checkMpiErrors(network_properties->cmpi))
+						return false;
+				} else
+					throw CausetException("Flag '--degrees', expected average degrees, must be specified!\n");
+			}
 			
 			network_properties->flags.compact = true;
 	
-			/*if (network_properties->dim == 1) {
-				network_properties->zeta = HALF_PI - network_properties->tau0;
-				network_properties->tau0 = etaToTau(HALF_PI - network_properties->zeta);
-			}*/
-				
 			if (!network_properties->cmpi.rank && network_properties->flags.gen_ds_table && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 5.0, -5.0, 5.0, 0.01, 0.01, network_properties->flags.universe, network_properties->flags.verbose))
 					network_properties->cmpi.fail = 1;
 			if (checkMpiErrors(network_properties->cmpi))
@@ -311,7 +315,8 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 		}
 			
 		//20% Buffer
-		network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
+		if (network_properties->edge_buffer == 0)
+			network_properties->edge_buffer = static_cast<int>(0.1 * network_properties->N_tar * network_properties->k_tar);
 
 		//Check other parameters if applicable
 		uint64_t pair_multiplier = static_cast<uint64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
@@ -343,126 +348,144 @@ bool initVars(NetworkProperties * const network_properties, CausetPerformance * 
 	return true;
 }
 
-//Calculate Expected Average Degree
+//Calculate Expected Average Degree in FLRW Spacetime
 //See Causal Set Notes for detailed explanation of methods
-bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alpha, const double &delta, long &seed, const int &rank, Stopwatch &sCalcDegrees, double &bCalcDegrees, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench, const int method)
+bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, double &a, double &tau0, const double &alpha, const double &delta, long &seed, const int &rank, Stopwatch &sCalcDegrees, double &bCalcDegrees, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &verbose, const bool &bench, const int method)
 {
 	if (DEBUG) {
 		//Variables in correct ranges
-		assert (a > 0.0);
-		assert (tau0 > 0.0);
-		assert (alpha > 0.0);
-		assert (delta > 0.0);
-		assert (method == 0 || method == 1 || method == 2);
+		if (universe) {
+			assert (dim == 3);
+			assert (a > 0.0);
+			assert (tau0 > 0.0);
+			assert (alpha > 0.0);
+			assert (delta > 0.0);
+			assert (method == 0 || method == 1 || method == 2);
+		} else {
+			assert (N_tar > 0);
+			assert (dim == 1 || dim == 3);
+		}
 	}
 
 	printf_mpi(rank, "\tEstimating Expected Average Degree...\n");
 	fflush(stdout);
 
-	double *table;
-	long size = 0L;
-
 	int nb = static_cast<int>(bench) * NBENCH;
 	int i;
 
-	if (method == 0) {
-		//Method 1 of 3: Use Monte Carlo integration to evaluate Kostia's formula
-		double r0;
-		if (tau0 > LOG(MTAU, STL) / 3.0)
-			r0 = POW(0.5, 2.0 / 3.0, STL) * exp(tau0);
-		else
-			r0 = POW(SINH(1.5 * tau0, STL), 2.0 / 3.0, STL);
+	if (universe) {
+		double *table;
+		long size = 0L;
 
-		for (i = 0; i <= nb; i++) {
-			stopwatchStart(&sCalcDegrees);
+		if (method == 0) {
+			//Method 1 of 3: Use Monte Carlo integration to evaluate Kostia's formula
+			double r0;
 			if (tau0 > LOG(MTAU, STL) / 3.0)
-				k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, seed, 0) * 16.0 * M_PI * exp(-3.0 * tau0);
+				r0 = POW(0.5, 2.0 / 3.0, STL) * exp(tau0);
 			else
-				k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeUniverse, 0.0, 0.0, r0, r0, NULL, seed, 0) * 8.0 * M_PI / (SINH(3.0 * tau0, STL) - 3.0 * tau0);
-			stopwatchStop(&sCalcDegrees);
-		}	
-	} else if (method == 1) {
-		//Method 2 of 3: Lookup table to approximate method 1
-		if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
-			return false;
-		hostMemUsed += size;
+				r0 = POW(SINH(1.5 * tau0, STL), 2.0 / 3.0, STL);
 
-		k_tar = lookupValue(table, size, &tau0, NULL, true) * delta * POW2(POW2(a, EXACT), EXACT);
-		for (i = 0; i <= nb; i++) {
-			stopwatchStart(&sCalcDegrees);
-			lookupValue(table, size, &tau0, NULL, true);
-			stopwatchStop(&sCalcDegrees);
-		}	
+			for (i = 0; i <= nb; i++) {
+				stopwatchStart(&sCalcDegrees);
+				if (tau0 > LOG(MTAU, STL) / 3.0)
+					k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeFLRW, 0.0, 0.0, r0, r0, NULL, seed, 0) * 16.0 * M_PI * exp(-3.0 * tau0);
+				else
+					k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeFLRW, 0.0, 0.0, r0, r0, NULL, seed, 0) * 8.0 * M_PI / (SINH(3.0 * tau0, STL) - 3.0 * tau0);
+				stopwatchStop(&sCalcDegrees);
+			}	
+		} else if (method == 1) {
+			//Method 2 of 3: Lookup table to approximate method 1
+			if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
+				return false;
+			hostMemUsed += size;
 
-		//Check for NaN
-		if (k_tar != k_tar)
-			return false;
+			k_tar = lookupValue(table, size, &tau0, NULL, true) * delta * POW2(POW2(a, EXACT), EXACT);
+			for (i = 0; i <= nb; i++) {
+				stopwatchStart(&sCalcDegrees);
+				lookupValue(table, size, &tau0, NULL, true);
+				stopwatchStop(&sCalcDegrees);
+			}	
 
-		free(table);
-		table = NULL;
-		hostMemUsed -= size;
-	} else if (method == 2) {
-		//Method 3 of 3: Will's formulation
-		if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
-			return false;
-		hostMemUsed += size;
+			//Check for NaN
+			if (k_tar != k_tar)
+				return false;
 
-		double *params = (double*)malloc(size + sizeof(double) * 3);
-		if (params == NULL)
-			throw std::bad_alloc();
-		hostMemUsed += size + sizeof(double) * 3;
+			free(table);
+			table = NULL;
+			hostMemUsed -= size;
+		} else if (method == 2) {
+			//Method 3 of 3: Will's formulation
+			if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
+				return false;
+			hostMemUsed += size;
 
-		double d_size = static_cast<double>(size);
-		memcpy(params, &a, sizeof(double));
-		memcpy(params + 1, &alpha, sizeof(double));
-		memcpy(params + 2, &d_size, sizeof(double));
-		memcpy(params + 3, table, size);
+			double *params = (double*)malloc(size + sizeof(double) * 3);
+			if (params == NULL)
+				throw std::bad_alloc();
+			hostMemUsed += size + sizeof(double) * 3;
 
-		IntData idata = IntData();
-		idata.limit = 50;
-		idata.tol = 1e-5;
-		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-		idata.upper = tau0 * a;
+			double d_size = static_cast<double>(size);
+			memcpy(params, &a, sizeof(double));
+			memcpy(params + 1, &alpha, sizeof(double));
+			memcpy(params + 2, &d_size, sizeof(double));
+			memcpy(params + 3, table, size);
 
-		double *params2 = &a;
-		double max_time = integrate1D(&tToEtaUniverse, (void*)params2, &idata, QAGS) / alpha;
+			IntData idata = IntData();
+			idata.limit = 50;
+			idata.tol = 1e-5;
+			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+			idata.upper = tau0 * a;
 
-		for (i = 0; i <= nb; i++) {
-			stopwatchStart(&sCalcDegrees);
-			integrate1D(&tToEtaUniverse, (void*)params2, &idata, QAGS);
-			stopwatchStop(&sCalcDegrees);
-		}
+			double *params2 = &a;
+			double max_time = integrate1D(&tToEtaFLRW, (void*)params2, &idata, QAGS) / alpha;
 
-		gsl_integration_workspace_free(idata.workspace);
+			for (i = 0; i <= nb; i++) {
+				stopwatchStart(&sCalcDegrees);
+				integrate1D(&tToEtaFLRW, (void*)params2, &idata, QAGS);
+				stopwatchStop(&sCalcDegrees);
+			}
 
-		k_tar = integrate2D(&averageDegreeUniverse, 0.0, 0.0, max_time, max_time, params, seed, 0);
-		k_tar *= 4.0 * M_PI * delta * POW2(POW2(alpha, EXACT), EXACT);
+			gsl_integration_workspace_free(idata.workspace);
 
-		for (i = 0; i <= nb; i++) {
-			stopwatchStart(&sCalcDegrees);
-			integrate2D(&averageDegreeUniverse, 0.0, 0.0, max_time, max_time, params, seed, 0);
-			stopwatchStop(&sCalcDegrees);
-		}
+			k_tar = integrate2D(&averageDegreeFLRW, 0.0, 0.0, max_time, max_time, params, seed, 0);
+			k_tar *= 4.0 * M_PI * delta * POW2(POW2(alpha, EXACT), EXACT);
+
+			for (i = 0; i <= nb; i++) {
+				stopwatchStart(&sCalcDegrees);
+				integrate2D(&averageDegreeFLRW, 0.0, 0.0, max_time, max_time, params, seed, 0);
+				stopwatchStop(&sCalcDegrees);
+			}
 		
-		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-		idata.upper = max_time;
-		k_tar /= (3.0 * integrate1D(&psi, params, &idata, QAGS));
+			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+			idata.upper = max_time;
+			k_tar /= (3.0 * integrate1D(&psi, params, &idata, QAGS));
 
-		for (i = 0; i <= nb; i++) {
-			stopwatchStart(&sCalcDegrees);
-			integrate1D(&psi, params, &idata, QAGS);
-			stopwatchStop(&sCalcDegrees);
+			for (i = 0; i <= nb; i++) {
+				stopwatchStart(&sCalcDegrees);
+				integrate1D(&psi, params, &idata, QAGS);
+				stopwatchStop(&sCalcDegrees);
+			}
+
+			gsl_integration_workspace_free(idata.workspace);
+
+			free(params);
+			params = NULL;
+			hostMemUsed -= size + sizeof(double) * 3;
+
+			free(table);
+			table = NULL;
+			hostMemUsed -= size;
 		}
+	} else {
+		double eta0 = tauToEta(tau0);
+		double _tanx = TAN(eta0, STL);
+		double _sec2x = 1.0 / POW2(COS(eta0, STL), EXACT);
+		double _lnsecx = LOG(_sec2x, STL) / 2.0;
 
-		gsl_integration_workspace_free(idata.workspace);
-
-		free(params);
-		params = NULL;
-		hostMemUsed -= size + sizeof(double) * 3;
-
-		free(table);
-		table = NULL;
-		hostMemUsed -= size;
+		if (dim == 1)
+			k_tar = N_tar * (eta0 / _tanx + _lnsecx - 1.0) / (_tanx * HALF_PI);
+		else if (dim == 3)
+			k_tar = N_tar * (12.0 * (eta0 / _tanx + _lnsecx) + (6.0 * _lnsecx - 5.0) * _sec2x - 7.0) / (_tanx * POW2(2.0 + _sec2x, EXACT) * 3.0 * HALF_PI);
 	}
 
 	if (nb)
@@ -475,6 +498,7 @@ bool solveExpAvgDegree(float &k_tar, double &a, double &tau0, const double &alph
 
 	if (!bench) {
 		printf_mpi(rank, "\tExpected Average Degree Successfully Calculated.\n");
+		printf_mpi(rank, "\t\t<k> = %f\n", k_tar);
 		fflush(stdout);
 	}
 
@@ -689,13 +713,13 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 			double *param = (double*)malloc(sizeof(double));
 			param[0] = a;
 
-			zeta = HALF_PI - integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / alpha;
+			zeta = HALF_PI - integrate1D(&tToEtaFLRW, (void*)param, &idata, QAGS) / alpha;
 
 			gsl_integration_workspace_free(idata.workspace);
 			free(param);
 		} else
 			//Exact Solution
-			zeta = HALF_PI - tauToEtaUniverseExact(tau0, a, alpha);
+			zeta = HALF_PI - tauToEtaFLRWExact(tau0, a, alpha);
 
 		if (rank == 0) printf_cyan();
 		printf_mpi(rank, "\t\tMaximum Conformal Time: %5.8f\n", HALF_PI - zeta);
@@ -710,16 +734,29 @@ bool solveMaxTime(const int &N_tar, const float &k_tar, const int &dim, const do
 			assert (dim == 1 || dim == 3);
 		}
 
-		double x = 0.08;
-		if (dim == 1)
+		if (tau0 != 0.0)
+			return true;
+
+		double x = HALF_PI;
+		double max = HALF_PI;
+		if (dim == 1) {
 			x = HALF_PI - 0.0001;
+			max = HALF_PI - 1.2658;
+		} else if (dim == 3)
+			x = 0.08;
+			max = HALF_PI - 1.11178;
 
 		int p3[2];
 		p3[0] = N_tar;
 		p3[1] = dim;
 
-		if (!newton(&solveZeta, &x, 10000, TOL, NULL, &k_tar, p3))
-			cmpi.fail = 1;
+		if (log(k_tar / N_tar) > -4.5) {
+			if (!bisection(&solveZetaBisec, &x, 10000, 0, max, TOL, true, NULL, &k_tar, p3))
+				cmpi.fail = 1;
+		} else {
+			if (!newton(&solveZeta, &x, 10000, TOL, NULL, &k_tar, p3))
+				cmpi.fail = 1;
+		}
 
 		if (checkMpiErrors(cmpi))
 			return false;
@@ -759,7 +796,6 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 		assert (k_tar > 0.0);
 		assert (dim == 1 || dim == 3);
 		assert (manifold == DE_SITTER);
-		assert (a > 0.0);
 		if (universe) {
 			assert (nodes.crd->getDim() == 4);
 			assert (nodes.crd->w() != NULL);
@@ -767,6 +803,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			assert (nodes.crd->y() != NULL);
 			assert (nodes.crd->z() != NULL);
 			assert (dim == 3);
+			assert (a > 0.0);
 			assert (chi_max > 0.0);
 			assert (tau0 > 0.0);
 		} else
@@ -861,12 +898,12 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 					//Numerical Integration
 					idata.upper = static_cast<double>(nodes.id.tau[i]) * a;
 					param[0] = a;
-					nodes.crd->w(i) = static_cast<float>(integrate1D(&tToEtaUniverse, (void*)param, &idata, QAGS) / alpha);
+					nodes.crd->w(i) = static_cast<float>(integrate1D(&tToEtaFLRW, (void*)param, &idata, QAGS) / alpha);
 				} else
 					//Exact Solution
-					nodes.crd->w(i) = static_cast<float>(tauToEtaUniverseExact(nodes.id.tau[i], a, alpha));
+					nodes.crd->w(i) = static_cast<float>(tauToEtaFLRWExact(nodes.id.tau[i], a, alpha));
 
-				if (DEBUG) assert (nodes.crd->w(i) < tauToEtaUniverseExact(tau0, a, alpha));
+				if (DEBUG) assert (nodes.crd->w(i) < tauToEtaFLRWExact(tau0, a, alpha));
 			} else {
 				nodes.crd->w(i) = static_cast<float>(tauToEta(static_cast<double>(nodes.id.tau[i])));
 				if (DEBUG) assert (nodes.crd->w(i) < tauToEta(tau0));
@@ -936,7 +973,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodes, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		//No null pointers
@@ -961,7 +998,6 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 			assert (dim == 3);
 			assert (alpha > 0.0);
 		}
-		assert (a > 0.0);
 		assert (zeta > 0.0 && zeta < HALF_PI);
 		assert (chi_max > 0.0);
 		assert (tau0 > 0.0);

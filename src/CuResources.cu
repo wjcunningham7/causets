@@ -156,6 +156,7 @@ void memoryCheckpoint(const size_t &hostMemUsed, size_t &maxHostMemUsed, const s
 void printChk()
 {
 	printf("CHECKPOINT\n");
+	exit(99);
 }
 
 #ifdef CUDA_ENABLED

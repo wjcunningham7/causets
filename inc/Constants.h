@@ -46,6 +46,7 @@
 //CUDA Flags
 #define BLOCK_SIZE 128	//Number of threads per block
 			//This value is dependent on the GPU architecture
+			//DO NOT EDIT THIS VALUE
 
 #define GROUP_SIZE 8	//Number of block groups per grid dimension
 			//Increase this by a power of 2 if too much GPU memory is
@@ -53,17 +54,19 @@
 
 #define THREAD_SIZE 4	//Number of element operations per thread
 			//This value is dependent on the GPU shared memory cache size
+			//DO NOT EDIT THIS VALUE
 
 #define NBUFFERS 4	//Number of memory buffers used concurrently on GPU
 			//This value is dependent on the GPU global memory cache size
+			//DO NOT EDIT THIS VALUE
 
 //Options for GPU Algorithms
 //See src/NetworkCreator_GPU.cu
-#define LINK_NODES_GPU_V2 true
+#define LINK_NODES_GPU_V2 false
 
-#define GEN_ADJ_LISTS_GPU_V2 true
+#define GEN_ADJ_LISTS_GPU_V2 false
 
-#define DECODE_LISTS_GPU_V2 true
+#define DECODE_LISTS_GPU_V2 false
 
 #endif
 
