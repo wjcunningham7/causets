@@ -286,7 +286,7 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 }
 
 //Note that core_edge_exists has not been implemented in this version of the linkNodesGPU subroutine.
-bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -300,10 +300,12 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
+		assert (ca != NULL);
+
 		assert (N_tar > 0);
-		assert (k_tar > 0);
+		assert (k_tar > 0.0f);
 		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-		assert (edge_buffer >= 0);
+		assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	}
 
 	Stopwatch sGPUOverhead = Stopwatch();
@@ -336,7 +338,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		if (g_idx == NULL)
 			throw std::bad_alloc();
 		memset(g_idx, 0, sizeof(int));
-		hostMemUsed += sizeof(int);
+		ca->hostMemUsed += sizeof(int);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -347,24 +349,24 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	checkCudaErrors(cuMemAlloc(&d_x, sizeof(float) * N_tar));
 	checkCudaErrors(cuMemAlloc(&d_y, sizeof(float) * N_tar));
 	checkCudaErrors(cuMemAlloc(&d_z, sizeof(float) * N_tar));
-	devMemUsed += sizeof(float) * N_tar * 4;
+	ca->devMemUsed += sizeof(float) * N_tar * 4;
 
-	size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar / 2 + edge_buffer)));
+	size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
-	devMemUsed += sizeof(uint64_t) * d_edges_size;
+	ca->devMemUsed += sizeof(uint64_t) * d_edges_size;
 
 	checkCudaErrors(cuMemAlloc(&d_k_in, sizeof(int) * N_tar));
-	devMemUsed += sizeof(int) * N_tar;
+	ca->devMemUsed += sizeof(int) * N_tar;
 
 	checkCudaErrors(cuMemAlloc(&d_k_out, sizeof(int) * N_tar));
-	devMemUsed += sizeof(int) * N_tar;
+	ca->devMemUsed += sizeof(int) * N_tar;
 	
 	checkCudaErrors(cuMemAlloc(&d_g_idx, sizeof(int)));
-	devMemUsed += sizeof(int);
+	ca->devMemUsed += sizeof(int);
 
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Parallel Node Linking", hostMemUsed, devMemUsed, 0);
+		printMemUsed("for Parallel Node Linking", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//Copy Memory from Host to Device
 	checkCudaErrors(cuMemcpyHtoD(d_w, nodes.crd->w(), sizeof(float) * N_tar));
@@ -418,14 +420,14 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	cuMemFree(d_z);
 	d_z = 0;
 
-	devMemUsed -= sizeof(float) * N_tar * 4;
+	ca->devMemUsed -= sizeof(float) * N_tar * 4;
 
 	cuMemFree(d_g_idx);
 	d_g_idx = 0;
-	devMemUsed -= sizeof(int);
+	ca->devMemUsed -= sizeof(int);
 
 	try {
-		if (*g_idx + 1 >= N_tar * k_tar / 2 + edge_buffer)
+		if (*g_idx + 1 >= static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
 			throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
@@ -460,7 +462,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * d_edges_size));
-	devMemUsed += sizeof(int) * d_edges_size;
+	ca->devMemUsed += sizeof(int) * d_edges_size;
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_future_edges, 0, d_edges_size));
@@ -489,7 +491,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	//Free Device Memory
 	cuMemFree(d_future_edges);
 	d_future_edges = 0;
-	devMemUsed -= sizeof(int) * d_edges_size;
+	ca->devMemUsed -= sizeof(int) * d_edges_size;
 
 	stopwatchStop(&sGPUOverhead);
 	stopwatchStart(&sBitonic1);
@@ -508,7 +510,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_past_edges, sizeof(int) * d_edges_size));
-	devMemUsed += sizeof(int) * d_edges_size;
+	ca->devMemUsed += sizeof(int) * d_edges_size;
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_past_edges, 0, d_edges_size));
@@ -532,20 +534,20 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	//Free Device Memory
 	cuMemFree(d_edges);
 	d_edges = 0;
-	devMemUsed -= sizeof(uint64_t) * d_edges_size;
+	ca->devMemUsed -= sizeof(uint64_t) * d_edges_size;
 
 	cuMemFree(d_past_edges);
 	d_past_edges = 0;
-	devMemUsed -= sizeof(int) * d_edges_size;
+	ca->devMemUsed -= sizeof(int) * d_edges_size;
 
 	//Resulting Network Properties
 
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_N_res, sizeof(int)));
-	devMemUsed += sizeof(int);
+	ca->devMemUsed += sizeof(int);
 
 	checkCudaErrors(cuMemAlloc(&d_N_deg2, sizeof(int)));
-	devMemUsed += sizeof(int);
+	ca->devMemUsed += sizeof(int);
 	
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_N_res, 0, 1));
@@ -592,19 +594,19 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	//Free Device Memory
 	cuMemFree(d_k_in);
 	d_k_in = 0;
-	devMemUsed -= sizeof(int) * N_tar;
+	ca->devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_k_out);
 	d_k_out = 0;
-	devMemUsed -= sizeof(int) * N_tar;
+	ca->devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_N_res);
 	d_N_res = 0;
-	devMemUsed -= sizeof(int);
+	ca->devMemUsed -= sizeof(int);
 
 	cuMemFree(d_N_deg2);
 	d_N_deg2 = 0;
-	devMemUsed -= sizeof(int);
+	ca->devMemUsed -= sizeof(int);
 
 	stopwatchStop(&sGPUOverhead);
 	stopwatchStop(&sLinkNodesGPU);
@@ -636,7 +638,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	//Free Host Memory
 	free(g_idx);
 	g_idx = NULL;
-	hostMemUsed -= sizeof(int);
+	ca->hostMemUsed -= sizeof(int);
 
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sLinkNodesGPU.elapsedTime);
@@ -652,7 +654,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	return true;
 }
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, CaResources * const ca, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -666,6 +668,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 		assert (edges != NULL);
 		assert (core_edge_exists != NULL);
 		assert (g_idx != NULL);
+		assert (ca != NULL);
 		assert (N_tar > 0);
 		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	}
@@ -708,19 +711,19 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 		if (h_k_in == NULL)
 			throw std::bad_alloc();
 		memset(h_k_in, 0, sizeof(int) * mthread_size);
-		hostMemUsed += sizeof(int) * mthread_size;
+		ca->hostMemUsed += sizeof(int) * mthread_size;
 
 		h_k_out = (int*)malloc(sizeof(int) * mthread_size);
 		if (h_k_out == NULL)
 			throw std::bad_alloc();
 		memset(h_k_out, 0, sizeof(int) * mthread_size);
-		hostMemUsed += sizeof(int) * mthread_size;
+		ca->hostMemUsed += sizeof(int) * mthread_size;
 
 		h_edges = (bool*)malloc(sizeof(bool) * m_edges_size);
 		if (h_edges == NULL)
 			throw std::bad_alloc();
 		memset(h_edges, 0, sizeof(bool) * m_edges_size);
-		hostMemUsed += sizeof(bool) * m_edges_size;
+		ca->hostMemUsed += sizeof(bool) * m_edges_size;
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -731,31 +734,31 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	checkCudaErrors(cuMemAlloc(&d_x0, sizeof(float) * mthread_size));
 	checkCudaErrors(cuMemAlloc(&d_y0, sizeof(float) * mthread_size));
 	checkCudaErrors(cuMemAlloc(&d_z0, sizeof(float) * mthread_size));
-	devMemUsed += sizeof(float) * mthread_size * 4;
+	ca->devMemUsed += sizeof(float) * mthread_size * 4;
 
 	checkCudaErrors(cuMemAlloc(&d_w1, sizeof(float) * mthread_size));
 	checkCudaErrors(cuMemAlloc(&d_x1, sizeof(float) * mthread_size));
 	checkCudaErrors(cuMemAlloc(&d_y1, sizeof(float) * mthread_size));
 	checkCudaErrors(cuMemAlloc(&d_z1, sizeof(float) * mthread_size));
-	devMemUsed += sizeof(float) * mthread_size * 4;
+	ca->devMemUsed += sizeof(float) * mthread_size * 4;
 
 	//Allocate Degree Buffers on Device
 	checkCudaErrors(cuMemAlloc(&d_k_in, sizeof(int) * mthread_size));
 	checkCudaErrors(cuMemsetD32(d_k_in, 0, mthread_size));
-	devMemUsed += sizeof(int) * mthread_size;
+	ca->devMemUsed += sizeof(int) * mthread_size;
 
 	checkCudaErrors(cuMemAlloc(&d_k_out, sizeof(int) * mthread_size));
 	checkCudaErrors(cuMemsetD32(d_k_out, 0, mthread_size));
-	devMemUsed += sizeof(int) * mthread_size;
+	ca->devMemUsed += sizeof(int) * mthread_size;
 
 	//Allocate Edge Buffer on Device
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(bool) * m_edges_size));
 	checkCudaErrors(cuMemsetD8(d_edges, 0, m_edges_size));
-	devMemUsed += sizeof(bool) * m_edges_size;
+	ca->devMemUsed += sizeof(bool) * m_edges_size;
 
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Generating Lists on GPU", hostMemUsed, devMemUsed, 0);
+		printMemUsed("for Generating Lists on GPU", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//CUDA Grid Specifications
 	unsigned int gridx = static_cast<unsigned int>(ceil(static_cast<float>(mthread_size) / THREAD_SIZE));
@@ -842,7 +845,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	cuMemFree(d_z0);
 	d_z0 = 0;
 
-	devMemUsed -= sizeof(float) * mthread_size * 4;
+	ca->devMemUsed -= sizeof(float) * mthread_size * 4;
 
 	cuMemFree(d_w1);
 	d_w1 = 0;
@@ -856,44 +859,44 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	cuMemFree(d_z1);
 	d_z1 = 0;
 
-	devMemUsed -= sizeof(float) * mthread_size * 4;
+	ca->devMemUsed -= sizeof(float) * mthread_size * 4;
 
 	cuMemFree(d_k_in);
 	d_k_in = 0;
-	devMemUsed -= sizeof(int) * mthread_size;
+	ca->devMemUsed -= sizeof(int) * mthread_size;
 
 	cuMemFree(d_k_out);
 	d_k_out = 0;
-	devMemUsed -= sizeof(int) * mthread_size;
+	ca->devMemUsed -= sizeof(int) * mthread_size;
 
 	cuMemFree(d_edges);
 	d_edges = 0;
-	devMemUsed -= sizeof(bool) * m_edges_size;
+	ca->devMemUsed -= sizeof(bool) * m_edges_size;
 
 	free(h_k_in);
 	h_k_in = NULL;
-	hostMemUsed -= sizeof(int) * mthread_size;
+	ca->hostMemUsed -= sizeof(int) * mthread_size;
 
 	free(h_k_out);
 	h_k_out = NULL;
-	hostMemUsed -= sizeof(int) * mthread_size;
+	ca->hostMemUsed -= sizeof(int) * mthread_size;
 
 	free(h_edges);
 	h_edges = NULL;
-	hostMemUsed -= sizeof(bool) * m_edges_size;
+	ca->hostMemUsed -= sizeof(bool) * m_edges_size;
 
 	return true;
 }
 
 //Decode past and future edge lists using Bitonic Sort
-bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, CaResources * const ca, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (h_edges != NULL);
 		assert (g_idx != NULL);
-
+		assert (ca != NULL);
 		assert (d_edges_size > 0);
 	}
 
@@ -903,7 +906,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 	//Allocate Global Device Memory
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
-	devMemUsed += sizeof(uint64_t) * d_edges_size;
+	ca->devMemUsed += sizeof(uint64_t) * d_edges_size;
 
 	//Copy Memory from Host to Device
 	checkCudaErrors(cuMemcpyHtoD(d_edges, h_edges, sizeof(uint64_t) * d_edges_size));
@@ -927,11 +930,11 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * d_edges_size));
-	devMemUsed += sizeof(int) * d_edges_size;
+	ca->devMemUsed += sizeof(int) * d_edges_size;
 
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Bitonic Sorting", hostMemUsed, devMemUsed, 0);
+		printMemUsed("for Bitonic Sorting", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_future_edges, 0, d_edges_size));
@@ -953,7 +956,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 	//Free Device Memory
 	cuMemFree(d_future_edges);
 	d_future_edges = 0;
-	devMemUsed -= sizeof(int) * d_edges_size;
+	ca->devMemUsed -= sizeof(int) * d_edges_size;
 
 	//Resort Edges with New Encoding
 	for (k = 2; k <= d_edges_size; k <<= 1) {
@@ -966,7 +969,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_past_edges, sizeof(int) * d_edges_size));
-	devMemUsed += sizeof(int) * d_edges_size;
+	ca->devMemUsed += sizeof(int) * d_edges_size;
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_past_edges, 0, d_edges_size));
@@ -984,11 +987,11 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 	//Free Device Memory
 	cuMemFree(d_edges);
 	d_edges = 0;
-	devMemUsed -= sizeof(uint64_t) * d_edges_size;
+	ca->devMemUsed -= sizeof(uint64_t) * d_edges_size;
 
 	cuMemFree(d_past_edges);
 	d_past_edges = 0;
-	devMemUsed -= sizeof(int) * d_edges_size;
+	ca->devMemUsed -= sizeof(int) * d_edges_size;
 
 	return true;
 }
@@ -996,8 +999,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 //Generate confusion matrix for geodesic distances
 //Compares timelike/spacelike in 4D/5D
-//Save matrix values as well as d_theta and d_eta to file
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, long &seed, CausetMPI &cmpi, Stopwatch &sValidateEmbedding, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, long &seed, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -1009,15 +1011,17 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 		assert (edges.future_edges != NULL);
 		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
+		assert (ca != NULL);
+
 		assert (N_tar > 0);
-		assert (k_tar > 0.0);
+		assert (k_tar > 0.0f);
 		assert (dim == 3);
-		assert (manifold == DE_SITTER);
+		assert (manifold == DE_SITTER || manifold == FLRW);
 		assert (a > 0.0);
-		if (universe)
+		if (manifold == FLRW)
 			assert (alpha > 0.0);
-		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
-		assert (edge_buffer >= 0);
+		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+		assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	}
 
 	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
@@ -1026,10 +1030,8 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	int rank = cmpi.rank;
 
 	#ifdef MPI_ENABLED
-	int edges_size = static_cast<int>(N_tar * k_tar / 2 + edge_buffer);
+	int edges_size = static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
 	int core_edges_size = static_cast<int>(POW2(core_edge_fraction * N_tar, EXACT));
-	//uint64_t *rcounts = NULL;	//Receive counts used for MPI_Gatherv
-	//uint64_t *displs = NULL;	//Displacements used for MPI_Gatherv
 	#endif
 
 	stopwatchStart(&sValidateEmbedding);
@@ -1044,35 +1046,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 			goto ValEmbPoint;
 		}
 		memset(evd.confusion, 0, sizeof(uint64_t) * 4);
-		hostMemUsed += sizeof(uint64_t) * 4;
-
-		/*evd.fn = (float*)malloc(sizeof(float) * npairs * 2);
-		if (evd.fn == NULL)
-			throw std::bad_alloc();
-		memset(evd.fn, 0, sizeof(float) * npairs * 2);
-		hostMemUsed += sizeof(float) * npairs * 2;
-
-		evd.fp = (float*)malloc(sizeof(float) * npairs * 2);
-		if (evd.fp == NULL)
-			throw std::bad_alloc();
-		memset(evd.fp, 0, sizeof(float) * npairs * 2);
-		hostMemUsed += sizeof(float) * npairs * 2;
-
-		#ifdef MPI_ENABLED
-		if (rank == 0) {
-			rcounts = (uint64_t*)malloc(sizeof(uint64_t) * num_mpi_threads);
-			if (rcounts == NULL)
-				throw std::bad_alloc();
-			memset(rcounts, 0, sizeof(uint64_t) * num_mpi_threads);
-			hostMemUsed += sizeof(uint64_t) * num_mpi_threads;
-
-			displs = (uint64_t*)malloc(sizeof(uint64_t) * num_mpi_threads);
-			if (displs == NULL)
-				throw std::bad_alloc();
-			memset(displs, 0, sizeof(uint64_t) * num_mpi_threads);
-			hostMemUsed += sizeof(uint64_t) * num_mpi_threads;
-		}
-		#endif*/
+		ca->hostMemUsed += sizeof(uint64_t) * 4;
 
 		ValEmbPoint:
 		if (checkMpiErrors(cmpi)) {
@@ -1082,9 +1056,9 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 				return false;
 		}
 
-		memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+		memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 		if (verbose)
-			printMemUsed("for Embedding Validation", hostMemUsed, devMemUsed, rank);
+			printMemUsed("for Embedding Validation", ca->hostMemUsed, ca->devMemUsed, rank);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -1157,48 +1131,26 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 		printf("k: %" PRIu64 "    \ti: %d    \tj: %d    \t", k, i, j);
 
 		//Embedded distance
-		double distance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact);
+		double distance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, compact);
 
 		printf("%f\n", distance);
 
 		//Check light cone condition for 4D vs 5D
 		//Null hypothesis is the nodes are not connected
 		if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, i, j)) {
-			if (distance > 0) {
+			if (distance > 0)
 				//True Negative (both timelike)
 				c1++;
-			} else {
+			else
 				//False Positive
 				c2++;
-
-				/*#ifdef _OPENMP
-				#pragma omp critical (tn)
-				{
-				#endif
-				evd.fp[evd.fp_idx++] = static_cast<float>(d_eta);
-				evd.fp[evd.fp_idx++] = static_cast<float>(d_theta);
-				#ifdef _OPENMP
-				}
-				#endif*/
-			}
 		} else {	//Actual Spacelike (Positive)
-			if (distance > 0) {
+			if (distance > 0)
 				//False Negative
 				c3++;
-
-				/*#ifdef _OPENMP
-				#pragma omp critical (fp)
-				{
-				#endif
-				evd.fn[evd.fn_idx++] = static_cast<float>(d_eta);
-				evd.fn[evd.fn_idx++] = static_cast<float>(d_theta);
-				#ifdef _OPENMP
-				}
-				#endif*/
-			} else {
+			else
 				//True Positive (both spacelike)
 				c0++;
-			}
 		}		
 	}
 
@@ -1216,51 +1168,12 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 		MPI_Reduce(MPI_IN_PLACE, evd.confusion, 4, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
 	else
 		MPI_Reduce(evd.confusion, NULL, 4, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
-
-	// Gather (In-Place):
-	// > rcounts
-	/*if (rank == 0) {
-		rcounts[0] = evd.fn_idx;
-		MPI_Gather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, rcounts, num_mpi_threads, MPI_UINT64_T, 0, MPI_COMM_WORLD);
-	} else
-		MPI_Gather(rcounts, num_mpi_threads, MPI_UINT64_T, NULL, 0, MPI_DATATYPE_NULL, 0, MPI_COMM_WORLD);
-
-	if (rank == 0) {
-		int i;
-		displs[0] = 0;
-		for (i = 1; i < num_mpi_threads; i++)
-			displs[i] = displs[i-1] + rcounts[i-1];
-	}*/
-
-	// Gatherv (In-Place):
-	// > evd.fn
-	// > evd.fp
-	/*if (rank == 0)
-		MPI_Gatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, evd.fn, rcounts, displs, MPI_FLOAT, 0, MPI_COMM_WORLD);
-	else
-		MPI_Gatherv(evd.fn, evd.fn_idx, MPI_FLOAT, NULL, NULL, NULL, MPI_DATATYPE_NULL, 0, MPI_COMM_WORLD);*/
-	
-	//Free Buffers
-	/*if (rank == 0) {
-		free(rcounts);
-		rcounts = NULL;
-		hostMemUsed -= sizeof(uint64_t) * num_mpi_threads;
-
-		free(displs);
-		displs = NULL;
-		hostMemUsed -= sizeof(uint64_t) * num_mpi_threads;
-	}*/
 	#endif
 
 	//Number of timelike distances in 4-D native FLRW spacetime
 	evd.A1T = static_cast<double>(N_res * k_res / 2);
 	//Number of spacelike distances in 4-D native FLRW spacetime
 	evd.A1S = static_cast<double>(N_tar) * (N_tar - 1) / 2 - evd.A1T;
-
-	//Normalization
-	//double norm = N_emb / (static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2);
-	//evd.A1T *= norm;
-	//evd.A1S *= norm;
 
 	stopwatchStop(&sValidateEmbedding);
 
@@ -1286,7 +1199,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 //distances calculated with exact formula
 //NOTE: This only works with de Sitter since there is not a known
 //formula for the embedded FLRW distance.
-bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, Stopwatch &sValidateDistances, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose)
+bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, CaResources * const ca, Stopwatch &sValidateDistances, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -1295,11 +1208,11 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 		assert (nodes.crd->x() != NULL);
 		assert (nodes.crd->y() != NULL);
 		assert (nodes.crd->z() != NULL);
+		assert (ca != NULL);
 		assert (N_tar > 0);
 		assert (dim == 3);
 		assert (manifold == DE_SITTER);
 		assert (a > 0.0);
-		assert (!universe);
 	}
 
 	bool DST_DEBUG = true;
@@ -1322,7 +1235,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 		if (dvd.confusion == NULL)
 			throw std::bad_alloc();
 		memset(dvd.confusion, 0, sizeof(uint64_t) * 2);
-		hostMemUsed += sizeof(uint64_t) * 2;
+		ca->hostMemUsed += sizeof(uint64_t) * 2;
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -1330,11 +1243,11 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 
 	if (!getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
 		return false;
-	hostMemUsed += size;
+	ca->hostMemUsed += size;
 
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Validate de Sitter Distance Algorithm", hostMemUsed, devMemUsed, 0);
+		printMemUsed("to Validate de Sitter Distance Algorithm", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	uint64_t c0 = dvd.confusion[0];
 	uint64_t c1 = dvd.confusion[1];
@@ -1369,11 +1282,11 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 		}
 
 		//Distance using embedding
-		double embeddedDistance = ABS(distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, universe, compact), STL);
+		double embeddedDistance = ABS(distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, compact), STL);
 		//printf("\tEmbedded Distance: %f\n", embeddedDistance);
 
 		//Distance using exact formula
-		double exactDistance = distance(table, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, size, universe, compact);
+		double exactDistance = distance(table, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, size, compact);
 		//printf("\tExactDistance: %f\n", exactDistance);
 
 		double abserr = ABS(embeddedDistance - exactDistance, STL) / embeddedDistance;
@@ -1400,7 +1313,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 		
 		if (embeddedDistance < 100) {
 			printf("\nTesting Lookup Table...\n");
-			testOmega12(nodes.id.tau[i], nodes.id.tau[j], ACOS(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)), STL, VERY_HIGH_PRECISION), -0.15, 0.5, 0.001, universe);
+			testOmega12(nodes.id.tau[i], nodes.id.tau[j], ACOS(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)), STL, VERY_HIGH_PRECISION), -0.15, 0.5, 0.001, manifold);
 			printf("\n");
 			fflush(stdout);
 			break;
@@ -1409,7 +1322,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 
 	free(table);
 	table = NULL;
-	hostMemUsed -= size;
+	ca->hostMemUsed -= size;
 
 	dvd.confusion[0] = c0;
 	dvd.confusion[1] = c1;
@@ -1613,7 +1526,7 @@ bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *fi
 }
 
 //Searches a range of lambdas for a match to omega12
-bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const bool &universe)
+bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const Manifold &manifold)
 {
 	if (DEBUG) {
 		assert (tau1 > 0.0f);
@@ -1621,10 +1534,14 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 		assert (omega12 > 0.0);
 		assert (min_lambda < max_lambda);
 		assert (lambda_step > 0.0);
+		assert (manifold == DE_SITTER || manifold == FLRW);
 	}
 
 	printf("\tTesting Geodesic Lookup Algorithm...\n");
 	fflush(stdout);
+
+	if (!(manifold == DE_SITTER || manifold == FLRW))
+		return false;
 
 	if (tau1 > tau2) {
 		float temp = tau1;
@@ -1632,9 +1549,9 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 		tau2 = temp;
 	}
 
-	bool DS_EXACT = true;
+	bool DS_EXACT = false;
 
-	double (*kernel)(double x, void *params) = universe ? &flrwLookupKernel : &deSitterLookupKernel;
+	double (*kernel)(double x, void *params) = (manifold == FLRW) ? &flrwLookupKernel : &deSitterLookupKernel;
 
 	IntData idata = IntData();
 	idata.limit = 50;
@@ -1652,7 +1569,7 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 
 	for (i = 0; i < n_lambda; i++) {
 		double lambda = i * lambda_step + min_lambda;
-		double tau_m = geodesicMaxTau(lambda, universe);
+		double tau_m = geodesicMaxTau(manifold, lambda);
 		printf("tau_m:   %f\t", tau_m);
 		fflush(stdout);
 
@@ -1719,7 +1636,7 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 }
 
 //Generates the lookup tables
-bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const bool &universe, const bool &verbose)
+bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const Manifold &manifold, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (filename != NULL);
@@ -1727,17 +1644,20 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 		assert (min_lambda < max_lambda);
 		assert (tau_step > 0.0);
 		assert (lambda_step > 0.0);
+		assert (manifold == DE_SITTER || manifold == FLRW);
 	}
 
-	if (universe)
+	if (manifold == FLRW)
 		printf("\tGenerating FLRW geodesic lookup table...\n");
-	else
+	else if (manifold == DE_SITTER)
 		printf("\tGenerating de Sitter geodesic lookup table...\n");
+	else
+		return false;
 	fflush(stdout);
 
-	bool DS_EXACT = true;
+	bool DS_EXACT = false;
 
-	double (*kernel)(double x, void *params) = universe ? &flrwLookupKernel : &deSitterLookupKernel;
+	double (*kernel)(double x, void *params) = (manifold == FLRW) ? &flrwLookupKernel : &deSitterLookupKernel;
 
 	Stopwatch sLookup = Stopwatch();
 	IntData idata = IntData();
@@ -1774,7 +1694,7 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 
 				for (k = 0; k < n_lambda; k++) {
 					lambda = k * lambda_step + min_lambda;
-					tau_m = geodesicMaxTau(lambda, universe);
+					tau_m = geodesicMaxTau(manifold, lambda);
 
 					if (tau1 >= tau2 || lambda == 0.0)
 						omega12 = 0.0;
@@ -1850,23 +1770,24 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
-bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &universe, const bool &compact, int source, int dest, bool &success)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
 		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+		assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
 
 		if (manifold == HYPERBOLIC)
 			assert (dim == 1);
 
-		if (dim == 1)
+		if (dim == 1) {
 			assert (nodes.crd->getDim() == 2);
-		else if (dim == 3) {
+			assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+		} else if (dim == 3) {
 			assert (nodes.crd->getDim() == 4);
 			assert (nodes.crd->w() != NULL);
 			assert (nodes.crd->z() != NULL);
-			assert (manifold == DE_SITTER);
+			assert (manifold == DE_SITTER || manifold == FLRW);
 		}
 
 		assert (nodes.crd->x() != NULL);
@@ -1882,10 +1803,10 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 		assert (table != NULL);
 
 		assert (N_tar > 0);
-		if (manifold == DE_SITTER) {
+		if (manifold == DE_SITTER || manifold == FLRW) {
 			assert (a > 0.0);
 			assert (HALF_PI - zeta > 0.0);
-			if (universe)
+			if (manifold == FLRW)
 				assert (alpha > 0.0);
 		}
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
@@ -1967,11 +1888,11 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 			}
 
 			//(C) Otherwise find the past neighbor closest to the destination
-			if (manifold == DE_SITTER) {
+			if (manifold == DE_SITTER || manifold == FLRW) {
 				if (compact)
-					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
 				else
-					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
+					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 
@@ -2026,11 +1947,11 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 			}
 
 			//(F) Otherwise find the future neighbor closest to the destination
-			if (manifold == DE_SITTER) {
+			if (manifold == DE_SITTER || manifold == FLRW) {
 				if (compact)
-					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
 				else
-					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
+					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 

@@ -8,7 +8,7 @@
 
 //Calculates clustering coefficient for each node in network
 //O(N*k^3) Efficiency
-bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, Stopwatch &sMeasureClustering, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &calc_autocorr, const bool &verbose, const bool &bench)
+bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &calc_autocorr, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (edges.past_edges != NULL);
@@ -16,7 +16,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
-
+		assert (ca != NULL);
 		assert (N_tar > 0);
 		assert (N_deg2 > 0);
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
@@ -31,15 +31,15 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 		if (clustering == NULL)
 			throw std::bad_alloc();
 		memset(clustering, 0, sizeof(float) * N_tar);
-		hostMemUsed += sizeof(float) * N_tar;
+		ca->hostMemUsed += sizeof(float) * N_tar;
 	} catch (std::bad_alloc()) {
 		fprintf(stderr, "Failed to allocate memory in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
 	
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Clustering", hostMemUsed, devMemUsed, 0);
+		printMemUsed("to Measure Clustering", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//i represents the node we are calculating the clustering coefficient for (node #1 in triplet)
 	//j represents the second node in the triplet
@@ -146,13 +146,14 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 //Calculates the number of connected components in the graph
 //as well as the size of the giant connected component
 //Efficiency: O(xxx)
-bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, Stopwatch &sMeasureConnectedComponents, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose, const bool &bench)
+bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
+		assert (ca != NULL);
 		assert (N_tar > 0);
 	}
 
@@ -169,7 +170,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 			goto MccPoint;
 		}
 		memset(nodes.cc_id, 0, sizeof(int) * N_tar);
-		hostMemUsed += sizeof(int) * N_tar;
+		ca->hostMemUsed += sizeof(int) * N_tar;
 
 		MccPoint:
 		if (checkMpiErrors(cmpi)) {
@@ -183,9 +184,9 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 		return false;
 	}
 	
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Components", hostMemUsed, devMemUsed, rank);
+		printMemUsed("to Measure Components", ca->hostMemUsed, ca->devMemUsed, rank);
 
 	if (!rank) {
 		for (i = 0; i < N_tar; i++) {
@@ -231,23 +232,24 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const int &edge_buffer, long &seed, CausetMPI &cmpi, Stopwatch &sMeasureSuccessRatio, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, long &seed, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
 		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+		assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
 
 		if (manifold == HYPERBOLIC)
 			assert (dim == 1);
 
 		if (dim == 1) {
 			assert (nodes.crd->getDim() == 2);
+			assert (manifold == HYPERBOLIC);
 		} else if (dim == 3) {
 			assert (nodes.crd->getDim() == 4);
 			assert (nodes.crd->w() != NULL);
 			assert (nodes.crd->z() != NULL);
-			assert (manifold == DE_SITTER);
+			assert (manifold == DE_SITTER || manifold == FLRW);
 		}
 
 		assert (nodes.crd->x() != NULL);
@@ -257,14 +259,14 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
+		assert (ca != NULL);
 
 		assert (N_tar > 0);
 		assert (N_sr > 0 && N_sr <= ((uint64_t)N_tar * (N_tar - 1)) >> 1);
-		assert (!(dim == 1 && manifold == DE_SITTER));
-		if (manifold == DE_SITTER && universe)
+		if (manifold == FLRW)
 			assert (alpha > 0);
-		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
-		assert (edge_buffer >= 0);
+		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+		assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	}
 
 	bool SR_DEBUG = true;
@@ -287,7 +289,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	bool fail = false;
 
 	#ifdef MPI_ENABLED
-	int edges_size = static_cast<int>(N_tar * k_tar / 2 + edge_buffer);
+	int edges_size = static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
 	int core_edges_size = static_cast<int>(POW2(core_edge_fraction * N_tar, EXACT));
 	#endif
 
@@ -305,7 +307,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 			goto SrPoint1;
 		}
 		memset(used, 0, u_size);
-		hostMemUsed += u_size;
+		ca->hostMemUsed += u_size;
 
 		SrPoint1:
 		if (checkMpiErrors(cmpi)) {
@@ -319,17 +321,17 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		return false;
 	}
 
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Success Ratio", hostMemUsed, devMemUsed, rank);
+		printMemUsed("to Measure Success Ratio", ca->hostMemUsed, ca->devMemUsed, rank);
 
-	if (universe && !getLookupTable("./etc/geodesics_flrw_table.cset.bin", &table, &size))
+	if (manifold == FLRW && !getLookupTable("./etc/geodesics_flrw_table.cset.bin", &table, &size))
 		cmpi.fail = 1;
-	else if (!universe && !getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
+	else if (manifold == DE_SITTER && !getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
 		cmpi.fail = 1;
 	if (checkMpiErrors(cmpi))
 		return false;
-	hostMemUsed += size;
+	ca->hostMemUsed += size;
 
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -339,7 +341,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		MPI_Bcast(nodes.crd->w(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(nodes.crd->z(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	}
-	if (manifold == DE_SITTER)
+	if (manifold == DE_SITTER || manifold == FLRW)
 		MPI_Bcast(nodes.id.tau, N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(nodes.k_in, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
@@ -419,10 +421,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		//Begin Traversal from i to j
 		bool success = false;
 		if (TRAVERSE_V2) {
-			if (!traversePath_v2(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, universe, compact, i, j, success))
+			if (!traversePath_v2(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, compact, i, j, success))
 				fail = true;
 		} else {
-			if (!traversePath_v1(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, universe, compact, i, j, success))
+			if (!traversePath_v1(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, compact, i, j, success))
 				fail = true;
 		}
 
@@ -445,11 +447,11 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 
 	free(used);
 	used = NULL;
-	hostMemUsed -= u_size;
+	ca->hostMemUsed -= u_size;
 
 	free(table);
 	table = NULL;
-	hostMemUsed -= size;
+	ca->hostMemUsed -= size;
 
 	if (fail)
 		cmpi.fail = 1;
@@ -495,23 +497,24 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //O(xxx) Efficiency (revise this)
-bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &universe, const bool &compact, int source, int dest, bool &success)
+bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
 		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+		assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
 
 		if (manifold == HYPERBOLIC)
 			assert (dim == 1);
 
-		if (dim == 1)
+		if (dim == 1) {
 			assert (nodes.crd->getDim() == 2);
-		else if (dim == 3) {
+			assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+		} else if (dim == 3) {
 			assert (nodes.crd->getDim() == 4);
 			assert (nodes.crd->w() != NULL);
 			assert (nodes.crd->z() != NULL);
-			assert (manifold == DE_SITTER);
+			assert (manifold == DE_SITTER || manifold == FLRW);
 		}
 
 		assert (nodes.crd->x() != NULL);
@@ -527,10 +530,10 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 		assert (table != NULL);
 		
 		assert (N_tar > 0);
-		if (manifold == DE_SITTER) {
+		if (manifold == DE_SITTER || manifold == FLRW) {
 			assert (a > 0.0);
 			assert (HALF_PI - zeta > 0.0);
-			if (universe)
+			if (manifold == FLRW)
 				assert (alpha > 0.0);
 		}
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
@@ -612,20 +615,20 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 			}
 
 			//(C) Otherwise find the past neighbor closest to the destination
-			if (manifold == DE_SITTER) {
+			if (manifold == DE_SITTER || manifold == FLRW) {
 				if (compact)
-					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
 				else {
 					//DEBUG
 					//printf_cyan();
 					//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(idx_a), nodes.crd->x(idx_a), nodes.crd->y(idx_a), nodes.crd->z(idx_a));
 					//printf_std();
 
-					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10.0, 10.0, 0.1, universe);
+					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10.0, 10.0, 0.1, manifold);
 					//printf("CHECKPOINT\n");
 					//exit(0);
 
-					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
+					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
 
 					/*if (dist + 1 > INF) {
 						printf_red();
@@ -718,20 +721,20 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 			}
 
 			//(F) Otherwise find the future neighbor closest to the destination
-			if (manifold == DE_SITTER) {
+			if (manifold == DE_SITTER || manifold == FLRW) {
 				if (compact)
-					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, universe, compact);
+					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
 				else {
 					//DEBUG
 					//printf_cyan();
 					//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(idx_a), nodes.crd->x(idx_a), nodes.crd->y(idx_a), nodes.crd->z(idx_a));
 					//printf_std();
 
-					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10, 10, 0.01, universe);
+					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10, 10, 0.01, manifold);
 					//printf("CHECKPOINT\n");
 					//exit(0);
 
-					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, universe, compact);
+					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
 
 					/*if (dist + 1 > INF) {
 						printf_red();
@@ -814,26 +817,25 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m
 //O(xxx) Efficiency (revise this)
-bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, Stopwatch &sMeasureDegreeField, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &universe, const bool &compact, const bool &verbose, const bool &bench)
+bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, CaResources * const ca, Stopwatch &sMeasureDegreeField, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
-		//No Null Pointers
 		assert (c->getDim() == 4);
 		assert (!c->isNull());
 		assert (c->w() != NULL);
 		assert (c->x() != NULL);
 		assert (c->y() != NULL);
 		assert (c->z() != NULL);
+		assert (ca != NULL);
 
-		//Parameters in Correct Ranges
 		assert (N_tar > 0);
 		assert (N_df > 0);
 		assert (tau_m > 0.0);
 		assert (dim == 3);
-		assert (manifold == DE_SITTER);
+		assert (manifold == DE_SITTER || manifold == FLRW);
 		assert (a > 0.0);
 		assert (HALF_PI - zeta > 0.0);
-		if (universe)
+		if (manifold == FLRW)
 			assert (alpha > 0.0);
 	}
 
@@ -853,7 +855,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 	//Calculate theoretical values
 	double k_in_theory = 0.0;
 	double k_out_theory = 0.0;
-	bool theoretical = universe && verbose;
+	bool theoretical = (manifold == FLRW) && verbose;
 
 	//Modify number of samples
 	N_df = 1;
@@ -862,7 +864,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 	//Modify these two parameters to trade off between speed and accuracy
 	idata.limit = 50;
 	idata.tol = 1e-5;
-	if (universe && (USE_GSL || theoretical))
+	if (manifold == FLRW && (USE_GSL || theoretical))
 		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 	stopwatchStart(&sMeasureDegreeField);
@@ -873,23 +875,23 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		if (in_degree_field == NULL)
 			throw std::bad_alloc();
 		memset(in_degree_field, 0, N_df);
-		hostMemUsed += sizeof(int) * N_df;
+		ca->hostMemUsed += sizeof(int) * N_df;
 
 		out_degree_field = (int*)malloc(sizeof(int) * N_df);
 		if (out_degree_field == NULL)
 			throw std::bad_alloc();
 		memset(out_degree_field, 0, N_df);
-		hostMemUsed += sizeof(int) * N_df;
+		ca->hostMemUsed += sizeof(int) * N_df;
 
 		if (theoretical) {
 			if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
 				return false;
-			hostMemUsed += size;
+			ca->hostMemUsed += size;
 
 			params = (double*)malloc(size + sizeof(double) * 4);
 			if (params == NULL)
 				throw std::bad_alloc();
-			hostMemUsed += size + sizeof(double) * 4;
+			ca->hostMemUsed += size + sizeof(double) * 4;
 
 			params2 = (double*)malloc(sizeof(double));
 			if (params == NULL)
@@ -900,12 +902,12 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		return false;
 	}
 
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Degree Fields", hostMemUsed, devMemUsed, 0);
+		printMemUsed("to Measure Degree Fields", ca->hostMemUsed, ca->devMemUsed, 0);
 	
 	//Calculate eta_m
-	if (universe) {
+	if (manifold == FLRW) {
 		if (USE_GSL) {
 			//Numerical Integration
 			idata.upper = tau_m * a;
@@ -915,7 +917,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		} else
 			//Exact Solution
 			eta_m = tauToEtaFLRWExact(tau_m, a, alpha);
-	} else
+	} else if (manifold == DE_SITTER)
 		eta_m = tauToEta(tau_m);
 	test_node.w = static_cast<float>(eta_m);
 	
@@ -942,7 +944,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 		free(params);
 		params = NULL;
-		hostMemUsed -= size + sizeof(double) * 4;
+		ca->hostMemUsed -= size + sizeof(double) * 4;
 
 		free(params2);
 		params2 = NULL;
@@ -1019,7 +1021,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 	stopwatchStop(&sMeasureDegreeField);
 
-	if (universe && (USE_GSL || theoretical))
+	if (manifold == FLRW && (USE_GSL || theoretical))
 		gsl_integration_workspace_free(idata.workspace);
 
 	if (!bench) {
@@ -1053,7 +1055,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 //Measure Causal Set Action
 //O(N*k^2*ln(k)) Efficiency (Linked)
 //O(N^2*k) Efficiency (No Links)
-bool measureAction(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const float &core_edge_fraction, Stopwatch &sMeasureAction, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
+bool measureAction(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
@@ -1084,6 +1086,7 @@ bool measureAction(int *& cardinalities, float &action, const Node &nodes, const
 			assert (edges.future_edge_row_start != NULL);
 			assert (core_edge_exists != NULL);
 		}
+		assert (ca != NULL);
 		
 		assert (N_tar > 0);
 		assert (max_cardinality > 0);
@@ -1107,15 +1110,15 @@ bool measureAction(int *& cardinalities, float &action, const Node &nodes, const
 		if (cardinalities == NULL)
 			throw std::bad_alloc();
 		memset(cardinalities, 0, max_cardinality);
-		hostMemUsed += sizeof(int) * max_cardinality;
+		ca->hostMemUsed += sizeof(int) * max_cardinality;
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
 
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Action", hostMemUsed, devMemUsed, 0);
+		printMemUsed("to Measure Action", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	cardinalities[0] = N_tar;
 

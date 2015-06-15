@@ -151,7 +151,7 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const int &edge_buffer, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -165,10 +165,11 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
 		assert (core_edge_exists != NULL);
+		assert (ca != NULL);
 		assert (N_tar > 0);
-		assert (k_tar > 0);
+		assert (k_tar > 0.0f);
 		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-		assert (edge_buffer >= 0);
+		assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	}
 
 	Stopwatch sGenAdjList = Stopwatch();
@@ -180,7 +181,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	uint64_t *h_edges;
 	int *g_idx;
 
-	size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar / 2 + edge_buffer)));
+	size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
 
 	stopwatchStart(&sLinkNodesGPU);
 
@@ -190,13 +191,13 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		if (h_edges == NULL)
 			throw std::bad_alloc();
 		memset(h_edges, 0, sizeof(uint64_t) * d_edges_size);
-		hostMemUsed += sizeof(uint64_t) * d_edges_size;
+		ca->hostMemUsed += sizeof(uint64_t) * d_edges_size;
 
 		g_idx = (int*)malloc(sizeof(int));
 		if (g_idx == NULL)
 			throw std::bad_alloc();
 		memset(g_idx, 0, sizeof(int));
-		hostMemUsed += sizeof(int);
+		ca->hostMemUsed += sizeof(int);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -204,16 +205,16 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	stopwatchStart(&sGenAdjList);
 	if (GEN_ADJ_LISTS_GPU_V2) {
-		if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, ctx, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, compact, verbose))
+		if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, ca, ctx, compact, verbose))
 			return false;
 	} else {
-		if (!generateLists_v1(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, compact, verbose))
+		if (!generateLists_v1(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, ca, compact, verbose))
 			return false;
 	}
 	stopwatchStop(&sGenAdjList);
 
 	try {
-		if (*g_idx + 1 >= N_tar * k_tar / 2 + edge_buffer)
+		if (*g_idx + 1 >= static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
 			throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
@@ -233,10 +234,10 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	//Decode Adjacency Lists
 	stopwatchStart(&sDecodeLists);
 	if (DECODE_LISTS_GPU_V2) {
-		if (!decodeLists_v2(edges, h_edges, g_idx, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
+		if (!decodeLists_v2(edges, h_edges, g_idx, d_edges_size, ca, verbose))
 			return false;
 	} else {
-		if (!decodeLists_v1(edges, h_edges, g_idx, d_edges_size, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
+		if (!decodeLists_v1(edges, h_edges, g_idx, d_edges_size, ca, verbose))
 			return false;
 	}
 	stopwatchStop(&sDecodeLists);
@@ -244,14 +245,14 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	//Free Host Memory
 	free(h_edges);
 	h_edges = NULL;
-	hostMemUsed -= sizeof(uint64_t) * d_edges_size;
+	ca->hostMemUsed -= sizeof(uint64_t) * d_edges_size;
 	
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_k_in, sizeof(int) * N_tar));
-	devMemUsed += sizeof(int) * N_tar;
+	ca->devMemUsed += sizeof(int) * N_tar;
 
 	checkCudaErrors(cuMemAlloc(&d_k_out, sizeof(int) * N_tar));
-	devMemUsed += sizeof(int) * N_tar;
+	ca->devMemUsed += sizeof(int) * N_tar;
 
 	//Copy Memory from Host to Device
 	checkCudaErrors(cuMemcpyHtoD(d_k_in, nodes.k_in, sizeof(int) * N_tar));
@@ -259,7 +260,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	//Identify Resulting Network Properties
 	stopwatchStart(&sProps);
-	if (!identifyListProperties(nodes, d_k_in, d_k_out, g_idx, N_tar, N_res, N_deg2, k_res, hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed, verbose))
+	if (!identifyListProperties(nodes, d_k_in, d_k_out, g_idx, N_tar, N_res, N_deg2, k_res, ca, verbose))
 		return false;
 	stopwatchStop(&sProps);	
 
@@ -271,11 +272,11 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	//Free Device Memory
 	cuMemFree(d_k_in);
 	d_k_in = 0;
-	devMemUsed -= sizeof(int) * N_tar;
+	ca->devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_k_out);
 	d_k_out = 0;
-	devMemUsed -= sizeof(int) * N_tar;
+	ca->devMemUsed -= sizeof(int) * N_tar;
 
 	stopwatchStop(&sLinkNodesGPU);
 
@@ -306,7 +307,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	//Free Host Memory
 	free(g_idx);
 	g_idx = NULL;
-	hostMemUsed -= sizeof(int);
+	ca->hostMemUsed -= sizeof(int);
 
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sLinkNodesGPU.elapsedTime);
@@ -320,7 +321,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &compact, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, CaResources * const ca, const CUcontext &ctx, const bool &compact, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.crd->getDim() == 4);
@@ -333,6 +334,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 		assert (nodes.k_out != NULL);
 		assert (core_edge_exists != NULL);
 		assert (g_idx != NULL);
+		assert (ca != NULL);
 		assert (N_tar > 0);
 		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	}
@@ -375,39 +377,39 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	//Allocate Memory
 	for (i = 0; i < NBUFFERS; i++) {
 		checkCudaErrors(cuMemHostAlloc((void**)&h_k_in[i], sizeof(int) * mthread_size, CU_MEMHOSTALLOC_PORTABLE));
-		hostMemUsed += sizeof(int) * mthread_size;
+		ca->hostMemUsed += sizeof(int) * mthread_size;
 
 		checkCudaErrors(cuMemHostAlloc((void**)&h_k_out[i], sizeof(int) * mthread_size, CU_MEMHOSTALLOC_PORTABLE));
-		hostMemUsed += sizeof(int) * mthread_size;
+		ca->hostMemUsed += sizeof(int) * mthread_size;
 
 		checkCudaErrors(cuMemHostAlloc((void**)&h_edges[i], sizeof(bool) * m_edges_size, CU_MEMHOSTALLOC_PORTABLE));
-		hostMemUsed += sizeof(bool) * m_edges_size;
+		ca->hostMemUsed += sizeof(bool) * m_edges_size;
 
 		checkCudaErrors(cuMemAlloc(&d_w0[i], sizeof(float) * mthread_size));
 		checkCudaErrors(cuMemAlloc(&d_x0[i], sizeof(float) * mthread_size));
 		checkCudaErrors(cuMemAlloc(&d_y0[i], sizeof(float) * mthread_size));
 		checkCudaErrors(cuMemAlloc(&d_z0[i], sizeof(float) * mthread_size));
-		devMemUsed += sizeof(float) * mthread_size * 4;
+		ca->devMemUsed += sizeof(float) * mthread_size * 4;
 
 		checkCudaErrors(cuMemAlloc(&d_w1[i], sizeof(float) * mthread_size));
 		checkCudaErrors(cuMemAlloc(&d_x1[i], sizeof(float) * mthread_size));
 		checkCudaErrors(cuMemAlloc(&d_y1[i], sizeof(float) * mthread_size));
 		checkCudaErrors(cuMemAlloc(&d_z1[i], sizeof(float) * mthread_size));
-		devMemUsed += sizeof(float) * mthread_size * 4;
+		ca->devMemUsed += sizeof(float) * mthread_size * 4;
 
 		checkCudaErrors(cuMemAlloc(&d_k_in[i], sizeof(int) * mthread_size));
-		devMemUsed += sizeof(int) * mthread_size;
+		ca->devMemUsed += sizeof(int) * mthread_size;
 
 		checkCudaErrors(cuMemAlloc(&d_k_out[i], sizeof(int) * mthread_size));
-		devMemUsed += sizeof(int) * mthread_size;
+		ca->devMemUsed += sizeof(int) * mthread_size;
 
 		checkCudaErrors(cuMemAlloc(&d_edges[i], sizeof(bool) * m_edges_size));
-		devMemUsed += sizeof(bool) * m_edges_size;
+		ca->devMemUsed += sizeof(bool) * m_edges_size;
 	}
 	
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Generating Lists on GPU", hostMemUsed, devMemUsed, 0);
+		printMemUsed("for Generating Lists on GPU", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//CUDA Grid Specifications
 	unsigned int gridx = static_cast<unsigned int>(ceil(static_cast<float>(mthread_size) / THREAD_SIZE));
@@ -475,15 +477,15 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	for (i = 0; i < NBUFFERS; i++) {
 		cuMemFreeHost(h_k_in[i]);
 		h_k_in[i] = NULL;
-		hostMemUsed -= sizeof(int) * mthread_size;
+		ca->hostMemUsed -= sizeof(int) * mthread_size;
 
 		cuMemFreeHost(h_k_out[i]);
 		h_k_out[i] = NULL;
-		hostMemUsed -= sizeof(int) * mthread_size;
+		ca->hostMemUsed -= sizeof(int) * mthread_size;
 
 		cuMemFreeHost(h_edges[i]);
 		h_edges[i] = NULL;
-		hostMemUsed -= sizeof(bool) * m_edges_size;
+		ca->hostMemUsed -= sizeof(bool) * m_edges_size;
 
 		cuMemFree(d_w0[i]);
 		d_w0[i] = 0;
@@ -497,7 +499,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 		cuMemFree(d_z0[i]);
 		d_z0[i] = 0;
 
-		devMemUsed -= sizeof(float) * mthread_size * 4;
+		ca->devMemUsed -= sizeof(float) * mthread_size * 4;
 
 		cuMemFree(d_w1[i]);
 		d_w1[i] = 0;
@@ -511,19 +513,19 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 		cuMemFree(d_z1[i]);
 		d_z1[i] = 0;
 
-		devMemUsed -= sizeof(float) * mthread_size * 4;
+		ca->devMemUsed -= sizeof(float) * mthread_size * 4;
 
 		cuMemFree(d_k_in[i]);
 		d_k_in[i] = 0;
-		devMemUsed -= sizeof(int) * mthread_size;
+		ca->devMemUsed -= sizeof(int) * mthread_size;
 
 		cuMemFree(d_k_out[i]);
 		d_k_out[i] = 0;
-		devMemUsed -= sizeof(int) * mthread_size;
+		ca->devMemUsed -= sizeof(int) * mthread_size;
 
 		cuMemFree(d_edges[i]);
 		d_edges[i] = 0;
-		devMemUsed -= sizeof(bool) * m_edges_size;
+		ca->devMemUsed -= sizeof(bool) * m_edges_size;
 	}
 
 	//Destroy Streams
@@ -537,14 +539,14 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 }
 
 //Decode past and future edge lists using Bitonic Sort
-bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, CaResources * const ca, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (h_edges != NULL);
 		assert (g_idx != NULL);
-
+		assert (ca != NULL);
 		assert (*g_idx > 0);
 		assert (d_edges_size > 0);
 	}
@@ -569,7 +571,7 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 
 	//Allocate Global Device Memory
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
-	devMemUsed += sizeof(uint64_t) * d_edges_size;
+	ca->devMemUsed += sizeof(uint64_t) * d_edges_size;
 
 	//Copy Memory from Host to Device
 	checkCudaErrors(cuMemcpyHtoD(d_edges, h_edges, sizeof(uint64_t) * d_edges_size));
@@ -593,11 +595,11 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_future_edges, sizeof(int) * g_mthread_size));
-	devMemUsed += sizeof(int) * g_mthread_size;
+	ca->devMemUsed += sizeof(int) * g_mthread_size;
 
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Bitonic Sorting", hostMemUsed, devMemUsed, 0);
+		printMemUsed("for Bitonic Sorting", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//CUDA Grid Specifications
 	unsigned int gridx_decode = static_cast<unsigned int>(ceil(static_cast<float>(g_mthread_size) / BLOCK_SIZE));
@@ -628,7 +630,7 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 	//Free Device Memory
 	cuMemFree(d_future_edges);
 	d_future_edges = 0;
-	devMemUsed -= sizeof(int) * g_mthread_size;
+	ca->devMemUsed -= sizeof(int) * g_mthread_size;
 
 	//Resort Edges with New Encoding
 	for (k = 2; k <= d_edges_size; k <<= 1) {
@@ -641,7 +643,7 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_past_edges, sizeof(int) * g_mthread_size));
-	devMemUsed += sizeof(int) * g_mthread_size;
+	ca->devMemUsed += sizeof(int) * g_mthread_size;
 
 	for (i = 0; i < GROUP_SIZE; i++) {
 		//Clear Device Buffers
@@ -668,22 +670,22 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 	//Free Device Memory
 	cuMemFree(d_past_edges);
 	d_past_edges = 0;
-	devMemUsed -= sizeof(int) * g_mthread_size;
+	ca->devMemUsed -= sizeof(int) * g_mthread_size;
 
 	cuMemFree(d_edges);
 	d_edges = 0;
-	devMemUsed -= sizeof(uint64_t) * d_edges_size;
+	ca->devMemUsed -= sizeof(uint64_t) * d_edges_size;
 
 	return true;
 }
 
 //Parallel Prefix Sum of 'k_in' and 'k_out' and Write to Edge Pointers
-bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d_k_out, const int &N_tar, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d_k_out, const int &N_tar, CaResources * const ca, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
-
+		assert (ca != NULL);
 		assert (N_tar > 0);
 	}
 
@@ -693,20 +695,20 @@ bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d
 
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_past_edge_row_start, sizeof(int) * N_tar));
-	devMemUsed += sizeof(int) * N_tar;
+	ca->devMemUsed += sizeof(int) * N_tar;
 
 	checkCudaErrors(cuMemAlloc(&d_future_edge_row_start, sizeof(int) * N_tar));
-	devMemUsed += sizeof(int) * N_tar;
+	ca->devMemUsed += sizeof(int) * N_tar;
 
 	checkCudaErrors(cuMemAlloc(&d_buf, sizeof(int) * (BLOCK_SIZE << 1)));
-	devMemUsed += sizeof(int) * (BLOCK_SIZE << 1);
+	ca->devMemUsed += sizeof(int) * (BLOCK_SIZE << 1);
 
 	checkCudaErrors(cuMemAlloc(&d_buf_scanned, sizeof(int) * (BLOCK_SIZE << 1)));
-	devMemUsed += sizeof(int) * (BLOCK_SIZE << 1);
+	ca->devMemUsed += sizeof(int) * (BLOCK_SIZE << 1);
 	
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Parallel Prefix Sum", hostMemUsed, devMemUsed, 0);
+		printMemUsed("for Parallel Prefix Sum", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_past_edge_row_start, 0, N_tar));
@@ -778,30 +780,29 @@ bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d
 	//Free Device Memory
 	cuMemFree(d_past_edge_row_start);
 	d_past_edge_row_start = 0;
-	devMemUsed -= sizeof(int) * N_tar;
+	ca->devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_future_edge_row_start);
 	d_future_edge_row_start = 0;
-	devMemUsed -= sizeof(int) * N_tar;
+	ca->devMemUsed -= sizeof(int) * N_tar;
 
 	cuMemFree(d_buf);
 	d_buf = 0;
-	devMemUsed -= sizeof(int) * (BLOCK_SIZE << 1);
+	ca->devMemUsed -= sizeof(int) * (BLOCK_SIZE << 1);
 
 	cuMemFree(d_buf_scanned);
 	d_buf_scanned = 0;
-	devMemUsed -= sizeof(int) * (BLOCK_SIZE << 1);
+	ca->devMemUsed -= sizeof(int) * (BLOCK_SIZE << 1);
 
 	return true;
 }
 
-bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const CUdeviceptr &d_k_out, const int *g_idx, const int &N_tar, int &N_res, int &N_deg2, float &k_res, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed, const bool &verbose)
+bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const CUdeviceptr &d_k_out, const int *g_idx, const int &N_tar, int &N_res, int &N_deg2, float &k_res, CaResources * const ca, const bool &verbose)
 {
 	if (DEBUG) {
 		assert (nodes.k_in != NULL);
 		assert (nodes.k_out != NULL);
 		assert (g_idx != NULL);
-
 		assert (N_tar > 0);
 	}
 
@@ -809,14 +810,14 @@ bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const 
 
 	//Allocate Device Memory
 	checkCudaErrors(cuMemAlloc(&d_N_res, sizeof(int)));
-	devMemUsed += sizeof(int);
+	ca->devMemUsed += sizeof(int);
 
 	checkCudaErrors(cuMemAlloc(&d_N_deg2, sizeof(int)));
-	devMemUsed += sizeof(int);
+	ca->devMemUsed += sizeof(int);
 	
-	memoryCheckpoint(hostMemUsed, maxHostMemUsed, devMemUsed, maxDevMemUsed);
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Identifying List Properties", hostMemUsed, devMemUsed, 0);
+		printMemUsed("for Identifying List Properties", ca->hostMemUsed, ca->devMemUsed, 0);
 	
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_N_res, 0, 1));
@@ -854,11 +855,11 @@ bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const 
 	//Free Device Memory
 	cuMemFree(d_N_res);
 	d_N_res = 0;
-	devMemUsed -= sizeof(int);
+	ca->devMemUsed -= sizeof(int);
 
 	cuMemFree(d_N_deg2);
 	d_N_deg2 = 0;
-	devMemUsed -= sizeof(int);
+	ca->devMemUsed -= sizeof(int);
 
 	return true;
 }

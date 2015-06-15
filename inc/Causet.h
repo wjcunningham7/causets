@@ -99,12 +99,21 @@ typedef int CUcontext;
 
 #endif
 
+//Causal Set Resources
+struct CaResources {
+	CaResources() : hostMemUsed(0), maxHostMemUsed(0), devMemUsed(0), maxDevMemUsed(0) {}
+
+	//Memory Allocated (in bytes)
+	size_t hostMemUsed;
+	size_t maxHostMemUsed;
+	size_t devMemUsed;
+	size_t maxDevMemUsed;
+};
+
 //Manifold Types
-//NOTE: FLRW is indicated by a DE_SITTER manifold along with
-//the flag 'universe' equal to true.  This is a misnomer that will
-//later be corrected.
 enum Manifold {
 	DE_SITTER,
+	FLRW,
 	HYPERBOLIC
 };
 
@@ -314,14 +323,9 @@ struct Edge {
 
 //Embedding Validation Data
 struct EVData {
-	EVData() : confusion(NULL), fn(NULL), fp(NULL), fn_idx(0), fp_idx(0), A1T(0.0), A1S(0.0) {}
+	EVData() : confusion(NULL), A1T(0.0), A1S(0.0) {}
 
 	uint64_t *confusion;		//Confusion Matrix
-	float *fn;			//False Negatives
-	float *fp;			//False Positives
-
-	uint64_t fn_idx;		//Index for emb_fn array
-	uint64_t fp_idx;		//Index for emb_fp array
 
 	double A1T;			//Normalization for timelike distances
 	double A1S;			//Normalization for spacelike distances
@@ -336,22 +340,6 @@ struct DVData {
 	double norm;			//Normalization constant
 };
 
-//These are conflicts which arise due to over-constraining
-//the system with command-line arguments
-struct CausetConflicts {
-	CausetConflicts() {}
-
-	//Type 0:			a, lambda
-	//Type 1:			omegaL, ratio
-	//Type 2:			omegaL, tau0
-	//Type 3:			tau0, ratio
-	//Type 4:			N_tar, delta, alpha, ratio
-	//Type 5:			N_tar, delta, alpha, omegaL
-	//Type 6:			N_tar, delta, alpha, tau0
-
-	int conflicts[7];
-};
-
 struct CausetMPI {
 	CausetMPI() : num_mpi_threads(1), rank(0), fail(0) {}
 	int num_mpi_threads;		//Number of MPI Threads
@@ -361,23 +349,18 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : cc(CausetConflicts()), use_gpu(false), disp_network(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), gen_ds_table(false), gen_flrw_table(false), universe(false), compact(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_geodesics(false), validate_embedding(false), validate_distances(false), verbose(false), bench(false), yes(false), test(false) {}
-
-	CausetConflicts cc;		//Conflicting Parameters
+	CausetFlags() : use_gpu(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_geodesics(false), validate_embedding(false), validate_distances(false), compact(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
-	bool disp_network;		//Plot Network using OpenGL
 	bool print_network;		//Print to File
 	bool link;			//Link Nodes after Generation
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
+
 	bool read_old_format;		//Read Node Positions in the Format (theta3, theta2, theta1)
 	bool quiet_read;		//Ignore Warnings when Reading Graph
 	bool gen_ds_table;		//Generate de Sitter geodesic lookup table
 	bool gen_flrw_table;		//Generate FLRW geodesic lookup table
 	
-	bool universe;			//Simulate FLRW Spacetime
-	bool compact;			//Use Compactification of theta1 Coordinate
-
 	bool calc_clustering;		//Find Clustering Coefficients
 	bool calc_components;		//Find Connected Components
 	bool calc_success_ratio;	//Find Success Ratio
@@ -389,6 +372,7 @@ struct CausetFlags {
 	bool validate_embedding;	//Find Embedding Statistics
 	bool validate_distances;	//Compare Distance Methods
 	
+	bool compact;			//Use Compactification of theta1 Coordinate
 	bool verbose;			//Verbose Output
 	bool bench;			//Benchmark Algorithms
 	bool yes;			//Suppresses User Input
@@ -397,7 +381,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(10000), tau_m(0.0), N_dst(0.0), max_cardinality(5), dim(3), manifold(DE_SITTER), a(0.0), lambda(0.0), zeta(1.0), chi_max(1.0), tau0(0.0), alpha(0.0), delta(500.0), R0(0.0), omegaM(0.0), omegaL(0.0), ratio(1.0), rhoM(0.0), rhoL(0.0), core_edge_fraction(0.01), edge_buffer(0), seed(-12345L), graphID(0), cmpi(CausetMPI()) {}
+	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), dim(3), manifold(DE_SITTER), a(0.0), zeta(0.0), chi_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(-12345L), graphID(0), cmpi(CausetMPI()) {}
 
 	CausetFlags flags;
 
@@ -415,24 +399,18 @@ struct NetworkProperties {
 	Manifold manifold;		//Manifold of the Network
 
 	double a;			//Hyperboloid Pseudoradius
-	double lambda;			//Cosmological Constant
 	double zeta;			//Pi/2 - Eta_0
 
 	double chi_max;			//Size of the Spatial Slice
 	double tau0;			//Rescaled Age of Universe
 	double alpha;			//Rescaled Ratio of Matter Density to Dark Energy Density
 	double delta;			//Node Density
-	double R0;			//Scale Factor at Present Time
 
 	double omegaM;			//Matter Density
 	double omegaL;			//Dark Energy Density
-	double ratio;			//Ratio of Energy Density to Matter Density
-
-	double rhoM;			//Rescaled Matter Density
-	double rhoL;			//Rescaled Energy Density
 
 	float core_edge_fraction;	//Fraction of nodes designated as having core edges
-	int edge_buffer;		//Small memory buffer for adjacency list
+	float edge_buffer;		//Fraction of edge list added as a buffer
 
 	long seed;			//Random Seed
 	int graphID;			//Unique Simulation ID
@@ -539,11 +517,11 @@ protected:
 //Function prototypes for those described in src/Causet.cu
 NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi);
 
-bool initializeNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+bool initializeNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
 
-bool measureNetworkObservables(Network * const network, CausetPerformance * const cp, Benchmark * const bm, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+bool measureNetworkObservables(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm);
 
-bool loadNetwork(Network * const network, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx, size_t &hostMemUsed, size_t &maxHostMemUsed, size_t &devMemUsed, size_t &maxDevMemUsed);
+bool loadNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
 
 bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed, const int &gpuID);
 

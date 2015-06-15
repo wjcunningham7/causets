@@ -162,10 +162,10 @@ void printChk()
 #ifdef CUDA_ENABLED
 
 //Initialize connection to GPU
-void connectToGPU(Resources *resources, int argc, char **argv, const int &rank)
+void connectToGPU(CuResources *cu, int argc, char **argv, const int &rank)
 {
 	//No null pointers
-	if (CU_DEBUG) assert (resources != NULL);
+	if (CU_DEBUG) assert (cu != NULL);
 
 	//Pick CUDA Device
 	CUresult status;
@@ -173,10 +173,10 @@ void connectToGPU(Resources *resources, int argc, char **argv, const int &rank)
 
 	checkCudaErrors(cuInit(0));
 	checkCudaErrors(cuDeviceGetCount(&devCount));
-	if (CU_DEBUG) assert(resources->gpuID > -1 && resources->gpuID < devCount);
-	resources->cuDevice = findCudaDevice(resources->gpuID, rank);
+	if (CU_DEBUG) assert(cu->gpuID > -1 && cu->gpuID < devCount);
+	cu->cuDevice = findCudaDevice(cu->gpuID, rank);
 
-	checkCudaErrors(cuDeviceComputeCapability(&major, &minor, resources->cuDevice));
+	checkCudaErrors(cuDeviceComputeCapability(&major, &minor, cu->cuDevice));
 
 	//Statistics about the Device
 	printf_mpi(rank, "> GPU device has SM %d.%d compute capabilities\n", major, minor);
@@ -193,10 +193,10 @@ void connectToGPU(Resources *resources, int argc, char **argv, const int &rank)
 	fflush(stdout);
 
 	//Create Context
-	status = cuCtxCreate(&resources->cuContext, CU_CTX_SCHED_SPIN, resources->cuDevice);
+	status = cuCtxCreate(&cu->cuContext, CU_CTX_SCHED_SPIN, cu->cuDevice);
 	if (status != CUDA_SUCCESS) {
 		printf("Could not create CUDA context!\n");
-		cuCtxDetach(resources->cuContext);
+		cuCtxDetach(cu->cuContext);
 		printFinish((const char**)argv, findExeNameStart(argv[0]), 0, FAILED);
 		#ifdef MPI_ENABLED
 		MPI_Abort(MPI_COMM_WORLD, 2);

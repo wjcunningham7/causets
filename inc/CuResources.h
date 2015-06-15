@@ -32,8 +32,8 @@ enum Status {
 	WAIVED = 2
 };
 
-struct Resources {
-	Resources() : cuDevice(0), cuContext(0), gpuID(0), hostMemUsed(0), maxHostMemUsed(0), devMemUsed(0), maxDevMemUsed(0) {}
+struct CuResources {
+	CuResources() : cuDevice(0), cuContext(0), gpuID(0) {}
 
 	//CUDA Driver API Variables
 	CUdevice cuDevice;
@@ -41,12 +41,6 @@ struct Resources {
 
 	//GPU Identification Number
 	int gpuID;
-
-	//Memory Allocated (in bytes)
-	size_t hostMemUsed;
-	size_t maxHostMemUsed;
-	size_t devMemUsed;
-	size_t maxDevMemUsed;
 };		
 
 #ifdef CUDA_ENABLED
@@ -64,7 +58,7 @@ void memoryCheckpoint(const size_t &hostMemUsed, size_t &maxHostMemUsed, const s
 void printChk();
 
 #ifdef CUDA_ENABLED
-void connectToGPU(Resources *resources, int argc, char **argv, const int &rank);
+void connectToGPU(CuResources *cu, int argc, char **argv, const int &rank);
 CUdevice findCudaDevice(int id, const int &rank);
 #endif
 

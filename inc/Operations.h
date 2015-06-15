@@ -460,7 +460,7 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 	if (DEBUG) {
 		assert (!c->isNull());
 		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER);
+		assert (manifold == DE_SITTER || manifold == FLRW);
 
 		if (dim == 1)
 			assert (c->getDim() == 2);
@@ -475,7 +475,8 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 
 		assert (N_tar > 0);
 		assert (HALF_PI - zeta > 0.0);
-		assert (chi_max > 0.0);
+		if (manifold == FLRW && !compact)
+			assert (chi_max > 0.0);
 		assert (past_idx >= 0 && past_idx < N_tar);
 		assert (future_idx >= 0 && future_idx < N_tar);
 		assert (past_idx < future_idx);
@@ -640,7 +641,7 @@ inline double xi(double &r)
 }
 
 //This is a kernel used in numerical integration
-//Note to get the rescaled averge degree this result must still be
+//Note to get the (compact) rescaled averge degree this result must still be
 //multiplied by 8pi/(sinh(3tau0)-3tau0)
 inline double rescaledDegreeFLRW(int dim, double x[], double *params)
 {
@@ -801,17 +802,22 @@ inline double embeddedZ1(double x, void *params)
 
 //Maximum Time in Geodesic (non-embedded)
 //Returns tau_max=f(lambda) with lambda < 0
-inline double geodesicMaxTau(const double &lambda, const bool &universe)
+inline double geodesicMaxTau(const Manifold &manifold, const double &lambda)
 {
+	if (DEBUG)
+		assert (manifold == DE_SITTER || manifold == FLRW);
+
 	if (lambda >= 0.0)
 		return 0.0f;
 
-	if (universe)
+	if (manifold == FLRW)
 		return (2.0 / 3.0) * ASINH(POW(ABS(lambda, STL), -0.75, STL), STL, VERY_HIGH_PRECISION);
-	else {
+	else if (manifold == DE_SITTER) {
 		double g = POW(ABS(lambda, STL), -0.5, STL);
 		return g >= 1.0 ? ACOSH(g, STL, VERY_HIGH_PRECISION) : 0.0;
 	}
+
+	return 0.0;
 }
 
 //Integrands for Exact Geodesic Calculations
@@ -946,17 +952,17 @@ inline double deSitterLookupExact(const double &tau, const double &lambda)
 
 //Returns the exact distance between two nodes in 4D
 //O(xxx) Efficiency (revise this)
-inline double distance(const double * const table, const float4 &node_a, const float tau_a, const float4 &node_b, const float tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const long &size, const bool &universe, const bool &compact)
+inline double distance(const double * const table, const float4 &node_a, const float tau_a, const float4 &node_b, const float tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const long &size, const bool &compact)
 {
 	if (DEBUG) {
-		if (universe) {
+		assert (manifold == DE_SITTER || manifold == FLRW);
+		if (manifold == FLRW) {
 			assert (table != NULL);
 			assert (alpha > 0.0);
 			assert (size > 0);
 			assert (!compact);
 		}
 		assert (dim == 3);
-		assert (manifold == DE_SITTER);
 		assert (a > 0.0);
 	}
 
@@ -977,12 +983,12 @@ inline double distance(const double * const table, const float4 &node_a, const f
 	double lambda;
 	double tau_max;
 
-	if (universe) {
+	if (manifold == FLRW) {
 		lambda = lookupValue4D(table, size, (alpha / a) * SQRT(flatProduct_v2(node_a, node_b), STL), tau_a, tau_b);
 		kernel = &flrwDistKernel;
 		method = QAG;
 		idata.key = GSL_INTEG_GAUSS61;
-	} else {
+	} else if (manifold == DE_SITTER) {
 		lambda = lookupValue4D(table, size, ACOS(sphProduct_v2(node_a, node_b), STL, VERY_HIGH_PRECISION), tau_a, tau_b);
 		kernel = &deSitterDistKernel;
 		method = QAG;
@@ -998,7 +1004,7 @@ inline double distance(const double * const table, const float4 &node_a, const f
 		fflush(stdout);
 	}
 
-	tau_max = geodesicMaxTau(lambda, universe);
+	tau_max = geodesicMaxTau(manifold, lambda);
 
 	if (lambda == 0.0)
 		distance = INF;
@@ -1033,11 +1039,11 @@ inline double distance(const double * const table, const float4 &node_a, const f
 
 //Returns the embedded distance between two nodes in 5D
 //O(xxx) Efficiency (revise this)
-inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &universe, const bool &compact)
+inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &compact)
 {
 	if (DEBUG) {
 		assert (dim == 3);
-		assert (manifold == DE_SITTER);
+		assert (manifold == DE_SITTER || manifold == FLRW);
 		assert (compact);
 	}
 
@@ -1052,7 +1058,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 	double z0_a = 0.0, z0_b = 0.0;
 	double z1_a = 0.0, z1_b = 0.0;
 
-	if (universe) {
+	if (manifold == FLRW) {
 		IntData idata = IntData();
 		idata.tol = 1e-5;
 
@@ -1067,7 +1073,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		z0_a = integrate1D(&embeddedZ1, (void*)&alpha_tilde, &idata, QNG);
 		idata.upper = z1_b;
 		z1_b = integrate1D(&embeddedZ1, (void*)&alpha_tilde, &idata, QNG);
-	} else {
+	} else if (manifold == DE_SITTER) {
 		z0_a = SINH(tau_a, APPROX ? FAST : STL);
 		z0_b = SINH(tau_b, APPROX ? FAST : STL);
 
@@ -1080,7 +1086,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 	else
 		inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
 
-	if (universe)
+	if (manifold == FLRW)
 		inner_product_ab /= POW2(alpha_tilde, EXACT);
 
 	if (inner_product_ab > 1.0)

@@ -240,7 +240,7 @@ void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, i
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
 		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+		assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
 		if (manifold == HYPERBOLIC)
 			assert (dim == 1);
 	}
@@ -310,7 +310,7 @@ void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, co
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
 		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+		assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
 		if (manifold == HYPERBOLIC)
 			assert (dim == 1);
 	}
@@ -325,7 +325,7 @@ void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, co
 		nodes.crd->setFloat4(sc, j);
 	}
 
-	if (manifold == DE_SITTER) {
+	if (manifold == DE_SITTER || manifold == FLRW) {
 		float tau = nodes.id.tau[i];
 		nodes.id.tau[i] = nodes.id.tau[j];
 		nodes.id.tau[j] = tau;
@@ -339,6 +339,12 @@ void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, co
 //Exchange two edges
 void swap(uint64_t *edges, const int i, const int j)
 {
+	if (DEBUG) {
+		assert (edges != NULL);
+		assert (i >= 0);
+		assert (j >= 0);
+	}
+
 	uint64_t tmp = edges[i];
 	edges[i] = edges[j];
 	edges[j] = tmp;
@@ -348,6 +354,13 @@ void swap(uint64_t *edges, const int i, const int j)
 //as well as related indices (used in causet_intersection)
 void swap(const int * const *& list0, const int * const *& list1, int &idx0, int &idx1, int &max0, int &max1)
 {
+	if (DEBUG) {
+		assert (idx0 >= 0);
+		assert (idx1 >= 0);
+		assert (max0 >= 0);
+		assert (max1 >= 0);
+	}
+
 	const int * const * tmp_list = list0;
 	list0 = list1;
 	list1 = tmp_list;
