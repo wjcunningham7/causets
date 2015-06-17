@@ -151,6 +151,26 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 			} else {
 				//Non-Compact FLRW Constraints
+				double kappa;
+				int nb = static_cast<int>(bench) * NBENCH;
+
+				for (i = 0; i <= nb; i++) {
+					stopwatchStart(&cp->sCalcDegrees);
+					kappa = integrate2D(&rescaledDegreeFLRW_NC, 0.0, 0.0, network_properties->tau0, network_properties->tau0, NULL, network_properties->seed, 0);
+					stopwatchStop(&cp->sCalcDegrees);
+				}
+
+				if (nb)
+					bm->bCalcDegrees = sCalcDegrees.elapsedTime / NBENCH;
+
+				kappa *= (8.0 * M_PI / 3.0);
+				kappa /= (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
+
+				network_properties->k_tar = (9.0 * kappa * network_properties->N_tar) / (TWO_PI * POW3(network_properties->alpha * network_properties->chi_max, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
+
+				double q = network_properties->k_tar / kappa;
+				network_properties->a = POW(q / network_properties->delta, 0.25, STL);
+				network_properties->alpha *= network_properties->a;
 			}
 
 			if (DEBUG) {
@@ -251,7 +271,7 @@ bool solveExpAvgDegree(float &k_tar, const int &dim, const Manifold &manifold, d
 	long size = 0L;
 
 	if (method == 0) {
-		//Method 1 of 3: Use Monte Carlo integration to evaluate Kostia's formula
+		//Method 1 of 3: Use Monte Carlo integration
 		double r0;
 		if (tau0 > LOG(MTAU, STL) / 3.0)
 			r0 = POW(0.5, 2.0 / 3.0, STL) * exp(tau0);
@@ -287,7 +307,7 @@ bool solveExpAvgDegree(float &k_tar, const int &dim, const Manifold &manifold, d
 		table = NULL;
 		ca->hostMemUsed -= size;
 	} else if (method == 2) {
-		//Method 3 of 3: Will's formulation
+		//Method 3 of 3: Explicit Solution
 		if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
 			return false;
 		ca->hostMemUsed += size;

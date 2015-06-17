@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 	//Print Results
 	if (!network.network_properties.flags.bench) printMemUsed(NULL, ca.maxHostMemUsed, ca.maxDevMemUsed, cmpi.rank);
 	#ifdef MPI_ENABLED
-	if (cmpi.rank == 0) {
+	if (!cmpi.rank) {
 	#endif
 	if (network.network_properties.flags.bench && !printBenchmark(bm, network.network_properties.flags, network.network_properties.flags.link, network.network_properties.flags.relink)) {
 		cmpi.fail = 1;
@@ -452,7 +452,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 		bm->bCreateNetwork = cp->sCreateNetwork.elapsedTime / NBENCH;
 
 	#ifdef MPI_ENABLED
-	if (rank == 0) {
+	if (!rank) {
 	#endif
 	//Generate coordinates of spacetime nodes and then order nodes temporally using quicksort
 	int low = 0;
@@ -552,7 +552,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 	fflush(stdout);
 
 	#ifdef MPI_ENABLED
-	if (rank == 0) {
+	if (!rank) {
 	#endif
 	//Measure Clustering
 	if (network->network_properties.flags.calc_clustering) {
@@ -635,7 +635,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 	}
 
 	#ifdef MPI_ENABLED
-	if (rank == 0) {
+	if (!rank) {
 	#endif
 	//Measure Degree Fields
 	if (network->network_properties.flags.calc_deg_field) {
@@ -657,6 +657,9 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			goto MeasureExit;
 		}
 	}
+	#ifdef MPI_ENABLED
+	}
+	#endif
 
 	//Measure Action
 	if (network->network_properties.flags.calc_action) {
@@ -672,10 +675,6 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 	}
 	
 	//Measure Geodesics w/ Geodesic Estimator
-
-	#ifdef MPI_ENABLED
-	}
-	#endif
 
 	MeasureExit:
 	if (checkMpiErrors(network->network_properties.cmpi))

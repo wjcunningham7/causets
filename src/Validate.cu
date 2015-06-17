@@ -1166,13 +1166,13 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	stopwatchStop(&sValidateEmbedding);
 
 	printf_mpi(rank, "\tCalculated Embedding Confusion Matrix.\n");
-	if (rank == 0) printf_cyan();
+	if (!rank) printf_cyan();
 	printf_mpi(rank, "\t\tTrue  Positives: %f\t(4D spacelike, 5D spacelike)\n", static_cast<double>(evd.confusion[0]) / evd.A1S);
 	printf_mpi(rank, "\t\tTrue  Negatives: %f\t(4D timelike,  5D timelike)\n", static_cast<double>(evd.confusion[1]) / evd.A1T);
-	if (rank == 0) printf_red();
+	if (!rank) printf_red();
 	printf_mpi(rank, "\t\tFalse Positives: %f\t(4D timelike,  5D spacelike)\n", static_cast<double>(evd.confusion[2]) / evd.A1T);
 	printf_mpi(rank, "\t\tFalse Negatives: %f\t(4D spacelike, 5D timelike)\n", static_cast<double>(evd.confusion[3]) / evd.A1S);
-	if (rank == 0) printf_std();
+	if (!rank) printf_std();
 	fflush(stdout);
 
 	if (verbose) {

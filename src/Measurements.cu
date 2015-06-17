@@ -1230,19 +1230,19 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	stopwatchStop(&sMeasureAction);
 
 	if (!bench) {
-		printf("\tCalculated Action.\n");
-		printf("\t\tTerms Used: %d\n", max_cardinality);
-		printf_cyan();
-		printf("\t\tCausal Set Action: %f\n", action);
+		printf_mpi(rank, "\tCalculated Action.\n");
+		printf_mpi(rank, "\t\tTerms Used: %d\n", max_cardinality);
+		if (!rank) printf_cyan();
+		printf_mpi(rank, "\t\tCausal Set Action: %f\n", action);
 		if (max_cardinality < 10)
 			for (m = 0; m < max_cardinality; m++)
-				printf("\t\t\tN%d: %d\n", m, cardinalities[m]);
-		printf_std();
+				printf_mpi(rank, "\t\t\tN%d: %d\n", m, cardinalities[m]);
+		if (!rank) printf_std();
 		fflush(stdout);
 	}
 
 	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sMeasureAction.elapsedTime);
+		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sMeasureAction.elapsedTime);
 		fflush(stdout);
 	}
 

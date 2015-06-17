@@ -567,7 +567,7 @@ inline double tToEtaFLRW(double t, void *params)
 }
 
 //'Exact' Solution (Hypergeomtric Series)
-inline double tauToEtaFLRWExact(const double &tau, const double &a, const double &alpha)
+inline double tauToEtaFLRWExact(const double &tau, const double a, const double alpha)
 {
 	if (DEBUG) {
 		assert (tau > 0.0);
@@ -613,6 +613,33 @@ inline double etaToTauFLRW(const double &eta, const double &a, const double &alp
 //=========================//
 // Average Degree Formulae //
 //=========================//
+
+//Rescaled Average Degree in Non-Compact FLRW Causet
+
+//This is a kernel used in numerical integration
+//Note to get the (non-compact) rescaled average degree this result must still be
+//multiplied by 8pi/3 * (sinh(3tau0)-3tau0)^(-1)
+inline double rescaledDegreeFLRW_NC(int dim, double x[], double *params)
+{
+	if (DEBUG) {
+		assert (dim > 0);
+		assert (x[0] > 0.0);
+		assert (x[1] > 0.0);
+	}
+
+	//Identify x[0] with tau' coordinate
+	//Identify x[1] with tau'' coordinate
+
+	double h1 = tauToEtaFLRWExact(x[0], 1.0, 1.0);
+	double h2 = tauToEtaFLRWExact(x[1], 1.0, 1.0);
+
+	double s1 = POW2(SINH(1.5 * x[0], APPROX ? FAST : STL), EXACT);
+	double s2 = POW2(SINH(1.5 * x[1], APPROX ? FAST : STL), EXACT);
+
+	double sgn = SGN(x[1] - x[0], BITWISE);
+
+	return s1 * s2 * POW3(h2 - h1, EXACT) * sgn;
+}
 
 //Rescaled Average Degree in Compact FLRW Causet
 
