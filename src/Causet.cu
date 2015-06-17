@@ -661,7 +661,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 	//Measure Action
 	if (network->network_properties.flags.calc_action) {
 		for (i = 0; i <= nb; i++) {
-			if (!measureAction_v2(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.max_cardinality, network->network_properties.dim, network->network_properties.manifold, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.core_edge_fraction, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+			if (!measureAction_v2(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.max_cardinality, network->network_properties.dim, network->network_properties.manifold, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
 				goto MeasureExit;
 			}
@@ -1477,7 +1477,19 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			dataStream.close();
 		}
 
-		//Write action data to file here
+		if (network.network_properties.flags.calc_action) {
+			sstm.str("");
+			sstm.clear();
+			sstm << "./dat/act/" << network.network_properties.graphID << ".cset.act.dat";
+			dataStream.open(sstm.str().c_str());
+			if (!dataStream.is_open())
+				throw CausetException("Failed to open action file!\n");
+			for (i = 0; i < network.network_properties.max_cardinality; i++)
+				dataStream << network.network_observables.cardinalities[i] << std::endl;
+
+			dataStream.flush();
+			dataStream.close();
+		}
 
 		printf("\tFilename: %s.cset.out\n", filename.c_str());
 		fflush(stdout);
