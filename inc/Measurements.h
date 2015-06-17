@@ -23,6 +23,8 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 
 bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, CaResources * const ca, Stopwatch &sMeasureDegreeField, const bool &compact, const bool &verbose, const bool &bench);
 
+bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench);
+
 bool measureAction(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench);
 
 #endif

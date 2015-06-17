@@ -33,6 +33,7 @@
   #include <omp.h>
 #else
   #define omp_get_thread_num() 0
+  #define omp_get_max_threads() 1
 #endif
 
 //Other System Files
@@ -349,7 +350,7 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : use_gpu(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_geodesics(false), validate_embedding(false), validate_distances(false), compact(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : use_gpu(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), /*calc_geodesics(false),*/ validate_embedding(false), validate_distances(false), compact(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
 	bool print_network;		//Print to File
@@ -367,7 +368,7 @@ struct CausetFlags {
 	bool calc_autocorr;		//Autocorrelation
 	bool calc_deg_field;		//Measure Degree Field
 	bool calc_action;		//Measure Action
-	bool calc_geodesics;		//Geodesic Estimator
+	//bool calc_geodesics;		//Geodesic Estimator
 
 	bool validate_embedding;	//Find Embedding Statistics
 	bool validate_distances;	//Compare Distance Methods

@@ -33,7 +33,8 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 //Breadth First Search Algorithm
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements);
 
-//Array Intersection Algorithm
+//Array Intersection Algorithms
+void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many);
 void causet_intersection(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many);
 
 //Format Partial Adjacency Matrix Data

@@ -23,7 +23,7 @@ if (sys.argv[1] == '1+1'):
 	ctype = 1
 elif (sys.argv[1] == '3+1'):
 	ctype = 2
-elif (sys.argv[1] == 'uni'):
+elif (sys.argv[1] == 'flrw'):
 	ctype = 3
 
 if (ctype == 0):

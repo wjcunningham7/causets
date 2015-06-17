@@ -885,7 +885,8 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 		assert (k_res >= 0.0);
 	}
 
-	k_res /= N_res;
+	if (N_res > 0)
+		k_res /= N_res;
 
 	//Debugging options used to visually inspect the adjacency lists and the adjacency pointer lists
 	//compareAdjacencyLists(nodes, edges);
@@ -894,10 +895,10 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 		return false;
 
 	//Print Results
-	/*if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
+	if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
 	if (!printEdgeLists(edges, past_idx, "past-edges_CPU.cset.dbg.dat", "future-edges_CPU.cset.dbg.dat")) return false;
 	if (!printEdgeListPointers(edges, N_tar, "past-edge-pointers_CPU.cset.dbg.dat", "future-edge-pointers_CPU.cset.dbg.dat")) return false;
-	printf_red();
+	/*printf_red();
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);

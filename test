@@ -10,6 +10,8 @@
 # These are experimental parameters #
 #####################################
 
+#./bin/CausalSet --nodes 24586 --age 1.5707577 --dim 1 --link --print --clustering
+
 # Validation Tests
 #./bin/CausalSet --nodes 20480 --age 1.5 --seed 18100 --buffer 0.3 --link --embedding 100
 #./bin/CausalSet --nodes 20480 --age 1.5 --seed 18100 --buffer 0.3 --link --gpu --distances 100
@@ -19,7 +21,9 @@
 #./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 2 --seed 18100 --manifold f --link --gpu --success 100
 
 # Measure de Sitter Action
-#./bin/CausalSet --nodes 1040 --age 1.2 --seed 18100 --link --gpu --action 5
+#./bin/CausalSet --nodes 200 --age 1.1 --delta 62.92 --seed 18100 --buffer 0.3 --link --action 5
+#./bin/CausalSet --nodes 10240 --age 1.2 --delta 62.92 --seed 18100 --buffer 0.3 --verbose -y --action 5
+./bin/CausalSet --nodes 32768 --age 1.2 --delta 201.3505 --seed 18100 --buffer 0.3 --verbose -y --link --gpu --action 5 --core 1
 
 ######################################
 # These will reproduce known results #

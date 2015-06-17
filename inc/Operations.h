@@ -993,7 +993,8 @@ inline double distance(const double * const table, const float4 &node_a, const f
 		kernel = &deSitterDistKernel;
 		method = QAG;
 		idata.key = GSL_INTEG_GAUSS61;
-	}
+	} else
+		kernel = NULL;
 
 	//Check for NaN
 	if (lambda != lambda)

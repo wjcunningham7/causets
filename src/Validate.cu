@@ -1104,7 +1104,8 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	uint64_t c3 = evd.confusion[3];
 
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 1) reduction (+ : c0, c1, c2, c3)
+	long omp_seed = seed;
+	#pragma omp parallel for schedule (dynamic, 1) firstprivate(omp_seed) lastprivate(omp_seed) reduction (+ : c0, c1, c2, c3)
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		//Choose a pair
@@ -1112,7 +1113,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 
 		if (VE_RANDOM) {
 			#ifdef _OPENMP
-			vec_idx = static_cast<uint64_t>(ran2ts(&seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
+			vec_idx = static_cast<uint64_t>(ran2ts(&omp_seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
 			#else
 			vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
 			#endif
@@ -1153,6 +1154,10 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 				c0++;
 		}		
 	}
+
+	#ifdef _OPENMP
+	seed = omp_seed;
+	#endif
 
 	evd.confusion[0] = c0;
 	evd.confusion[1] = c1;
@@ -1253,14 +1258,15 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 	uint64_t c1 = dvd.confusion[1];
 
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 1) firstprivate (seed) lastprivate (seed) reduction(+ : c0, c1)
+	long omp_seed = seed;
+	#pragma omp parallel for schedule (dynamic, 1) firstprivate (omp_seed) lastprivate (omp_seed) reduction(+ : c0, c1)
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		//Choose a pair
 		uint64_t vec_idx;
 		if (VD_RANDOM) {
 			#ifdef _OPENMP
-			vec_idx = static_cast<uint64_t>(ran2ts(&seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
+			vec_idx = static_cast<uint64_t>(ran2ts(&omp_seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
 			#else
 			vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
 			#endif
@@ -1316,9 +1322,15 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 			testOmega12(nodes.id.tau[i], nodes.id.tau[j], ACOS(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)), STL, VERY_HIGH_PRECISION), -0.15, 0.5, 0.001, manifold);
 			printf("\n");
 			fflush(stdout);
+			#ifndef _OPENMP
 			break;
+			#endif
 		}
 	}
+
+	#ifdef _OPENMP
+	seed = omp_seed;
+	#endif
 
 	free(table);
 	table = NULL;

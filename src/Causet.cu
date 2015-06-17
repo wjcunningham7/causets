@@ -129,7 +129,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "fields",	required_argument,	NULL, 'F' },
 		{ "gen-ds-table", no_argument,		NULL,  0  },
 		{ "gen-flrw-table", no_argument,	NULL,  0  },
-		{ "geodesics",	no_argument,		NULL, 'G' },
+		//{ "geodesics",	no_argument,		NULL, 'G' },
 		{ "gpu", 	no_argument, 		NULL,  0  },
 		{ "graph",	required_argument,	NULL, 'g' },
 		{ "help", 	no_argument,		NULL, 'h' },
@@ -196,9 +196,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				network_properties.flags.calc_deg_field = true;
 				network_properties.tau_m = atof(optarg);
 				break;
-			case 'G':	//Flag for estimating geodesics
+			/*case 'G':	//Flag for estimating geodesics
 				network_properties.flags.calc_geodesics = true;
-				break;
+				break;*/
 			case 'g':	//Graph ID
 				network_properties.graphID = atoi(optarg);
 				if (network_properties.graphID < 0)
@@ -341,7 +341,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -F, --fields\t\tMeasure Degree Fields\n");
 				printf_mpi(rank, "      --gen-ds-table\tGenerate de Sitter Geo. Table\n");
 				printf_mpi(rank, "      --gen-flrw-table\tGenerate FLRW Geodesic Table\n");
-				printf_mpi(rank, "  -G, --geodesics\tGeodesic Estimator\n");
+				//printf_mpi(rank, "  -G, --geodesics\tGeodesic Estimator\n");
 				#ifdef CUDA_ENABLED
 				printf_mpi(rank, "      --gpu\t\tUse GPU Acceleration\n");
 				#endif
@@ -540,7 +540,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 		assert (bm != NULL);
 	}
 	
-	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio && !network->network_properties.flags.calc_deg_field && !network->network_properties.flags.validate_distances && !network->network_properties.flags.calc_action && !network->network_properties.flags.calc_geodesics)
+	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio && !network->network_properties.flags.calc_deg_field && !network->network_properties.flags.validate_distances && !network->network_properties.flags.calc_action /*&& !network->network_properties.flags.calc_geodesics*/)
 		return true;
 
 	int rank = network->network_properties.cmpi.rank;
@@ -661,7 +661,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 	//Measure Action
 	if (network->network_properties.flags.calc_action) {
 		for (i = 0; i <= nb; i++) {
-			if (!measureAction(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.max_cardinality, network->network_properties.dim, network->network_properties.manifold, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.core_edge_fraction, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+			if (!measureAction_v2(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.max_cardinality, network->network_properties.dim, network->network_properties.manifold, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.core_edge_fraction, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
 				goto MeasureExit;
 			}
@@ -1206,8 +1206,8 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			outputStream << "\nCauset Input Parameters:" << std::endl;
 			outputStream << "------------------------" << std::endl;
 			outputStream << "Number of Nodes (N_tar)\t\t\t" << network.network_properties.N_tar << std::endl;
-			outputStream << "Expected Degrees (k_tar)\t" << network.network_properties.k_tar << std::endl;
-			outputStream << "Max. Conformal Time (eta_0)\t" << HALF_PI - network.network_properties.zeta << std::endl;
+			outputStream << "Expected Degrees (k_tar)\t\t" << network.network_properties.k_tar << std::endl;
+			outputStream << "Max. Conformal Time (eta_0)\t\t" << HALF_PI - network.network_properties.zeta << std::endl;
 			outputStream << "Pseudoradius (a)\t\t\t" << network.network_properties.a << std::endl;
 
 			outputStream << "\nCauset Calculated Values:" << std::endl;
@@ -1268,29 +1268,29 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 
 		outputStream << "\nAlgorithmic Performance:" << std::endl;
 		outputStream << "--------------------------" << std::endl;
-		outputStream << "calcDegrees:         " << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
-		outputStream << "createNetwork:       " << cp.sCreateNetwork.elapsedTime << " sec" << std::endl;
-		outputStream << "generateNodes:       " << cp.sGenerateNodes.elapsedTime << " sec" << std::endl;
-		outputStream << "quicksort:           " << cp.sQuicksort.elapsedTime << " sec" << std::endl;
+		outputStream << "calcDegrees:\t\t\t" << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
+		outputStream << "createNetwork:\t\t\t" << cp.sCreateNetwork.elapsedTime << " sec" << std::endl;
+		outputStream << "generateNodes:\t\t\t" << cp.sGenerateNodes.elapsedTime << " sec" << std::endl;
+		outputStream << "quicksort:\t\t\t" << cp.sQuicksort.elapsedTime << " sec" << std::endl;
 		if (links_exist) {
 			if (network.network_properties.flags.use_gpu)
-				outputStream << "linkNodesGPU:        " << cp.sLinkNodesGPU.elapsedTime << " sec" << std::endl;
+				outputStream << "linkNodesGPU:\t\t\t" << cp.sLinkNodesGPU.elapsedTime << " sec" << std::endl;
 			else
-				outputStream << "linkNodes:           " << cp.sLinkNodes.elapsedTime << " sec" << std::endl;
+				outputStream << "linkNodes:\t\t\t" << cp.sLinkNodes.elapsedTime << " sec" << std::endl;
 		}
 
 		if (network.network_properties.flags.calc_clustering)
-			outputStream << "measureClustering:   " << cp.sMeasureClustering.elapsedTime << " sec" << std::endl;
+			outputStream << "measureClustering:\t\t\t" << cp.sMeasureClustering.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_components)
-			outputStream << "measureComponents:   " << cp.sMeasureConnectedComponents.elapsedTime << " sec" << std::endl;
+			outputStream << "measureComponents:\t\t\t" << cp.sMeasureConnectedComponents.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.validate_embedding)
-			outputStream << "validateEmbedding:   " << cp.sValidateEmbedding.elapsedTime << " sec" << std::endl;
+			outputStream << "validateEmbedding:\t\t\t" << cp.sValidateEmbedding.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_success_ratio)
-			outputStream << "measureSuccessRatio: " << cp.sMeasureSuccessRatio.elapsedTime << " sec" << std::endl;
+			outputStream << "measureSuccessRatio:\t\t" << cp.sMeasureSuccessRatio.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_deg_field)
-			outputStream << "measureDegreeField: " << cp.sMeasureDegreeField.elapsedTime << " sec" << std::endl;
+			outputStream << "measureDegreeField:\t\t" << cp.sMeasureDegreeField.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_action)
-			outputStream << "measureAction:" << "cp.sMeasureAction.elapsedTime" << " sec" << std::endl;
+			outputStream << "measureAction:\t\t\t" << "cp.sMeasureAction.elapsedTime" << " sec" << std::endl;
 
 		outputStream.flush();
 		outputStream.close();
@@ -1682,7 +1682,7 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		if (network->network_properties.flags.calc_action) {
 			free(network->network_observables.cardinalities);
 			network->network_observables.cardinalities = NULL;
-			hostMemUsed -= sizeof(int) * network->network_properties.max_cardinality;
+			hostMemUsed -= sizeof(int) * network->network_properties.max_cardinality * omp_get_max_threads();
 		}
 	}
 }

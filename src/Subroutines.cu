@@ -498,7 +498,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 		assert (core_edge_exists != NULL);
 
 		//Parameters in correct ranges
-		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 		assert (past_idx >= 0 && past_idx < N_tar);
 		assert (future_idx >= 0 && future_idx < N_tar);
 		assert (past_idx != future_idx);
@@ -507,7 +507,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 		assert (!(future_edge_row_start[past_idx] != -1 && nodes.k_out[past_idx] == 0));
 	}
 
-	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
+	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 	int i;
 
 	//Make sure past_idx < future_idx
@@ -565,6 +565,55 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 	for (i = 0; i < nodes.k_out[index]; i++)
 		if (!nodes.cc_id[edges.future_edges[fs+i]])
 			bfsearch(nodes, edges, edges.future_edges[fs+i], id, elements);
+}
+
+void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many)
+{
+	if (DEBUG) {
+		assert (past_edges != NULL);
+		assert (future_edges != NULL);
+		assert (k_i >= 0);
+		assert (k_o >= 0);
+		assert (!(k_i == 0 && k_o == 0));
+		assert (max_cardinality > 1);
+		assert (pstart >= 0);
+		assert (fstart >= 0);
+	}
+
+	if (k_i == 1 || k_o == 1) {
+		elements = 0;
+		return;
+	}
+
+	//int larger = k_i > k_o ? k_i : k_o;
+	//int smaller = k_i <= k_o ? k_i : k_o;
+
+	//if (larger + smaller > smaller * LOG(larger, APPROX ? FAST : STL)) {
+		//Binary search
+	//} else {
+		int idx0 = pstart;
+		int idx1 = fstart;
+		int max0 = idx0 + k_i;
+		int max1 = idx1 + k_o;
+
+		while (idx0 < max0 && idx1 < max1 && !too_many) {
+			if (past_edges[idx0] > future_edges[idx1])
+				idx1++;
+			else if (past_edges[idx0] < future_edges[idx1])
+				idx0++;
+			else {
+				elements++;
+
+				if (elements >= max_cardinality - 1) {
+					too_many = true;
+					break;
+				}
+
+				idx0++;
+				idx1++;
+			}
+		}
+	//}
 }
 
 //Intersection of Sorted Lists
@@ -628,7 +677,8 @@ void causet_intersection(int &elements, const int * const past_edges, const int 
 			idx1++;
 
 		if (idx1 == max1)
-			continue;
+			//continue;
+			break;
 
 		//printf("idx0: %d\tidx1: %d\n", idx0, idx1);
 
@@ -649,9 +699,7 @@ void causet_intersection(int &elements, const int * const past_edges, const int 
 
 	/*printf_red();
 	printf("Found %d Elements.\n", elements);
-	printf_std();
-	if (elements == 2)
-		exit(99);*/
+	printf_std();*/
 }
 
 //Data formatting used when reading the degree
