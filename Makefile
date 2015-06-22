@@ -15,16 +15,12 @@ OBJDIR		:= ./obj
 DATDIR		:= ./dat
 ETCDIR		:= ./etc
 
-host1		:= compute
-host2		:= tiberius
-
-ifneq (, $(findstring $(host1), $(HOSTNAME)))
-LOCAL_DIR	:= /home/$(USER)/local
-else ifneq (, $(findstring $(host2), $(HOSTNAME)))
-LOCAL_DIR	:= /usr/local
-else
-$(error Hostname not recognized!)
-endif
+# Reference for directories on Northeastern's Discovery cluster
+HOST0=compute
+# Reference for your personal directories (edit as needed)
+# NOTE: If you are using HOST1 then make sure to edit all entries
+# which reference it below with the correct directories
+HOST1=tiberius
 
 FASTSRC		:= $(LOCAL_DIR)/src/fastmath
 
@@ -32,14 +28,14 @@ FASTSRC		:= $(LOCAL_DIR)/src/fastmath
 # CUDA Resource Directories #
 #############################
 
-ifneq (, $(findstring $(host1), $(HOSTNAME)))
+ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
 CUDA_SDK_PATH 	?= /shared/apps/cuda6.5/samples
 CUDA_HOME 	?= /shared/apps/cuda6.5
-else ifneq (, $(findstring $(host2), $(HOSTNAME)))
+else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
 CUDA_SDK_PATH	?= /usr/local/cuda-5.0/samples
 CUDA_HOME	?= /usr/local/cuda
 else
-$(error Hostname not recognized!)
+$(error Cannot find CUDA directories!)
 endif
 
 #############
@@ -48,12 +44,12 @@ endif
 
 GCC		?= gcc
 CXX 		?= g++
-ifneq (, $(findstring $(host1), $(HOSTNAME)))
+ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
 MPI		?= mpic++
-else ifneq (, $(findstring $(host2), $(HOSTNAME)))
+else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
 MPI		?= /usr/lib64/openmpi/bin/mpicc
 else
-$(error Hostname not recognized!)
+$(error Cannot find MPI compiler!)
 endif
 GFOR		?= gfortran
 NVCC 		?= $(CUDA_HOME)/bin/nvcc
@@ -73,9 +69,9 @@ CUDA_LIBS	 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PAT
 
 CXXFLAGS	:= -O3 -g -Wall -x c++
 NVCCFLAGS 	:= -m64 -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED
-ifneq (, $(findstring $(host1), $(HOSTNAME)))
+ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
 NVCCFLAGS += -arch=sm_35
-else ifneq (, $(findstring $(host2), $(HOSTNAME)))
+else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
 NVCCFLAGS += -arch=sm_30
 else
 endif
@@ -125,15 +121,31 @@ CEXTOBJS	:= $(patsubst $(FASTSRC)/%.cpp, $(OBJDIR)/%.o, $(CEXTSOURCES))
 CUDAOBJS	:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%_cu.o, $(CUDASOURCES))
 OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.o, $(SOURCES))
 
+#################
+# Phony Targets #
+#################
+
+.PHONY : check-env cpu gpu link linkgpu bin fortran fortran1 fortran2 dirs objdir bindir clean cleanall cleanbin cleanobj cleanlog cleanscratch cleandata
+
 ###################################
 # Top-Level Compilation Sequences #
 ###################################
 
 all : gpu
 
-cpu : $(COBJS) $(CEXTOBJS) $(OBJS) link
+cpu : check-env $(COBJS) $(CEXTOBJS) $(OBJS) link
 
-gpu : $(COBJS) $(CEXTOBJS) $(CUDAOBJS) linkgpu bin
+gpu : check-env $(COBJS) $(CEXTOBJS) $(CUDAOBJS) linkgpu bin
+
+###############################
+# Check Environment Variables #
+###############################
+
+check-env :
+	@ if test "$(LOCAL_DIR)" = "" ; then \
+		echo "LOCAL_DIR not set!"; \
+		exit 1; \
+	fi
 
 ######################
 # Source Compilation #
@@ -189,10 +201,10 @@ fortran2 : $(FSOURCES2)
 dirs : objdir bindir
 
 objdir :
-	mkdir -p $(OBJDIR)
+	@ mkdir -p $(OBJDIR)
 
 bindir : 
-	mkdir -p $(BINDIR)
+	@ mkdir -p $(BINDIR)
 
 ######################
 # Cleaning Sequences #
@@ -203,16 +215,16 @@ cleanall : clean cleanscratch cleandata
 clean : cleanbin cleanobj cleanlog
 
 cleanbin :
-	rm -rf $(BINDIR)
+	@ rm -rf $(BINDIR)
 
 cleanobj :
-	rm -rf $(OBJDIR)
+	@ rm -rf $(OBJDIR)
 
 cleanlog :
-	rm -f causet.log
+	@ rm -f causet.log
 
 cleanscratch :
-	rm -rf /scratch/cunningham
+	@ rm -rf /scratch/cunningham
 
 cleandata :
-	rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/emb/*.cset.emb.dat $(DATDIR)/emb/tn/*.cset.emb_fn.dat $(DATDIR)/emb/fp/*.cset.emb_fp.dat $(ETCDIR)/data_keys.cset.key $(DATDIR)/ref/*.ref $(DATDIR)/idf/*.cset.idf.dat $(DATDIR)/odf/*.cset.odf.dat $(DATDIR)/act/*.cset.act.dat
+	@ rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/emb/*.cset.emb.dat $(DATDIR)/emb/tn/*.cset.emb_fn.dat $(DATDIR)/emb/fp/*.cset.emb_fp.dat $(ETCDIR)/data_keys.cset.key $(DATDIR)/ref/*.ref $(DATDIR)/idf/*.cset.idf.dat $(DATDIR)/odf/*.cset.odf.dat $(DATDIR)/act/*.cset.act.dat

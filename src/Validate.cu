@@ -1578,7 +1578,6 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 					omega_val = 0.0;
 				else
 					omega_val = ov1 - ov0;
-				//omega_val = deSitterLookupExact(static_cast<double>(tau2), lambda) - deSitterLookupExact(static_cast<double>(tau1), lambda);
 			} else {
 				idata.lower = tau1;
 				idata.upper = tau2;
@@ -1594,19 +1593,13 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 					omega_val = 0.0;
 				else
 					omega_val = 2.0 * ov0 - ov1 - ov2;
-				//printf("ov0: %f\tov1: %f\tov2: %f\n", ov0, ov1, ov2);
-				//fflush(stdout);
-				//omega_val = 2.0 * deSitterLookupExact(tau_m, lambda) - deSitterLookupExact(tau1, lambda) - deSitterLookupExact(tau2, lambda);
-				//printf("ov: %f\t", omega_val);
 			} else {
 				idata.lower = tau1;
 				idata.upper = tau_m;
 				omega_val = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
-				//printf("ov1: %f\t", omega_val);
 
 				idata.lower = tau2;
 				double omega_val2 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
-				//printf("ov2: %f\t", omega_val2);
 				omega_val += omega_val2;
 			}
 		} else
@@ -1650,6 +1643,8 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 		return false;
 	fflush(stdout);
 
+	//Only set this to 'true' when a de Sitter table is being generated
+	//and the two methods (integration v. exact) should be compared
 	bool DS_EXACT = false;
 
 	double (*kernel)(double x, void *params) = (manifold == FLRW) ? &flrwLookupKernel : &deSitterLookupKernel;
@@ -1727,8 +1722,6 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 						}
 					} else
 						omega12 = 0.0;
-
-					//printf("%f\t%f\t%f\t%f\n", tau1, tau2, omega12, lambda);
 
 					//Write to file
 					fwrite(&tau1, sizeof(double), 1, table);
@@ -1988,7 +1981,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 //Measure Causal Set Action
 //O(N*k^2*ln(k)) Efficiency (Linked)
 //O(N^2*k) Efficiency (No Links)
-bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
+bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
@@ -2018,6 +2011,7 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 		
 		assert (N_tar > 0);
 		assert (max_cardinality > 0);
+		assert (a > 0.0);
 		assert (HALF_PI - zeta > 0.0);
 		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	}
@@ -2081,11 +2075,11 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 					causet_intersection_v2(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], max_cardinality, pstart, fstart, too_many);
 				}
 			} else {
-				if (!nodesAreRelated(nodes.crd, N_tar, dim, manifold, zeta, chi_max, compact, i, j))
+				if (!nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, j))
 					continue;
 
 				for (k = i + 1; k < j; k++) {
-					if (nodesAreRelated(nodes.crd, N_tar, dim, manifold, zeta, chi_max, compact, i, k) && nodesAreRelated(nodes.crd, N_tar, dim, manifold, zeta, chi_max, compact, k, j))
+					if (nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, alpha, chi_max, compact, i, k) && nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, k, j))
 						elements++;
 					if (elements >= max_cardinality - 1) {
 						too_many = true;

@@ -352,23 +352,6 @@ inline double solveAlphaFlat(const int &N_tar, const double &a, const double &ch
 	return alpha;
 }
 
-//========================//
-// Hypergeometric Kernels //
-//========================//
-
-inline double _2F1_tau(const double &tau, void * const param)
-{
-	if (DEBUG)
-		assert (tau > 0.0);
-
-	return 1.0 / POW2(COSH(1.5 * tau, APPROX ? FAST : STL), EXACT);
-}
-
-inline double _2F1_r(const double &r, void * const param)
-{
-	return -1.0 / POW3(r, EXACT);
-}
-
 //=========================//
 // Spatial Length Formulae //
 //=========================//
@@ -455,7 +438,7 @@ inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 //=========================//
 
 //Assumes coordinates have been temporally ordered
-inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const bool &compact, int past_idx, int future_idx)
+inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const bool &compact, int past_idx, int future_idx)
 {
 	if (DEBUG) {
 		assert (!c->isNull());
@@ -474,9 +457,14 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 		assert (c->y() != NULL);
 
 		assert (N_tar > 0);
+		assert (a > 0.0);
 		assert (HALF_PI - zeta > 0.0);
-		if (manifold == FLRW && !compact)
-			assert (chi_max > 0.0);
+		if (manifold == FLRW) {
+			if (!compact)
+				assert (chi_max > 0.0);
+			assert (alpha > 0.0);
+		}
+		
 		assert (past_idx >= 0 && past_idx < N_tar);
 		assert (future_idx >= 0 && future_idx < N_tar);
 		assert (past_idx < future_idx);
@@ -575,18 +563,34 @@ inline double tauToEtaFLRWExact(const double &tau, const double a, const double 
 		assert (alpha > 0.0);
 	}
 
-	double z = _2F1_tau(tau, NULL);
-	double eta, f, err;
-	int nterms = 50;
+	double eta = 0.0;
 
-	_2F1(&_2F1_tau, tau, NULL, 1.0 / 3.0, 5.0 / 6.0, 4.0 / 3.0, &f, &err, &nterms);
+	//Used for _2F1
+	double f;
+	double err = 1.0E-10;
+	int nterms = -1;
 
-	eta = 3.0 * GAMMA(-1.0 / 3.0, STL) * POW(z, 1.0 / 3.0, APPROX ? FAST : STL) * f;
-	eta += 4.0 * SQRT(3.0, STL) * POW(M_PI, 1.5, APPROX ? FAST : STL) / GAMMA(5.0 / 6.0, STL);
-	eta *= a / (9.0 * alpha * GAMMA(2.0 / 3.0, STL));
+	//Determine which transformation of 2F1 is used
+	double z = 1.0 / POW2(COSH(1.5 * tau, APPROX ? FAST : STL), EXACT);
+	double w;
+	if (z >= 0.0 && z <= 0.5) {
+		w = z;
+		_2F1(1.0 / 3.0, 5.0 / 6.0, 4.0 / 3.0, w, &f, &err, &nterms, false);
+		eta = SQRT(3.0 * POW3(M_PI, EXACT), STL) / (GAMMA(5.0 / 6.0, STL) * GAMMA(-4.0 / 3.0, STL)) - POW(w, 1.0 / 3.0, STL) * f;
+	} else if (z > 0.5 && z <= 1.0) {
+		w = 1 - z;
+		_2F1(0.5, 1.0, 7.0 / 6.0, w, &f, &err, &nterms, false);
+		eta = 2.0 * POW(z * SQRT(w, STL), 1.0 / 3.0, STL) * f;
+	} else
+		//This should never be reached
+		return NAN;
 
-	if (DEBUG)
+	eta *= a / alpha;
+
+	if (DEBUG) {
+		assert (eta == eta);
 		assert (eta > 0.0);
+	}
 
 	return eta;
 }
@@ -636,9 +640,7 @@ inline double rescaledDegreeFLRW_NC(int dim, double x[], double *params)
 	double s1 = POW2(SINH(1.5 * x[0], APPROX ? FAST : STL), EXACT);
 	double s2 = POW2(SINH(1.5 * x[1], APPROX ? FAST : STL), EXACT);
 
-	double sgn = SGN(x[1] - x[0], BITWISE);
-
-	return s1 * s2 * POW3(h2 - h1, EXACT) * sgn;
+	return s1 * s2 * ABS(POW3(h2 - h1, EXACT), STL);
 }
 
 //Rescaled Average Degree in Compact FLRW Causet
@@ -655,12 +657,12 @@ inline double xi(double &r)
 		nterms = 20;
 
 	if (r < 1.0) {
-		//Since 1/f(x) = f(1/x) we can use _r
-		double _r = 1.0 / r;
-		_2F1(&_2F1_r, _r, NULL, 1.0 / 6.0, 0.5, 7.0 / 6.0, &f, &err, &nterms);
+		double z = -1.0 * POW3(r, EXACT);
+		_2F1(1.0 / 6.0, 0.5, 7.0 / 6.0, z, &f, &err, &nterms, false);
 		_xi = 2.0 * SQRT(r, STL) * f;
 	} else {
-		_2F1(&_2F1_r, r, NULL, 1.0 / 3.0, 0.5, 4.0 / 3.0, &f, &err, &nterms);
+		double z = -1.0 / POW3(r, EXACT);
+		_2F1(1.0 / 3.0, 0.5, 4.0 / 3.0, z, &f, &err, &nterms, false);
 		_xi = SQRT(4.0 / M_PI, STL) * GAMMA(7.0 / 6.0, STL) * GAMMA(1.0 / 3.0, STL) - f / r;
 	}
 
@@ -809,6 +811,107 @@ inline double degreeFieldTheory(double eta, void *params)
 //====================//
 // Geodesic Distances //
 //====================//
+
+// Approximtions to omega = f(tau1, tau2, lambda)
+
+//Region 1
+inline double omegaRegion1(const double &x, const double &lambda, double * const err, int * const nterms)
+{
+	if (DEBUG) {
+		assert (err != NULL);
+		assert (nterms != NULL);
+		assert (x >= 0.0 && x < 1.0);
+		assert (*err >= 0.0);
+		assert (!(*err == 0.0 && *nterms == -1));
+	}
+
+	double omega = 0.0;
+
+	//Used for _2F1
+	double f;
+	double f_err = 1.0E-10;
+	int f_nt = -1;
+
+	//Determine which transformation of 2F1 is used
+	double z = -1.0 * lambda * POW2(POW2(x, EXACT), EXACT);
+	double w, w1;
+	int method = 0;
+	if (z >= 0.0 && z <= 0.5) {
+		w = z;
+		method = 0;
+	} else if (z > 0.5 && z <= 1.0) {
+		w = 1 - z;
+		w1 = SQRT(w, APPROX ? FAST : STL);
+		method = 1;
+	} else if (z >= -1.0 && z < 0.0) {
+		w = z / (z - 1);
+		method = 2;
+	} else if (z < -1) {
+		w = 1 / (1 - z);
+		w1 = 1 / w;
+		method = 3;
+	} else
+		// This should never be reached
+		return NAN;
+
+	//Series solution (see notes)
+	double error = INF;
+	int k = 0;
+	double omega_k, k1, k2;
+	while ((error > *err && *nterms == -1)  || k <= *nterms) {
+		omega_k = 0.0;
+		k1 = 1.5 * k;
+		k2 = 6.0 * k + 1.0;
+
+		switch (method) {
+		case 0:
+			// 0 <= z <= 0.5
+			_2F1(0.5, k1 + 0.25, k1 + 1.25, w, &f, &f_err, &f_nt, false);
+			omega_k = f;
+			omega_k *= w1;	//
+			break;
+		case 1:
+			// 0.5 < z <= 1
+			break;
+		case 2:
+			// -1 <= z < 0
+			break;
+		case 3:
+			// z < -1
+			break;
+		default:
+			// This should never be reached
+			return NAN;
+		}
+
+		omega_k *= POW(x, k2, APPROX ? FAST : STL);
+		omega_k /= GAMMA(k + 1, STL) * GAMMA(0.5 - k, STL) * k2;
+
+		omega += omega_k;
+	}
+
+	omega *= 2.0 * SQRT_PI;
+
+	return omega;
+}
+
+//Region 2, Positive Lambda
+inline double omegaRegion2a()
+{
+	return 0.0;
+}
+
+//Region 2, Negative Lambda
+inline double omegaRegion2b()
+{
+	return 0.0;
+}
+
+//Region 3
+inline double omegaRegion3()
+{
+	return 0.0;
+}
 
 //Embedded Z1 Coordinate used in Naive Embedding
 //For use with GNU Scientific Library

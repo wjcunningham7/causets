@@ -1034,7 +1034,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 //Measure Causal Set Action
 //Algorithm has been parallelized on the CPU
-bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &zeta, const double &chi_max, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
+bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
@@ -1065,6 +1065,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 		assert (N_tar > 0);
 		assert (k_tar > 0.0f);
 		assert (max_cardinality > 0);
+		assert (a > 0.0);
 		assert (HALF_PI - zeta > 0.0);
 		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 		assert (edge_buffer > 0.0f);
@@ -1188,11 +1189,11 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 			}
 		} else {
 			//If nodes have not been linked, do each comparison
-			if (!nodesAreRelated(nodes.crd, N_tar, dim, manifold, zeta, chi_max, compact, i, j))
+			if (!nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, j))
 				continue;
 
 			for (int k = i + 1; k < j; k++) {
-				if (nodesAreRelated(nodes.crd, N_tar, dim, manifold, zeta, chi_max, compact, i, k) && nodesAreRelated(nodes.crd, N_tar, dim, manifold, zeta, chi_max, compact, k, j))
+				if (nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, k) && nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, k, j))
 					elements++;
 
 				if (elements >= max_cardinality - 1) {

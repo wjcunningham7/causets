@@ -8,22 +8,7 @@
 
 mkdir -p bin
 etc/mkdat
-mkdir -p net
 mkdir -p obj
 
 cp etc/.README.dat dat/
 mv dat/.README.dat dat/README
-
-$host1=compute
-$host2=tiberius
-
-LOCAL_DIR=""
-
-if [[ "$HOSTNAME" =~ "$host1" ]]; then
-	LOCAL_DIR="/home/$USER/local"
-elif [[ "$HOSTNAME" =~ "$host2" ]]; then
-	LOCAL_DIR="/usr/local"
-else
-	echo "Hostname not recognized!"
-	exit 1
-fi

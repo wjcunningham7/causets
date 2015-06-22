@@ -134,26 +134,11 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 		t2 = temp;
 	}
 
-	//double tau1_val = 0.0;
-	//double tau2_val = 0.0;
-	//double omega12_val = 0.0;
 	double lambda = 0.0;
 	double tol = 1e-2;
-
-	//NOTE: these values are currently HARD CODED.  This will later be changed,
-	//but it requires re-generating the lookup table.
-
-	//int tau_step = 200;	//For FLRW
-	//int tau_step = 500;	//For de Sitter
-	//int lambda_step = 1000;
-	//int step = 4 * tau_step * lambda_step;
 	int tau_step, lambda_step, step;
 	int counter;
 	int i;
-
-	//DEBUG
-	//printf("tau1: %f\ttau2: %f\tomega12: %f\n", t1, t2, omega12);
-	//fflush(stdout);
 
 	try {
 		//The first two table elements should be zero
@@ -165,41 +150,26 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 		step = 4 * tau_step * lambda_step;
 		counter = 0;
 
-		//printf("Looking for tau1.\n");
-
 		//Identify Value in Table
 		//Assumes values are written (tau1, tau2, omega12, lambda)
 		for (i = 4; i < size / (int)sizeof(double); i += step) {
-			//printf("i: %d\tvalue: %f\n", i, table[i]);
 			counter++;
 
 			if (step == 4 * tau_step * lambda_step && table[i] > t1) {
-				//tau1_val = table[i-step];
 				i -= (step - 1);
 				step = 4 * lambda_step;
-				//printf("Found tau1: %f\tat index: %d\n", tau1_val, i - 1);
-				//printf("Looking for tau2 beginning at %d.\n", i);
 				i -= step;
 				counter = 0;
 			} else if (step == 4 * lambda_step && table[i] > t2) {
-				//tau2_val = table[i-step];
 				i -= (step - 1);
 				step = 4;
-				//printf("Found tau2: %f\tat index: %d\n", tau2_val, i - 1);
-				//printf("Looking for omega12 beginning at %d.\n", i);
 				i -= step;
 				counter = 0;
 			} else if (step == 4 && ABS(table[i] - omega12, STL) / omega12 < tol && table[i] != 0.0) {
-				//omega12_val = table[i-step];
 				i -= step;
 				step = 1;
-				//printf("Found omega12: %f\tat index: %d\n", omega12_val, i);
-				//printf("Identifying corresponding lambda at %d.\n", i + 1);
 			} else if (step == 1) {
 				lambda = table[i];
-				//printf_red();
-				//printf("Found lambda: %f\n\n", lambda);
-				//printf_std();
 				break;
 			}
 
@@ -217,10 +187,10 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 				throw CausetException("tau1 value not found in geodesic lookup table.\n");
 			else if (step == 4 * lambda_step)
 				throw CausetException("tau2 value not found in geodesic lookup table.\n");
-			//else if (step == 4)
-			//	throw CausetException("omega12 value not found in geodesic lookup table.\n");
-			//else if (step == 1)
-			//	throw std::exception();
+			else if (step == 4)
+				throw CausetException("omega12 value not found in geodesic lookup table.\n");
+			else if (step == 1)
+				throw std::exception();
 		}
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);

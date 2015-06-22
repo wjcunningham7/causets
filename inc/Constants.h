@@ -20,7 +20,7 @@
 #define APPROX false	//Determines whether FastMath approximations are used
 			//in computationally intensive subroutines
 
-#define USE_GSL true	//Use GNU Scientific Library for numerical integration
+#define USE_GSL false	//Use GNU Scientific Library for numerical integration
 
 #define DIST_V2 true	//Use factored (v2) or expanded (v1) distance formulae
 
