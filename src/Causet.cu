@@ -729,7 +729,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 		uint64_t *edges;
-		double *param = &network->network_properties.a;
 		char *delimeters;
 
 		uint64_t key;
@@ -830,8 +829,8 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 						if (network->network_properties.manifold == FLRW) {
 							network->nodes.id.tau[i] = atof(strtok((char*)line.c_str(), delimeters));
 							if (USE_GSL) {
-								idata.upper = network->nodes.id.tau[i] * network->network_properties.a;
-								network->nodes.crd->w(i) = integrate1D(&tToEtaFLRW, (void*)param, &idata, QAGS) / network->network_properties.alpha;
+								idata.upper = network->nodes.id.tau[i];
+								network->nodes.crd->w(i) = integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * network->network_properties.a / network->network_properties.alpha;
 							} else
 								network->nodes.crd->w(i) = tauToEtaFLRWExact(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
 						} else if (network->network_properties.manifold == DE_SITTER) {
@@ -1216,6 +1215,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 				outputStream << "Resulting Average Degrees (k_res)\t" << network.network_observables.k_res << std::endl;
 				outputStream << "    Incl. Isolated Nodes\t\t" << (network.network_observables.k_res * network.network_observables.N_res) / network.network_properties.N_tar << std::endl;
 			}
+			outputStream << "Minimum Rescaled Time\t\t\t" << network.nodes.id.tau[0] << std::endl;
 		}
 
 		if (network.network_properties.flags.calc_clustering)
@@ -1267,15 +1267,15 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 
 		outputStream << "\nAlgorithmic Performance:" << std::endl;
 		outputStream << "--------------------------" << std::endl;
-		outputStream << "calcDegrees:\t\t\t" << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
-		outputStream << "createNetwork:\t\t\t" << cp.sCreateNetwork.elapsedTime << " sec" << std::endl;
-		outputStream << "generateNodes:\t\t\t" << cp.sGenerateNodes.elapsedTime << " sec" << std::endl;
-		outputStream << "quicksort:\t\t\t" << cp.sQuicksort.elapsedTime << " sec" << std::endl;
+		outputStream << "calcDegrees:\t\t\t\t" << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
+		outputStream << "createNetwork:\t\t\t\t" << cp.sCreateNetwork.elapsedTime << " sec" << std::endl;
+		outputStream << "generateNodes:\t\t\t\t" << cp.sGenerateNodes.elapsedTime << " sec" << std::endl;
+		outputStream << "quicksort:\t\t\t\t" << cp.sQuicksort.elapsedTime << " sec" << std::endl;
 		if (links_exist) {
 			if (network.network_properties.flags.use_gpu)
-				outputStream << "linkNodesGPU:\t\t\t" << cp.sLinkNodesGPU.elapsedTime << " sec" << std::endl;
+				outputStream << "linkNodesGPU:\t\t\t\t" << cp.sLinkNodesGPU.elapsedTime << " sec" << std::endl;
 			else
-				outputStream << "linkNodes:\t\t\t" << cp.sLinkNodes.elapsedTime << " sec" << std::endl;
+				outputStream << "linkNodes:\t\t\t\t" << cp.sLinkNodes.elapsedTime << " sec" << std::endl;
 		}
 
 		if (network.network_properties.flags.calc_clustering)

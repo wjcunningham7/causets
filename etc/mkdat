@@ -1,5 +1,14 @@
 #!/bin/bash
 
+###########################
+#(C) Will Cunningham 2015 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# This script is used to create the directory structure used
+# by the CausalSet program to store data files
+
 basedir='.'
 
 if [ "$#" -eq 1 ]; then

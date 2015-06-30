@@ -1275,7 +1275,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 		//printf("\tEmbedded Distance: %f\n", embeddedDistance);
 
 		//Distance using exact formula
-		double exactDistance = distance(table, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, size, compact);
+		double exactDistance = distance_v1(table, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, size, compact);
 		//printf("\tExactDistance: %f\n", exactDistance);
 
 		double abserr = ABS(embeddedDistance - exactDistance, STL) / embeddedDistance;
@@ -1880,7 +1880,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 				if (compact)
 					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
 				else
-					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
+					dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 
@@ -1939,7 +1939,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 				if (compact)
 					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
 				else
-					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
+					dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 
@@ -2075,11 +2075,11 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 					causet_intersection_v2(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], max_cardinality, pstart, fstart, too_many);
 				}
 			} else {
-				if (!nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, j))
+				if (!nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, j, NULL))
 					continue;
 
 				for (k = i + 1; k < j; k++) {
-					if (nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, alpha, chi_max, compact, i, k) && nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, k, j))
+					if (nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, alpha, chi_max, compact, i, k, NULL) && nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, k, j, NULL))
 						elements++;
 					if (elements >= max_cardinality - 1) {
 						too_many = true;

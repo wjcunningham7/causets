@@ -34,7 +34,7 @@ ncores=1
 mpinodes=0
 
 # Parse command line parameters
-OPTIONS=`getopt -o c:f:G:hJ:j:m:q:R:s: -l ncores:,flags:,graph:,'help',mpi:,start:,njobs:,queue:,readjob:,nsamples: -n 'cbat' -- "$@"`
+OPTIONS=`getopt -o c:f:G:hJ:j:m:q:R:s: -l ncores:,flags:,graph:,'help',mpi:,start:,njobs:,queue:,readjob:,nsamples: -n 'causet_bat' -- "$@"`
 
 if [ $? -ne 0 ] ; then
   echo "Unrecognized option. Try running with --help flag." >&2
@@ -91,7 +91,7 @@ while true ; do
         *) nsamples=$2 ; shift 2 ;;
       esac ;;
     -h|--help)
-      echo "Usage: cbat [OPTION]..."
+      echo "Usage: causet_bat [OPTION]..."
       echo "Send CausalSet jobs to LSF queue on Discovery cluster."
       echo ""
       echo "  -c, --ncores     number of cores requested"
@@ -105,7 +105,7 @@ while true ; do
       echo "  -R, --readjob    job ID specified when reading a graph from another job"
       echo "  -s, --nsamples   number of samples to run serially on a single node"
       echo ""
-      echo "Report cbat bugs to w.cunningham@neu.edu"
+      echo "Report causet_bat bugs to w.cunningham@neu.edu"
       echo "GitHub repository home page: <https://github.com/wjcunningham7/causets>"
       exit 0 ;;
     --) shift ; break ;;
@@ -143,7 +143,7 @@ for (( i=${istart}; i<=${njobs}+${istart}-1; i++ )) ; do
   if [ ${notnumber} -eq 0 ] ; then
     jobid=$i
   fi
-  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%totalcores%:$totalcores:g;s:%totalcoresmpi%:$totalcoresmpi:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%usempi%:$usempi:g" < lsf/causet | bsub
+  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%totalcores%:$totalcores:g;s:%totalcoresmpi%:$totalcoresmpi:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%usempi%:$usempi:g" < lsf/causet_lsf | bsub
   sleep 1
 done
 

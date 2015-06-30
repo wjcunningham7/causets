@@ -11,33 +11,6 @@
 import glob
 import sys
 
-if (len(sys.argv) == 1):
-	sys.stdout.write('Must specify topology.\n')
-	sys.exit(1)
-elif (len(sys.argv) > 2):
-	sys.stdout.write('Too many parameters specified.\n')
-	sys.exit(2)
-
-ctype = 0
-if (sys.argv[1] == '1+1'):
-	ctype = 1
-elif (sys.argv[1] == '3+1'):
-	ctype = 2
-elif (sys.argv[1] == 'flrw'):
-	ctype = 3
-
-if (ctype == 0):
-	sys.stdout.write('Invalid parameter.\n')
-	sys.exit(3)
-
-cline = 0
-if (ctype == 1):
-	cline = 18
-elif (ctype == 2):
-	cline = 18
-elif (ctype == 3):
-	cline = 25
-
 #basedir = '/scratch/cunningham/causets/'
 basedir = ''
 files = glob.glob(basedir + 'dat/*.cset.out')
@@ -54,10 +27,17 @@ for file in files:
 	f = open(file)
 	lines = f.readlines()
 
-	c[idx] = float(lines[cline].split()[2])
-	avg += c[idx]
-	idx += 1
+	for line in lines:
+		tokens = line.split()
+		if len(tokens) == 0:
+			continue
 
+		if tokens[0] == 'Average' and tokens[1] == 'Clustering':
+			c[idx] = float(tokens[2])
+			avg += c[idx]
+			idx += 1
+			continue
+		
 	f.close()
 
 avg /= N

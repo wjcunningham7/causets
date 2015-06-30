@@ -438,7 +438,7 @@ inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 //=========================//
 
 //Assumes coordinates have been temporally ordered
-inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const bool &compact, int past_idx, int future_idx)
+inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const bool &compact, int past_idx, int future_idx, double *omega12)
 {
 	if (DEBUG) {
 		assert (!c->isNull());
@@ -508,6 +508,9 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 		if (DEBUG) assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(chi_max));
 	}
 
+	if (omega12 != NULL)
+		*omega12 = dx;
+
 	if (dx < dt)
 		return true;
 	else
@@ -541,17 +544,12 @@ inline double tauToEta(const double tau)
 //Formulae in FLRW
 
 //For use with GNU Scientific Library
-inline double tToEtaFLRW(double t, void *params)
+inline double tauToEtaFLRW(double tau, void *params)
 {
-	if (DEBUG) {
-		assert (params != NULL);
-		assert (t > 0.0);
-	}
+	if (DEBUG)
+		assert (tau > 0.0);
 
-	//Identify params[0] with 'a'
-	double a = ((double*)params)[0];
-
-	return POW(SINH(1.5 * t / a, APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL);
+	return POW(SINH(1.5 * tau, APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL);
 }
 
 //'Exact' Solution (Hypergeomtric Series)
@@ -820,7 +818,8 @@ inline double omegaRegion1(const double &x, const double &lambda, double * const
 	if (DEBUG) {
 		assert (err != NULL);
 		assert (nterms != NULL);
-		assert (x >= 0.0 && x < 1.0);
+		assert (x >= 0.0 && x <= GEODESIC_LOWER);
+		assert (lambda != 0.0);
 		assert (*err >= 0.0);
 		assert (!(*err == 0.0 && *nterms == -1));
 	}
@@ -829,8 +828,8 @@ inline double omegaRegion1(const double &x, const double &lambda, double * const
 
 	//Used for _2F1
 	double f;
-	double f_err = 1.0E-10;
-	int f_nt = -1;
+	double f_err;
+	int f_nt;
 
 	//Determine which transformation of 2F1 is used
 	double z = -1.0 * lambda * POW2(POW2(x, EXACT), EXACT);
@@ -840,15 +839,15 @@ inline double omegaRegion1(const double &x, const double &lambda, double * const
 		w = z;
 		method = 0;
 	} else if (z > 0.5 && z <= 1.0) {
-		w = 1 - z;
+		w = 1.0 - z;
 		w1 = SQRT(w, APPROX ? FAST : STL);
 		method = 1;
 	} else if (z >= -1.0 && z < 0.0) {
-		w = z / (z - 1);
+		w = z / (z - 1.0);
 		method = 2;
-	} else if (z < -1) {
-		w = 1 / (1 - z);
-		w1 = 1 / w;
+	} else if (z < -1.0) {
+		w = 1.0 / (1.0 - z);
+		w1 = 1.0 / w;
 		method = 3;
 	} else
 		// This should never be reached
@@ -858,7 +857,11 @@ inline double omegaRegion1(const double &x, const double &lambda, double * const
 	double error = INF;
 	int k = 0;
 	double omega_k, k1, k2;
-	while ((error > *err && *nterms == -1)  || k <= *nterms) {
+	while (error > *err && k < *nterms) {
+		f = 0.0;
+		f_err = 1.0E-10;
+		f_nt = -1;
+
 		omega_k = 0.0;
 		k1 = 1.5 * k;
 		k2 = 6.0 * k + 1.0;
@@ -868,16 +871,23 @@ inline double omegaRegion1(const double &x, const double &lambda, double * const
 			// 0 <= z <= 0.5
 			_2F1(0.5, k1 + 0.25, k1 + 1.25, w, &f, &f_err, &f_nt, false);
 			omega_k = f;
-			omega_k *= w1;	//
 			break;
 		case 1:
 			// 0.5 < z <= 1
+			omega_k = SQRT_PI * GAMMA(k1 + 1.25, STL) * POW(z, -1.0 * (k1 + 0.25), APPROX ? FAST : STL) / GAMMA(k1 + 0.75, STL);
+			_2F1(k1 + 0.75, 1.0, 1.5, w, &f, &f_err, &f_nt, false);
+			omega_k -= k2 * w1 * f / 2.0;
 			break;
 		case 2:
 			// -1 <= z < 0
+			_2F1(0.5, 1.0, k1 + 1.25, w, &f, &f_err, &f_nt, false);
+			omega_k = f;
 			break;
 		case 3:
 			// z < -1
+			omega_k = GAMMA(k1 + 1.25, STL) * GAMMA(0.25 - k1, STL) * POW(w1 - 1.0, -1.0 * (k1 + 0.25), APPROX ? FAST : STL) / SQRT_PI;
+			_2F1(0.5, 1.0, 1.25 - k1, w, &f, &f_err, &f_nt, false);
+			omega_k += k2 * w1 * f / (k2 - 2.0);
 			break;
 		default:
 			// This should never be reached
@@ -888,46 +898,501 @@ inline double omegaRegion1(const double &x, const double &lambda, double * const
 		omega_k /= GAMMA(k + 1, STL) * GAMMA(0.5 - k, STL) * k2;
 
 		omega += omega_k;
+		error = ABS(omega_k / omega, STL);
+		k++;
 	}
 
+	if (method == 2)
+		omega /= SQRT(1.0 - w, APPROX ? FAST : STL);
+
 	omega *= 2.0 * SQRT_PI;
+
+	*nterms = k - 1;
+	*err = error;
 
 	return omega;
 }
 
-//Region 2, Positive Lambda
-inline double omegaRegion2a()
+//Supplementary functions used for elliptic integral approximations
+inline double theta_nm(const int &n, const int &m)
 {
-	return 0.0;
+	if (DEBUG) {
+		assert (n >= 0);
+		assert (m >= 1);
+	}
+
+	return static_cast<double>(m * M_PI / (2.0 * n + 1.0));
+}
+
+inline double sigma_nm(const int &n, const int &m)
+{
+	if (DEBUG) {
+		assert (n >= 0);
+		assert (m >= 1);
+	}
+
+	return SQRT(1.0 + POW2(SIN(theta_nm(n, m), APPROX ? FAST : STL), EXACT), STL);
+}
+
+inline double rho_nm(const int &n, const int &m)
+{
+	if (DEBUG) {
+		assert (n >= 0);
+		assert (m >= 1);
+	}
+
+	return SQRT(1.0 + POW2(COS(theta_nm(n, m), APPROX ? FAST : STL), EXACT), STL);
+}
+
+//Returns a complex phi for lambda > 0
+inline double2 ellipticPhi(const double &x, const double &lambda)
+{
+	if (DEBUG) {
+		assert (x > 0.0);
+		assert (lambda > 0.0);
+	}
+
+	double2 phi;
+	double z = lambda * POW2(POW2(x, EXACT), EXACT);
+	double sqz = SQRT(z, STL);
+	double sq1z = SQRT(1.0 + z, STL);
+	double x_tar = 0.0;
+
+	double t1 = sqz / 2.0 + 1.0 / z;
+	double t2 = 1.0 / sqz;
+
+	double x1 = t1 - t2;
+	double x2 = x1 >= 0.0 ? SQRT(x1, STL) : INF;
+
+	double y1 = -1.0 * (t1 + t2);
+	double y2 = y1 >= 0.0 ? SQRT(y1, STL) : INF;
+
+	//Check which one is the correct one
+	if (x2 > -1.0 && x2 < 0.0)
+		x_tar = x2;
+	else if (x2 >= 0.0 && x2 < 1.0)
+		x_tar = -1.0 * x2;
+	else if (y2 > -1.0 && y2 <= 0.0)
+		x_tar = y2;
+	else if (y2 >= 0.0 && y2 < 1.0)
+		x_tar = -1.0 * y2;
+	else
+		x_tar = NAN;
+	
+	phi.x = ATAN(x_tar, STL, VERY_HIGH_PRECISION);
+
+	if (DEBUG)
+		assert (phi.x > -1.0 * HALF_PI / 2.0);
+
+	double t3 = SQRT(sqz + sq1z - 1, STL);
+	double t4 = SQRT(2.0 * sqz * (sqz * sq1z), STL);
+
+	double x3 = sqz + sq1z + t3;
+	double x4 = x3 <= 1.0 ? sqz + sq1z - t3 : 0.0;
+
+	double y3 = sqz - sq1z + t4;
+	double y4 = y3 <= 1.0 ? sqz - sq1z - t4 : 0.0;
+
+	//Check which one is the correct one
+	if (x3 >= 1.0)
+		x_tar = x3;
+	else if (x4 >= 1.0)
+		x_tar = x4;
+	else if (y3 >= 1.0)
+		x_tar = y3;
+	else if (y4 >= 1.0)
+		x_tar = y4;
+	else
+		x_tar = NAN;
+
+	phi.y = LOG(x_tar, APPROX ? FAST : STL) / 2.0;
+
+	return phi;
+}
+
+inline double2 ellipticXi(const double2 &upsilon, const double &tau_nm)
+{
+	if (DEBUG) {
+		assert (upsilon.x <= 0.0);
+		assert (upsilon.y >= 0.0 && upsilon.y < 1.0);
+		assert (tau_nm > 0.0);
+	}
+
+	double2 xi;
+	double a = upsilon.y;
+	double b = upsilon.x;
+	double c = tau_nm;
+
+	double ac2 = POW2(a * c, EXACT);
+	double ab2 = POW2(a * b, EXACT);
+	double bc2 = POW2(b * c, EXACT);
+
+	double ac4 = POW2(ac2, EXACT);
+	double bc4 = POW2(bc2, EXACT);
+
+	double a2b2c4 = ab2 * POW2(POW2(c, EXACT), EXACT);
+
+	xi.x = ATAN((ac2 + b * c * SQRT(ac4 + 2.0 * a2b2c4 - 2.0 * ac2 + bc4 + 2.0 * bc2 + 1.0, STL) + bc2 - 1.0) / (2.0 * b * c), STL, VERY_HIGH_PRECISION);
+	xi.y = LOG((ac2 + bc2 + 2.0 * b * c + 1) / (ac2 + bc2 - 2.0 * b * c + 1.0), APPROX ? FAST : STL) / 4.0;
+
+	return xi;
+}
+
+//Approximates the incomplete elliptic integral of the first kind with k^2 = -1
+//This form assumes phi is real-valued
+inline double ellipticIntF(const double &phi, const int &n)
+{
+	if (DEBUG) {
+		//assert (phi % HALF_PI != 0.0);
+		assert (n >= 0);
+	}
+
+	double f = 0.0;
+	double s;
+	int m;
+
+	for (m = 1; m <= n; m++) {
+		s = sigma_nm(n, m);
+		f += s * ATAN(TAN(phi, APPROX ? FAST : STL), STL, VERY_HIGH_PRECISION) / s;
+	}
+
+	f *= 2.0;
+	f += phi;
+	f /= (2.0 * n + 1.0);
+
+	return f;
+}
+
+//Approximates the incomplete elliptic integral of the first kind with k^2 = -1
+//This form assumes phi is complex-valued with
+//phi.x = Re(phi) and phi.y = Im(phi)
+//This function returns Re[(1 \pm i) * F_n(phi, i)]
+inline double ellipticIntF_Complex(const double2 &phi, const int &n, const bool &plus)
+{
+	if (DEBUG) {
+		assert (phi.x > -0.25 * M_PI && phi.x <= 0.0);
+		assert (phi.y >= 0.0);
+		assert (n >= 0);
+	}
+
+	double2 upsilon;
+	double2 xi;
+
+	double f = 0.0;
+	double u_norm;
+	double s;
+	int m;
+
+	u_norm = COS(2.0 * phi.x, APPROX ? FAST : STL) + COSH(2.0 * phi.y, APPROX ? FAST : STL);
+	upsilon.x = SIN(2.0 * phi.x, APPROX ? FAST : STL) / u_norm;
+	upsilon.y = SINH(2.0 * phi.y, APPROX ? FAST : STL) / u_norm;
+
+	for (m = 1; m <= n; m++) {
+		s = sigma_nm(n, m);
+		xi = ellipticXi(upsilon, s);
+		f += (plus ? (xi.x - xi.y) : (xi.x + xi.y)) / s;
+	}
+
+	f *= 2.0;
+	f += plus ? (phi.x - phi.y) : (phi.x + phi.y);
+	f /= (2.0 * n + 1.0);
+
+	return f;
+}
+
+//Approximates the incomplete elliptic integral of the second kind with k^2 = -1
+//This form assumes phi is real-valued
+inline double ellipticIntE(const double &phi, const int &n)
+{
+	if (DEBUG) {
+		//assert (phi % HALF_PI != 0.0);
+		assert (n >= 0);
+	}
+
+	double e = 0.0;
+	double t, r;
+	int m;
+
+	for (m = 1; m <= n; m++) {
+		t = theta_nm(n, m);
+		r = rho_nm(n, m);
+		e += ATAN(r * TAN(phi, APPROX ? FAST : STL), STL, VERY_HIGH_PRECISION) * POW2(TAN(t, APPROX ? FAST : STL), EXACT) / r;
+	}
+
+	double n2 = 2.0 * n + 1;
+	e *= 2.0 / n2;
+
+	return n2 * phi - e; 
+}
+
+//Approximates the incomplete elliptic integral of the second kind with k^2 = -1
+//This form assumes phi is complex-valued with
+//phi.x = Re(phi) and phi.y = Im(phi)
+//This function returns Re[(1 \pm i) * E_n(phi, i)]
+inline double ellipticIntE_Complex(const double2 &phi, const int &n, const bool &plus)
+{
+	if (DEBUG) {
+		assert (phi.x > -0.25 * M_PI && phi.x <= 0.0);
+		assert (phi.y >= 0.0);
+		assert (n >= 0);
+	}
+
+	double2 upsilon;
+	double2 xi;
+
+	double e = 0.0;
+	double u_norm;
+	double r;
+	int m;
+
+	u_norm = COS(2.0 * phi.x, APPROX ? FAST : STL) + COSH(2.0 * phi.y, APPROX ? FAST : STL);
+	upsilon.x = SIN(2.0 * phi.x, APPROX ? FAST : STL) / u_norm;
+	upsilon.y = SINH(2.0 * phi.y, APPROX ? FAST : STL) / u_norm;
+
+	for (m = 1; m <= n; m++) {
+		r = rho_nm(n, m);
+		xi = ellipticXi(upsilon, r);
+		e += (plus ? (xi.x - xi.y) : (xi.x + xi.y)) * POW2(TAN(theta_nm(n, m), APPROX ? FAST : STL), EXACT) / r;
+	}
+
+	double n2 = 2.0 * n + 1.0;
+	e *= 2.0 / n2;
+	
+	return n2 * (plus ? (phi.x - phi.y) : (phi.x + phi.y)) - e;
+}
+
+//Region 2, Positive Lambda
+//Revise this later to simplify elliptic integral calculations
+inline double omegaRegion2a(const double &x, const double &lambda, double * const err, int * const nterms)
+{
+	if (DEBUG) {
+		assert (err != NULL);
+		assert (nterms != NULL);
+		assert (x >= GEODESIC_LOWER && x <= GEODESIC_UPPER);
+		assert (lambda > 0.0);
+		assert (*err >= 0.0);
+		assert (!(*err == 0.0 && *nterms == -1));
+	}
+
+	double2 phi = ellipticPhi(x, lambda);
+	double elF_plus = ellipticIntF_Complex(phi, *nterms, true);
+	double elF_minus = ellipticIntF_Complex(phi, *nterms, false);
+	double elE_minus = ellipticIntE_Complex(phi, *nterms, false);
+	double sql = SQRT(lambda, STL);
+
+	double omega = (55.0 * SQRT(1.0 + lambda * POW2(POW2(x, EXACT), EXACT), STL) + 153.0 * sql * ASINH(sql * POW2(x, EXACT), STL, VERY_HIGH_PRECISION)) / (16.0 * SQRT(2.0, STL) * lambda);
+	omega += 21.0 * elF_plus / (16.0 * SQRT(sql, STL));
+	omega -= 171.0 * (elE_minus - elF_minus) / (16.0 * POW(lambda, 0.75, STL));
+
+	return omega;
 }
 
 //Region 2, Negative Lambda
-inline double omegaRegion2b()
+inline double omegaRegion2b(const double &x, const double &lambda, double * const err, int * const nterms)
 {
-	return 0.0;
+	if (DEBUG) {
+		assert (err != NULL);
+		assert (nterms != NULL);
+		assert (x >= GEODESIC_LOWER && x <= GEODESIC_UPPER);
+		assert (lambda < 0.0);
+		assert (*err >= 0.0);
+		assert (!(*err == 0.0 && *nterms == -1));
+	}
+
+	double phi = asin(POW(-1.0 * lambda, 0.25, APPROX ? FAST : STL) * x);
+	double el_F = ellipticIntF(phi, *nterms);
+	double el_E = ellipticIntE(phi, *nterms);
+	double sql = SQRT(-1.0 * lambda, STL);
+
+	double omega = (55.0 * SQRT(1.0 + lambda * POW2(POW2(x, EXACT), EXACT), STL) - 153.0 * sql * asin(sql * POW2(x, EXACT))) / (16.0 * SQRT(2.0, STL) * lambda);
+	omega -= 21.0 * el_F / (8.0 * SQRT(2.0 * sql, STL));
+	omega -= 171.0 * (el_F - el_E) / (8.0 * SQRT(2.0 * POW3(sql, EXACT), STL));
+
+	return omega;
 }
 
 //Region 3
-inline double omegaRegion3()
-{
-	return 0.0;
-}
-
-//Embedded Z1 Coordinate used in Naive Embedding
-//For use with GNU Scientific Library
-inline double embeddedZ1(double x, void *params)
+inline double omegaRegion3(const double * const table, const double &x, const double &lambda, double * const err, int * const nterms, const long &size)
 {
 	if (DEBUG) {
-		assert (params != NULL);
-		assert (x >= 0.0);
+		assert (table != NULL);
+		assert (err != NULL);
+		assert (nterms != NULL);
+		assert (x >= GEODESIC_UPPER);
+		assert (lambda != 0.0);
+		assert (lambda < 1.0);	//This prevents the series from diverging
+		assert (*err >= 0.0);
+		assert (!(*err == 0.0 && *nterms == -1));
+		assert (size > 0L);
+		assert (*nterms <= 100);	//Limit of the lookup table
 	}
 
-	double alpha_tilde = ((double*)params)[0];
+	double omega = 0.0;
+	int p;
 
-	if (DEBUG)
-		assert (alpha_tilde != 0.0);
+	//Used for _2F1
+	double f;
+	double f_err;
+	int f_nt;
 
-	return SQRT(1.0 + (x / (POW3(alpha_tilde, EXACT) + POW3(x, EXACT))), STL);
+	//Determine which transformation of 2F1 is used for the even terms
+	double z = -1.0 * lambda * POW2(POW2(x, EXACT), EXACT);
+	double w, w1;
+	int method = 0;
+	if (z >= 0.0 && z <= 0.5) {
+		w = z;
+		method = 0;
+	} else if (z > 0.5 && z <= 1.0) {
+		w = 1.0 - z;
+		w1 = SQRT(w, APPROX ? FAST : STL);
+		method = 1;
+	} else if (z >= -1.0 && z < 0.0) {
+		w = z / (z - 1.0);
+		w1 = 1.0 / SQRT(1.0 - z, APPROX ? FAST : STL);
+		method = 2;
+	} else if (z < -1.0) {
+		w = 1.0 / (1.0 - z);
+		w1 = 0.000001;
+		method = 3;
+	} else
+		// This should never be reached
+		return NAN;
+
+	//Calculate the even terms in the series
+	double error_l = INF;
+	int l = 0;
+	double omega_l, l1, l2;
+	while (error_l > *err && l < *nterms) {
+		f = 0.0;
+		f_err = 1.0E-10;
+		f_nt = -1;
+
+		omega_l = 0.0;
+		l1 = 1.5 * l;
+		l2 = 6.0 * l + 2.0;
+
+		switch (method) {
+		case 0:
+			// 0 <= z <= 0.5
+			_2F1(0.5, -1.0 * l1 - 0.5, 0.5 - l1, w, &f, &f_err, &f_nt, false);
+			omega_l = f;
+			break;
+		case 1:
+			// 0.5 < z <= 1
+			_2F1(-1.0 * l1, 1.0, 1.5, w, &f, &f_err, &f_nt, false);
+			omega_l = l2 * w1 * f / 2.0;
+			break;
+		case 2:
+			// -1 <= z < 0
+			_2F1(0.5, 1.0, 0.5 - l1, w, &f, &f_err, &f_nt, false);
+			omega_l = w1 * f;
+			break;
+		case 3:
+			// z < -1
+			for (p = 0; p <= l1; p++)
+				omega_l += POW(-1.0, p, STL) * POCHHAMMER(-1.0 * l1 - 0.5, p) * POCHHAMMER(-1.0 * l1, p) * GAMMA(l1 + 1.0 - p + w1, STL) * POW(w, p - l1 - 0.5, APPROX ? FAST : STL) / GAMMA(p + 1.0, STL);
+			omega_l *= GAMMA(0.5 - l1, STL) / SQRT_PI;
+			break;
+		default:
+			// This should never be reached
+			return NAN;
+		}
+
+		omega_l /= -1.0 * l2 * POW(x, l2, APPROX ? FAST : STL) * GAMMA(l + 1.0, STL) * GAMMA(0.5 - l, STL);
+
+		omega += omega_l;
+		error_l = ABS(omega_l / omega, APPROX ? FAST : STL);
+		l += 2;
+	}
+
+	//Calculate the odd terms in the series
+	z = SQRT(1.0 - z, STL);
+	double z1 = z + 1.0;
+	double z2 = z - 1.0;
+	double error_m = INF;
+	int m = 1;
+
+	double omega_m, n1;
+	int n, n3, start;
+	while (error_m > *err && m < *nterms) {
+		n = (m + 1) / 2;
+		n3 = 3 * n;
+		n1 = 0.5 * POW(lambda, n3 - 1.0, STL);
+		start = n3 * (n - 1);
+
+		omega_m += table[start] * LOG(z1, APPROX ? FAST : STL);
+		omega_m += table[start+n3] * LOG(ABS(z2, STL), APPROX ? FAST : STL);
+		for (p = 1; p < n3; p++) {
+			omega_m += table[start+p] / (-1.0 * p * POW(z1, p, APPROX ? FAST : STL));
+			omega_m += table[start+n3+p] / (-1.0 * p * POW(z2, p, APPROX ? FAST : STL));
+		}
+
+		omega_m *= n1;
+		omega_m /= GAMMA(m + 1.0, STL) * GAMMA(0.5 - m, STL);
+
+		omega += omega_m;
+		error_m = ABS(omega_m / omega, APPROX ? FAST : STL);
+		m += 2;
+	}
+
+	omega *= 2.0 * SQRT_PI;
+	
+	*nterms = l + m - 4;
+	*err = error_l < error_m ? error_l : error_m;
+
+	return omega;
+}
+
+//Gives omega = f(x, lambda) using numerical approximations
+//This function is an intermediary subroutine designed to pick the correct region for x
+//NOTE: x is related to tau by x = sinh(1.5*tau)^(1/3)
+inline double omegaRegionX(const double * const table, const double &x, const double &lambda, double * const err, int * const nterms, const long &size)
+{
+	if (DEBUG) {
+		assert (table != NULL);
+		assert (err != NULL);
+		assert (nterms != NULL);
+		assert (x >= 0.0);
+		assert (lambda != 0.0);
+		assert (*err >= 0.0);
+		assert (!(*err == 0.0 && *nterms == -1));
+		assert (size > 0L);
+		assert (*nterms <= 100);	//Limit of the lookup table for Region 3
+	}
+
+	double omega = -1.0;
+
+	if (x >= GEODESIC_UPPER)
+		//Region 3
+		omega = omegaRegion3(table, x, lambda, err, nterms, size);
+	else if (x >= GEODESIC_LOWER) {
+		if (lambda > 0.0)
+			//Region 2a
+			omega = omegaRegion2a(x, lambda, err, nterms);
+		else
+			//Region 2b
+			omega = omegaRegion2b(x, lambda, err, nterms);
+	} else
+		//Region 1
+		omega = omegaRegion1(x, lambda, err, nterms);
+
+	return omega;
+}
+
+inline double omegaDelta(const double &x1, const double &x2, const double &lower_delta, const double &upper_delta)
+{
+	if (DEBUG) {
+		assert (x1 >= 0.0);
+		assert (x2 >= 0.0);
+	}
+
+	double delta = 0.0;
+	if (x1 < GEODESIC_LOWER && x2 >= GEODESIC_LOWER)
+		delta -= lower_delta;
+	if (x1 < GEODESIC_UPPER && x2 >= GEODESIC_UPPER)
+		delta -= upper_delta;
+
+	return delta;
 }
 
 //Maximum Time in Geodesic (non-embedded)
@@ -948,6 +1413,75 @@ inline double geodesicMaxTau(const Manifold &manifold, const double &lambda)
 	}
 
 	return 0.0;
+}
+
+//Maximum X Time in FLRW Geodesic (non-embedded)
+//Returns x_max = f(lambda) with lambda < 0
+inline double geodesicMaxX(const double &lambda)
+{
+	if (DEBUG)
+		assert (lambda < 0.0);
+
+	return POW(-1.0 * lambda, -0.25, APPROX ? FAST : STL);
+}
+
+//Gives omega12 = f(x1, x2, lambda) using numerical approximations
+//This function should be faster than the numerical integral defined in the kernel
+//functions, flrwLookupKernel or flrwLookupKernelX
+//NOTE: x is related to tau by x = sinh(1.5*tau)^(1/3)
+inline double solveOmega12(const double * const table, const double &x1, const double &x2, const double &lambda, double * const err, int * const nterms, const long &size, const double &lower_delta, const double &upper_delta)
+{
+	if (DEBUG) {
+		assert (table != NULL);
+		assert (err != NULL);
+		assert (nterms != NULL);
+		assert (x1 >= 0.0);
+		assert (x2 >= 0.0);
+		assert (*err >= 0.0);
+		assert (!(*err == 0.0 && *nterms == -1));
+		assert (size > 0L);
+		assert (*nterms <= 100);	//Limit of the lookup table for Region 3
+	}
+
+	//Solve for omega(x1, lambda)
+	double omega1 = omegaRegionX(table, x1, lambda, err, nterms, size);
+
+	//Solve for omega(x2, lambda)
+	double omega2 = omegaRegionX(table, x2, lambda, err, nterms, size);
+
+	double omega;
+	if (lambda > 0.0) {
+		omega = omega2 - omega1;
+		omega += omegaDelta(x1, x2, lower_delta, upper_delta);
+	} else if (lambda < 0.0) {
+		double x_max = geodesicMaxX(lambda);
+		if (x1 > x_max || x2 > x_max)
+			return NAN;
+
+		double omega3 = omegaRegionX(table, x_max, lambda, err, nterms, size);
+		omega = 2.0 * omega3 - omega1 - omega2;
+		omega += omegaDelta(x1, x_max, lower_delta, upper_delta);
+		omega += omegaDelta(x2, x_max, lower_delta, upper_delta);
+	}
+
+	return omega;
+}
+
+//Embedded Z1 Coordinate used in Naive Embedding
+//For use with GNU Scientific Library
+inline double embeddedZ1(double x, void *params)
+{
+	if (DEBUG) {
+		assert (params != NULL);
+		assert (x >= 0.0);
+	}
+
+	double alpha_tilde = ((double*)params)[0];
+
+	if (DEBUG)
+		assert (alpha_tilde != 0.0);
+
+	return SQRT(1.0 + (x / (POW3(alpha_tilde, EXACT) + POW3(x, EXACT))), STL);
 }
 
 //Integrands for Exact Geodesic Calculations
@@ -1012,7 +1546,32 @@ inline double flrwLookupKernel(double x, void *params)
 	double sx = SINH(1.5 * x, STL);
 	double sx43 = POW(sx, 4.0 / 3.0, STL);
 	double g = sx43 + lambda * POW2(sx43, EXACT);
-	double omega12 = g > 0 ? POW(g, -0.5, STL) : 0.0;
+	double omega12 = g > 0.0 ? POW(g, -0.5, STL) : 0.0;
+
+	return omega12;
+}
+
+//Same as flrwLookupKernel but uses a change of variables
+//x = sinh(1.5*tau)^(1/3)
+//to make calculations faster
+//Multiply by 2 afterwards
+inline double flrwLookupKernelX(double x, void *params)
+{
+	if (DEBUG) {
+		assert (params != NULL);
+		assert (x >= 0.0);
+	}
+
+	double lambda = ((double*)params)[0];
+
+	if (DEBUG)
+		assert (lambda != 0.0);
+
+	double x4 = POW2(POW2(x, EXACT), EXACT);
+	double x6 = x4 * POW2(x, EXACT);
+
+	double g = 1.0 + lambda * x4;
+	double omega12 = g > 0.0 ? 1.0 / SQRT(g * (1.0 + x6), STL) : 0.0;
 
 	return omega12;
 }
@@ -1076,13 +1635,135 @@ inline double deSitterLookupExact(const double &tau, const double &lambda)
 	return omega12;
 }
 
+//Approximation for flrwLookupKernelX
+//Assumes lambda is large so (1+lambda*x^4) => lambda*x^4
+//Multiply by 2*lambda afterwards
+inline double flrwLookupApprox(double x, void *params)
+{
+	if (DEBUG)
+		assert (x >= 0.0);
+
+	double x4 = POW2(POW2(x, EXACT), EXACT);
+	double x6 = x4 * POW2(x, EXACT);
+
+	return 1.0 / SQRT((x4 * (1.0 + x6)), STL);
+}
+
 //=====================//
 // Distance Algorithms //
 //=====================//
 
-//Returns the exact distance between two nodes in 4D
+//Returns the distance between two nodes in the non-compact FLRW manifold
+//Version 2 does not use the lookup table
 //O(xxx) Efficiency (revise this)
-inline double distance(const double * const table, const float4 &node_a, const float tau_a, const float4 &node_b, const float tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const long &size, const bool &compact)
+inline double distance_v2(const double * const table, Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const long &size, const bool &compact, const int &past_idx, const int &future_idx, const double &lower_delta, const double &upper_delta)
+{
+	if (DEBUG) {
+		assert (table != NULL);
+		assert (c != NULL);
+		assert (!c->isNull());
+		assert (c->getDim() == 4);
+		assert (c->w() != NULL);
+		assert (c->x() != NULL);
+		assert (c->y() != NULL);
+		assert (c->z() != NULL);
+		assert (tau != NULL);
+		assert (N_tar > 0);
+		assert (dim == 3);
+		assert (manifold == FLRW);
+		assert (a > 0.0);
+		assert (HALF_PI - zeta > 0.0);
+		assert (chi_max > 0.0);
+		assert (alpha > 0.0);
+		assert (size > 0L);
+		assert (!compact);
+		assert (past_idx >= 0 && past_idx < N_tar);
+		assert (future_idx >= 0 && future_idx < N_tar);
+		assert (past_idx < future_idx);
+	}
+
+	IntData idata = IntData();
+	idata.limit = 60;
+	idata.tol = 1.0e-5;
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+
+	double x1 = POW(SINH(1.5 * tau[past_idx], APPROX ? FAST : STL), 1.0 / 3.0, APPROX ? FAST : STL);
+	double x2 = POW(SINH(1.5 * tau[future_idx], APPROX ? FAST : STL), 1.0 / 3.0, APPROX ? FAST : STL);
+	double omega12;
+	double lambda;
+
+	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, past_idx, future_idx, &omega12);
+
+	if (timelike) {
+		//Try approximation for large lambda
+		idata.lower = x1;
+		idata.upper = x2;
+		lambda = omega12 / (2.0 * integrate1D(&flrwLookupApprox, NULL, &idata, QNG));
+
+		double om_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
+
+		printf("Error: %f\n", ABS(om_res - omega12, STL) / omega12);
+	}
+
+	//Bisection Method
+	double res = 1.0, tol = 1E-3;
+	double lower, upper;
+	int iter = 0, max_iter = 10000;
+	if (timelike) {
+		lower = 0.0;
+		upper = 10000.0;
+	} else {
+		lower = -1.0 / POW2(POW2(x1, EXACT), EXACT);
+		upper = 0.0;
+	}
+
+	double x0;
+	double err = 0.0;
+	int nterms = 10;
+	while (upper - lower > tol && iter < max_iter) {
+		x0 = (lower + upper) / 2.0;
+		res = solveOmega12(table, x1, x2, x0, &err, &nterms, size, lower_delta, upper_delta) - omega12;
+
+		if (DEBUG)
+			assert (res == res);
+
+		if (res > 0.0)
+			lower = x0;
+		else
+			upper = x0;
+		iter++;
+	}
+	lambda = x0;
+
+	printf("Lambda: %f\n", lambda);
+	fflush(stdout);
+
+	double distance;
+	if (timelike) {
+		idata.lower = tau[past_idx];
+		idata.upper = tau[future_idx];
+		distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+	} else {
+		idata.lower = tau[past_idx];
+		idata.upper = geodesicMaxTau(manifold, lambda);
+		distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+
+		idata.lower = tau[future_idx];
+		distance += integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+	}
+
+	gsl_integration_workspace_free(idata.workspace);
+
+	printf("Distance: %f\n", distance);
+	fflush(stdout);
+
+	return distance;
+}
+
+//Returns the exact distance between two nodes in 4D
+//Uses a pre-generated lookup table
+//O(xxx) Efficiency (revise this)
+inline double distance_v1(const double * const table, const float4 &node_a, const float tau_a, const float4 &node_b, const float tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const long &size, const bool &compact)
 {
 	if (DEBUG) {
 		assert (manifold == DE_SITTER || manifold == FLRW);
@@ -1139,7 +1820,7 @@ inline double distance(const double * const table, const float4 &node_a, const f
 
 	if (lambda == 0.0)
 		distance = INF;
-	else if (lambda > 0.0 /*|| (tau_a > tau_max && tau_b > tau_max)*/) {
+	else if (lambda > 0.0) {
 		if (tau_a < tau_b) {
 			idata.lower = tau_a;
 			idata.upper = tau_b;
@@ -1192,7 +1873,6 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 	if (manifold == FLRW) {
 		IntData idata = IntData();
 		idata.tol = 1e-5;
-
 
 		//Solve for z1 in Rotated Plane
 		double power = 2.0 / 3.0;

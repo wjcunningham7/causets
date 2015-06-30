@@ -6,6 +6,10 @@
 # Northeastern University #
 ###########################
 
+# This is an older script used for small data sets,
+# no longer intended to be used for larger samples
+# Update before using if needed.
+
 net=/scratch/cunningham/causets/net
 
 if [ "$#" -ne 1 ]; then

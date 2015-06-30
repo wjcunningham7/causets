@@ -1,3 +1,5 @@
+(* This is an example of how to use ToMatlab.m and how to print Mathematica output to the command line. *)
+
 Get["/home/cunningham.wi/local/etc/ToMatlab.m"];
 
 (* Print[$CommandLine];

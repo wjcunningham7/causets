@@ -6,6 +6,9 @@
 # Northeastern University #
 ###########################
 
+# This is an older file used for small data sets.
+# Update before using if needed.
+
 mv Makefile Makefile~
 
 #Measure properties of 3+1 de Sitter

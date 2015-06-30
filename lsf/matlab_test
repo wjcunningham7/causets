@@ -1,0 +1,25 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2015 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# This is intended to be an example of how to launch 'lsf/matlab_bat'
+#
+# NOTE: To use MATLAB on Discovery the following lines should be added to your ~/.bashrc
+#
+# module load gnu-4.4-compilers
+# module load fftw-3.3.3
+# module load platform-mpi
+# module load oracle_java_1.7u40
+# module load matlab_dce_2013b
+#
+# These module names are accurate as of 29 June 2015. Run 'module whatis matlab_dce_2013b' to find an up-to-date list of module requirements.
+
+#---------------------------------#
+# Non-Compact FLRW Average Degree #
+#---------------------------------#
+
+./lsf/matlab_bat --name 'raduc_nc'

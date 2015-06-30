@@ -6,6 +6,9 @@
 # Northeastern University #
 ###########################
 
+# This is an older file which was used for smaller data sets.
+# Update before using if needed.
+
 exit 0
 
 if [ "$#" -ne 1 ]; then

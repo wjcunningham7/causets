@@ -1,0 +1,53 @@
+#!/bin/bash
+
+#BSUB -J %jobname%
+#BSUB -o /scratch/cunningham/matlab/%jobname%/%jobname%.log
+#BSUB -e /scratch/cunningham/matlab/%jobname%/%jobname%.err
+#BSUB -q krioukov
+#BSUB -n 1
+#BSUB -R span[ptile=1]
+#BSUB -cwd /scratch/cunningham/matlab/%jobname%
+
+###########################
+#(C) Will Cunningham 2015 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# This is the LSF batch submission script for Matlab programs
+
+homedir=/home/cunningham.wi/projects/causets
+work=/scratch/cunningham/matlab/%jobname%
+
+mkdir -p /scratch/cunningham
+mkdir -p /scratch/cunningham/matlab/%jobname%
+
+cp $homedir/etc/%jobname%.m $work/
+
+# Do not edit below this
+
+cd $work
+tempfile1=hostlistrun
+tempfile2=hostlist-tcp
+echo $LSB_MCPU_HOSTS > $tempfile1
+declare -a hosts
+read -a hosts < ${tempfile1}
+for ((i=0; i<${#hosts[@]}; i += 2)) ;
+do
+	HOST=${hosts[$i]}
+	CORE=${hosts[(($i+1))]}
+	echo $HOST:$CORE >> $tempfile2
+done
+
+# Do not edit above this
+
+echo "Starting MATLAB Job..."
+matlab -nojvm -nodisplay -nosplash -r %jobname% > %jobname%.out
+sleep 1
+
+# Do not edit below this
+
+rm $work/$tempfile1
+rm $work/$tempfile2
+
+# Do not edit above this

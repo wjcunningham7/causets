@@ -136,7 +136,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->alpha *= network_properties->a;
 				//Use lookup table to solve for k_tar
 				int method = 1;
-				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.verbose, network_properties->flags.bench, method))
+				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
 					network_properties->cmpi.fail = 1;
 
 				if (checkMpiErrors(network_properties->cmpi))
@@ -146,24 +146,14 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->chi_max = 1.0;
 
 				//Non-Compact FLRW Constraints
-				double kappa;
-				int nb = static_cast<int>(network_properties->flags.bench) * NBENCH;
+				int method = 0;
+				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
+					network_properties->cmpi.fail = 1;
 
-				for (int i = 0; i <= nb; i++) {
-					stopwatchStart(&cp->sCalcDegrees);
-					kappa = integrate2D(&rescaledDegreeFLRW_NC, 0.0, 0.0, network_properties->tau0, network_properties->tau0, NULL, network_properties->seed, 0);
-					stopwatchStop(&cp->sCalcDegrees);
-				}
-
-				if (nb)
-					bm->bCalcDegrees = cp->sCalcDegrees.elapsedTime / NBENCH;
-
-				kappa *= (8.0 * M_PI);
-				kappa /= (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0);
-
-				network_properties->k_tar = (9.0 * kappa * network_properties->N_tar) / (TWO_PI * POW3(network_properties->alpha * network_properties->chi_max, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
-
-				double q = network_properties->k_tar / kappa;
+				if (checkMpiErrors(network_properties->cmpi))
+					return false;
+				
+				double q = 9.0 * network_properties->N_tar / (TWO_PI * POW3(network_properties->alpha * network_properties->chi_max, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
 				network_properties->a = POW(q / network_properties->delta, 0.25, STL);
 				network_properties->alpha *= network_properties->a;
 			}
@@ -241,19 +231,24 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	return true;
 }
 
-//Calculate Expected Average Degree in Compact FLRW Spacetime
+//Calculate Expected Average Degree in the FLRW Spacetime
 //See Causal Set Notes for detailed explanation of methods
-bool solveExpAvgDegree(float &k_tar, const int &dim, const Manifold &manifold, double &a, double &tau0, const double &alpha, const double &delta, long &seed, const int &rank, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &verbose, const bool &bench, const int method)
+bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Manifold &manifold, double &a, const double &chi_max, double &tau0, const double &alpha, const double &delta, long &seed, const int &rank, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &compact, const bool &verbose, const bool &bench, const int method)
 {
 	if (DEBUG) {
 		assert (ca != NULL);
+		assert (N_tar > 0);
 		assert (dim == 3);
 		assert (manifold == FLRW);
-		assert (a > 0.0);
 		assert (tau0 > 0.0);
 		assert (alpha > 0.0);
 		assert (delta > 0.0);
 		assert (method == 0 || method == 1 || method == 2);
+		if (!compact) {
+			assert (method == 0 || method == 1);
+			assert (chi_max > 0.0);
+		} else
+			assert (a > 0.0);
 	}
 
 	printf_mpi(rank, "\tEstimating Expected Average Degree...\n");
@@ -275,22 +270,36 @@ bool solveExpAvgDegree(float &k_tar, const int &dim, const Manifold &manifold, d
 
 		for (i = 0; i <= nb; i++) {
 			stopwatchStart(&sCalcDegrees);
-			if (tau0 > LOG(MTAU, STL) / 3.0)
-				k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeFLRW, 0.0, 0.0, r0, r0, NULL, seed, 0) * 16.0 * M_PI * exp(-3.0 * tau0);
-			else
-				k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeFLRW, 0.0, 0.0, r0, r0, NULL, seed, 0) * 8.0 * M_PI / (SINH(3.0 * tau0, STL) - 3.0 * tau0);
+			if (compact) {
+				if (tau0 > LOG(MTAU, STL) / 3.0)
+					k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeFLRW, 0.0, 0.0, r0, r0, NULL, seed, 0) * 16.0 * M_PI * exp(-3.0 * tau0);
+				else
+					k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeFLRW, 0.0, 0.0, r0, r0, NULL, seed, 0) * 8.0 * M_PI / (SINH(3.0 * tau0, STL) - 3.0 * tau0);
+			} else {
+				double kappa = integrate2D(&rescaledDegreeFLRW_NC, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
+				kappa *= 8.0 * M_PI;
+				kappa /= SINH(3.0 * tau0, STL) - 3.0 * tau0;
+				k_tar = (9.0 * kappa * N_tar) / (TWO_PI * POW3(alpha * chi_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
+			}
 			stopwatchStop(&sCalcDegrees);
 		}	
 	} else if (method == 1) {
 		//Method 2 of 3: Lookup table to approximate method 1
-		if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
-			return false;
+		if (compact) {
+			if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
+				return false;
+		} else {
+			if (!getLookupTable("./etc/raducNC_table.cset.bin", &table, &size))
+				return false;
+		}
 		ca->hostMemUsed += size;
 
-		k_tar = lookupValue(table, size, &tau0, NULL, true) * delta * POW2(POW2(a, EXACT), EXACT);
 		for (i = 0; i <= nb; i++) {
 			stopwatchStart(&sCalcDegrees);
-			lookupValue(table, size, &tau0, NULL, true);
+			if (compact)
+				k_tar = lookupValue(table, size, &tau0, NULL, true) * delta * POW2(POW2(a, EXACT), EXACT);
+			else
+				k_tar = lookupValue(table, size, &tau0, NULL, true) * 9.0 * N_tar / (TWO_PI * POW3(alpha * chi_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
 			stopwatchStop(&sCalcDegrees);
 		}	
 
@@ -322,14 +331,12 @@ bool solveExpAvgDegree(float &k_tar, const int &dim, const Manifold &manifold, d
 		idata.limit = 50;
 		idata.tol = 1e-5;
 		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-		idata.upper = tau0 * a;
+		idata.upper = tau0;
 
-		double *params2 = &a;
-		double max_time = integrate1D(&tToEtaFLRW, (void*)params2, &idata, QAGS) / alpha;
-
+		double max_time;
 		for (i = 0; i <= nb; i++) {
 			stopwatchStart(&sCalcDegrees);
-			integrate1D(&tToEtaFLRW, (void*)params2, &idata, QAGS);
+			max_time = integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * a / alpha;
 			stopwatchStop(&sCalcDegrees);
 		}
 
@@ -598,16 +605,12 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 	}
 
 	IntData idata = IntData();
-	double *param = NULL;
-
 	//Modify these two parameters to trade off between speed and accuracy
 	idata.limit = 50;
 	idata.tol = 1e-4;
 
-	if (USE_GSL && manifold == FLRW) {
+	if (USE_GSL && manifold == FLRW)
 		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-		param = (double*)malloc(sizeof(double));
-	}
 
 	stopwatchStart(&sGenerateNodes);
 
@@ -685,9 +688,8 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			if (manifold == FLRW) {
 				if (USE_GSL) {
 					//Numerical Integration
-					idata.upper = static_cast<double>(nodes.id.tau[i]) * a;
-					param[0] = a;
-					nodes.crd->w(i) = static_cast<float>(integrate1D(&tToEtaFLRW, (void*)param, &idata, QAGS) / alpha);
+					idata.upper = static_cast<double>(nodes.id.tau[i]);
+					nodes.crd->w(i) = static_cast<float>(integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * a / alpha);
 				} else
 					//Exact Solution
 					nodes.crd->w(i) = static_cast<float>(tauToEtaFLRWExact(nodes.id.tau[i], a, alpha));
@@ -742,10 +744,8 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 	stopwatchStop(&sGenerateNodes);
 
-	if (USE_GSL && manifold == FLRW) {
+	if (USE_GSL && manifold == FLRW)
 		gsl_integration_workspace_free(idata.workspace);
-		free(param);
-	}
 
 	if (!bench) {
 		printf("\tNodes Successfully Generated.\n");
@@ -816,7 +816,7 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 		for (j = i + 1; j < N_tar; j++) {
 			//Apply Causal Condition (Light Cone)
 			//Assume nodes are already temporally ordered
-			related = nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, j);
+			related = nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, j, NULL);
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {

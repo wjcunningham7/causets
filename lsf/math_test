@@ -1,0 +1,31 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2015 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# This is intended to be an example of how to launch 'lsf/math_bat'
+#
+# NOTE: To use Mathematica on Discovery the following lines should be added to your ~/.bashrc
+#
+# module load gnu-4.4-compilers
+# module load fftw-3.3.3
+# module load platform-mpi
+# module load oracle_java_1.7u40
+# module load mathematica-10
+#
+# These module names are accurate as of 23 June 2015.  Run 'module whatis mathematica-10' to find an up-to-date list of module requirements.
+
+#---------------------#
+# de Sitter Geodesics #
+#---------------------#
+
+#./lsf/math_bat --name 'de_sitter_geodesics' --ncores 33
+
+#-------------------------------#
+# Partial Fraction Coefficients #
+#-------------------------------#
+
+./lsf/math_bat --name 'gen_partial_fractions' --ncores 17

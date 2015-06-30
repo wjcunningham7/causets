@@ -1,0 +1,65 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2015 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# This is intended to be an example of how to launch 'lsf/causet_bat'
+
+###########################
+#  GENERATE NEW NETWORKS  #
+###########################
+
+#=================#
+# No Acceleration #
+#=================#
+
+#./lsf/causet_bat --ncores 40 --flags '--nodes 131072 --age 1.5 --alpha 2 --manifold f --link --compact --verbose -y --print' --start 51 --queue 'ser-par-10g-3' --nsamples 10
+
+#./lsf/causet_bat --ncores 1 --flags '--nodes 1024 --age 1.5 --verbose -y --gen-ds-table --test' --start 59 --queue 'krioukov' --nsamples 1
+
+#./lsf/causet_bat --ncores 1 --flags '--nodes 1024 --energy 0.5 --alpha 2 --manifold f --verbose -y --gen-flrw-table --test' --start 62 --queue 'krioukov' --nsamples 1
+
+#==================#
+# GPU Acceleration #
+#==================#
+
+#./lsf/causet_bat --ncores 32 --flags '--nodes 20480 --age 1.5 --seed 18100 --link --compact --verbose -y --gpu --components --print' --start 61 --queue 'par-gpu' --nsamples 1
+
+#./lsf/causet_bat --ncores 32 --flags '--nodes 10240 --energy 0.7 --alpha 2 --seed 18100 --core 0.95 --manifold f --link --verbose -y --gpu --print --success 50000' --start 60 --queue 'par-gpu' --nsamples 1
+
+#=======================#
+# GPU, MPI Acceleration #
+#=======================#
+
+#./lsf/causet_bat --ncores 32 --flags '--nodes 20480 --age 1.5 --alpha 2 --link --compact --verbose -y --gpu --embedding 1' --start 61 --mpi 4 --queue 'par-gpu' --nsamples 1
+
+#./lsf/causet_bat --ncores 32 --flags '--nodes 10240 --energy 0.7 --alpha 2 --manifold f --link --compact --verbose -y --gpu --embedding 0.1' --start 61 --mpi 4 --queue 'par-gpu' --nsamples 1
+
+###########################
+# STUDY EXISTING NETWORKS #
+###########################
+
+#=================#
+# No Acceleration #
+#=================#
+
+#./lsf/causet_bat --ncores 40 --flags '--age 1.5 --link --compact --verbose -y --distances 0.001' --graph 1425566890 --start 60 --queue 'ser-par-10g-3' --readjob 59
+
+#./lsf/causet_bat --ncores 16 --flags '--age 1.5 --manifold f --link --compact --verbose -y --read-old-format' --graph 1415296494 --start '17a' --queue 'ser-par-10g' --readjob 17
+
+#==================#
+# GPU Acceleration #
+#==================#
+
+#./lsf/causet_bat --ncores 32 --flags '--age 1.5 --manifold f --relink --compact --verbose -y --gpu --read-old-format' --graph 1415296494 --start '17b' --queue 'par-gpu' --readjob 17
+
+#==================#
+# MPI Acceleration #
+#==================#
+
+#./lsf/causet_bat --ncores 40 --flags '--age 1.5 --link --compact --verbose -y --embedding 1 --print' --graph 1426166280 --start 62 --mpi 4 --queue 'ser-par-10g-2' --readjob 61
+
+#./lsf/causet_bat --ncores 40 --flags '--age 1.5 --manifold f --link --compact --verbose -y --embedding 1 --print' --graph 1426105545 --start 60 --mpi 4 --queue 'ser-par-10g-2' --readjob 59

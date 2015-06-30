@@ -1,6 +1,6 @@
 function raduc2
 
-% Rescaled Average Degree in the Universe Causet
+% Rescaled Average Degree in the Compact FLRW Causet
 % Version 2
 % Generates lookup table for CausalSet program
 % Written by Will Cunningham

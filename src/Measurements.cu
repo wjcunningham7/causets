@@ -319,13 +319,19 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	if (verbose)
 		printMemUsed("to Measure Success Ratio", ca->hostMemUsed, ca->devMemUsed, rank);
 
-	if (manifold == FLRW && !getLookupTable("./etc/geodesics_flrw_table.cset.bin", &table, &size))
+	//if (manifold == FLRW && !getLookupTable("./etc/geodesics_flrw_table.cset.bin", &table, &size))
+	//	cmpi.fail = 1;
+	if (manifold == FLRW && !getLookupTable("./etc/partial_fraction_coefficients.cset.bin", &table, &size))
 		cmpi.fail = 1;
 	else if (manifold == DE_SITTER && !getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
 		cmpi.fail = 1;
+
 	if (checkMpiErrors(cmpi))
 		return false;
 	ca->hostMemUsed += size;
+
+	//DEBUG
+	printChk();
 
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -623,7 +629,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 					//printf("CHECKPOINT\n");
 					//exit(0);
 
-					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
+					dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
 
 					/*if (dist + 1 > INF) {
 						printf_red();
@@ -729,7 +735,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 					//printf("CHECKPOINT\n");
 					//exit(0);
 
-					dist = distance(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
+					dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
 
 					/*if (dist + 1 > INF) {
 						printf_red();
@@ -845,7 +851,6 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 	//Numerical Integration Parameters
 	double *params = NULL;
-	double *params2 = (double*)malloc(sizeof(double));
 
 	//Calculate theoretical values
 	double k_in_theory = 0.0;
@@ -887,10 +892,6 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 			if (params == NULL)
 				throw std::bad_alloc();
 			ca->hostMemUsed += size + sizeof(double) * 4;
-
-			params2 = (double*)malloc(sizeof(double));
-			if (params == NULL)
-				throw std::bad_alloc();
 		}
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
@@ -905,10 +906,8 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 	if (manifold == FLRW) {
 		if (USE_GSL) {
 			//Numerical Integration
-			idata.upper = tau_m * a;
-			params2[0] = a;
-			eta_m = integrate1D(&tToEtaFLRW, (void*)params2, &idata, QAGS) / alpha;
-			free(params2);
+			idata.upper = tau_m;
+			eta_m = integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * a / alpha;
 		} else
 			//Exact Solution
 			eta_m = tauToEtaFLRWExact(tau_m, a, alpha);
@@ -942,9 +941,6 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		free(params);
 		params = NULL;
 		ca->hostMemUsed -= size + sizeof(double) * 4;
-
-		free(params2);
-		params2 = NULL;
 
 		free(table);
 		table = NULL;
@@ -1189,11 +1185,11 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 			}
 		} else {
 			//If nodes have not been linked, do each comparison
-			if (!nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, j))
+			if (!nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, j, NULL))
 				continue;
 
 			for (int k = i + 1; k < j; k++) {
-				if (nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, k) && nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, k, j))
+				if (nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, k, NULL) && nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, k, j, NULL))
 					elements++;
 
 				if (elements >= max_cardinality - 1) {

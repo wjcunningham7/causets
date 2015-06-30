@@ -15,14 +15,14 @@
 ###########################
 
 # This is the LSF batch submission script for the CausalSet program
-# It is intended to be submitted to LSF via the 'cbat' script
+# It is intended to be submitted to LSF via the 'causet_bat' script
 
 homedir=/home/cunningham.wi/projects/causets
 work=/scratch/cunningham/causet%jobID%
 usempi=%usempi%
 
 # Setup peripheral directories and copy necessary files, as well as the binary
-sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphid%:g" < $homedir/lsf/setup | source /dev/stdin
+sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphid%:g" < $homedir/lsf/causet_setup | source /dev/stdin
 
 # Do not edit below this
 

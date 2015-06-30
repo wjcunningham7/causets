@@ -11,33 +11,6 @@
 import glob
 import sys
 
-if (len(sys.argv) == 1):
-	sys.stdout.write('Must specify topology.\n')
-	sys.exit(1)
-elif (len(sys.argv) > 2):
-	sys.stdout.write('Too many parameters specified.\n')
-	sys.exit(2)
-
-ctype = 0
-if (sys.argv[1] == '1+1'):
-	ctype = 1
-elif (sys.argv[1] == '3+1'):
-	ctype = 2
-elif (sys.argv[1] == 'uni'):
-	ctype = 3
-
-if (ctype == 0):
-	sys.stdout.write('Invalid parameter.\n')
-	sys.exit(3)
-
-kline = 0
-if (ctype == 1):
-	kline = 13
-elif (ctype == 2):
-	kline = 13
-elif (ctype == 3):
-	kline = 23
-
 #basedir = '/scratch/cunningham/causets/'
 basedir = ''
 files = glob.glob(basedir + 'dat/*.cset.out')
@@ -51,12 +24,17 @@ for i in range(0,N):
 
 idx = 0
 for file in files:
-	#sys.stdout.write('Filename: %s\n' % file)
 	f = open(file)
 	lines = f.readlines()
 
-	#sys.stdout.write('line: %s\n' % lines[kline])	
-	k[idx] = float(lines[kline].split()[4])
+	for line in lines:
+		tokens = line.split()
+		if len(tokens) == 0:
+			continue
+
+		if tokens[0] == 'Resulting' and tokens[1] == 'Average' and tokens[2] == 'Degrees':
+			k[idx] = float(tokens[4])
+	
 	avg += k[idx]
 	idx += 1
 

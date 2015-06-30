@@ -10,8 +10,9 @@
 # These are experimental parameters #
 #####################################
 
-#./bin/CausalSet --nodes 24586 --age 1.5707577 --dim 1 --link --print --clustering
-./bin/CausalSet --nodes 65536 --age 0.8 --alpha 4.6784 --manifold f --verbose -y --link --gpu
+#./bin/CausalSet --nodes 24586 --age 1.5707577 --dim 1 --link --print --components
+#./bin/CausalSet --nodes 65536 --age 0.8 --alpha 4.6784 --manifold f --verbose -y --link --gpu
+./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 3 --seed 18100 --manifold f --verbose -y --link --gpu
 
 # Validation Tests
 #./bin/CausalSet --nodes 20480 --age 1.5 --seed 18100 --buffer 0.3 --link --embedding 100
@@ -19,7 +20,7 @@
 #./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 2 --seed 18100 --manifold f --compact --link --gpu --distances 100
 
 # Greedy Routing
-#./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 2 --seed 18100 --manifold f --link --gpu --success 100
+#./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 2 --seed 18100 --manifold f --link --gpu --success 100 --test
 
 # Measure de Sitter Action
 #./bin/CausalSet --nodes 200 --age 1.1 --delta 62.92 --seed 18100 --buffer 0.3 --link --action 5

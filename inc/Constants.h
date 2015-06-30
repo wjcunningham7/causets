@@ -32,6 +32,12 @@
 
 #define TRAVERSE_V2 false	//Version 2 uses (nested) OpenMP
 
+#define GEODESIC_LOWER 0.9	//Boundary between Region I and Region II approximations
+				//Should be less than 1.0
+
+#define GEODESIC_UPPER 1.1	//Boundary between Region II and Region III approximations
+				//Should be greater than 1.0
+
 //Debugging Flags
 #define DEBUG true	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements

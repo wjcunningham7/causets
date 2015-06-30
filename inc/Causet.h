@@ -74,6 +74,10 @@ struct __attribute__ ((aligned(8))) float2 {
 	float x, y;
 };
 
+struct __attribute__ ((aligned(16))) double2 {
+	double x, y;
+};
+
 extern inline float2 make_float2(float x, float y)
 {
 	float2 f;

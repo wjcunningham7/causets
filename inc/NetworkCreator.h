@@ -17,7 +17,7 @@
 
 bool initVars(NetworkProperties * const network_properties, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm);
 
-bool solveExpAvgDegree(float &k_tar, const int &dim, const Manifold &manifold, double &a, double &tau0, const double &alpha, const double &delta, long &seed, const int &rank, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &verbose, const bool &bench, const int method);
+bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Manifold &manifold, double &a, const double &chi_max, double &tau0, const double &alpha, const double &delta, long &seed, const int &rank, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &compact, const bool &verbose, const bool &bench, const int method);
 
 bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &link, const bool &relink, const bool &verbose, const bool &bench, const bool &yes);
 
