@@ -68,7 +68,7 @@ CUDA_LIBS	 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PAT
 ##################
 
 CXXFLAGS	:= -O3 -g -Wall -x c++
-NVCCFLAGS 	:= -m64 -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED
+NVCCFLAGS 	:= -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED
 ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
 NVCCFLAGS += -arch=sm_35
 else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))

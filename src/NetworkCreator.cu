@@ -15,12 +15,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		assert (bm != NULL);
 	}
 
-	//Initialize RNG
-	if (network_properties->seed == -12345L) {
-		srand(time(NULL));
-		network_properties->seed = -1.0 * static_cast<long>(time(NULL));
-	}
-
 	//Benchmarking
 	if (network_properties->flags.bench) {
 		network_properties->graphID = 0;
@@ -71,13 +65,14 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
 
 			//Initialize certain variables
-			if (network_properties->delta == 0.0)
-				network_properties->delta = 1000;
 			
 		}
 
 		if (network_properties->manifold == DE_SITTER) {
 			//Constrain the de Sitter system
+			
+			if (network_properties->delta == 0.0)
+				network_properties->a = 1.0;
 			network_properties->zeta = HALF_PI - network_properties->tau0;
 			network_properties->tau0 = etaToTau(HALF_PI - network_properties->zeta);
 
@@ -89,15 +84,24 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			double eta0 = HALF_PI - network_properties->zeta;
 			if (network_properties->dim == 1) {
 				network_properties->k_tar = network_properties->N_tar * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL) - 1.0) / (TAN(eta0, STL) * HALF_PI);
-				network_properties->a = SQRT(network_properties->N_tar / (TWO_PI * network_properties->delta * TAN(eta0, STL)), STL);
+				if (network_properties->delta != 0.0)
+					network_properties->a = SQRT(network_properties->N_tar / (TWO_PI * network_properties->delta * TAN(eta0, STL)), STL);
+				else
+					network_properties->delta = network_properties->N_tar / (TWO_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
 			} else if (network_properties->dim == 3) {
 				network_properties->k_tar = network_properties->N_tar * (12.0 * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL)) - (6.0 * LOG(COS(eta0, STL), STL) + 5.0) / POW2(COS(eta0, STL), EXACT) - 7.0) / (POW2(2.0 + 1.0 / POW2(COS(eta0, STL), EXACT), EXACT) * TAN(eta0, STL) * 3.0 * HALF_PI);
-				network_properties->a = POW(network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI, EXACT) * network_properties->delta * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL)), 1.0 / 4.0, STL);
+				if (network_properties->delta != 0.0)
+					network_properties->a = POW(network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI, EXACT) * network_properties->delta * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL)), 1.0 / 4.0, STL);
+				else
+					network_properties->delta = network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI * POW2(network_properties->a, EXACT), EXACT) * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL));
 			}
+
+			//network_properties->k_tar = 10.0;	//
 
 			if (DEBUG) {
 				assert (network_properties->k_tar > 0.0);
 				assert (network_properties->a > 0.0);
+				assert (network_properties->delta > 0.0);
 			}
 
 			//Display Constraints
@@ -129,6 +133,9 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				throw CausetException("Flag '--dim', spatial dimension, must be (3) in FLRW spacetime!\n");
 
 			//Constrain the FLRW system
+			if (network_properties->delta == 0.0)
+				network_properties->delta = 1000;
+
 			if (network_properties->flags.compact) {
 				double q = 3.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * POW3(network_properties->alpha, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
 				network_properties->a = POW(q / network_properties->delta, 1.0 / 4.0, STL);
@@ -146,7 +153,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->chi_max = 1.0;
 
 				//Non-Compact FLRW Constraints
-				int method = 0;
+				int method = 1;
 				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
 					network_properties->cmpi.fail = 1;
 

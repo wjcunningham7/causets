@@ -2,6 +2,7 @@
 #define MEASUREMENTS_H_
 
 #include "Operations.h"
+#include "Geodesics.h"
 #ifdef CUDA_ENABLED
 #include "Operations_GPU.h"
 #endif
@@ -17,7 +18,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 
 bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &verbose, const bool &bench);
 
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, long &seed, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &compact, const bool &verbose, const bool &bench);
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, long &seed, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &compact, const bool &verbose, const bool &bench);
 
 bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success);
 

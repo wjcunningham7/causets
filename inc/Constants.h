@@ -32,6 +32,8 @@
 
 #define TRAVERSE_V2 false	//Version 2 uses (nested) OpenMP
 
+#define ACTION_V2 false		//Version 2 uses OpenMP
+
 #define GEODESIC_LOWER 0.9	//Boundary between Region I and Region II approximations
 				//Should be less than 1.0
 

@@ -26,7 +26,7 @@
 # GPU Acceleration #
 #==================#
 
-#./lsf/causet_bat --ncores 32 --flags '--nodes 20480 --age 1.5 --seed 18100 --link --compact --verbose -y --gpu --components --print' --start 61 --queue 'par-gpu' --nsamples 1
+./lsf/causet_bat --ncores 32 --flags '--nodes 256 --age 1.2 --core 1 --buffer 0.4 --verbose -y --link --action 5 --print' --start 59 --queue 'par-gpu' --nsamples 500
 
 #./lsf/causet_bat --ncores 32 --flags '--nodes 10240 --energy 0.7 --alpha 2 --seed 18100 --core 0.95 --manifold f --link --verbose -y --gpu --print --success 50000' --start 60 --queue 'par-gpu' --nsamples 1
 

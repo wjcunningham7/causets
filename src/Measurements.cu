@@ -232,7 +232,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, long &seed, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &compact, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, long &seed, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &compact, const bool &verbose, const bool &bench)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
@@ -331,7 +331,9 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	ca->hostMemUsed += size;
 
 	//DEBUG
+	validateDistApprox(nodes, edges, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact);
 	printChk();
+	//END DEBUG
 
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -1221,7 +1223,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 
 	//Calculate the Naive Action
 	action = static_cast<float>(cardinalities[0] - cardinalities[1] + 9 * cardinalities[2] - 16 * cardinalities[3] + 8 * cardinalities[4]);
-	action *= 4.0f / sqrtf(6.0f);
+	//action *= 4.0f / sqrtf(6.0f);
 
 	ActionExit:
 	stopwatchStop(&sMeasureAction);

@@ -65,6 +65,8 @@
 //    http://complex.ffn.ub.es/~mbogunya/archivos_cms/files/srep00793-s1.pdf//
 //[3] Uniformly Distributed Random Unit Quaternions			    //
 //    mathproofs.blogspot.com/2005/05/uniformly-distributed-random-unit.html//
+//[4] Approximations for Elliptic Integrals
+//    www.jstor.org/stable/2004539
 //////////////////////////////////////////////////////////////////////////////
 
 #ifndef CUDA_ENABLED

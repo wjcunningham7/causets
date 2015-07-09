@@ -404,6 +404,12 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		#endif
 	}
 	
+	//Initialize RNG
+	if (network_properties.seed == -12345L) {
+		srand(time(NULL));
+		network_properties.seed = -1.0 * static_cast<long>(time(NULL));
+	}
+
 	return network_properties;
 }
 
@@ -626,7 +632,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				break;
 			}
 
-			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.seed, network->network_properties.cmpi, ca, cp->sMeasureSuccessRatio, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.seed, network->network_properties.cmpi, ca, cp->sMeasureSuccessRatio, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
 
@@ -664,9 +670,16 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 	//Measure Action
 	if (network->network_properties.flags.calc_action) {
 		for (i = 0; i <= nb; i++) {
-			if (!measureAction_v2(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.max_cardinality, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-				network->network_properties.cmpi.fail = 1;
-				goto MeasureExit;
+			if (ACTION_V2) {
+				if (!measureAction_v2(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.max_cardinality, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+					network->network_properties.cmpi.fail = 1;
+					goto MeasureExit;
+				}
+			} else {
+				if (!measureAction_v1(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.max_cardinality, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+					network->network_properties.cmpi.fail = 1;
+					goto MeasureExit;
+				}
 			}
 		}
 
@@ -1263,11 +1276,12 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 		}
 
 		if (network.network_properties.flags.calc_action)
-			outputStream << "Action/Cardinality Data:\t" << "act/" << network.network_properties.graphID << ".cset.act.dat" << std::endl;
+			outputStream << "Action/Cardinality Data:\t\t" << "act/" << network.network_properties.graphID << ".cset.act.dat" << std::endl;
 
 		outputStream << "\nAlgorithmic Performance:" << std::endl;
 		outputStream << "--------------------------" << std::endl;
-		outputStream << "calcDegrees:\t\t\t\t" << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
+		if (network.network_properties.manifold == FLRW)
+			outputStream << "calcDegrees:\t\t\t\t" << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
 		outputStream << "createNetwork:\t\t\t\t" << cp.sCreateNetwork.elapsedTime << " sec" << std::endl;
 		outputStream << "generateNodes:\t\t\t\t" << cp.sGenerateNodes.elapsedTime << " sec" << std::endl;
 		outputStream << "quicksort:\t\t\t\t" << cp.sQuicksort.elapsedTime << " sec" << std::endl;
@@ -1289,7 +1303,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 		if (network.network_properties.flags.calc_deg_field)
 			outputStream << "measureDegreeField:\t\t" << cp.sMeasureDegreeField.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_action)
-			outputStream << "measureAction:\t\t\t" << "cp.sMeasureAction.elapsedTime" << " sec" << std::endl;
+			outputStream << "measureAction:\t\t\t\t" << cp.sMeasureAction.elapsedTime << " sec" << std::endl;
 
 		outputStream.flush();
 		outputStream.close();

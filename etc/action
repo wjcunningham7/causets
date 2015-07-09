@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2015 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# Concatenates cardinalities, and then calculates average action and std. dev.
+# Note this script only works for the local action, not the smeared action
+
+import glob
+import math
+import numpy as np
+import sys
+
+if (len(sys.argv) == 1):
+	sys.stdout.write('Must specify max. cardinality.\n')
+	sys.exit(1)
+elif (len(sys.argv) > 2):
+	sys.stdout.write('Too many parameters specified.\n')
+	sys.exit(2)
+
+M = int(sys.argv[1])
+
+if (M < 0):
+	sys.stdout.write('Invalid argument.\n')
+	sys.exit(3)
+
+basedir = ''
+act_files = glob.glob(basedir + 'dat/act/*.cset.act.dat')
+a = []
+c = []
+
+# Array of actions
+for i in range(0,len(act_files)):
+	a.append(0)
+
+# Array of cardinalities (re-used for each sample)
+for i in range(0, M):
+	c.append(0)
+
+a_idx = 0
+for file in act_files:
+	h = open(file)
+	lines = h.readlines()
+	c_idx = 0
+	for line in lines:
+		c[c_idx] = int(line)
+		c_idx += 1
+	h.close()
+	
+	# Right now only works for local action
+	if M == 5:
+		a[a_idx] = float(c[0] - c[1] + 9 * c[2] - 16 * c[3] + 8 * c[4])
+	a_idx += 1
+
+avg_action = np.mean(a)
+std_action = np.std(a)
+
+h = open(basedir + 'dat/ref/act_dist.cset.act.ref','w')
+for i in range(0,len(act_files)):
+	h.write(str(a[i]) + '\n')
+h.close()
+
+sys.stdout.write('Average Action: %f\n' % avg_action)
+sys.stdout.write('Std. Deviation: %f\n' % std_action)
+sys.stdout.write('Std. Error:     %f\n' % (std_action / math.sqrt(len(act_files))))
+sys.stdout.write('Completed ACT.\n')
