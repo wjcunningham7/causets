@@ -20,7 +20,7 @@
 #define APPROX false	//Determines whether FastMath approximations are used
 			//in computationally intensive subroutines
 
-#define USE_GSL false	//Use GNU Scientific Library for numerical integration
+#define USE_GSL true	//Use GNU Scientific Library for numerical integration
 
 #define DIST_V2 true	//Use factored (v2) or expanded (v1) distance formulae
 
@@ -31,13 +31,14 @@
 #define SR_RANDOM true	//Pick random pairs when calculating success ratio
 
 #define TRAVERSE_V2 false	//Version 2 uses (nested) OpenMP
+				//It seems the overhead slows things down actually...
 
-#define ACTION_V2 false		//Version 2 uses OpenMP
+#define ACTION_V2 true		//Version 2 uses OpenMP
 
-#define GEODESIC_LOWER 0.9	//Boundary between Region I and Region II approximations
+#define GEODESIC_LOWER 0.95	//Boundary between Region I and Region II approximations
 				//Should be less than 1.0
 
-#define GEODESIC_UPPER 1.1	//Boundary between Region II and Region III approximations
+#define GEODESIC_UPPER 1.05	//Boundary between Region II and Region III approximations
 				//Should be greater than 1.0
 
 //Debugging Flags

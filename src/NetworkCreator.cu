@@ -8,12 +8,12 @@
 
 bool initVars(NetworkProperties * const network_properties, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm)
 {
-	if (DEBUG) {
-		assert (network_properties != NULL);
-		assert (ca != NULL);
-		assert (cp != NULL);
-		assert (bm != NULL);
-	}
+	#if DEBUG
+	assert (network_properties != NULL);
+	assert (ca != NULL);
+	assert (cp != NULL);
+	assert (bm != NULL);
+	#endif
 
 	//Benchmarking
 	if (network_properties->flags.bench) {

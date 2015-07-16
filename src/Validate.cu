@@ -1104,7 +1104,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 			vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
 			#endif
 		} else
-			vec_idx = k * stride + 1;
+			vec_idx = k * stride;
 
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
 		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
@@ -1114,8 +1114,6 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
-
-		printf("k: %" PRIu64 "    \ti: %d    \tj: %d    \t", k, i, j);
 
 		//Embedded distance
 		double distance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, compact);
@@ -1254,7 +1252,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 			vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
 			#endif
 		} else
-			vec_idx = k * stride + 1;
+			vec_idx = k * stride;
 
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
 		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
@@ -1263,11 +1261,6 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 		if (j < N_tar >> 1) {
 			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
-		}
-
-		if (DST_DEBUG) {
-			printf("k: %" PRIu64 "    \ti: %d    \tj: %d    \t", k, i, j);
-			fflush(stdout);
 		}
 
 		//Distance using embedding
@@ -1762,13 +1755,16 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 	//This line is VERY important if this code should be portable
 	assert (sizeof(long double) == 16);
 
-	printf("\nBeginning Timelike Analysis:\n");
+	//printf("\nBeginning Timelike Analysis:\n");
+	printf("\nBeginning Spacelike Analysis:\n");
 	printf("----------------------------\n");
 
 	int past_idx = 0;
-	int future_idx = edges.future_edges[0];
+	//int future_idx = edges.future_edges[0];
+	int future_idx = 1;
 	printf_cyan();
-	printf("Studying timelike relation [%d - %d]\n", past_idx, future_idx);
+	//printf("Studying timelike relation [%d - %d]\n", past_idx, future_idx);
+	printf("Studying spacelike relation [%d - %d]\n", past_idx, future_idx);
 	printf_std();
 
 	double omega12;
@@ -1781,19 +1777,20 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 	printf("x1: %f\tx2: %f\n", x1, x2);
 
 	IntData idata = IntData();
-	idata.tol = 1.0e-5;
+	idata.tol = 1.0e-10;
 	idata.lower = x1;
 	idata.upper = x2;
-	
-	printf("\nAttempting large lambda approximation.\n");
-	double lambda = omega12 / (2.0 * integrate1D(&flrwLookupApprox, NULL, &idata, QNG));
+
+	double lambda, omega_res;	
+	/*printf("\nAttempting large lambda approximation.\n");
+	lambda = omega12 / (2.0 * integrate1D(&flrwLookupApprox, NULL, &idata, QNG));
 	printf("lambda:\t\t%f\n", lambda);
-	double omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
+	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
 	printf("Resulting dx:\t%f\n", omega_res);
 	if (ABS(omega_res - omega12, STL) / omega12 > 1e-3)
 		printf("Attempt failed.\n");
 	else
-		printf("Attempt succeeded.\n");
+		printf("Attempt succeeded.\n");*/
 
 	printf("\nStudying omegaRegion1.\n");
 	double om1;
@@ -1801,8 +1798,12 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 	int nterms = 10;
 
 	printf("Testing single point.\n");
-	lambda = 0.05;
-	om1 = omegaRegion1(x1, lambda, &err, &nterms);
+	//lambda = 0.05;
+	lambda = -0.05;
+	double z1 = -1.0 * lambda * x1 * x1 * x1 * x1;
+	double z2 = -1.0 * lambda * x2 * x2 * x2 * x2;
+	double mz = 1.0;
+	om1 = omegaRegion1(x1, lambda, z1, &err, &nterms);
 	printf("omega(x = %f, lambda = %f) = %f\n", x1, lambda, om1);
 	printf("Resulting Error: %.8e\n", err);
 	printf("Terms Used: %d\n", nterms);
@@ -1810,200 +1811,32 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 	printf("\nAttempting to find lambda via bisection method.\n");
 	double x0;
 	double res = 1.0, tol = 1e-5;
-	double lower = 0.0, upper = 10000.0;
+	//double lower = 0.0, upper = 10000.0;
+	double lower = -1.0 / POW2(POW2(x2, EXACT), EXACT), upper = 0.0;
+	double mx;
 	int iter = 0, max_iter = 10000;
 	while (upper - lower > tol && iter < max_iter) {
 		x0 = (lower + upper) / 2.0;
-		//printf("\nTesting lambda = %f\n", x0);
-
+		z1 = -1.0 * x0 * x1 * x1 * x1 * x1;
+		z2 = -1.0 * x0 * x2 * x2 * x2 * x2;
+		//Added for spacelike study
 		err = 1.0E-10;
 		nterms = 10;
-		res = omegaRegion1(x2, x0, &err, &nterms);
-		assert (res == res);
-
+		mx = geodesicMaxX(x0);
+		res = 2.0 * omegaRegion1(mx, x0, mz, &err, &nterms);
+		//End addition
 		err = 1.0E-10;
 		nterms = 10;
-		res -= omegaRegion1(x1, x0, &err, &nterms);
+		//Changed from = to -= for spacelike
+		res -= omegaRegion1(x2, x0, z2, &err, &nterms);
 		assert (res == res);
-
-		//printf("omega(x1 = %f, x2 = %f, lambda = %f) = %f\n", x1, x2, x0, res);
-
-		res -= omega12;
-
-		if (res > 0.0)
-			lower = x0;
-		else
-			upper = x0;
-		iter++;
-	}
-	lambda = x0;
-	printf("Finished bisection after %d iterations.\n", iter);
-	printf("Identified lambda = %f\n", lambda);
-
-	printf("\nInserting lambda into original integral.\n");
-	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
-	printf("Resulting dx:\t%.8e\n", omega_res);
-	printf("Error:\t\t%.8e\n", ABS(omega_res - omega12, STL) / omega12);
-	
-
-	printf("\nCalculating Distance.\n");
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	idata.limit = 60;
-	idata.lower = nodes.id.tau[past_idx];
-	idata.upper = nodes.id.tau[future_idx];
-	double distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
-	gsl_integration_workspace_free(idata.workspace);
-	printf("Distance: %.8e\n", distance);
-	printf("Completed timelike study of omegaRegion1.\n");
-
-	past_idx = 1500;
-	future_idx = 5935;
-	printf_cyan();
-	printf("\nStudying timelike relation [%d - %d]\n", past_idx, future_idx);
-	printf_std();
-	dt = nodes.crd->w(future_idx) - nodes.crd->w(past_idx);
-	nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, past_idx, future_idx, &omega12);
-	printf("dt: %f\tdx: %f\n", dt, omega12);
-
-	x1 = POW(SINH(1.5 * nodes.id.tau[past_idx], STL), 1.0 / 3.0, STL);
-	x2 = POW(SINH(1.5 * nodes.id.tau[future_idx], STL), 1.0 / 3.0, STL);
-	printf("x1: %f\tx2: %f\n", x1, x2);
-
-	printf("\nAttempting large lambda approximation.\n");
-	idata.lower = x1;
-	idata.upper = x2;
-	lambda = omega12 / (2.0 * integrate1D(&flrwLookupApprox, NULL, &idata, QNG));
-	printf("lambda:\t\t%f\n", lambda);
-	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
-	printf("Resulting dx:\t%f\n", omega_res);
-	if (ABS(omega_res - omega12, STL) / omega12 > 1e-3)
-		printf("Attempt failed.\n");
-	else
-		printf("Attempt succeeded.\n");
-
-	printf("\nStudying omegaRegion2a.\n");
-	double om2;
-
-	printf("Testing single point.\n");
-	lambda = 0.05;
-	err = 1.0E-10;
-	nterms = 15;
-	om2 = omegaRegion2a(x2, lambda, &err, &nterms);
-	printf("omega(x = %f, lambda = %f) = %f\n", x2, lambda, om2);
-	printf("Terms Used: %d\n", nterms);
-
-	printf("\nAttempting to find lambda via the bisection method.\n");
-	res = 1.0;
-	tol = 1e-5;
-	lower = 0.0;
-	upper = 10000.0;
-	iter = 0;
-	max_iter = 10000;
-	while (ABS(res, STL) > tol && iter < max_iter) {
-		x0 = (lower + upper) / 2.0;
-		//printf("\nTesting lambda = %f\n", x0);
-
-		res = omegaRegion2a(x2, x0, &err, &nterms);
-		assert (res == res);
-
-		res -= omegaRegion2a(x1, x0, &err, &nterms);
-		assert (res == res);
-
-		//printf("omega(x1 = %f, x2 = %f, lambda = %f) = %f\n", x1, x2, x0, res);
-
-		res -= omega12;
-		//printf("\tres: %f\n", res);
-
-		if (res > 0.0)
-			lower = x0;
-		else
-			upper = x0;
-		iter++;
-	}
-	lambda = x0;
-	printf("Finished bisection after %d iterations.\n", iter);
-	printf("Identifed lambda = %f\n", lambda);
-
-	printf("\nInserting lambda into original integral.\n");
-	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
-	printf("Resulting dx:\t%.8e\n", omega_res);
-	printf("Error:\t\t%.8e\n", ABS(omega_res - omega12, STL) / omega12);
-
-	printf("\nCalculating Distance.\n");
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	idata.lower = nodes.id.tau[past_idx];
-	idata.upper = nodes.id.tau[future_idx];
-	distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
-	gsl_integration_workspace_free(idata.workspace);
-	printf("Distance: %.8e\n", distance);
-	printf("Completed timelike study of omegaRegion2a.\n");
-
-	past_idx = 7530;
-	future_idx = 9705;
-	printf_cyan();
-	printf("\nStudying timelike relation [%d - %d]\n", past_idx, future_idx);
-	printf_std();
-
-	dt = nodes.crd->w(future_idx) - nodes.crd->w(past_idx);
-	nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, past_idx, future_idx, &omega12);
-	printf("dt: %f\tdx: %f\n", dt, omega12);
-
-	x1 = POW(SINH(1.5 * nodes.id.tau[past_idx], STL), 1.0 / 3.0, STL);
-	x2 = POW(SINH(1.5 * nodes.id.tau[future_idx], STL), 1.0 / 3.0, STL);
-	printf("x1: %f\tx2: %f\n", x1, x2);
-
-	printf("\nAttempting large lambda approximation.\n");
-	idata.lower = x1;
-	idata.upper = x2;
-	lambda = omega12 / (2.0 * integrate1D(&flrwLookupApprox, NULL, &idata, QNG));
-	printf("lambda:\t\t%f\n", lambda);
-	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
-	printf("Resulting dx:\t%f\n", omega_res);
-	if (ABS(omega_res - omega12, STL) / omega12 > 1e-3)
-		printf("Attempt failed.\n");
-	else
-		printf("Attempt succeeded.\n");
-
-	printf("\nStudying omegaRegion3.\n");
-	double *table;
-	double om3;
-	long size = 0L;
-	getLookupTable("./etc/partial_fraction_coefficients.cset.bin", &table, &size);
-	assert (table != NULL);
-
-	printf("Testing single point.\n");
-	lambda = 3.5;
-	err = 1.E-10;
-	nterms = 10;
-	om3 = omegaRegion3(table, x2, lambda, &err, &nterms, size);
-	printf("omega(x = %f, lambda = %f) = %f\n", x2, lambda, om3);
-	printf("Resulting Error: %.8e\n", err);
-	printf("Terms Used: %d\n", nterms);
-
-	/*printf("\nAttempting to find lambda via the bisection method.\n");
-	res = 1.0;
-	tol = 1.0e-5;
-	lower = 0.0;
-	upper = 20.0;
-	iter = 0;
-	max_iter = 100;
-	while(ABS(res, STL) > tol && iter < max_iter) {
-		x0 = (lower + upper) / 2.0;
-		printf("\nTesting lambda = %f\n", x0);
-
 		err = 1.0E-10;
-		nterms = 6;
-		res = omegaRegion3(table, x2, x0, &err, &nterms, size);
+		nterms = 10;
+		res -= omegaRegion1(x1, x0, z1, &err, &nterms);
 		assert (res == res);
-
-		err = 1.0E-10;
-		nterms = 6;
-		res -= omegaRegion3(table, x1, x0, &err, &nterms, size);
-		assert (res == res);
-
-		printf("omega(x1 = %f, x2 = %f, lambda = %f) = %f\n", x1, x2, x0, res);
-
+		//printf("omega(x1 = %f, x2 = %f, lambda = %f) = %f\n", x1, x2, x0, res);
 		res -= omega12;
+		//NOTE: This is > for timelike, < for spacelike!
 		if (res < 0.0)
 			lower = x0;
 		else
@@ -2015,69 +1848,409 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 	printf("Identified lambda = %f\n", lambda);
 
 	printf("\nInserting lambda into original integral.\n");
-	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
+	//This block has been revised for spacelike distances
+	idata.upper = mx;
+	idata.limit = 60;
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+	idata.lower = x2;
+	omega_res += 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+	gsl_integration_workspace_free(idata.workspace);
 	printf("Resulting dx:\t%.8e\n", omega_res);
-	printf("Error:\t\t%.8e\n", ABS(omega_res - omega12, STL) / omega12);*/
+	printf("Error:\t\t%.8e\n", ABS(omega_res - omega12, STL) / omega12);	
+
+	printf("\nCalculating Distance.\n");
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	idata.limit = 60;
+	double tm = geodesicMaxTau(manifold, lambda);
+	idata.lower = nodes.id.tau[past_idx];
+	idata.upper = tm;
+	double distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+	idata.lower = nodes.id.tau[future_idx];
+	distance += integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+	gsl_integration_workspace_free(idata.workspace);
+	printf("Distance: %.8e\n", distance);
+	//printf("Completed timelike study of omegaRegion1.\n");
+	printf("Completed spacelike study of omegaRegion1.\n");
+
+	//Time algorithm
+	Stopwatch sdb = Stopwatch();
+	int ntests = 1000;
+	stopwatchStart(&sdb);
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	for (int i = 0; i < ntests; i++) {
+		idata.lower = x1;
+		idata.upper = mx;
+		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+		idata.lower = x2;
+		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+	}
+	gsl_integration_workspace_free(idata.workspace);
+	stopwatchStop(&sdb);
+	double intTime = sdb.elapsedTime;
+
+	stopwatchReset(&sdb);
+	stopwatchStart(&sdb);
+	for (int i = 0; i < ntests; i++) {
+		//omegaRegion1(mx, x0, &err, &nterms);
+		omegaRegion1(x2, x0, z2, &err, &nterms);
+		omegaRegion1(x1, x0, z2, &err, &nterms);
+	}
+	stopwatchStop(&sdb);
+	double approxTime = sdb.elapsedTime;
+
+	printf("Time for integration:   %.6f\n", intTime);
+	printf("Time for approximation: %.6f\n", approxTime);
+
+	past_idx = 1500;
+	//future_idx = 5935;
+	future_idx = 1501;
+	printf_cyan();
+	//printf("\nStudying timelike relation [%d - %d]\n", past_idx, future_idx);
+	printf("\nStudying spacelike relation [%d - %d]\n", past_idx, future_idx);
+	printf_std();
+	dt = nodes.crd->w(future_idx) - nodes.crd->w(past_idx);
+	nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, past_idx, future_idx, &omega12);
+	printf("dt: %f\tdx: %f\n", dt, omega12);
+
+	x1 = POW(SINH(1.50 * nodes.id.tau[past_idx], STL), 1.0 / 3.0, STL);
+	x2 = POW(SINH(1.5 * nodes.id.tau[future_idx], STL), 1.0 / 3.0, STL);
+	printf("x1: %f\tx2: %f\n", x1, x2);
+
+	/*printf("\nAttempting large lambda approximation.\n");
+	idata.lower = x1;
+	idata.upper = x2;
+	lambda = omega12 / (2.0 * integrate1D(&flrwLookupApprox, NULL, &idata, QNG));
+	printf("lambda:\t\t%f\n", lambda);
+	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
+	printf("Resulting dx:\t%f\n", omega_res);
+	if (ABS(omega_res - omega12, STL) / omega12 > 1e-3)
+		printf("Attempt failed.\n");
+	else
+		printf("Attempt succeeded.\n");*/
+
+	//printf("\nStudying omegaRegion2a.\n");
+	printf("\nStudying omegaRegion2b.\n");
+	double om2;
+
+	printf("Testing single point.\n");
+	//lambda = 0.05;
+	lambda = -0.05;
+	err = 1.0E-10;
+	nterms = 15;
+	//om2 = omegaRegion2a(x2, lambda, &err, &nterms);
+	om2 = omegaRegion2b(x1, lambda, &err, &nterms);
+	printf("omega(x = %f, lambda = %f) = %f\n", x1, lambda, om2);
+	printf("Terms Used: %d\n", nterms);
+
+	printf("\nAttempting to find lambda via the bisection method.\n");
+	res = 1.0;
+	tol = 1.0e-5;
+	//lower = 0.0;
+	//upper = 10000.0;
+	lower = -1.0 / POW2(POW2(x2, EXACT), EXACT);
+	upper = 0.0;
+	iter = 0;
+	max_iter = 10000;
+	while (ABS(res, STL) > tol && iter < max_iter) {
+		x0 = (lower + upper) / 2.0;
+		//Changed 2a to 2b for spacelike
+		mx = geodesicMaxX(x0);
+		res = 2.0 * omegaRegion2b(mx, x0, &err, &nterms);
+		assert (res == res);
+		//Changed = to -= for spacelike
+		res -= omegaRegion2b(x2, x0, &err, &nterms);
+		assert (res == res);
+		res -= omegaRegion2b(x1, x0, &err, &nterms);
+		assert (res == res);
+		//printf("omega(x1 = %f, x2 = %f, lambda = %f) = %f\n", x1, x2, x0, res);
+		res -= omega12;
+		//Changed > to < for spacelike
+		if (res < 0.0)
+			lower = x0;
+		else
+			upper = x0;
+		iter++;
+	}
+	lambda = x0;
+	printf("Finished bisection after %d iterations.\n", iter);
+	printf("Identifed lambda = %f\n", lambda);
+
+	printf("\nInserting lambda into original integral.\n");
+	//This block has been revised for spacelike distances
+	idata.lower = x1;
+	idata.upper = mx;
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+	idata.lower = x2;
+	omega_res += 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+	gsl_integration_workspace_free(idata.workspace);
+	printf("Resulting dx:\t%.8e\n", omega_res);
+	printf("Error:\t\t%.8e\n", ABS(omega_res - omega12, STL) / omega12);
+
+	printf("\nCalculating Distance.\n");
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	tm = geodesicMaxTau(manifold, lambda);
+	idata.lower = nodes.id.tau[past_idx];
+	idata.upper = tm;
+	distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+	idata.lower = nodes.id.tau[future_idx];
+	distance += integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+	gsl_integration_workspace_free(idata.workspace);
+	printf("Distance: %.8e\n", distance);
+	//printf("Completed timelike study of omegaRegion2a.\n");
+	printf("Completed spacelike study of omegaRegion2b.\n");
+
+	stopwatchReset(&sdb);
+	stopwatchStart(&sdb);
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	for (int i = 0; i < ntests; i++) {
+		idata.lower = x1;
+		idata.upper = mx;
+		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+		idata.lower = x2;
+		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+	}
+	gsl_integration_workspace_free(idata.workspace);
+	stopwatchStop(&sdb);
+	intTime = sdb.elapsedTime;
+
+	stopwatchReset(&sdb);
+	nterms = 6;
+	stopwatchStart(&sdb);
+	for (int i = 0; i < ntests; i++) {
+		omegaRegion2b(mx, lambda, &err, &nterms);
+		omegaRegion2b(x1, lambda, &err, &nterms);
+		omegaRegion2b(x2, lambda, &err, &nterms);
+	}
+	stopwatchStop(&sdb);
+	approxTime = sdb.elapsedTime;
+
+	printf("Time for integration:   %.6f\n", intTime);
+	printf("Time for approximation: %.6f\n", approxTime);
+
+	past_idx = 7530;
+	//future_idx = 9705;
+	future_idx = 7531;
+	printf_cyan();
+	//printf("\nStudying timelike relation [%d - %d]\n", past_idx, future_idx);
+	printf("\nStudying spacelike relation [%d - %d]\n", past_idx, future_idx);
+	printf_std();
+
+	dt = nodes.crd->w(future_idx) - nodes.crd->w(past_idx);
+	nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, past_idx, future_idx, &omega12);
+	printf("dt: %f\tdx: %f\n", dt, omega12);
+
+	x1 = POW(SINH(1.5 * nodes.id.tau[past_idx], STL), 1.0 / 3.0, STL);
+	x2 = POW(SINH(1.5 * nodes.id.tau[future_idx], STL), 1.0 / 3.0, STL);
+	printf("x1: %f\tx2: %f\n", x1, x2);
+
+	/*printf("\nAttempting large lambda approximation.\n");
+	idata.lower = x1;
+	idata.upper = x2;
+	lambda = omega12 / (2.0 * integrate1D(&flrwLookupApprox, NULL, &idata, QNG));
+	printf("lambda:\t\t%f\n", lambda);
+	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
+	printf("Resulting dx:\t%f\n", omega_res);
+	if (ABS(omega_res - omega12, STL) / omega12 > 1e-3)
+		printf("Attempt failed.\n");
+	else
+		printf("Attempt succeeded.\n");*/
+
+	printf("\nStudying omegaRegion3.\n");
+	double *table;
+	double om3;
+	long size = 0L;
+	getLookupTable("./etc/partial_fraction_coefficients.cset.bin", &table, &size);
+	assert (table != NULL);
+
+	printf("Testing single pair.\n");
+	//lambda = 3.0;
+	lambda = -0.4;
+	z1 = -1.0 * lambda * x1 * x1 * x1 * x1;
+	z2 = -1.0 * lambda * x2 * x2 * x2 * x2;
+	err = 1.0E-10;
+	nterms = 10;
+	om3 = omegaRegion3(table, x1, x2, lambda, z1, z2, &err, &nterms, size);
+	printf("omega(x1 = %f, x2 = %f, lambda = %f) = %e\n", x1, x2, lambda, om3);
+	printf("Resulting Error: %.8e\n", err);
+	printf("Terms Used: %d\n", nterms);
+
+	printf("\nAttempting to find lambda via the bisection method.\n");
+	res = 1.0;
+	tol = 1.0e-5;
+	//lower = 0.0;
+	//upper = 1000.0;
+	lower = -1.0 / POW2(POW2(x2, EXACT), EXACT);
+	upper = 0.0;
+	iter = 0;
+	max_iter = 10000;
+	while(ABS(res, STL) > tol && iter < max_iter) {
+		x0 = (lower + upper) / 2.0;
+		z1 = -1.0 * x0 * x1 * x1 * x1 * x1;
+		z2 = -1.0 * x0 * x2 * x2 * x2 * x2;
+		mx = geodesicMaxX(x0);
+		err = 1.0E-10;
+		nterms = 10;
+		//Changed x2 to mx for spacelike
+		res = omegaRegion3(table, x1, mx, x0, z1, mz, &err, &nterms, size);
+		assert (res == res);
+		//Added for spacelike
+		err = 1.000E-10;
+		nterms = 10;
+		res += omegaRegion3(table, x2, mx, x0, z2, mz, &err, &nterms, size);
+		assert (res == res);
+		//printf("omega(x1 = %f, x2 = %f, lambda = %f) = %f\n", x1, x2, x0, res);
+		res -= omega12;
+		//Changed > to < for spacelike
+		if (res < 0.0)
+			lower = x0;
+		else
+			upper = x0;
+		iter++;
+	}
+	lambda = x0;
+	printf("Finished bisection after %d iterations.\n", iter);
+	printf("Identified lambda = %f\n", lambda);
+
+	printf("\nInserting lambda into original integral.\n");
+	//This block has been revised for spacelike distances
+	idata.lower = x1;
+	idata.upper = mx;
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+	idata.lower = x2;
+	omega_res += 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+	gsl_integration_workspace_free(idata.workspace);
+	printf("Resulting dx:\t%.8e\n", omega_res);
+	printf("Error:\t\t%.8e\n", ABS(omega_res - omega12, STL) / omega12);
+
+	printf("\nCalculating Distance.\n");
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	tm = geodesicMaxTau(manifold, lambda);
+	idata.lower = nodes.id.tau[past_idx];
+	idata.upper = tm;
+	distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+	idata.lower = nodes.id.tau[future_idx];
+	distance += integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+	gsl_integration_workspace_free(idata.workspace);
+	printf("Distance: %.8e\n", distance);
+	//printf("Completed timelike study of omegaRegion3.\n");
+	printf("Completed spacelike study of omegaRegion3.\n");
+
+	stopwatchReset(&sdb);
+	stopwatchStart(&sdb);
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	for (int i = 0; i < ntests; i++) {
+		idata.lower = x1;
+		idata.upper = mx;
+		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+		idata.lower = x2;
+		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+	}
+	gsl_integration_workspace_free(idata.workspace);
+	stopwatchStop(&sdb);
+	intTime = sdb.elapsedTime;
+
+	stopwatchReset(&sdb);
+	z1 = -1.0 * lambda * x1 * x1 * x1 * x1;
+	z2 = -1.0 * lambda * x2 * x2 * x2 * x2;
+	stopwatchStart(&sdb);
+	for (int i = 0; i < ntests; i++) {
+		err = 1.0E-10;
+		nterms = 10;
+		omegaRegion3(table, x1, mx, lambda, z1, mz, &err, &nterms, size);
+		//omegaRegion3a(mx, lambda, zm, &err, &nterms);
+		//omegaRegion3b(table, mx, lambda, &err, &nterms, size);
+		err = 1.0E-10;
+		nterms = 10;
+		omegaRegion3(table, x2, mx, lambda, z2, mz, &err, &nterms, size);
+		//omegaRegion3a(x1, lambda, z1, &err, &nterms);
+		//omegaRegion3b(table, mx, lambda, &err, &nterms, size);
+	}
+	stopwatchStop(&sdb);
+	approxTime = sdb.elapsedTime;
+
+	printf("Time for integration:   %.6f\n", intTime);
+	printf("Time for approximation: %.6f\n", approxTime);
 
 	/*printf("\nHypergeometric Test.\n");
 	double f;
 	double f_err = 1.0e-10;
 	int f_nt = -1;
+	lambda = -0.501845;
 	double z = -1.0 * lambda * POW2(POW2(x1, EXACT), EXACT);
-	double w = z / (z - 1.0);
-	_2F1(0.5, 1, -11.5, w, &f, &f_err, &f_nt, false);
-	printf("2F1(0.5, 1, -11.5, %f) = %f\n", w, f);
-	printf("Error: %.8e\n", f_err);*/
+	double w = 1.0 - z;
+	_2F1(-9.0, 1.0, 1.5, w, &f, &f_err, &f_nt, false);
+	printf("2F1(-9, 1, 1.5, %f) = %f\n", w, f);
+	printf("Error: %.8e\n", f_err);
+
+	printf("\nCoefficient Test.\n");
+	double n0 = _2F1_An(-9.0, 1.0, 1.5, 8);
+	double n1 = _2F1_An(-9.0, 1.0, 1.5, 9);
+	double n2 = _2F1_An(-9.0, 1.0, 1.5, 10);
+	double n3 = _2F1_An(-9.0, 1.0, 1.5, 11);
+	printf("n0: %f\nn1: %f\nn2: %f\nn3: %f\n", n0, n1, n2, n3);
+
+	printf("\nPochhammer Test.\n");
+	double p0 = POCHHAMMER(-9.0, 9);
+	double p1 = POCHHAMMER(1.0, 9);
+	double p2 = POCHHAMMER(1.5, 9);
+	double p3 = GAMMA(10.0, STL);
+	double p4 = p0 * p1 / (p2 * p3);
+	printf("p0: %f\np1: %f\np2: %f\np3: %f\np4: %f\n", p0, p1, p2, p3, p4);*/
 
 	return true;
 }
 
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
-bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success)
 {
-	if (DEBUG) {
-		assert (!nodes.crd->isNull());
-		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
+	#if DEBUG
+	assert (!nodes.crd->isNull());
+	assert (dim == 1 || dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
 
-		if (manifold == HYPERBOLIC)
-			assert (dim == 1);
+	if (manifold == HYPERBOLIC)
+		assert (dim == 1);
 
-		if (dim == 1) {
-			assert (nodes.crd->getDim() == 2);
-			assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
-		} else if (dim == 3) {
-			assert (nodes.crd->getDim() == 4);
-			assert (nodes.crd->w() != NULL);
-			assert (nodes.crd->z() != NULL);
-			assert (manifold == DE_SITTER || manifold == FLRW);
-		}
-
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);
-		assert (nodes.k_in != NULL);
-		assert (nodes.k_out != NULL);
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
-		assert (used != NULL);
-		assert (table != NULL);
-
-		assert (N_tar > 0);
-		if (manifold == DE_SITTER || manifold == FLRW) {
-			assert (a > 0.0);
-			assert (HALF_PI - zeta > 0.0);
-			if (manifold == FLRW)
-				assert (alpha > 0.0);
-		}
-		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
-		assert (size > 0);
-		assert (source >= 0 && source < N_tar);
-		assert (dest >= 0 && dest < N_tar);
+	if (dim == 1) {
+		assert (nodes.crd->getDim() == 2);
+		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+	} else if (dim == 3) {
+		assert (nodes.crd->getDim() == 4);
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->z() != NULL);
+		assert (manifold == DE_SITTER || manifold == FLRW);
 	}
+
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	assert (nodes.k_in != NULL);
+	assert (nodes.k_out != NULL);
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (core_edge_exists != NULL);
+	assert (used != NULL);
+	assert (table != NULL);
+
+	assert (N_tar > 0);
+	if (manifold == DE_SITTER || manifold == FLRW) {
+		assert (a > 0.0);
+		assert (HALF_PI - zeta > 0.0);
+		if (manifold == FLRW) {
+			assert (chi_max > 0.0);
+			assert (alpha > 0.0);
+		}
+	}
+	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+	assert (size > 0);
+	assert (source >= 0 && source < N_tar);
+	assert (dest >= 0 && dest < N_tar);
+	#endif
 
 	bool TRAV_DEBUG = false;
 
@@ -2105,12 +2278,12 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 		used[loc] = true;
 
 		//These indicate corrupted data
-		if (DEBUG) {
-			assert (!(edges.past_edge_row_start[loc] == -1 && nodes.k_in[loc] > 0));
-			assert (!(edges.past_edge_row_start[loc] != -1 && nodes.k_in[loc] == 0));
-			assert (!(edges.future_edge_row_start[loc] == -1 && nodes.k_out[loc] > 0));
-			assert (!(edges.future_edge_row_start[loc] != -1 && nodes.k_out[loc] == 0));
-		}
+		#if DEBUG
+		assert (!(edges.past_edge_row_start[loc] == -1 && nodes.k_in[loc] > 0));
+		assert (!(edges.past_edge_row_start[loc] != -1 && nodes.k_in[loc] == 0));
+		assert (!(edges.future_edge_row_start[loc] == -1 && nodes.k_out[loc] > 0));
+		assert (!(edges.future_edge_row_start[loc] != -1 && nodes.k_out[loc] == 0));
+		#endif
 
 		//(1) Check past relations
 		for (m = 0; m < nodes.k_in[loc]; m++) {
@@ -2156,7 +2329,8 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 				if (compact)
 					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
 				else
-					dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
+					//dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
+					dist = distance_v2(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, chi_max, alpha, size, compact, idx_a, idx_b);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 
@@ -2165,7 +2339,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 				return false;
 
 			//Save the minimum distance
-			if (dist <= min_dist) {
+			if (dist < min_dist) {
 				min_dist = dist;
 				next = idx_a;
 			}
@@ -2176,7 +2350,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 			idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
 			if (TRAV_DEBUG) {
 				printf_cyan();
-				printf("\tConsidering past neighbor %d.\n", idx_a);
+				printf("\tConsidering future neighbor %d.\n", idx_a);
 				printf_std();
 				fflush(stdout);
 			}
@@ -2215,7 +2389,8 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 				if (compact)
 					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
 				else
-					dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
+					//dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
+					dist = distance_v2(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, chi_max, alpha, size, compact, idx_a, idx_b);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 
@@ -2224,20 +2399,20 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 				return false;
 
 			//Save the minimum distance
-			if (dist <= min_dist) {
+			if (dist < min_dist) {
 				min_dist = dist;
 				next = idx_a;
 			}
 		}
 
-		if (TRAV_DEBUG) {
+		if (TRAV_DEBUG && min_dist < INF) {
 			printf_cyan();
 			printf("Moving to %d.\n", next);
 			printf_std();
 			fflush(stdout);
 		}
 
-		if (!used[next])
+		if (!used[next] && min_dist < INF)
 			loc = next;
 		else {
 			if (TRAV_DEBUG) {
@@ -2249,6 +2424,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 			break;
 		}
 	}
+	//printChk();
 
 	success = false;
 	return true;

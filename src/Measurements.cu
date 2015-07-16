@@ -234,40 +234,40 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 //O(xxx) Efficiency (revise this)
 bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, long &seed, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &compact, const bool &verbose, const bool &bench)
 {
-	if (DEBUG) {
-		assert (!nodes.crd->isNull());
-		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
+	#if DEBUG
+	assert (!nodes.crd->isNull());
+	assert (dim == 1 || dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
 
-		if (manifold == HYPERBOLIC)
-			assert (dim == 1);
+	if (manifold == HYPERBOLIC)
+		assert (dim == 1);
 
-		if (dim == 1) {
-			assert (nodes.crd->getDim() == 2);
-			assert (manifold == HYPERBOLIC);
-		} else if (dim == 3) {
-			assert (nodes.crd->getDim() == 4);
-			assert (nodes.crd->w() != NULL);
-			assert (nodes.crd->z() != NULL);
-			assert (manifold == DE_SITTER || manifold == FLRW);
-		}
-
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
-		assert (ca != NULL);
-
-		assert (N_tar > 0);
-		assert (N_sr > 0 && N_sr <= ((uint64_t)N_tar * (N_tar - 1)) >> 1);
-		if (manifold == FLRW)
-			assert (alpha > 0);
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-		assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
+	if (dim == 1) {
+		assert (nodes.crd->getDim() == 2);
+		assert (manifold == HYPERBOLIC);
+	} else if (dim == 3) {
+		assert (nodes.crd->getDim() == 4);
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->z() != NULL);
+		assert (manifold == DE_SITTER || manifold == FLRW);
 	}
+
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (core_edge_exists != NULL);
+	assert (ca != NULL);
+
+	assert (N_tar > 0);
+	assert (N_sr > 0 && N_sr <= ((uint64_t)N_tar * (N_tar - 1)) >> 1);
+	if (manifold == FLRW)
+		assert (alpha > 0);
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
+	#endif
 
 	bool SR_DEBUG = true;
 
@@ -275,7 +275,9 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	bool *used;
 
 	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
+	#if !SR_RANDOM
 	uint64_t stride = max_pairs / static_cast<uint64_t>(N_sr);
+	#endif
 	uint64_t npairs = static_cast<uint64_t>(N_sr);
 	uint64_t n_trav = 0;
 	uint64_t n_succ = 0;
@@ -331,8 +333,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	ca->hostMemUsed += size;
 
 	//DEBUG
-	validateDistApprox(nodes, edges, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact);
-	printChk();
+	//validateDistApprox(nodes, edges, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact);
+	//printChk();
 	//END DEBUG
 
 	#ifdef MPI_ENABLED
@@ -373,14 +375,15 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 
 		//Pick Pair
 		uint64_t vec_idx;
-		if (SR_RANDOM) {
-			#ifdef _OPENMP
-			vec_idx = static_cast<uint64_t>(ran2ts(&omp_seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
-			#else
-			vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
-			#endif
-		} else
-			vec_idx = k * stride + 1;
+		#if SR_RANDOM
+		#ifdef _OPENMP
+		vec_idx = static_cast<uint64_t>(ran2ts(&omp_seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
+		#else
+		vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
+		#endif
+		#else
+		vec_idx = k * stride;
+		#endif
 
 		int i = static_cast<int>(vec_idx / (N_tar - 1));
 		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
@@ -392,7 +395,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		}
 
 		if (SR_DEBUG) {
-			printf("k: %" PRIu64 "    \ti: %d    \tj: %d    \t", k, i, j);
+			//printf("k: %" PRIu64 "    \ti: %d    \tj: %d    \t", k, i, j);
+			printf("i: %d    \tj: %d    \t", i, j);
 			fflush(stdout);
 		}
 
@@ -420,10 +424,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		//Begin Traversal from i to j
 		bool success = false;
 		if (TRAVERSE_V2) {
-			if (!traversePath_v2(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, compact, i, j, success))
+			if (!traversePath_v2(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, chi_max, alpha, core_edge_fraction, size, compact, i, j, success))
 				fail = true;
 		} else {
-			if (!traversePath_v1(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, alpha, core_edge_fraction, size, compact, i, j, success))
+			if (!traversePath_v1(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, chi_max, alpha, core_edge_fraction, size, compact, i, j, success))
 				fail = true;
 		}
 
@@ -438,6 +442,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 			printf_std();
 			fflush(stdout);
 		}
+		//printChk();
 
 		n_trav++;
 		if (success)
@@ -500,7 +505,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //O(xxx) Efficiency (revise this)
-bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success)
+bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success)
 {
 	if (DEBUG) {
 		assert (!nodes.crd->isNull());
@@ -536,8 +541,10 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 		if (manifold == DE_SITTER || manifold == FLRW) {
 			assert (a > 0.0);
 			assert (HALF_PI - zeta > 0.0);
-			if (manifold == FLRW)
+			if (manifold == FLRW) {
+				assert (chi_max > 0.0);
 				assert (alpha > 0.0);
+			}
 		}
 		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 		assert (size > 0);
@@ -1034,40 +1041,40 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 //Algorithm has been parallelized on the CPU
 bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
 {
-	if (DEBUG) {
-		assert (!nodes.crd->isNull());
-		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER);
+	#if DEBUG
+	assert (!nodes.crd->isNull());
+	assert (dim == 1 || dim == 3);
+	assert (manifold == DE_SITTER);
 
-		if (dim == 1)
-			assert (nodes.crd->getDim() == 2);
-		else if (dim == 3) {
-			assert (nodes.crd->getDim() == 4);
-			assert (nodes.crd->w() != NULL);
-			assert (nodes.crd->z() != NULL);
-		}
-
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);
-		if (link || relink) {
-			assert (nodes.k_in != NULL);
-			assert (nodes.k_out != NULL);
-			assert (edges.past_edges != NULL);
-			assert (edges.future_edges != NULL);
-			assert (edges.past_edge_row_start != NULL);
-			assert (edges.future_edge_row_start != NULL);
-			assert (core_edge_exists != NULL);
-		}
-		assert (ca != NULL);
-
-		assert (N_tar > 0);
-		assert (k_tar > 0.0f);
-		assert (max_cardinality > 0);
-		assert (a > 0.0);
-		assert (HALF_PI - zeta > 0.0);
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-		assert (edge_buffer > 0.0f);
+	if (dim == 1)
+		assert (nodes.crd->getDim() == 2);
+	else if (dim == 3) {
+		assert (nodes.crd->getDim() == 4);
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->z() != NULL);
 	}
+
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	if (link || relink) {
+		assert (nodes.k_in != NULL);
+		assert (nodes.k_out != NULL);
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
+		assert (core_edge_exists != NULL);
+	}
+	assert (ca != NULL);
+
+	assert (N_tar > 0);
+	assert (k_tar > 0.0f);
+	assert (max_cardinality > 0);
+	assert (a > 0.0);
+	assert (HALF_PI - zeta > 0.0);
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	assert (edge_buffer > 0.0f);
+	#endif
 
 	uint64_t npairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
 	uint64_t start = 0;
@@ -1144,9 +1151,8 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	#endif
 	for (uint64_t v = start; v < finish; v++) {
 		//Choose a pair
-		uint64_t vec_idx = v + 1;
-		int i = static_cast<int>(vec_idx / (N_tar - 1));
-		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
+		int i = static_cast<int>(v / (N_tar - 1));
+		int j = static_cast<int>(v % (N_tar - 1) + 1);
 		int do_map = i >= j;
 
 		if (j < N_tar >> 1) {
