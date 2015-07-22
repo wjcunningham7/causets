@@ -30,8 +30,11 @@ cp $homedir/etc/fields $work/etc/
 cp $homedir/etc/min_tau $work/etc/
 
 cp $homedir/etc/raduc_table.cset.bin $work/etc/
+cp $homedir/etc/raducNC_table.cset.bin $work/etc/
 cp $homedir/etc/ctuc_table.cset.bin $work/etc/
-#cp $homedir/etc/geodesics_flrw_table.cset.bin $work/etc/
+cp $homedir/etc/geodesics_flrw_table.cset.bin $work/etc/
+cp $homedir/etc/geodesics_ds_table.cset.bin $work/etc/
+cp $homedir/etc/partial_fraction_coefficients.cset.bin $work/etc/
 
 cp $homedir/etc/mkdat $work/etc/
 

@@ -35,6 +35,8 @@
 
 #define ACTION_V2 true		//Version 2 uses OpenMP
 
+#define ACTION_GPU true		//Use the GPU for to calculate the smeared action
+
 #define GEODESIC_LOWER 0.95	//Boundary between Region I and Region II approximations
 				//Should be less than 1.0
 
@@ -57,7 +59,7 @@
 			//This value is dependent on the GPU architecture
 			//DO NOT EDIT THIS VALUE
 
-#define GROUP_SIZE 8	//Number of block groups per grid dimension
+#define GROUP_SIZE 16	//Number of block groups per grid dimension
 			//Increase this by a power of 2 if too much GPU memory is
 			//requested in the generateLists() algorithm
 

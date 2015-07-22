@@ -938,16 +938,13 @@ inline double embeddedZ1(double x, void *params)
 
 inline double deSitterDistKernel(double x, void *params)
 {
-	if (DEBUG) {
-		assert (params != NULL);
-		assert (x >= 0);
-	}
+	#if DEBUG
+	assert (params != NULL);
+	assert (x >= 0);
+	#endif
 
 	double *p = (double*)params;
 	double lambda = p[0];
-
-	if (DEBUG)
-		assert (lambda != 0.0);
 
 	double lcx2 = lambda * POW2(COSH(x, STL), EXACT);
 	double distance = SQRT(ABS(lcx2 / (1.0 + lcx2), STL), STL);
@@ -964,10 +961,6 @@ inline double flrwDistKernel(double x, void *params)
 
 	double lambda = ((double*)params)[0];
 
-	#if DEBUG
-	assert (lambda != 0.0);
-	#endif
-
 	double sx = sinh(1.5 * x);
 	double lsx43 = lambda * pow(sx, 4.0 / 3.0);
 	double distance = sqrt(fabs(lsx43 / (1.0 + lsx43)));
@@ -980,21 +973,17 @@ inline double flrwDistKernel(double x, void *params)
 
 inline double flrwLookupKernel(double x, void *params)
 {
-	if (DEBUG) {
-		assert (params != NULL);
-		assert (x >= 0);
-	}
+	#if DEBUG
+	assert (params != NULL);
+	assert (x >= 0);
+	#endif
 
-	double *p = (double*)params;
-	double lambda = p[0];
+	double lambda = ((double*)params)[0];
 
-	if (DEBUG)
-		assert (lambda != 0.0);
-
-	double sx = SINH(1.5 * x, STL);
-	double sx43 = POW(sx, 4.0 / 3.0, STL);
-	double g = sx43 + lambda * POW2(sx43, EXACT);
-	double omega12 = g > 0.0 ? POW(g, -0.5, STL) : 0.0;
+	double sx = sinh(1.5 * x);
+	double sx43 = pow(sx, 4.0 / 3.0);
+	double g = sx43 + lambda * sx43 * sx43;
+	double omega12 = 1.0 / sqrt(g);
 
 	return omega12;
 }
@@ -1012,35 +1001,27 @@ inline double flrwLookupKernelX(double x, void *params)
 
 	double lambda = ((double*)params)[0];
 
-	#if DEBUG
-	assert (lambda != 0.0);
-	#endif
-
 	double x4 = x * x * x * x;
 	double x6 = x4 * x * x;
 
 	double g = 1.0 + lambda * x4;
-	double omega12 = g > 0.0 ? 1.0 / sqrt(g * (1.0 + x6)) : 0.0;
+	double omega12 = 1.0 / sqrt(g * (1.0 + x6));
 
 	return omega12;
 }
 
 inline double deSitterLookupKernel(double x, void *params)
 {
-	if (DEBUG) {
-		assert (params != NULL);
-		assert (x >= 0);
-	}
+	#if DEBUG
+	assert (params != NULL);
+	assert (x >= 0);
+	#endif
 
-	double *p = (double*)params;
-	double lambda = p[0];
+	double lambda = ((double*)params)[0];
 
-	if (DEBUG)
-		assert (lambda != 0.0);
-
-	double cx2 = POW2(COSH(x, STL), EXACT);
-	double g = cx2 + lambda * POW2(cx2, EXACT);
-	double omega12 = g > 0 ? POW(g, -0.5, STL) : 0.0;
+	double cx2 = cosh(x) * cosh(x);
+	double g = cx2 + lambda * cx2 * cx2;
+	double omega12 = 1.0 / sqrt(g);
 
 	return omega12;
 }
@@ -1049,7 +1030,7 @@ inline double deSitterLookupKernel(double x, void *params)
 inline double deSitterLookupExact(const double &tau, const double &lambda)
 {
 	double x = 0.0;
-	double g = 0.0;
+	//double g = 0.0;
 
 	if (tau > LOG(MTAU, STL) / 6.0)
 		x = exp(2.0 * tau) / 2.0;
@@ -1058,7 +1039,7 @@ inline double deSitterLookupExact(const double &tau, const double &lambda)
 	x += 1.0;
 	x *= lambda;
 
-	if (x > -2.0 && x < 0.0) {
+	/*if (x > -2.0 && x < 0.0) {
 		double tol = 1e-5;
 		double res;
 		int i = 1;
@@ -1075,9 +1056,12 @@ inline double deSitterLookupExact(const double &tau, const double &lambda)
 		g += 2.0 * tau - LOG(2.0, STL);
 	else
 		g += LOG(SINH(tau, STL), STL);
-	g += LOG(2.0, STL) / 2.0;
+	g += LOG(2.0, STL) / 2.0;*/
 
-	return ATAN(exp(g), STL, VERY_HIGH_PRECISION);
+	x += 2.0;
+	return atan(sqrt(2.0) * sinh(tau) / sqrt(x));
+	
+	//return ATAN(exp(g), STL, VERY_HIGH_PRECISION);
 }
 
 //Approximation for flrwLookupKernelX
@@ -1102,7 +1086,7 @@ inline double flrwLookupApprox(double x, void *params)
 //Returns the distance between two nodes in the non-compact FLRW manifold
 //Version 2 does not use the lookup table for lambda = f(omega12, tau1, tau2)
 //O(xxx) Efficiency (revise this)
-inline double distance_v2(const double * const table, Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const long &size, const bool &compact, int past_idx, int future_idx)
+inline double distanceFLRW(const double * const table, Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const long &size, const bool &compact, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (table != NULL);
@@ -1141,16 +1125,18 @@ inline double distance_v2(const double * const table, Coordinates *c, const floa
 
 	double x1 = pow(sinh(1.5 * tau[past_idx]), 1.0 / 3.0);
 	double x2 = pow(sinh(1.5 * tau[future_idx]), 1.0 / 3.0);
+	//printf("x1: %.16ee\tx2: %.16e\n", x1, x2);
 	double omega12;
 	double lambda;
 
 	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, past_idx, future_idx, &omega12);
-	//printf("dt: %f\tdx: %f\n", c->w(future_idx) - c->w(past_idx), omega12);
+	//printf("dt: %.16e\tdx: %f\n", c->w(future_idx) - c->w(past_idx), omega12);
+	omega12 *= alpha / a;
 
 	//Bisection Method
-	double res = 1.0, tol = 1E-3;
+	double res = 1.0, tol = 1.0E-5;
 	double lower, upper;
-	int iter = 0, max_iter = 1000;
+	int iter = 0, max_iter = 10000;
 
 	if (!timelike) {
 		lower = -1.0 / (x2 * x2 * x2 * x2);
@@ -1162,28 +1148,54 @@ inline double distance_v2(const double * const table, Coordinates *c, const floa
 		//printf("Timelike.\n");
 	}
 
-	//Check if the distance is infinite
-	double ml = -1.0 / (x2 * x2 * x2 * x2);
+	//Check if distance is infinite
+	lambda = 0.0;
 	idata.lower = x1;
-	idata.upper = x2;
-	if (omega12 < 2.0 * integrate1D(&flrwLookupKernelX, (void*)&ml, &idata, QAGS)) {
-		//printf("Distance: Infinity\n");
+	idata.upper = 200;
+	double inf_dist = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+	assert (inf_dist == inf_dist);
+	idata.lower = x2;
+	inf_dist += 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
+	assert (inf_dist == inf_dist);
+	if (omega12 > inf_dist) {
+		//printf("Distance: Inf\n");
+		gsl_integration_workspace_free(idata.workspace);
 		return INF;
 	}
+	//printf("inf_dist: %f\n", inf_dist);
+
+	//Use upper or lower branch of the solution
+	double ml = -1.0 / (x2 * x2 * x2 * x2);
+	bool upper_branch = false;
+
+	idata.lower = x1;
+	idata.upper = x2;
+	//printf("x2 - x1 = %.8e\n", x2 - x1);
+	double branch_cutoff;
+	if (c->w(future_idx) - c->w(past_idx) > 1.0E-14) {
+		branch_cutoff = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&ml, &idata, QAGS);
+		assert (branch_cutoff == branch_cutoff);
+	} else
+		branch_cutoff = 0.0;
+	//printf("Branch cutoff: %f\n", branch_cutoff);
+	if (!!branch_cutoff && fabs(omega12 - branch_cutoff) / branch_cutoff < 1.0e-3)
+		omega12 = branch_cutoff;
+	if (!timelike && omega12 > branch_cutoff)
+		upper_branch = true;
 
 	double x0, mx;
 	while (fabs(res) > tol && iter < max_iter) {
 		x0 = (lower + upper) / 2.0;
-		if (!timelike) {
+		if (!timelike && upper_branch) {
 			mx = geodesicMaxX(x0);
-			//printf("lambda: %f\tx1: %f\tx2: %f\txm: %f\n", x0, x1, x2, mx);
+			//printf("[0] lambda: %f\tx1: %f\tx2: %f\txm: %f\n", x0, x1, x2, mx);
 			idata.lower = x1;
 			idata.upper = mx;
 			res = integrate1D(&flrwLookupKernelX, (void*)&x0, &idata, QAGS);
-			//assert (res == res);
+			assert (res == res);
 			idata.lower = x2;
 			res += integrate1D(&flrwLookupKernelX, (void*)&x0, &idata, QAGS);
-			//assert (res == res);
+			assert (res == res);
 			res *= 2.0;
 			//printf("\tres: %e\n", res);
 			res -= omega12;
@@ -1192,20 +1204,17 @@ inline double distance_v2(const double * const table, Coordinates *c, const floa
 			else
 				upper = x0;
 		} else {
+			//printf("[1] lambda: %f\tx1: %f\tx2: %f\n", x0, x1, x2);
 			idata.lower = x1;
 			idata.upper = x2;
-			res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&x0, &idata, QNG) - omega12;
-			//assert (res == res);
+			res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&x0, &idata, QAGS);
+			assert (res == res);
+			res -= omega12;
 			if (res > 0.0)
 				lower = x0;
 			else
 				upper = x0;
 		}
-
-		//If lambda is converging to zero, the distance will be zero
-		if (fabs(x0) < 1.0E-6)
-			return 0.0;
-
 		iter++;
 	}
 	lambda = x0;
@@ -1232,6 +1241,149 @@ inline double distance_v2(const double * const table, Coordinates *c, const floa
 
 	//printf("Distance: %f\n", distance);
 	//fflush(stdout);
+
+	return distance;
+}
+
+inline double distanceDeSitter(Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const bool &compact, int past_idx, int future_idx)
+{
+	#if DEBUG
+	assert (c != NULL);
+	assert (!c->isNull());
+	assert (c->getDim() == 4);
+	assert (c->w() != NULL);
+	assert (c->x() != NULL);
+	assert (c->y() != NULL);
+	assert (c->z() != NULL);
+	assert (tau != NULL);
+	assert (N_tar > 0);
+	assert (dim == 3);
+	assert (manifold == DE_SITTER);
+	assert (a > 0.0);
+	assert (HALF_PI - zeta > 0.0);
+	assert (compact);
+	assert (past_idx >= 0 && past_idx < N_tar);
+	assert (future_idx >= 0 && future_idx < N_tar);
+	#endif
+
+	if (future_idx < past_idx) {
+		int tmp = past_idx;
+		past_idx = future_idx;
+		future_idx = tmp;
+	}
+
+	IntData idata = IntData();
+	idata.limit = 60;
+	idata.tol = 1.0e-5;
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+
+	double omega12, lambda;
+	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, past_idx, future_idx, &omega12);
+	printf("\ndt: %f\tdx: %f\n", c->w(future_idx) - c->w(past_idx), omega12);
+
+	//Bisection Method
+	double res = 1.0, tol = 1.0e-5;
+	double lower, upper;
+	int iter = 0, max_iter = 10000;
+
+	if (!timelike) {
+		lower = -1.0 / (cosh(tau[future_idx]) * cosh(tau[future_idx]));
+		upper = 0.0;
+		printf("Spacelike.\n");
+	} else {
+		lower = 0.0;
+		upper = 1000.0;
+		printf("Timelike.\n");
+	}
+
+	//Check if distance is infinite
+	lambda = 0.0;
+	idata.lower = tau[past_idx];
+	idata.upper = 200;
+	double inf_dist = integrate1D(&deSitterLookupKernel, (void*)&lambda, &idata, QAGS);
+	idata.lower = tau[future_idx];
+	inf_dist += integrate1D(&deSitterLookupKernel, (void*)&lambda, &idata, QAGS);
+	if (omega12 > inf_dist) {
+		printf("Distance: Inf\n");
+		return INF;
+	}
+	printf("inf_dist: %f\n", inf_dist);
+
+	//Use upper or lower branch of the solution
+	double ml = -1.0 / (cosh(tau[future_idx]) * cosh(tau[future_idx]));
+	bool upper_branch = false;
+
+	idata.lower = tau[past_idx];
+	idata.upper = tau[future_idx];
+	double branch_cutoff = integrate1D(&deSitterLookupKernel, (void*)&ml, &idata, QAGS);
+	printf("Branch cutoff: %f\n", branch_cutoff);
+	if (!timelike && omega12 > branch_cutoff) 
+		upper_branch = true;
+
+	double x0, mt;
+	while (upper - lower > tol && iter < max_iter) {
+		x0 = (lower + upper) / 2.0;
+		if (!timelike && upper_branch) {
+			mt = acosh(1.0 / sqrt(-1.0 * x0));
+			printf("[0] lambda: %f\tt1: %f\tt2: %f\ttm: %f\n", x0, tau[past_idx], tau[future_idx], mt);
+			//res = 2.0 * deSitterLookupExact(mt, x0);
+			idata.lower = tau[past_idx];
+			idata.upper = mt;
+			res = integrate1D(&deSitterLookupKernel, (void*)&x0, &idata, QAGS);
+			assert (res == res);
+			//res -= deSitterLookupExact(tau[past_idx], x0);
+			idata.lower = tau[future_idx];
+			res += integrate1D(&deSitterLookupKernel, (void*)&x0, &idata, QAGS);
+			assert (res == res);
+			//res -= deSitterLookupExact(tau[future_idx], x0);
+			//assert (res == res);
+			printf("\tres = %f\n", res);
+			res -= omega12;
+			if (res < 0.0)
+				lower = x0;
+			else
+				upper = x0;
+		} else {
+			printf("[1] lambda: %f\tt1: %f\tt2: %f\n", x0, tau[past_idx], tau[future_idx]);
+			//res = deSitterLookupExact(tau[future_idx], x0);
+			idata.lower = tau[past_idx];
+			idata.upper = tau[future_idx];
+			res = integrate1D(&deSitterLookupKernel, (void*)&x0, &idata, QAGS);
+			assert (res == res);
+			//res -= deSitterLookupExact(tau[past_idx], x0);
+			//assert (res == res);
+			printf("\tres = %f\n", res);
+			res -= omega12;
+			if (res > 0.0)
+				lower = x0;
+			else
+				upper = x0;
+		}
+		iter++;
+	}
+	lambda = x0;
+
+	printf("Lambda: %f\n", lambda);
+	fflush(stdout);
+
+	double distance;
+	if (!timelike) {
+		idata.lower = tau[past_idx];
+		idata.upper = acosh(1.0 / sqrt(-1.0 * x0));
+		distance = integrate1D(&deSitterDistKernel, (void*)&lambda, &idata, QAGS);
+
+		idata.lower = tau[future_idx];
+		distance += integrate1D(&deSitterDistKernel, (void*)&lambda, &idata, QAGS);
+	} else {
+		idata.lower = tau[past_idx];
+		idata.upper = tau[future_idx];
+		distance = integrate1D(&deSitterDistKernel, (void*)&lambda, &idata, QAGS);
+	}
+
+	printf("Distance: %f\n", distance);
+	fflush(stdout);
+
+	gsl_integration_workspace_free(idata.workspace);
 
 	return distance;
 }
@@ -1368,10 +1520,11 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		z1_b = COSH(tau_b, APPROX ? FAST : STL);
 	}
 
-	if (DIST_V2)
-		inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
-	else
-		inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
+	#if DIST_V2
+	inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
+	#else
+	inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
+	#endif
 
 	if (manifold == FLRW)
 		inner_product_ab /= POW2(alpha_tilde, EXACT);

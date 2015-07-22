@@ -11,6 +11,7 @@
 BINDIR		:= ./bin
 INCDIR		:= ./inc
 SRCDIR		:= ./src
+ASMDIR		:= ./asm
 OBJDIR		:= ./obj
 DATDIR		:= ./dat
 ETCDIR		:= ./etc
@@ -68,7 +69,7 @@ CUDA_LIBS	 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PAT
 ##################
 
 CXXFLAGS	:= -O3 -g -Wall -x c++
-NVCCFLAGS 	:= -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED
+NVCCFLAGS 	:= -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED #--keep --keep-dir $(ASMDIR)
 ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
 NVCCFLAGS += -arch=sm_35
 else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
@@ -85,7 +86,7 @@ MPIFLAGS2	:=
 ##############################
 
 USE_OMP		:= 1
-USE_MPI		:= 1
+USE_MPI		:= 0
 
 ifneq ($(USE_OMP), 0)
 OMPFLAGS1 += -fopenmp
@@ -107,7 +108,7 @@ NVCCFLAGS += $(OMPFLAGS2) $(MPIFLAGS2)
 
 CSOURCES	:= $(SRCDIR)/autocorr2.cpp
 CEXTSOURCES	:= $(FASTSRC)/ran2.cpp $(FASTSRC)/stopwatch.cpp
-CUDASOURCES	:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines_GPU.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Operations_GPU.cu $(SRCDIR)/NetworkCreator_GPU.cu $(SRCDIR)/Validate.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements.cu
+CUDASOURCES	:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines_GPU.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Operations_GPU.cu $(SRCDIR)/NetworkCreator_GPU.cu $(SRCDIR)/Validate.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements_GPU.cu $(SRCDIR)/Measurements.cu
 SOURCES		:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Validate.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements.cu
 FSOURCES1	:= $(SRCDIR)/ds3.F
 FSOURCES2	:= $(SRCDIR)/Matter_Dark_Energy_downscaled.f
@@ -198,7 +199,10 @@ fortran2 : $(FSOURCES2)
 # Directory Creation #
 ######################
 
-dirs : objdir bindir
+dirs : asmdir objdir bindir
+
+asmdir :
+	@ mkdir -p $(ASMDIR)
 
 objdir :
 	@ mkdir -p $(OBJDIR)
@@ -212,10 +216,13 @@ bindir :
 
 cleanall : clean cleanscratch cleandata
 
-clean : cleanbin cleanobj cleanlog
+clean : cleanbin cleanasm cleanobj cleanlog
 
 cleanbin :
 	@ rm -rf $(BINDIR)
+
+cleanasm :
+	@ rm -rf $(ASMDIR)
 
 cleanobj :
 	@ rm -rf $(OBJDIR)

@@ -63,23 +63,19 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
 			if (network_properties->tau0 == 0.0)
 				throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
-
-			//Initialize certain variables
-			
 		}
 
 		if (network_properties->manifold == DE_SITTER) {
 			//Constrain the de Sitter system
-			
 			if (network_properties->delta == 0.0)
 				network_properties->a = 1.0;
 			network_properties->zeta = HALF_PI - network_properties->tau0;
 			network_properties->tau0 = etaToTau(HALF_PI - network_properties->zeta);
 
-			if (DEBUG) {
-				assert (network_properties->zeta > 0.0 && network_properties->zeta < HALF_PI);
-				assert (network_properties->tau0 > 0.0);
-			}
+			#if DEBUG
+			assert (network_properties->zeta > 0.0 && network_properties->zeta < HALF_PI);
+			assert (network_properties->tau0 > 0.0);
+			#endif
 
 			double eta0 = HALF_PI - network_properties->zeta;
 			if (network_properties->dim == 1) {
@@ -96,13 +92,11 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 					network_properties->delta = network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI * POW2(network_properties->a, EXACT), EXACT) * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL));
 			}
 
-			//network_properties->k_tar = 10.0;	//
-
-			if (DEBUG) {
-				assert (network_properties->k_tar > 0.0);
-				assert (network_properties->a > 0.0);
-				assert (network_properties->delta > 0.0);
-			}
+			#if DEBUG
+			assert (network_properties->k_tar > 0.0);
+			assert (network_properties->a > 0.0);
+			assert (network_properties->delta > 0.0);
+			#endif
 
 			//Display Constraints
 			printf_mpi(rank, "\n");
@@ -150,7 +144,11 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 					return false;
 
 			} else {
+				//This makes alpha characterize the boundary effects
 				network_properties->chi_max = 1.0;
+
+				//This makes the flag indicate the ratio (alpha * chi_max) / (a * tau_max)
+				network_properties->alpha *= network_properties->tau0;
 
 				//Non-Compact FLRW Constraints
 				int method = 1;
@@ -167,11 +165,11 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 			network_properties->zeta = HALF_PI - tauToEtaFLRWExact(network_properties->tau0, network_properties->a, network_properties->alpha);
 
-			if (DEBUG) {
-				assert (network_properties->a > 0.0);
-				assert (network_properties->k_tar > 0.0);
-				assert (HALF_PI - network_properties->zeta > 0.0);
-			}
+			#if DEBUG
+			assert (network_properties->a > 0.0);
+			assert (network_properties->k_tar > 0.0);
+			assert (HALF_PI - network_properties->zeta > 0.0);
+			#endif
 
 			//Display Constraints
 			printf_mpi(rank, "\n");
@@ -242,21 +240,21 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 //See Causal Set Notes for detailed explanation of methods
 bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Manifold &manifold, double &a, const double &chi_max, double &tau0, const double &alpha, const double &delta, long &seed, const int &rank, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &compact, const bool &verbose, const bool &bench, const int method)
 {
-	if (DEBUG) {
-		assert (ca != NULL);
-		assert (N_tar > 0);
-		assert (dim == 3);
-		assert (manifold == FLRW);
-		assert (tau0 > 0.0);
-		assert (alpha > 0.0);
-		assert (delta > 0.0);
-		assert (method == 0 || method == 1 || method == 2);
-		if (!compact) {
-			assert (method == 0 || method == 1);
-			assert (chi_max > 0.0);
-		} else
-			assert (a > 0.0);
-	}
+	#if DEBUG
+	assert (ca != NULL);
+	assert (N_tar > 0);
+	assert (dim == 3);
+	assert (manifold == FLRW);
+	assert (tau0 > 0.0);
+	assert (alpha > 0.0);
+	assert (delta > 0.0);
+	assert (method == 0 || method == 1 || method == 2);
+	if (!compact) {
+		assert (method == 0 || method == 1);
+		assert (chi_max > 0.0);
+	} else
+		assert (a > 0.0);
+	#endif
 
 	printf_mpi(rank, "\tEstimating Expected Average Degree...\n");
 	fflush(stdout);
@@ -400,17 +398,17 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Man
 //O(1) Efficiency
 bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &link, const bool &relink, const bool &verbose, const bool &bench, const bool &yes)
 {
-	if (DEBUG) {
-		assert (ca != NULL);
-		assert (N_tar > 0);
-		assert (k_tar > 0.0f);
-		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
-		if (manifold == HYPERBOLIC)
-			assert (dim == 1);
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-		assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
-	}
+	#if DEBUG
+	assert (ca != NULL);
+	assert (N_tar > 0);
+	assert (k_tar > 0.0f);
+	assert (dim == 1 || dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
+	if (manifold == HYPERBOLIC)
+		assert (dim == 1);
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
+	#endif
 
 	int rank = cmpi.rank;
 	bool links_exist = link || relink;
@@ -451,7 +449,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 		}
 		#endif
 
-		printMemUsed("for Network (Estimation)", mem, dmem, 0);
+		printMemUsed("for Network (Estimation)", mem, dmem, rank);
 		printf("\nContinue [y/N]?");
 		fflush(stdout);
 		char response = getchar();
@@ -566,9 +564,14 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 		cmpi.fail = 1;
 	}
 
+	if (nodes.crd->isNull()) {
+		printf("Null in thread %d\n", rank);
+		cmpi.fail = 1;
+	}
+
 	if (checkMpiErrors(cmpi))
 		return false;
-
+	
 	stopwatchStop(&sCreateNetwork);
 
 	if (!bench) {
@@ -588,28 +591,28 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 //O(N) Efficiency
 bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &compact, const bool &verbose, const bool &bench)
 {
-	if (DEBUG) {
-		//Values are in correct ranges
-		assert (!nodes.crd->isNull());
-		assert (N_tar > 0);
-		assert (k_tar > 0.0f);
-		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW);
-		assert (a >= 0.0);
-		assert (tau0 > 0.0);
-		assert (HALF_PI - zeta > 0.0);
-		if (manifold == FLRW) {
-			assert (nodes.crd->getDim() == 4);
-			assert (nodes.crd->w() != NULL);
-			assert (nodes.crd->x() != NULL);
-			assert (nodes.crd->y() != NULL);
-			assert (nodes.crd->z() != NULL);
-			assert (dim == 3);
-			if (!compact)
-				assert (chi_max > 0.0);
-		} else if (manifold == DE_SITTER)
-			assert (HALF_PI - zeta < HALF_PI);
-	}
+	#if DEBUG
+	//Values are in correct ranges
+	assert (!nodes.crd->isNull());
+	assert (N_tar > 0);
+	assert (k_tar > 0.0f);
+	assert (dim == 1 || dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW);
+	assert (a >= 0.0);
+	assert (tau0 > 0.0);
+	assert (HALF_PI - zeta > 0.0);
+	if (manifold == FLRW) {
+		assert (nodes.crd->getDim() == 4);
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+		assert (nodes.crd->z() != NULL);
+		assert (dim == 3);
+		if (!compact)
+			assert (chi_max > 0.0);
+	} else if (manifold == DE_SITTER)
+		assert (HALF_PI - zeta < HALF_PI);
+	#endif
 
 	IntData idata = IntData();
 	//Modify these two parameters to trade off between speed and accuracy
@@ -631,7 +634,9 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 		////////////////////////////////////////////////////////////
 
 		x = TWO_PI * ran2(&seed);
-		if (DEBUG) assert (x > 0.0 && x < TWO_PI);
+		#if DEBUG
+		assert (x > 0.0 && x < TWO_PI);
+		#endif
 		//if (i % NPRINT == 0) printf("Theta3: %5.5f\n", x); fflush(stdout);
 
 		if (dim == 1) {
@@ -645,10 +650,10 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			do nodes.crd->x(i) = static_cast<float>(ATAN(ran2(&seed) / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			while (nodes.crd->x(i) >= static_cast<float>(HALF_PI - zeta));
 
-			if (DEBUG) {
-				assert (nodes.crd->x(i) > 0.0f);
-				assert (nodes.crd->x(i) < static_cast<float>(HALF_PI - zeta));
-			}
+			#if DEBUG
+			assert (nodes.crd->x(i) > 0.0f);
+			assert (nodes.crd->x(i) < static_cast<float>(HALF_PI - zeta));
+			#endif
 
 			nodes.id.tau[i] = static_cast<float>(etaToTau(static_cast<double>(nodes.crd->x(i))));
 		} else if (dim == 3) {
@@ -686,10 +691,10 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 				nodes.id.tau[i] = static_cast<float>(x);
 			} while (nodes.id.tau[i] >= static_cast<float>(tau0));
 
-			if (DEBUG) {
-				assert (nodes.id.tau[i] > 0.0f);
-				assert (nodes.id.tau[i] < static_cast<float>(tau0));
-			}
+			#if DEBUG
+			assert (nodes.id.tau[i] > 0.0f);
+			assert (nodes.id.tau[i] < static_cast<float>(tau0));
+			#endif
 
 			//Save eta values as well
 			if (manifold == FLRW) {
@@ -701,12 +706,18 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 					//Exact Solution
 					nodes.crd->w(i) = static_cast<float>(tauToEtaFLRWExact(nodes.id.tau[i], a, alpha));
 
-				if (DEBUG) assert (nodes.crd->w(i) < tauToEtaFLRWExact(tau0, a, alpha));
+				#if DEBUG 
+				assert (nodes.crd->w(i) < tauToEtaFLRWExact(tau0, a, alpha));
+				#endif
 			} else if (manifold == DE_SITTER) {
 				nodes.crd->w(i) = static_cast<float>(tauToEta(static_cast<double>(nodes.id.tau[i])));
-				if (DEBUG) assert (nodes.crd->w(i) < tauToEta(tau0));
+				#if DEBUG
+				assert (nodes.crd->w(i) < tauToEta(tau0));
+				#endif
 			}
-			if (DEBUG) assert (nodes.crd->w(i) > 0.0);
+			#if DEBUG
+			assert (nodes.crd->w(i) > 0.0);
+			#endif
 				
 			///////////////////////////////////////////////////////
 			//~~~~~~~~~~~~~~~~Theta1 and Theta2~~~~~~~~~~~~~~~~~~//	
@@ -721,16 +732,22 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 				if (!newton(&solveTheta1, &x, 250, TOL, &rval, NULL, NULL))
 					return false;
 				nodes.crd->x(i) = static_cast<float>(x);
-				if (DEBUG) assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < static_cast<float>(M_PI));
+				#if DEBUG
+				assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < static_cast<float>(M_PI));
+				#endif
 			} else {
 				nodes.crd->x(i) = static_cast<float>(POW(ran2(&seed), 1.0 / 3.0, APPROX ? FAST : STL) * chi_max);
-				if (DEBUG) assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < static_cast<float>(chi_max));
+				#if DEBUG
+				assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < static_cast<float>(chi_max));
+				#endif
 			}
 			//if (i % NPRINT == 0) printf("Theta1: %5.5f\n", nodes.crd->x(i)); fflush(stdout);
 
 			//Sample Theta2 from (0, pi)
 			nodes.crd->y(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-			if (DEBUG) assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));
+			#if DEBUG
+			assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));
+			#endif
 			//if (i % NPRINT == 0) printf("Theta2: %5.5f\n", nodes.crd->y(i)); fflush(stdout);
 		}
 		//if (i % NPRINT == 0) printf("eta: %5.5f\n", nodes.crd->w(i));
@@ -771,39 +788,39 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 //O(k*N^2) Efficiency
 bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &compact, const bool &verbose, const bool &bench)
 {
-	if (DEBUG) {
-		//No null pointers
-		assert (!nodes.crd->isNull());
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
+	#if DEBUG
+	//No null pointers
+	assert (!nodes.crd->isNull());
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (core_edge_exists != NULL);
 
-		//Variables in correct ranges
-		assert (N_tar > 0);
-		assert (k_tar > 0.0f);
-		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW);
-		assert (a > 0.0);
-		assert (HALF_PI - zeta > 0.0);
-		assert (tau0 > 0.0);
-		if (manifold == DE_SITTER)
-			assert (HALF_PI - zeta < HALF_PI);
-		else if (manifold == FLRW) {
-			assert (nodes.crd->getDim() == 4);
-			assert (nodes.crd->w() != NULL);
-			assert (nodes.crd->x() != NULL);
-			assert (nodes.crd->y() != NULL);
-			assert (nodes.crd->z() != NULL);
-			assert (dim == 3);
-			if (!compact)
-				assert (chi_max > 0.0);
-			assert (alpha > 0.0);
-		}
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-		assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
+	//Variables in correct ranges
+	assert (N_tar > 0);
+	assert (k_tar > 0.0f);
+	assert (dim == 1 || dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW);
+	assert (a > 0.0);
+	assert (HALF_PI - zeta > 0.0);
+	assert (tau0 > 0.0);
+	if (manifold == DE_SITTER)
+		assert (HALF_PI - zeta < HALF_PI);
+	else if (manifold == FLRW) {
+		assert (nodes.crd->getDim() == 4);
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+		assert (nodes.crd->z() != NULL);
+		assert (dim == 3);
+		if (!compact)
+			assert (chi_max > 0.0);
+		assert (alpha > 0.0);
 	}
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
+	#endif
 
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
 	int future_idx = 0;
@@ -891,7 +908,9 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	}
 
 	//The quantities future_idx and past_idx should be equal
-	if (DEBUG) assert (future_idx == past_idx);
+	#if DEBUG
+	assert (future_idx == past_idx);
+	#endif
 	//printf("\t\tEdges (backward): %d\n", past_idx);
 	//fflush(stdout);
 
@@ -906,11 +925,11 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 		} 
 	}
 
-	if (DEBUG) {
-		assert (N_res >= 0);
-		assert (N_deg2 >= 0);
-		assert (k_res >= 0.0);
-	}
+	#if DEBUG
+	assert (N_res >= 0);
+	assert (N_deg2 >= 0);
+	assert (k_res >= 0.0);
+	#endif
 
 	if (N_res > 0)
 		k_res /= N_res;
@@ -918,8 +937,10 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	//Debugging options used to visually inspect the adjacency lists and the adjacency pointer lists
 	//compareAdjacencyLists(nodes, edges);
 	//compareAdjacencyListIndices(nodes, edges);
-	if (DEBUG && !compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
+	#if DEBUG
+	if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
 		return false;
+	#endif
 
 	//Print Results
 	/*if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;

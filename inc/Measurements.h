@@ -5,6 +5,7 @@
 #include "Geodesics.h"
 #ifdef CUDA_ENABLED
 #include "Operations_GPU.h"
+#include "Measurements_GPU.h"
 #endif
 #include "Validate.h"
 

@@ -28,15 +28,15 @@
 
 #./lsf/causet_bat --ncores 32 --flags '--nodes 256 --age 1.2 --core 1 --buffer 0.4 --verbose -y --link --action 5 --print' --start 59 --queue 'par-gpu' --nsamples 500
 
-#./lsf/causet_bat --ncores 32 --flags '--nodes 10240 --energy 0.7 --alpha 2 --seed 18100 --core 0.95 --manifold f --link --verbose -y --gpu --print --success 50000' --start 60 --queue 'par-gpu' --nsamples 1
+./lsf/causet_bat --ncores 32 --flags '--nodes 1048576 --energy 0.73 --alpha 10 --manifold f --link --verbose -y --gpu --print --success 1048576' --start 59 --queue 'par-gpu' --nsamples 1
 
 #=======================#
 # GPU, MPI Acceleration #
 #=======================#
 
-./lsf/causet_bat --ncores 32 --flags '--nodes 10240 --age 1.2 --buffer 0.3 --link --verbose -y --gpu --action 5 --seed 18100' --start 59 --mpi 4 --queue 'par-gpu' --nsamples 1
+#./lsf/causet_bat --ncores 32 --flags '--nodes 10240 --age 1.2 --buffer 0.3 --link --verbose -y --action 5 --seed 18100' --start 59 --mpi 2 --queue 'par-gpu' --nsamples 1
 
-#./lsf/causet_bat --ncores 32 --flags '--nodes 10240 --energy 0.7 --alpha 2 --manifold f --link --compact --verbose -y --gpu --embedding 0.1' --start 61 --mpi 4 --queue 'par-gpu' --nsamples 1
+#./lsf/causet_bat --ncores 32 --flags '--nodes 10240 --energy 0.7 --alpha 3 --seed 18100 --manifold f --link --verbose -y --gpu --success 10240' --start 59 --mpi 4 --queue 'par-gpu' --nsamples 1
 
 ###########################
 # STUDY EXISTING NETWORKS #

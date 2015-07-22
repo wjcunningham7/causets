@@ -33,7 +33,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, long &seed, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &compact, const bool &verbose);
 
-bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, CaResources * const ca, Stopwatch &sValidateDistances, const bool &compact, const bool &verbose);
+bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, long &seed, CaResources * const ca, Stopwatch &sValidateDistances, const bool &compact, const bool &verbose);
 
 bool printValues(Node &nodes, const int num_vals, const char *filename, const char *coord);
 

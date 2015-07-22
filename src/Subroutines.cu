@@ -9,11 +9,11 @@
 //Linear Interpolation using Lookup Table
 bool getLookupTable(const char *filename, double **lt, long *size)
 {
-	if (DEBUG) {
-		assert (filename != NULL);
-		assert (lt != NULL);
-		assert (size != NULL);
-	}
+	#if DEBUG
+	assert (filename != NULL);
+	assert (lt != NULL);
+	assert (size != NULL);
+	#endif
 
 	double *table;
 	std::ifstream ltable(filename, std::ios::in | std::ios::binary | std::ios::ate);
@@ -69,11 +69,11 @@ bool getLookupTable(const char *filename, double **lt, long *size)
 //Lookup value in table of (x, y) coordinates -> 2D parameter space
 double lookupValue(const double *table, const long &size, double *x, double *y, bool increasing)
 {
-	if (DEBUG) {
-		assert (table != NULL);
-		assert (size > 0);
-		assert ((x == NULL) ^ (y == NULL));
-	}
+	#if DEBUG
+	assert (table != NULL);
+	assert (size > 0);
+	assert ((x == NULL) ^ (y == NULL));
+	#endif
 	
 	//Identify which is being calculated
 	bool first = (x == NULL);
@@ -120,13 +120,13 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 //Returns the transcendental integration parameter 'lambda'
 double lookupValue4D(const double *table, const long &size, const double &omega12, double t1, double t2)
 {
-	if (DEBUG) {
-		assert (table != NULL);
-		assert (size > 0);
-		assert (omega12 >= 0.0);
-		assert (t1 >= 0.0);
-		assert (t2 >= 0.0);
-	}
+	#if DEBUG
+	assert (table != NULL);
+	assert (size > 0);
+	assert (omega12 >= 0.0);
+	assert (t1 >= 0.0);
+	assert (t2 >= 0.0);
+	#endif
 
 	if (t2 < t1) {
 		double temp = t1;
@@ -207,13 +207,13 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 //O(N*log(N)) Efficiency
 void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, int high)
 {
-	if (DEBUG) {
-		assert (!nodes.crd->isNull());
-		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
-		if (manifold == HYPERBOLIC)
-			assert (dim == 1);
-	}
+	#if DEBUG
+	assert (!nodes.crd->isNull());
+	assert (dim == 1 || dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
+	if (manifold == HYPERBOLIC)
+		assert (dim == 1);
+	#endif
 
 	int i, j, k;
 	float key = 0.0;
@@ -246,8 +246,9 @@ void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, i
 //Sort edge list
 void quicksort(uint64_t *edges, int low, int high)
 {
-	if (DEBUG)
-		assert (edges != NULL);
+	#if DEBUG
+	assert (edges != NULL);
+	#endif
 
 	int i, j, k;
 	uint64_t key;
@@ -277,13 +278,13 @@ void quicksort(uint64_t *edges, int low, int high)
 //Exchange two nodes
 void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, const int j)
 {
-	if (DEBUG) {
-		assert (!nodes.crd->isNull());
-		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
-		if (manifold == HYPERBOLIC)
-			assert (dim == 1);
-	}
+	#if DEBUG
+	assert (!nodes.crd->isNull());
+	assert (dim == 1 || dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
+	if (manifold == HYPERBOLIC)
+		assert (dim == 1);
+	#endif
 
 	if (dim == 1) {
 		float2 hc = nodes.crd->getFloat2(i);
@@ -309,11 +310,11 @@ void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, co
 //Exchange two edges
 void swap(uint64_t *edges, const int i, const int j)
 {
-	if (DEBUG) {
-		assert (edges != NULL);
-		assert (i >= 0);
-		assert (j >= 0);
-	}
+	#if DEBUG
+	assert (edges != NULL);
+	assert (i >= 0);
+	assert (j >= 0);
+	#endif
 
 	uint64_t tmp = edges[i];
 	edges[i] = edges[j];
@@ -324,12 +325,12 @@ void swap(uint64_t *edges, const int i, const int j)
 //as well as related indices (used in causet_intersection)
 void swap(const int * const *& list0, const int * const *& list1, int &idx0, int &idx1, int &max0, int &max1)
 {
-	if (DEBUG) {
-		assert (idx0 >= 0);
-		assert (idx1 >= 0);
-		assert (max0 >= 0);
-		assert (max1 >= 0);
-	}
+	#if DEBUG
+	assert (idx0 >= 0);
+	assert (idx1 >= 0);
+	assert (max0 >= 0);
+	assert (max1 >= 0);
+	#endif
 
 	const int * const * tmp_list = list0;
 	list0 = list1;
@@ -348,8 +349,9 @@ void swap(const int * const *& list0, const int * const *& list1, int &idx0, int
 //Use when Newton-Raphson fails
 bool bisection(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG)
-		assert (solve != NULL);
+	#if DEBUG
+	assert (solve != NULL);
+	#endif
 
 	double res = 1.0;
 	double a = lower;
@@ -411,8 +413,9 @@ bool bisection(double (*solve)(const double &x, const double * const p1, const f
 //Solves Transcendental Equations
 bool newton(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double tol, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG)
-		assert (solve != NULL);
+	#if DEBUG
+	assert (solve != NULL);
+	#endif
 
 	double res = 1.0;
 	double x1;
@@ -461,21 +464,21 @@ bool newton(double (*solve)(const double &x, const double * const p1, const floa
 //O(k) Efficiency for Adjacency List
 bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
 {
-	if (DEBUG) {
-		//No null pointers
-		assert (future_edges != NULL);
-		assert (future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
+	#if DEBUG
+	//No null pointers
+	assert (future_edges != NULL);
+	assert (future_edge_row_start != NULL);
+	assert (core_edge_exists != NULL);
 
-		//Parameters in correct ranges
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-		assert (past_idx >= 0 && past_idx < N_tar);
-		assert (future_idx >= 0 && future_idx < N_tar);
-		assert (past_idx != future_idx);
+	//Parameters in correct ranges
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	assert (past_idx >= 0 && past_idx < N_tar);
+	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (past_idx != future_idx);
 
-		assert (!(future_edge_row_start[past_idx] == -1 && nodes.k_out[past_idx] > 0));
-		assert (!(future_edge_row_start[past_idx] != -1 && nodes.k_out[past_idx] == 0));
-	}
+	assert (!(future_edge_row_start[past_idx] == -1 && nodes.k_out[past_idx] > 0));
+	assert (!(future_edge_row_start[past_idx] != -1 && nodes.k_out[past_idx] == 0));
+	#endif
 
 	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 	int i;
@@ -506,18 +509,18 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 //Breadth First Search
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements)
 {
-	if (DEBUG) {
-		assert (nodes.k_in != NULL);
-		assert (nodes.k_out != NULL);
-		assert (nodes.cc_id != NULL);
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (index >= 0);
-		assert (id >= 0);
-		assert (elements >= 0);
-	}
+	#if DEBUG
+	assert (nodes.k_in != NULL);
+	assert (nodes.k_out != NULL);
+	assert (nodes.cc_id != NULL);
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (index >= 0);
+	assert (id >= 0);
+	assert (elements >= 0);
+	#endif
 
 	int ps = edges.past_edge_row_start[index];
 	int fs = edges.future_edge_row_start[index];
@@ -539,16 +542,16 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 
 void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many)
 {
-	if (DEBUG) {
-		assert (past_edges != NULL);
-		assert (future_edges != NULL);
-		assert (k_i >= 0);
-		assert (k_o >= 0);
-		assert (!(k_i == 0 && k_o == 0));
-		assert (max_cardinality > 1);
-		assert (pstart >= 0);
-		assert (fstart >= 0);
-	}
+	#if DEBUG
+	assert (past_edges != NULL);
+	assert (future_edges != NULL);
+	assert (k_i >= 0);
+	assert (k_o >= 0);
+	assert (!(k_i == 0 && k_o == 0));
+	assert (max_cardinality > 1);
+	assert (pstart >= 0);
+	assert (fstart >= 0);
+	#endif
 
 	if (k_i == 1 || k_o == 1) {
 		elements = 0;
@@ -591,16 +594,16 @@ void causet_intersection_v2(int &elements, const int * const past_edges, const i
 //Complexity: O(k*log(k))
 void causet_intersection(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many)
 {
-	if (DEBUG) {
-		assert (past_edges != NULL);
-		assert (future_edges != NULL);
-		assert (k_i >= 0);
-		assert (k_o >= 0);
-		assert (!(k_i == 0 && k_o == 0));
-		assert (max_cardinality > 1);
-		assert (pstart >= 0);
-		assert (fstart >= 0);
-	}
+	#if DEBUG
+	assert (past_edges != NULL);
+	assert (future_edges != NULL);
+	assert (k_i >= 0);
+	assert (k_o >= 0);
+	assert (!(k_i == 0 && k_o == 0));
+	assert (max_cardinality > 1);
+	assert (pstart >= 0);
+	assert (fstart >= 0);
+	#endif
 
 	int idx0 = pstart;
 	int idx1 = fstart;
@@ -676,10 +679,10 @@ void causet_intersection(int &elements, const int * const past_edges, const int 
 //sequences found on the GPU
 void readDegrees(int * const &degrees, const int * const h_k, const size_t &offset, const size_t &size)
 {
-	if (DEBUG) {
-		assert (degrees != NULL);
-		assert (h_k != NULL);
-	}
+	#if DEBUG
+	assert (degrees != NULL);
+	assert (h_k != NULL);
+	#endif
 
 	unsigned int i;
 	for (i = 0; i < size; i++)
@@ -690,16 +693,16 @@ void readDegrees(int * const &degrees, const int * const h_k, const size_t &offs
 //the adjacency list created by the GPU
 void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const core_edge_exists, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y)
 {
-	if (DEBUG) {
-		assert (edges != NULL);
-		assert (h_edges != NULL);
-		assert (core_edge_exists != NULL);
-		assert (g_idx != NULL);
-		assert (*g_idx >= 0);
-		assert (x >= 0);
-		assert (y >= 0);
-		assert (x <= y);
-	}
+	#if DEBUG
+	assert (edges != NULL);
+	assert (h_edges != NULL);
+	assert (core_edge_exists != NULL);
+	assert (g_idx != NULL);
+	assert (*g_idx >= 0);
+	assert (x >= 0);
+	assert (y >= 0);
+	assert (x <= y);
+	#endif
 
 	uint64_t idx1, idx2;
 	unsigned int i, j;
@@ -718,6 +721,113 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const
 			}
 		}
 	}
+}
+
+//Remake adjacency sub-matrix using 'l' rows, beginning at row 'i'
+void remakeAdjMatrix(bool * const adj0, bool * const adj1, const int * const k_in, const int * const k_out, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, int * const idx_buf0, int * const idx_buf1, const int &N_tar, const int &i, const int &j, const int &l)
+{
+	#if DEBUG
+	assert (adj0 != NULL);
+	assert (adj1 != NULL);
+	assert (k_in != NULL);
+	assert (k_out != NULL);
+	assert (past_edges != NULL);
+	assert (future_edges != NULL);
+	assert (past_edge_row_start != NULL);
+	assert (future_edge_row_start != NULL);
+	assert (idx_buf0 != NULL);
+	assert (idx_buf1 != NULL);
+	assert (N_tar > 0);
+	assert (i >= 0);
+	assert (j >= 0);
+	assert (l > 0);
+	#endif
+
+	//Map tile indices to global indices
+	for (int m = 0; m < l; m++) {
+		int M = m + i * l;
+		for (int n = 0; n < l; n++) {
+			int N = n + j * l;
+			if (!N)
+				continue;
+
+			//Use triangular mapping
+			int do_map = M >= N;
+			if (N < N_tar >> 1) {
+				M = M + do_map * ((((N_tar >> 1) - M) << 1) - 1);
+				N = N + do_map * (((N_tar >> 1) - N) << 1);
+			}
+
+			idx_buf0[m] = M;
+			idx_buf1[n] = N;
+		}
+	}
+
+	//Fill Adjacency Submatrix 0
+	#ifdef _OPENMP
+	#pragma omp parallel for schedule (dynamic, 1)
+	#endif
+	for (int m = 0; m < l; m++) {
+		int M = idx_buf0[m];
+		int element;
+
+		//Past Neighbors
+		int start = past_edge_row_start[M];
+		for (int p = 0; p < k_in[M]; p++) {
+			element = past_edges[start+p];
+			adj0[m*N_tar+element] = true;
+		}
+
+		//Future Neighbors
+		start = future_edge_row_start[M];
+		for (int p = 0; p < k_out[M]; p++) {
+			element = future_edges[start+p];
+			adj0[m*N_tar+element] = true;
+		}
+	}
+
+	//Fill Adjacency Submatrix 1
+	#ifdef _OPENMP
+	#pragma omp parallel for schedule (dynamic, 1)
+	#endif
+	for (int n = 0; n < l; n++) {
+		int N = idx_buf1[n];
+		int element;
+
+		if (!N)
+			continue;
+
+		//Past Neighbors
+		int start = past_edge_row_start[N];
+		for (int p = 0; p < k_in[N]; p++) {
+			element = past_edges[start+p];
+			adj1[n*N_tar+element] = true;
+		}
+
+		//Future Neighbors
+		start = future_edge_row_start[N];
+		for (int p = 0; p < k_out[N]; p++) {
+			element = future_edges[start+p];
+			adj1[n*N_tar+element] = true;
+		}
+	}
+}
+
+//Data formatting used when reading output of
+//the interval matrix created by the GPU
+void readIntervals(int * const cardinalities, const unsigned int * const N_ij, const int &l)
+{
+	#if DEBUG
+	assert (cardinalities != NULL);
+	assert (N_ij != NULL);
+	assert (l > 0);
+	#endif
+
+	int i, j;
+
+	for (i = 0; i < l; i++)
+		for (j = 0; j < l; j++)
+			cardinalities[N_ij[j*l+i]+1]++;
 }
 
 //Scanning algorithm used when decoding
@@ -762,15 +872,13 @@ int printf_mpi(int rank, const char * format, ...)
 bool checkMpiErrors(CausetMPI &cmpi)
 {
 	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
 	if (!cmpi.rank)
-		MPI_Reduce(MPI_IN_PLACE, &cmpi.fail, cmpi.num_mpi_threads, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Reduce(MPI_IN_PLACE, &cmpi.fail, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 	else
-		MPI_Reduce(&cmpi.fail, NULL, cmpi.num_mpi_threads, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Reduce(&cmpi.fail, NULL, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&cmpi.fail, cmpi.num_mpi_threads, MPI_INT, 0, MPI_COMM_WORLD);
 	#endif
 
-	if (cmpi.fail)
-		return true;
-	else
-		return false;
+	return !!cmpi.fail;
 }

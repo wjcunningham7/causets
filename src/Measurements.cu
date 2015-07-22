@@ -10,17 +10,17 @@
 //O(N*k^3) Efficiency
 bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &calc_autocorr, const bool &verbose, const bool &bench)
 {
-	if (DEBUG) {
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
-		assert (ca != NULL);
-		assert (N_tar > 0);
-		assert (N_deg2 > 0);
-		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
-	}
+	#if DEBUG
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (core_edge_exists != NULL);
+	assert (ca != NULL);
+	assert (N_tar > 0);
+	assert (N_deg2 > 0);
+	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+	#endif
 
 	float c_avg = 0.0f;
 
@@ -63,12 +63,12 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 			continue;
 		}
 
-		if (DEBUG) {
-			assert (!(edges.past_edge_row_start[i] == -1 && nodes.k_in[i] > 0));
-			assert (!(edges.past_edge_row_start[i] != -1 && nodes.k_in[i] == 0));
-			assert (!(edges.future_edge_row_start[i] == -1 && nodes.k_out[i] > 0));
-			assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
-		}
+		#if DEBUG
+		assert (!(edges.past_edge_row_start[i] == -1 && nodes.k_in[i] > 0));
+		assert (!(edges.past_edge_row_start[i] != -1 && nodes.k_in[i] == 0));
+		assert (!(edges.future_edge_row_start[i] == -1 && nodes.k_out[i] > 0));
+		assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
+		#endif
 
 		float c_i = 0.0f;
 		float c_k = static_cast<float>((nodes.k_in[i] + nodes.k_out[i]));
@@ -98,9 +98,13 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.past_edges[edges.past_edge_row_start[i]+k], edges.future_edges[edges.future_edge_row_start[i]+j]))
 						c_i += 1.0f;
 
-		if (DEBUG) assert (c_max > 0.0f);
+		#if DEBUG
+		assert (c_max > 0.0f);
+		#endif
 		c_i = c_i / c_max;
-		if (DEBUG) assert (c_i <= 1.0f);
+		#if DEBUG
+		assert (c_i <= 1.0f);
+		#endif
 
 		clustering[i] = c_i;
 		c_avg += c_i;
@@ -112,7 +116,9 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 	}
 
 	average_clustering = c_avg / N_deg2;
-	if (DEBUG) assert (average_clustering >= 0.0f && average_clustering <= 1.0f);
+	#if DEBUG
+	assert (average_clustering >= 0.0f && average_clustering <= 1.0f);
+	#endif
 
 	stopwatchStop(&sMeasureClustering);
 
@@ -148,14 +154,14 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 //Efficiency: O(xxx)
 bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &verbose, const bool &bench)
 {
-	if (DEBUG) {
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (ca != NULL);
-		assert (N_tar > 0);
-	}
+	#if DEBUG
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (ca != NULL);
+	assert (N_tar > 0);
+	#endif
 
 	int rank = cmpi.rank;
 	int elements;
@@ -208,10 +214,10 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 	stopwatchStop(&sMeasureConnectedComponents);
 
-	if (DEBUG) {
-		assert (N_cc > 0);
-		assert (N_gcc > 1);
-	}
+	#if DEBUG
+	assert (N_cc > 0);
+	assert (N_gcc > 1);
+	#endif
 
 	if (!bench) {
 		printf_mpi(rank, "\tCalculated Number of Connected Components.\n");
@@ -269,7 +275,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	#endif
 
-	bool SR_DEBUG = true;
+	bool SR_DEBUG = false;
 
 	double *table;
 	bool *used;
@@ -365,14 +371,6 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	#pragma omp parallel for schedule (dynamic, 1) firstprivate (omp_seed) lastprivate (omp_seed) reduction (+ : n_trav, n_succ)
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
-		#ifdef _OPENMP
-		if (!k && !(k % 16)) {
-			#pragma omp flush (fail)
-		}
-		#endif
-		if (fail)
-			continue;
-
 		//Pick Pair
 		uint64_t vec_idx;
 		#if SR_RANDOM
@@ -423,13 +421,13 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 
 		//Begin Traversal from i to j
 		bool success = false;
-		if (TRAVERSE_V2) {
-			if (!traversePath_v2(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, chi_max, alpha, core_edge_fraction, size, compact, i, j, success))
-				fail = true;
-		} else {
-			if (!traversePath_v1(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, chi_max, alpha, core_edge_fraction, size, compact, i, j, success))
-				fail = true;
-		}
+		#if TRAVERSE_V2
+		if (!traversePath_v2(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, chi_max, alpha, core_edge_fraction, size, compact, i, j, success))
+			fail = true;
+		#else
+		if (!traversePath_v1(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, chi_max, alpha, core_edge_fraction, size, compact, i, j, success))
+			fail = true;
+		#endif
 
 		if (SR_DEBUG) {
 			if (success) {
@@ -507,50 +505,50 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 //O(xxx) Efficiency (revise this)
 bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success)
 {
-	if (DEBUG) {
-		assert (!nodes.crd->isNull());
-		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
+	#if DEBUG
+	assert (!nodes.crd->isNull());
+	assert (dim == 1 || dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
 
-		if (manifold == HYPERBOLIC)
-			assert (dim == 1);
+	if (manifold == HYPERBOLIC)
+		assert (dim == 1);
 
-		if (dim == 1) {
-			assert (nodes.crd->getDim() == 2);
-			assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
-		} else if (dim == 3) {
-			assert (nodes.crd->getDim() == 4);
-			assert (nodes.crd->w() != NULL);
-			assert (nodes.crd->z() != NULL);
-			assert (manifold == DE_SITTER || manifold == FLRW);
-		}
-
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);
-		assert (nodes.k_in != NULL);
-		assert (nodes.k_out != NULL);
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
-		assert (used != NULL);
-		assert (table != NULL);
-		
-		assert (N_tar > 0);
-		if (manifold == DE_SITTER || manifold == FLRW) {
-			assert (a > 0.0);
-			assert (HALF_PI - zeta > 0.0);
-			if (manifold == FLRW) {
-				assert (chi_max > 0.0);
-				assert (alpha > 0.0);
-			}
-		}
-		assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
-		assert (size > 0);
-		assert (source >= 0 && source < N_tar);
-		assert (dest >= 0 && dest < N_tar);
+	if (dim == 1) {
+		assert (nodes.crd->getDim() == 2);
+		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
+	} else if (dim == 3) {
+		assert (nodes.crd->getDim() == 4);
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->z() != NULL);
+		assert (manifold == DE_SITTER || manifold == FLRW);
 	}
+
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	assert (nodes.k_in != NULL);
+	assert (nodes.k_out != NULL);
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (core_edge_exists != NULL);
+	assert (used != NULL);
+	assert (table != NULL);
+		
+	assert (N_tar > 0);
+	if (manifold == DE_SITTER || manifold == FLRW) {
+		assert (a > 0.0);
+		assert (HALF_PI - zeta > 0.0);
+		if (manifold == FLRW) {
+			assert (chi_max > 0.0);
+			assert (alpha > 0.0);
+		}
+	}
+	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+	assert (size > 0);
+	assert (source >= 0 && source < N_tar);
+	assert (dest >= 0 && dest < N_tar);
+	#endif
 
 	bool TRAV_DEBUG = false;
 
@@ -578,12 +576,12 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 		used[loc] = true;
 
 		//These would indicate corrupted data
-		if (DEBUG) {
-			assert (!(edges.past_edge_row_start[loc] == -1 && nodes.k_in[loc] > 0));
-			assert (!(edges.past_edge_row_start[loc] != -1 && nodes.k_in[loc] == 0));
-			assert (!(edges.future_edge_row_start[loc] == -1 && nodes.k_out[loc] > 0));
-			assert (!(edges.future_edge_row_start[loc] != -1 && nodes.k_out[loc] == 0));
-		}
+		#if DEBUG
+		assert (!(edges.past_edge_row_start[loc] == -1 && nodes.k_in[loc] > 0));
+		assert (!(edges.past_edge_row_start[loc] != -1 && nodes.k_in[loc] == 0));
+		assert (!(edges.future_edge_row_start[loc] == -1 && nodes.k_out[loc] > 0));
+		assert (!(edges.future_edge_row_start[loc] != -1 && nodes.k_out[loc] == 0));
+		#endif
 
 		//(1) Check past relations
 		for (int m = 0; m < nodes.k_in[loc]; m++) {
@@ -829,25 +827,25 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 //O(xxx) Efficiency (revise this)
 bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, CaResources * const ca, Stopwatch &sMeasureDegreeField, const bool &compact, const bool &verbose, const bool &bench)
 {
-	if (DEBUG) {
-		assert (c->getDim() == 4);
-		assert (!c->isNull());
-		assert (c->w() != NULL);
-		assert (c->x() != NULL);
-		assert (c->y() != NULL);
-		assert (c->z() != NULL);
-		assert (ca != NULL);
+	#if DEBUG
+	assert (c->getDim() == 4);
+	assert (!c->isNull());
+	assert (c->w() != NULL);
+	assert (c->x() != NULL);
+	assert (c->y() != NULL);
+	assert (c->z() != NULL);
+	assert (ca != NULL);
 
-		assert (N_tar > 0);
-		assert (N_df > 0);
-		assert (tau_m > 0.0);
-		assert (dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW);
-		assert (a > 0.0);
-		assert (HALF_PI - zeta > 0.0);
-		if (manifold == FLRW)
-			assert (alpha > 0.0);
-	}
+	assert (N_tar > 0);
+	assert (N_df > 0);
+	assert (tau_m > 0.0);
+	assert (dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW);
+	assert (a > 0.0);
+	assert (HALF_PI - zeta > 0.0);
+	if (manifold == FLRW)
+		assert (alpha > 0.0);
+	#endif
 
 	double *table;
 	float4 test_node;
@@ -1041,6 +1039,14 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 //Algorithm has been parallelized on the CPU
 bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
 {
+	/*printf_mpi(cmpi.rank, "HERE\n");
+	if (!nodes.crd->isNull())
+		printf("rank: %d\n", cmpi.rank);
+	else
+		printf("FAIL!\n");
+	MPI_Barrier(MPI_COMM_WORLD);
+	printChk();*/
+
 	#if DEBUG
 	assert (!nodes.crd->isNull());
 	assert (dim == 1 || dim == 3);
@@ -1121,6 +1127,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
+	printf("Proc %d Reporting.\n", rank);
 	if (link || relink) {
 		MPI_Bcast(nodes.k_in, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
@@ -1168,12 +1175,12 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 			if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, i, j))
 				continue;
 
-			if (DEBUG) {
-				assert (!(edges.past_edge_row_start[j] == -1 && nodes.k_in[j] > 0));
-				assert (!(edges.past_edge_row_start[j] != -1 && nodes.k_in[j] == 0));
-				assert (!(edges.future_edge_row_start[i] == -1 && nodes.k_out[i] > 0));
-				assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
-			}
+			#if DEBUG
+			assert (!(edges.past_edge_row_start[j] == -1 && nodes.k_in[j] > 0));
+			assert (!(edges.past_edge_row_start[j] != -1 && nodes.k_in[j] == 0));
+			assert (!(edges.future_edge_row_start[i] == -1 && nodes.k_out[i] > 0));
+			assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
+			#endif
 
 			if (core_limit == N_tar) {
 				int col0 = static_cast<uint64_t>(i) * core_limit;

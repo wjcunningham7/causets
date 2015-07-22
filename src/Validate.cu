@@ -10,13 +10,13 @@
 //O(1) Efficiency
 void compareAdjacencyLists(const Node &nodes, const Edge &edges)
 {
-	if (DEBUG) {
-		//No null pointers
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-	}
+	#if DEBUG
+	//No null pointers
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	#endif
 
 	int i, j;
 	for (i = 0; i < 20; i++) {
@@ -48,13 +48,13 @@ void compareAdjacencyLists(const Node &nodes, const Edge &edges)
 //O(1) Effiency
 void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 {
-	if (DEBUG) {
-		//No null pointers
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-	}
+	#if DEBUG
+	//No null pointers
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	#endif
 
 	int max1 = 20;
 	int max2 = 100;
@@ -105,14 +105,14 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 
 bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction)
 {
-	if (DEBUG) {
-		assert (k_out != NULL);
-		assert (future_edges != NULL);
-		assert (future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
-		assert (N_tar > 0);
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-	}
+	#if DEBUG
+	assert (k_out != NULL);
+	assert (future_edges != NULL);
+	assert (future_edge_row_start != NULL);
+	assert (core_edge_exists != NULL);
+	assert (N_tar > 0);
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	#endif
 	
 	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 	int idx1, idx2;
@@ -123,10 +123,10 @@ bool compareCoreEdgeExists(const int * const k_out, const int * const future_edg
 		for (i = 0; i < core_limit; i++) {
 			idx1 = i;
 
-			if (DEBUG) {
-				assert (!(future_edge_row_start[idx1] == -1 && k_out[idx1] > 0));
-				assert (!(future_edge_row_start[idx1] != -1 && k_out[idx1] == 0));
-			}
+			#if DEBUG
+			assert (!(future_edge_row_start[idx1] == -1 && k_out[idx1] > 0));
+			assert (!(future_edge_row_start[idx1] != -1 && k_out[idx1] == 0));
+			#endif
 
 			for (j = 0; j < k_out[idx1]; j++) {
 				idx2 = future_edges[future_edge_row_start[idx1]+j];
@@ -288,25 +288,25 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 //Note that core_edge_exists has not been implemented in this version of the linkNodesGPU subroutine.
 bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &compact, const bool &verbose, const bool &bench)
 {
-	if (DEBUG) {
-		assert (nodes.crd->getDim() == 4);
-		assert (!nodes.crd->isNull());
-		assert (nodes.crd->w() != NULL);
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);	
-		assert (nodes.crd->z() != NULL);
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
-		assert (ca != NULL);
+	#if DEBUG
+	assert (nodes.crd->getDim() == 4);
+	assert (!nodes.crd->isNull());
+	assert (nodes.crd->w() != NULL);
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);	
+	assert (nodes.crd->z() != NULL);
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (core_edge_exists != NULL);
+	assert (ca != NULL);
 
-		assert (N_tar > 0);
-		assert (k_tar > 0.0f);
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-		assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
-	}
+	assert (N_tar > 0);
+	assert (k_tar > 0.0f);
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
+	#endif
 
 	Stopwatch sGPUOverhead = Stopwatch();
 	Stopwatch sGenAdjList = Stopwatch();
@@ -585,11 +585,11 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	N_deg2 = N_tar - N_deg2;
 	k_res = static_cast<float>(*g_idx << 1) / N_res;
 
-	if (DEBUG) {
-		assert (N_res > 0);
-		assert (N_deg2 > 0);
-		assert (k_res > 0.0);
-	}
+	#if DEBUG
+	assert (N_res > 0);
+	assert (N_deg2 > 0);
+	assert (k_res > 0.0);
+	#endif
 
 	//Free Device Memory
 	cuMemFree(d_k_in);
@@ -622,8 +622,10 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		fflush(stdout);
 	}
 	
-	if (DEBUG && !compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
+	#if DEBUG
+	if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
 		return false;
+	#endif
 
 	//Print Results
 	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v1.cset.dbg.dat", "out-degrees_GPU_v1.cset.dbg.dat")) return false;
@@ -656,22 +658,22 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, CaResources * const ca, const bool &compact, const bool &verbose)
 {
-	if (DEBUG) {
-		assert (nodes.crd->getDim() == 4);
-		assert (!nodes.crd->isNull());
-		assert (nodes.crd->w() != NULL);
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);
-		assert (nodes.crd->z() != NULL);
-		assert (nodes.k_in != NULL);
-		assert (nodes.k_out != NULL);
-		assert (edges != NULL);
-		assert (core_edge_exists != NULL);
-		assert (g_idx != NULL);
-		assert (ca != NULL);
-		assert (N_tar > 0);
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-	}
+	#if DEBUG
+	assert (nodes.crd->getDim() == 4);
+	assert (!nodes.crd->isNull());
+	assert (nodes.crd->w() != NULL);
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	assert (nodes.crd->z() != NULL);
+	assert (nodes.k_in != NULL);
+	assert (nodes.k_out != NULL);
+	assert (edges != NULL);
+	assert (core_edge_exists != NULL);
+	assert (g_idx != NULL);
+	assert (ca != NULL);
+	assert (N_tar > 0);
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	#endif
 
 	//Temporary Buffers
 	CUdeviceptr d_w0, d_x0, d_y0, d_z0;
@@ -693,17 +695,17 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	size_t m_edges_size = mthread_size * mthread_size;
 
 	//DEBUG
-	/*if (DEBUG) {
-		printf_red();
-		printf("\nTHREAD  SIZE: %d\n", THREAD_SIZE);
-		printf("BLOCK   SIZE: %d\n", BLOCK_SIZE);
-		printf("GROUP   SIZE: %d\n", GROUP_SIZE);
-		printf("MBLOCK  SIZE: %zd\n", mblock_size);
-		printf("MTHREAD SIZE: %zd\n", mthread_size);
-		printf("Number of Times Kernel is Executed: %d\n\n", (GROUP_SIZE*GROUP_SIZE));
-		printf_std();
-		fflush(stdout);
-	}*/
+	/*#if DEBUG
+	printf_red();
+	printf("\nTHREAD  SIZE: %d\n", THREAD_SIZE);
+	printf("BLOCK   SIZE: %d\n", BLOCK_SIZE);
+	printf("GROUP   SIZE: %d\n", GROUP_SIZE);
+	printf("MBLOCK  SIZE: %zd\n", mblock_size);
+	printf("MTHREAD SIZE: %zd\n", mthread_size);
+	printf("Number of Times Kernel is Executed: %d\n\n", (GROUP_SIZE*GROUP_SIZE));
+	printf_std();
+	fflush(stdout);
+	#endif*/
 
 	//Allocate Buffers on Host
 	try {
@@ -891,14 +893,14 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 //Decode past and future edge lists using Bitonic Sort
 bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, CaResources * const ca, const bool &verbose)
 {
-	if (DEBUG) {
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (h_edges != NULL);
-		assert (g_idx != NULL);
-		assert (ca != NULL);
-		assert (d_edges_size > 0);
-	}
+	#if DEBUG
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (h_edges != NULL);
+	assert (g_idx != NULL);
+	assert (ca != NULL);
+	assert (d_edges_size > 0);
+	#endif
 
 	CUdeviceptr d_edges;
 	CUdeviceptr d_past_edges, d_future_edges;
@@ -1001,28 +1003,28 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 //Compares timelike/spacelike in 4D/5D
 bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, long &seed, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &compact, const bool &verbose)
 {
-	if (DEBUG) {
-		assert (nodes.crd->getDim() == 4);
-		assert (!nodes.crd->isNull());
-		assert (nodes.crd->w() != NULL);
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);
-		assert (nodes.crd->z() != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
-		assert (ca != NULL);
+	#if DEBUG
+	assert (nodes.crd->getDim() == 4);
+	assert (!nodes.crd->isNull());
+	assert (nodes.crd->w() != NULL);
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	assert (nodes.crd->z() != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (core_edge_exists != NULL);
+	assert (ca != NULL);
 
-		assert (N_tar > 0);
-		assert (k_tar > 0.0f);
-		assert (dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW);
-		assert (a > 0.0);
-		if (manifold == FLRW)
-			assert (alpha > 0.0);
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-		assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
-	}
+	assert (N_tar > 0);
+	assert (k_tar > 0.0f);
+	assert (dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW);
+	assert (a > 0.0);
+	if (manifold == FLRW)
+		assert (alpha > 0.0);
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
+	#endif
 
 	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
 	uint64_t stride = max_pairs / static_cast<uint64_t>(N_emb);
@@ -1185,26 +1187,26 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 //distances calculated with exact formula
 //NOTE: This only works with de Sitter since there is not a known
 //formula for the embedded FLRW distance.
-bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &alpha, long &seed, CaResources * const ca, Stopwatch &sValidateDistances, const bool &compact, const bool &verbose)
+bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, long &seed, CaResources * const ca, Stopwatch &sValidateDistances, const bool &compact, const bool &verbose)
 {
-	if (DEBUG) {
-		assert (nodes.crd->getDim() == 4);
-		assert (!nodes.crd->isNull());
-		assert (nodes.crd->w() != NULL);
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);
-		assert (nodes.crd->z() != NULL);
-		assert (ca != NULL);
-		assert (N_tar > 0);
-		assert (dim == 3);
-		assert (manifold == DE_SITTER);
-		assert (a > 0.0);
-	}
+	#if DEBUG
+	assert (nodes.crd->getDim() == 4);
+	assert (!nodes.crd->isNull());
+	assert (nodes.crd->w() != NULL);
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	assert (nodes.crd->z() != NULL);
+	assert (ca != NULL);
+	assert (N_tar > 0);
+	assert (dim == 3);
+	assert (manifold == DE_SITTER);
+	assert (a > 0.0);
+	#endif
 
-	bool DST_DEBUG = true;
+	bool DST_DEBUG = false;
 
-	double *table;
-	long size = 0L;
+	//double *table;
+	//long size = 0L;
 
 	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
 	uint64_t stride = max_pairs / static_cast<uint64_t>(N_dst);
@@ -1212,7 +1214,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 	uint64_t start = 0;
 	uint64_t finish = npairs;
 
-	double tol = 1e-3;
+	double tol = 1.0e-2;
 
 	stopwatchStart(&sValidateDistances);
 
@@ -1227,9 +1229,9 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 		return false;
 	}
 
-	if (!getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
-		return false;
-	ca->hostMemUsed += size;
+	//if (!getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
+	//	return false;
+	//ca->hostMemUsed += size;
 
 	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
@@ -1265,11 +1267,12 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 
 		//Distance using embedding
 		double embeddedDistance = ABS(distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, compact), STL);
-		//printf("\tEmbedded Distance: %f\n", embeddedDistance);
+		printf("\tEmbedded Distance: %f\n", embeddedDistance);
 
 		//Distance using exact formula
-		double exactDistance = distance_v1(table, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, size, compact);
-		//printf("\tExactDistance: %f\n", exactDistance);
+		//double exactDistance = distance_v1(table, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], dim, manifold, a, alpha, size, compact);
+		double exactDistance = distanceDeSitter(nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, j);
+		printf("\tExactDistance: %f\n", exactDistance);
 
 		double abserr = ABS(embeddedDistance - exactDistance, STL) / embeddedDistance;
 
@@ -1293,7 +1296,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 			fflush(stdout);
 		}
 		
-		if (embeddedDistance < 100) {
+		/*if (embeddedDistance < 100) {
 			printf("\nTesting Lookup Table...\n");
 			testOmega12(nodes.id.tau[i], nodes.id.tau[j], ACOS(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)), STL, VERY_HIGH_PRECISION), -0.15, 0.5, 0.001, manifold);
 			printf("\n");
@@ -1301,16 +1304,16 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 			#ifndef _OPENMP
 			break;
 			#endif
-		}
+		}*/
 	}
 
 	#ifdef _OPENMP
 	seed = omp_seed;
 	#endif
 
-	free(table);
-	table = NULL;
-	ca->hostMemUsed -= size;
+	//free(table);
+	//table = NULL;
+	//ca->hostMemUsed -= size;
 
 	dvd.confusion[0] = c0;
 	dvd.confusion[1] = c1;
@@ -1339,14 +1342,14 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 //O(num_vals) Efficiency
 bool printValues(Node &nodes, const int num_vals, const char *filename, const char *coord)
 {
-	if (DEBUG) {
-		//No null pointers
-		assert (filename != NULL);
-		assert (coord != NULL);
+	#if DEBUG
+	//No null pointers
+	assert (filename != NULL);
+	assert (coord != NULL);
 
-		//Variables in correct range
-		assert (num_vals > 0);
-	}
+	//Variables in correct range
+	assert (num_vals > 0);
+	#endif
 
 	try {
 		std::ofstream outputStream;
@@ -1386,13 +1389,13 @@ bool printValues(Node &nodes, const int num_vals, const char *filename, const ch
 
 bool printDegrees(const Node &nodes, const int num_vals, const char *filename_in, const char *filename_out)
 {
-	if (DEBUG) {
-		assert (nodes.k_in != NULL);
-		assert (nodes.k_out != NULL);
-		assert (filename_in != NULL);
-		assert (filename_out != NULL);
-		assert (num_vals > 0);
-	}
+	#if DEBUG
+	assert (nodes.k_in != NULL);
+	assert (nodes.k_out != NULL);
+	assert (filename_in != NULL);
+	assert (filename_out != NULL);
+	assert (num_vals > 0);
+	#endif
 
 	try {
 		std::ofstream outputStream_in;
@@ -1429,13 +1432,13 @@ bool printDegrees(const Node &nodes, const int num_vals, const char *filename_in
 
 bool printEdgeLists(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future)
 {
-	if (DEBUG) {
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (filename_past != NULL);
-		assert (filename_future != NULL);
-		assert (num_vals >= 0);
-	}
+	#if DEBUG
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (filename_past != NULL);
+	assert (filename_future != NULL);
+	assert (num_vals >= 0);
+	#endif
 
 	try {
 		std::ofstream outputStream_past;
@@ -1472,13 +1475,13 @@ bool printEdgeLists(const Edge &edges, const int num_vals, const char *filename_
 
 bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future)
 {
-	if (DEBUG) {
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (filename_past != NULL);
-		assert (filename_future != NULL);
-		assert (num_vals > 0);
-	}
+	#if DEBUG
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (filename_past != NULL);
+	assert (filename_future != NULL);
+	assert (num_vals > 0);
+	#endif
 
 	try {
 		std::ofstream outputStream_past;
@@ -1516,14 +1519,14 @@ bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *fi
 //Searches a range of lambdas for a match to omega12
 bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const Manifold &manifold)
 {
-	if (DEBUG) {
-		assert (tau1 > 0.0f);
-		assert (tau2 > 0.0f);
-		assert (omega12 > 0.0);
-		assert (min_lambda < max_lambda);
-		assert (lambda_step > 0.0);
-		assert (manifold == DE_SITTER || manifold == FLRW);
-	}
+	#if DEBUG
+	assert (tau1 > 0.0f);
+	assert (tau2 > 0.0f);
+	assert (omega12 > 0.0);
+	assert (min_lambda < max_lambda);
+	assert (lambda_step > 0.0);
+	assert (manifold == DE_SITTER || manifold == FLRW);
+	#endif
 
 	printf("\tTesting Geodesic Lookup Algorithm...\n");
 	fflush(stdout);
@@ -1619,14 +1622,14 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 //Generates the lookup tables
 bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const Manifold &manifold, const bool &verbose)
 {
-	if (DEBUG) {
-		assert (filename != NULL);
-		assert (max_tau > 0.0);
-		assert (min_lambda < max_lambda);
-		assert (tau_step > 0.0);
-		assert (lambda_step > 0.0);
-		assert (manifold == DE_SITTER || manifold == FLRW);
-	}
+	#if DEBUG
+	assert (filename != NULL);
+	assert (max_tau > 0.0);
+	assert (min_lambda < max_lambda);
+	assert (tau_step > 0.0);
+	assert (lambda_step > 0.0);
+	assert (manifold == DE_SITTER || manifold == FLRW);
+	#endif
 
 	if (manifold == FLRW)
 		printf("\tGenerating FLRW geodesic lookup table...\n");
@@ -2330,7 +2333,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
 				else
 					//dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
-					dist = distance_v2(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, chi_max, alpha, size, compact, idx_a, idx_b);
+					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, chi_max, alpha, size, compact, idx_a, idx_b);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 
@@ -2390,7 +2393,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
 				else
 					//dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
-					dist = distance_v2(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, chi_max, alpha, size, compact, idx_a, idx_b);
+					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, chi_max, alpha, size, compact, idx_a, idx_b);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 
@@ -2435,38 +2438,38 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 //O(N^2*k) Efficiency (No Links)
 bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
 {
-	if (DEBUG) {
-		assert (!nodes.crd->isNull());
-		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER);
+	#if DEBUG
+	assert (!nodes.crd->isNull());
+	assert (dim == 1 || dim == 3);
+	assert (manifold == DE_SITTER);
 
-		if (dim == 1)
-			assert (nodes.crd->getDim() == 2);
-		else if (dim == 3) {
-			assert (nodes.crd->getDim() == 4);
-			assert (nodes.crd->w() != NULL);
-			assert (nodes.crd->z() != NULL);
-		}
-
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);
-		if (link || relink) {
-			assert (nodes.k_in != NULL);
-			assert (nodes.k_out != NULL);
-			assert (edges.past_edges != NULL);
-			assert (edges.future_edges != NULL);
-			assert (edges.past_edge_row_start != NULL);
-			assert (edges.future_edge_row_start != NULL);
-			assert (core_edge_exists != NULL);
-		}
-		assert (ca != NULL);
-		
-		assert (N_tar > 0);
-		assert (max_cardinality > 0);
-		assert (a > 0.0);
-		assert (HALF_PI - zeta > 0.0);
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	if (dim == 1)
+		assert (nodes.crd->getDim() == 2);
+	else if (dim == 3) {
+		assert (nodes.crd->getDim() == 4);
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->z() != NULL);
 	}
+
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	if (link || relink) {
+		assert (nodes.k_in != NULL);
+		assert (nodes.k_out != NULL);
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
+		assert (core_edge_exists != NULL);
+	}
+	assert (ca != NULL);
+		
+	assert (N_tar > 0);
+	assert (max_cardinality > 0);
+	assert (a > 0.0);
+	assert (HALF_PI - zeta > 0.0);
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	#endif
 
 	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 	int elements;
@@ -2506,12 +2509,12 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 					continue;
 
 				//These indicate corrupted data
-				if (DEBUG) {
-					assert (!(edges.past_edge_row_start[j] == -1 && nodes.k_in[j] > 0));
-					assert (!(edges.past_edge_row_start[j] != -1 && nodes.k_in[j] == 0));
-					assert (!(edges.future_edge_row_start[i] == -1 && nodes.k_out[i] > 0));
-					assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
-				}
+				#if DEBUG
+				assert (!(edges.past_edge_row_start[j] == -1 && nodes.k_in[j] > 0));
+				assert (!(edges.past_edge_row_start[j] != -1 && nodes.k_in[j] == 0));
+				assert (!(edges.future_edge_row_start[i] == -1 && nodes.k_out[i] > 0));
+				assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
+				#endif
 
 				if (core_limit == N_tar) {
 					int col0 = static_cast<uint64_t>(i) * core_limit;

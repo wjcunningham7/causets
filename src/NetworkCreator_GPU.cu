@@ -153,24 +153,24 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 
 bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &compact, const bool &verbose, const bool &bench)
 {
-	if (DEBUG) {
-		assert (nodes.crd->getDim() == 4);
-		assert (!nodes.crd->isNull());
-		assert (nodes.crd->w() != NULL);
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);
-		assert (nodes.crd->z() != NULL);
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
-		assert (ca != NULL);
-		assert (N_tar > 0);
-		assert (k_tar > 0.0f);
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-		assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
-	}
+	#if DEBUG
+	assert (nodes.crd->getDim() == 4);
+	assert (!nodes.crd->isNull());
+	assert (nodes.crd->w() != NULL);
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	assert (nodes.crd->z() != NULL);
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (core_edge_exists != NULL);
+	assert (ca != NULL);
+	assert (N_tar > 0);
+	assert (k_tar > 0.0f);
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
+	#endif
 
 	Stopwatch sGenAdjList = Stopwatch();
 	Stopwatch sDecodeLists = Stopwatch();
@@ -204,13 +204,13 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	}
 
 	stopwatchStart(&sGenAdjList);
-	if (GEN_ADJ_LISTS_GPU_V2) {
-		if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, ca, ctx, compact, verbose))
-			return false;
-	} else {
-		if (!generateLists_v1(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, ca, compact, verbose))
-			return false;
-	}
+	#if GEN_ADJ_LISTS_GPU_V2
+	if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, ca, ctx, compact, verbose))
+		return false;
+	#else
+	if (!generateLists_v1(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, ca, compact, verbose))
+		return false;
+	#endif
 	stopwatchStop(&sGenAdjList);
 
 	try {
@@ -233,13 +233,13 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	//Decode Adjacency Lists
 	stopwatchStart(&sDecodeLists);
-	if (DECODE_LISTS_GPU_V2) {
-		if (!decodeLists_v2(edges, h_edges, g_idx, d_edges_size, ca, verbose))
-			return false;
-	} else {
-		if (!decodeLists_v1(edges, h_edges, g_idx, d_edges_size, ca, verbose))
-			return false;
-	}
+	#if DECODE_LISTS_GPU_V2
+	if (!decodeLists_v2(edges, h_edges, g_idx, d_edges_size, ca, verbose))
+		return false;
+	#else
+	if (!decodeLists_v1(edges, h_edges, g_idx, d_edges_size, ca, verbose))
+		return false;
+	#endif
 	stopwatchStop(&sDecodeLists);
 
 	//Free Host Memory
@@ -291,8 +291,10 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		fflush(stdout);
 	}
 
-	if (DEBUG && !compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
+	#if DEBUG
+	if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
 		return false;
+	#endif
 
 	//Print Results
 	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
@@ -323,21 +325,21 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 //Uses multiple buffers and asynchronous operations
 bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, CaResources * const ca, const CUcontext &ctx, const bool &compact, const bool &verbose)
 {
-	if (DEBUG) {
-		assert (nodes.crd->getDim() == 4);
-		assert (!nodes.crd->isNull());
-		assert (nodes.crd->w() != NULL);
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);
-		assert (nodes.crd->z() != NULL);
-		assert (nodes.k_in != NULL);
-		assert (nodes.k_out != NULL);
-		assert (core_edge_exists != NULL);
-		assert (g_idx != NULL);
-		assert (ca != NULL);
-		assert (N_tar > 0);
-		assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-	}
+	#if DEBUG
+	assert (nodes.crd->getDim() == 4);
+	assert (!nodes.crd->isNull());
+	assert (nodes.crd->w() != NULL);
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	assert (nodes.crd->z() != NULL);
+	assert (nodes.k_in != NULL);
+	assert (nodes.k_out != NULL);
+	assert (core_edge_exists != NULL);
+	assert (g_idx != NULL);
+	assert (ca != NULL);
+	assert (N_tar > 0);
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	#endif
 
 	//CUDA Streams
 	CUstream stream[NBUFFERS];
@@ -541,15 +543,15 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 //Decode past and future edge lists using Bitonic Sort
 bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, CaResources * const ca, const bool &verbose)
 {
-	if (DEBUG) {
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (h_edges != NULL);
-		assert (g_idx != NULL);
-		assert (ca != NULL);
-		assert (*g_idx > 0);
-		assert (d_edges_size > 0);
-	}
+	#if DEBUG
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (h_edges != NULL);
+	assert (g_idx != NULL);
+	assert (ca != NULL);
+	assert (*g_idx > 0);
+	assert (d_edges_size > 0);
+	#endif
 
 	CUdeviceptr d_edges;
 	CUdeviceptr d_past_edges, d_future_edges;
@@ -682,12 +684,12 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 //Parallel Prefix Sum of 'k_in' and 'k_out' and Write to Edge Pointers
 bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d_k_out, const int &N_tar, CaResources * const ca, const bool &verbose)
 {
-	if (DEBUG) {
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-		assert (ca != NULL);
-		assert (N_tar > 0);
-	}
+	#if DEBUG
+	assert (edges.past_edge_row_start != NULL);
+	assert (edges.future_edge_row_start != NULL);
+	assert (ca != NULL);
+	assert (N_tar > 0);
+	#endif
 
 	CUdeviceptr d_past_edge_row_start, d_future_edge_row_start;
 	CUdeviceptr d_buf, d_buf_scanned;
@@ -799,12 +801,12 @@ bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d
 
 bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const CUdeviceptr &d_k_out, const int *g_idx, const int &N_tar, int &N_res, int &N_deg2, float &k_res, CaResources * const ca, const bool &verbose)
 {
-	if (DEBUG) {
-		assert (nodes.k_in != NULL);
-		assert (nodes.k_out != NULL);
-		assert (g_idx != NULL);
-		assert (N_tar > 0);
-	}
+	#if DEBUG
+	assert (nodes.k_in != NULL);
+	assert (nodes.k_out != NULL);
+	assert (g_idx != NULL);
+	assert (N_tar > 0);
+	#endif
 
 	CUdeviceptr d_N_res, d_N_deg2;
 
@@ -846,11 +848,11 @@ bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const 
 	N_deg2 = N_tar - N_deg2;
 	k_res = static_cast<float>(*g_idx * 2) / N_res;
 
-	if (DEBUG) {
-		assert (N_res >= 0);
-		assert (N_deg2 >= 0);
-		assert (k_res >= 0.0);
-	}
+	#if DEBUG
+	assert (N_res >= 0);
+	assert (N_deg2 >= 0);
+	assert (k_res >= 0.0);
+	#endif
 
 	//Free Device Memory
 	cuMemFree(d_N_res);

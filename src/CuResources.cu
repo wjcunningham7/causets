@@ -165,7 +165,9 @@ void printChk()
 void connectToGPU(CuResources *cu, int argc, char **argv, const int &rank)
 {
 	//No null pointers
-	if (CU_DEBUG) assert (cu != NULL);
+	#if CU_DEBUG
+	assert (cu != NULL);
+	#endif
 
 	//Pick CUDA Device
 	CUresult status;
@@ -173,7 +175,9 @@ void connectToGPU(CuResources *cu, int argc, char **argv, const int &rank)
 
 	checkCudaErrors(cuInit(0));
 	checkCudaErrors(cuDeviceGetCount(&devCount));
-	if (CU_DEBUG) assert(cu->gpuID > -1 && cu->gpuID < devCount);
+	#if CU_DEBUG
+	assert(cu->gpuID > -1 && cu->gpuID < devCount);
+	#endif
 	cu->cuDevice = findCudaDevice(cu->gpuID, rank);
 
 	checkCudaErrors(cuDeviceComputeCapability(&major, &minor, cu->cuDevice));
