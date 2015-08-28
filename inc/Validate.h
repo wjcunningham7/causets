@@ -49,7 +49,7 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 
 bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const bool &compact);
 
-bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success);
+bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success, bool &past_horizon);
 
 bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench);
 

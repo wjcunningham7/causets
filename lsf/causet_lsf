@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#BSUB -J CS-Job%jobID%
+#BSUB -J CSET-%jobID%
 #BSUB -o /scratch/cunningham/causet%jobID%/causet%jobID%.log
 #BSUB -e /scratch/cunningham/causet%jobID%/causet%jobID%.err
 #BSUB -q %queue%

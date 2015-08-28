@@ -23,6 +23,8 @@
 //System Files for Parallel Acceleration
 #ifdef CUDA_ENABLED
 #include <cuda.h>
+//#pragma once
+//#include <cusp/multiply.h>
 #endif
 
 #ifdef MPI_ENABLED

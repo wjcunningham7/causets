@@ -35,7 +35,11 @@
 
 #define ACTION_V2 true		//Version 2 uses OpenMP
 
+#ifdef CUDA_ENABLED
 #define ACTION_GPU true		//Use the GPU for to calculate the smeared action
+#else
+#define ACTION_GPU false
+#endif
 
 #define GEODESIC_LOWER 0.95	//Boundary between Region I and Region II approximations
 				//Should be less than 1.0
@@ -44,7 +48,7 @@
 				//Should be greater than 1.0
 
 //Debugging Flags
-#define DEBUG true	//Determines whether unit testing is in effect
+#define DEBUG false	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements
 
 #define NPRINT 1000	//Used for debugging statements inside loops
@@ -59,7 +63,7 @@
 			//This value is dependent on the GPU architecture
 			//DO NOT EDIT THIS VALUE
 
-#define GROUP_SIZE 16	//Number of block groups per grid dimension
+#define GROUP_SIZE 4	//Number of block groups per grid dimension
 			//Increase this by a power of 2 if too much GPU memory is
 			//requested in the generateLists() algorithm
 
@@ -76,6 +80,8 @@
 #define LINK_NODES_GPU_V2 true
 
 #define GEN_ADJ_LISTS_GPU_V2 true
+
+#define DECODE_CPU false
 
 #define DECODE_LISTS_GPU_V2 true
 

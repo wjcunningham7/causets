@@ -1,0 +1,21 @@
+#!/usr/bin/env python
+
+import math
+import sys
+
+k = 15
+tau0 = 4.6416
+alpha = 1.3
+kappa = 17.7389815
+
+omega = math.pow(math.tanh(1.5*tau0), 2)
+q = k / kappa
+n0 = (2*math.pi/9)*q*math.pow(alpha, 3)*(math.sinh(3*tau0)-3*tau0)
+
+n1 = 256 * int(math.floor(n0 / 256))
+alpha1 = pow(n1 / ((2*math.pi/9)*q*(math.sinh(3*tau0)-3*tau0)), 1.0/3.0)
+
+sys.stdout.write('omega: %e\n' % omega)
+sys.stdout.write('q:     %e\n' % q)
+sys.stdout.write('N:     %d\n' % n1)
+sys.stdout.write('alpha: %f\n' % alpha1)

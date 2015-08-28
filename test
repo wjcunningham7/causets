@@ -10,6 +10,7 @@
 # These are experimental parameters #
 #####################################
 
+# Examples of how to run 1+1 de Sitter, 3+1 de Sitter, and 3+1 Flat FLRW
 #./bin/CausalSet --nodes 24586 --age 1.5707577 --dim 1 --link --print --components
 #./bin/CausalSet --nodes 65536 --age 0.8 --alpha 4.6784 --manifold f --verbose -y --link --gpu
 #./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 3 --seed 18100 --manifold f --verbose -y --link --gpu
@@ -20,8 +21,8 @@
 #./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 2 --seed 18100 --manifold f --compact --link --gpu --distances 100
 
 # Greedy Routing
-./bin/CausalSet --nodes 1048576 --energy 0.73 --alpha 10 --manifold f --verbose -y --link --gpu --success 500000 --test
-#./bin/CausalSet --nodes 262144 --energy 0.03 --alpha 6 --seed 18100 --manifold f --link --verbose --gpu --success 262144
+#./bin/CausalSet --nodes 3513 --age 0.761631 --buffer 0.3 --link --verbose -y --test
+./bin/CausalSet --nodes 2518528 --alpha 5.9999 --energy 0.993 --manifold f --verbose --link --gpu --test
 
 # Measure de Sitter Action
 #./bin/CausalSet --graph 111 --age 1.2 --seed 18100 --buffer 0.3 --link --quiet-read --action 5

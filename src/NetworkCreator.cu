@@ -13,6 +13,9 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	assert (ca != NULL);
 	assert (cp != NULL);
 	assert (bm != NULL);
+	#else
+	//Disable the default GSL Error Handler
+	disableGSLErrHandler();
 	#endif
 
 	//Benchmarking
@@ -148,10 +151,11 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->chi_max = 1.0;
 
 				//This makes the flag indicate the ratio (alpha * chi_max) / (a * tau_max)
-				network_properties->alpha *= network_properties->tau0;
+				//network_properties->alpha *= network_properties->tau0;
 
 				//Non-Compact FLRW Constraints
-				int method = 1;
+				int method = 0;
+				//int method = 1;
 				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
 					network_properties->cmpi.fail = 1;
 
@@ -205,7 +209,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		//Miscellaneous Tasks
 		if (network_properties->edge_buffer == 0.0)
 			network_properties->edge_buffer = 0.2;
-
 
 		if (network_properties->flags.calc_deg_field && network_properties->tau_m >= network_properties->tau0)
 			throw CausetException("You have chosen to measure the degree field at a time greater than the maximum time!\n");
@@ -284,6 +287,7 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Man
 				double kappa = integrate2D(&rescaledDegreeFLRW_NC, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
 				kappa *= 8.0 * M_PI;
 				kappa /= SINH(3.0 * tau0, STL) - 3.0 * tau0;
+				//printf("kappa: %.8e\n", kappa);
 				k_tar = (9.0 * kappa * N_tar) / (TWO_PI * POW3(alpha * chi_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
 			}
 			stopwatchStop(&sCalcDegrees);
@@ -431,21 +435,36 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			mem += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);	//For adjacency list
 		}
 
-		size_t dmem = 0;
+		size_t dmem1 = 0, dmem2 = 0, dmem3 = 0;
+		size_t dmem;
 		#ifdef CUDA_ENABLED
 		if (use_gpu) {
 			size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
 			mem += sizeof(uint64_t) * d_edges_size;	//For encoded edge list
 			mem += sizeof(int);			//For g_idx
 
-			size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * GROUP_SIZE)));
+			size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * GROUP_SIZE << 1)));
 			size_t mthread_size = mblock_size * BLOCK_SIZE;
 			size_t m_edges_size = mthread_size * mthread_size;
-			mem += sizeof(int) * mthread_size * NBUFFERS << 1;		//For k_in and k_out buffers (host)
-			mem += sizeof(bool) * m_edges_size * NBUFFERS;			//For adjacency matrix buffers (host)
-			dmem += sizeof(float) * mthread_size * 4 * NBUFFERS << 1;	//For 4-D coordinate buffers
-			dmem += sizeof(int) * mthread_size * NBUFFERS << 1;		//For k_in and k_out buffers (device)
-			dmem += sizeof(bool) * m_edges_size * NBUFFERS;			//For adjacency matrix buffers (device)
+			size_t nbuf = GEN_ADJ_LISTS_GPU_V2 ? NBUFFERS : 1;
+			mem += sizeof(int) * mthread_size * nbuf << 1;		//For k_in and k_out buffers (host)
+			mem += sizeof(bool) * m_edges_size * nbuf;			//For adjacency matrix buffers (host)
+			dmem1 += sizeof(float) * mthread_size * 4 * nbuf << 1;	//For 4-D coordinate buffers
+			dmem1 += sizeof(int) * mthread_size * nbuf << 1;		//For k_in and k_out buffers (device)
+			dmem1 += sizeof(bool) * m_edges_size * nbuf;			//For adjacency matrix buffers (device)
+
+			size_t g_mblock_size = static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / (BLOCK_SIZE * GROUP_SIZE << 1));
+			size_t g_mthread_size = g_mblock_size * BLOCK_SIZE;
+			dmem2 += sizeof(uint64_t) * d_edges_size;	//Encoded edge list used during parallel sorting
+			dmem2 += sizeof(int) * (DECODE_LISTS_GPU_V2 ? g_mthread_size : d_edges_size);	//For edge lists
+			if (DECODE_CPU)
+				dmem2 = 0;
+
+			dmem3 += sizeof(int) * N_tar << 1;	//Edge list pointers
+			dmem3 += sizeof(int) * BLOCK_SIZE << 2;	//Buffers used for scanning
+
+			dmem = dmem1 > dmem2 ? dmem1 : dmem2;
+			dmem = dmem > dmem3 ? dmem : dmem3;
 		}
 		#endif
 
@@ -706,9 +725,9 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 					//Exact Solution
 					nodes.crd->w(i) = static_cast<float>(tauToEtaFLRWExact(nodes.id.tau[i], a, alpha));
 
-				#if DEBUG 
-				assert (nodes.crd->w(i) < tauToEtaFLRWExact(tau0, a, alpha));
-				#endif
+				//#if DEBUG 
+				//assert (nodes.crd->w(i) < tauToEtaFLRWExact(tau0, a, alpha));
+				//#endif
 			} else if (manifold == DE_SITTER) {
 				nodes.crd->w(i) = static_cast<float>(tauToEta(static_cast<double>(nodes.id.tau[i])));
 				#if DEBUG
@@ -961,6 +980,8 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
 		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);
+		printf_red();
+		printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
 		printf_std();
 		fflush(stdout);
 	}

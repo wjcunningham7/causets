@@ -1,0 +1,18 @@
+#!/usr/bin/env python
+
+import math
+import numpy as np
+import sys
+
+q = 600
+
+omega = 0.91
+#tau0 = 0.8
+tau0 = (2.0 / 3.0) * np.arctanh(math.pow(omega, 0.5))
+eta0 = math.acos(1.0 / math.cosh(tau0))
+
+N = int((2.0 * math.pi * math.pi / 3.0) * q * (2.0 + math.cosh(tau0) * math.cosh(tau0)) * math.sinh(tau0))
+
+sys.stdout.write('N:    %d\n' % N)
+sys.stdout.write('tau0: %f\n' % tau0)
+sys.stdout.write('eta0: %f\n' % eta0)

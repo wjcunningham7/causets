@@ -17,10 +17,13 @@ files = glob.glob(basedir + 'dat/*.cset.out')
 
 N = len(files)
 k = []
+eps = []
 avg = 0
+avg_eps = 0
 
 for i in range(0,N):
 	k.append(0)
+	eps.append(0)
 
 idx = 0
 for file in files:
@@ -34,18 +37,29 @@ for file in files:
 
 		if tokens[0] == 'Resulting' and tokens[1] == 'Average' and tokens[2] == 'Degrees':
 			k[idx] = float(tokens[4])
+
+		if tokens[0] == 'Resulting' and tokens[1] == 'Error' and tokens[2] == 'in' and tokens[3] == '<k>':
+			eps[idx] = float(tokens[4])
 	
 	avg += k[idx]
+	avg_eps += eps[idx]
 	idx += 1
 
 	f.close()
 
 avg /= N
+avg_eps /= N
 sys.stdout.write('Average Degrees: %f\n' % avg)
+sys.stdout.write('Average Error: %f\n' % avg_eps)
 
 f = open(basedir + 'dat/ref/average_k.cset.deg.ref','w')
 for i in range(0,N):
 	f.write(str(k[i]) + '\n')
+f.close()
+
+f = open(basedir + 'dat/ref/error_k.cset.deg.ref','w')
+for i in range(0,N):
+	f.write(str(eps[i]) + '\n')
 f.close()
 
 sys.stdout.write('Completed DEG.\n')

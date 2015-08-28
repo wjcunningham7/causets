@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2015 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# Computes the mean and standard error of the success ratio
+
+import glob
+import math
+import numpy as np
+import sys
+
+basedir = ''
+files = glob.glob(basedir + 'dat/*.cset.out')
+
+N = len(files)
+s = []
+avg = 0
+eps = 0
+
+for i in range(0,N):
+	s.append(0)
+
+idx = 0
+for file in files:
+	f = open(file)
+	lines = f.readlines()
+
+	for line in lines:
+		tokens = line.split()
+		if len(tokens) == 0:
+			continue
+
+		if tokens[0] == 'Success' and tokens[1] == 'Ratio':
+			s[idx] = float(tokens[2])
+
+	avg += s[idx]
+	idx += 1
+
+	f.close()
+
+avg /= N
+stderr = np.std(s) / math.sqrt(float(N))
+sys.stdout.write('Success Ratio: ' + str(avg) + ' +/- ' + str(stderr) + '\n')
+
+f = open(basedir + 'dat/ref/success_ratio.cset.suc.ref','w')
+for i in range(0,N):
+	f.write(str(s[i]) + '\n')
+f.close()
+
+sys.stdout.write('Completed SUC.\n')
+

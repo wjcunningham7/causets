@@ -30,8 +30,8 @@ FASTSRC		:= $(LOCAL_DIR)/src/fastmath
 #############################
 
 ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
-CUDA_SDK_PATH 	?= /shared/apps/cuda6.5/samples
-CUDA_HOME 	?= /shared/apps/cuda6.5
+CUDA_SDK_PATH 	?= /shared/apps/cuda7.0/samples
+CUDA_HOME 	?= /shared/apps/cuda7.0
 else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
 CUDA_SDK_PATH	?= /usr/local/cuda-5.0/samples
 CUDA_HOME	?= /usr/local/cuda
@@ -46,7 +46,7 @@ endif
 GCC		?= gcc
 CXX 		?= g++
 ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
-MPI		?= mpic++
+MPI		?= mpiCC
 else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
 MPI		?= /usr/lib64/openmpi/bin/mpicc
 else
@@ -108,7 +108,7 @@ NVCCFLAGS += $(OMPFLAGS2) $(MPIFLAGS2)
 
 CSOURCES	:= $(SRCDIR)/autocorr2.cpp
 CEXTSOURCES	:= $(FASTSRC)/ran2.cpp $(FASTSRC)/stopwatch.cpp
-CUDASOURCES	:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines_GPU.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Operations_GPU.cu $(SRCDIR)/NetworkCreator_GPU.cu $(SRCDIR)/Validate.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements_GPU.cu $(SRCDIR)/Measurements.cu
+CUDASOURCES	:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines_GPU.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Operations_GPU.cu $(SRCDIR)/NetworkCreator_GPU.cu $(SRCDIR)/Validate.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Cusp.cu $(SRCDIR)/Measurements_GPU.cu $(SRCDIR)/Measurements.cu
 SOURCES		:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Validate.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements.cu
 FSOURCES1	:= $(SRCDIR)/ds3.F
 FSOURCES2	:= $(SRCDIR)/Matter_Dark_Energy_downscaled.f

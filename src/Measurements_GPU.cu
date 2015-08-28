@@ -80,6 +80,9 @@ bool measureActionGPU(int *& cardinalities, float &action, const Node &nodes, co
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	#endif
 
+	//cusp::csr_matrix<int,float,cusp::host_memory> csr_host(5,8,12);
+	func1();
+
 	//Adjacency List Tiles
 	CUdeviceptr d_adj0, d_adj1;
 	bool *h_adj0, *h_adj1;

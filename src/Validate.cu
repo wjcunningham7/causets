@@ -352,6 +352,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	ca->devMemUsed += sizeof(float) * N_tar * 4;
 
 	size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
+	//printf("d_edges_size: %zd\n", d_edges_size);
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
 	ca->devMemUsed += sizeof(uint64_t) * d_edges_size;
 
@@ -618,6 +619,8 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
 		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);
+		printf_red();
+		printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
 		printf_std();
 		fflush(stdout);
 	}
@@ -1079,7 +1082,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(core_edge_exists, core_edges_size, MPI::BOOL, 0, MPI_COMM_WORLD);
+	MPI_Bcast(core_edge_exists, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
 
 	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
 	start = rank * mpi_chunk;
@@ -2208,7 +2211,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
-bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success, bool &past_horizon)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -2273,6 +2276,25 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 		fflush(stdout);
 	}
 
+	//Check if source and destination can be connected by any geodesic
+	if (manifold == DE_SITTER || manifold == FLRW) {
+		if (compact)
+			dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact));
+		else
+			dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, chi_max, alpha, size, compact, idx_a, idx_b);
+	} else if (manifold == HYPERBOLIC)
+		dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+	else
+		return false;
+
+	if (dist == -1)
+		return false;
+
+	if (dist + 1.0 > INF) {
+		past_horizon = true;
+		return true;
+	}
+
 	//While the current location (loc) is not equal to the destination (dest)
 	while (loc != dest) {
 		next = loc;
@@ -2330,12 +2352,13 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 			//(C) Otherwise find the past neighbor closest to the destination
 			if (manifold == DE_SITTER || manifold == FLRW) {
 				if (compact)
-					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
+					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact));
 				else
-					//dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
 					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, chi_max, alpha, size, compact, idx_a, idx_b);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+			else
+				return false;
 
 			//Check for errors in the 'distance' function
 			if (dist == -1)
@@ -2390,12 +2413,13 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 			//(F) Otherwise find the future neighbor closest to the destination
 			if (manifold == DE_SITTER || manifold == FLRW) {
 				if (compact)
-					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
+					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact));
 				else
-					//dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
 					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, chi_max, alpha, size, compact, idx_a, idx_b);
 			} else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+			else
+				return false;
 
 			//Check for errors in the 'distance' function
 			if (dist == -1)
@@ -2408,16 +2432,19 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 			}
 		}
 
-		if (TRAV_DEBUG && min_dist < INF) {
+		if (TRAV_DEBUG && min_dist + 1.0 < INF) {
 			printf_cyan();
 			printf("Moving to %d.\n", next);
 			printf_std();
 			fflush(stdout);
 		}
 
-		if (!used[next] && min_dist < INF)
+		if (!used[next] && min_dist + 1.0 < INF)
 			loc = next;
 		else {
+			if (min_dist + 1.0 > INF)
+				past_horizon = true;
+
 			if (TRAV_DEBUG) {
 				printf_red();
 				printf("FAILURE\n");
@@ -2427,7 +2454,6 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 			break;
 		}
 	}
-	//printChk();
 
 	success = false;
 	return true;

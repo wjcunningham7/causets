@@ -359,7 +359,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.past_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(core_edge_exists, core_edges_size, MPI::BOOL, 0, MPI_COMM_WORLD);
+	MPI_Bcast(core_edge_exists, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
 
 	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
 	start = rank * mpi_chunk;
@@ -399,13 +399,13 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		}
 
 		//If either node is isolated, continue
-		if (!(nodes.k_in[i] + nodes.k_out[i]) || !(nodes.k_in[j] + nodes.k_out[j])) {
+		/*if (!(nodes.k_in[i] + nodes.k_out[i]) || !(nodes.k_in[j] + nodes.k_out[j])) {
 			if (SR_DEBUG) {
 				printf("  ---\n");
 				fflush(stdout);
 			}
 			continue;
-		}
+		}*/
 
 		//If the nodes are in different components, continue
 		if (nodes.cc_id[i] != nodes.cc_id[j]) {
@@ -417,15 +417,17 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		}
 
 		//Set all nodes to "not yet used"
-		memset(used + N_tar * omp_get_thread_num(), 0, sizeof(bool) * N_tar);
+		int offset = N_tar * omp_get_thread_num();
+		memset(used + offset, 0, sizeof(bool) * N_tar);
 
 		//Begin Traversal from i to j
 		bool success = false;
+		bool past_horizon = false;
 		#if TRAVERSE_V2
-		if (!traversePath_v2(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, chi_max, alpha, core_edge_fraction, size, compact, i, j, success))
+		if (!traversePath_v2(nodes, edges, core_edge_exists, &used[offset], table, N_tar, dim, manifold, a, zeta, chi_max, alpha, core_edge_fraction, size, compact, i, j, success))
 			fail = true;
 		#else
-		if (!traversePath_v1(nodes, edges, core_edge_exists, &used[N_tar*omp_get_thread_num()], table, N_tar, dim, manifold, a, zeta, chi_max, alpha, core_edge_fraction, size, compact, i, j, success))
+		if (!traversePath_v1(nodes, edges, core_edge_exists, &used[offset], table, N_tar, dim, manifold, a, zeta, chi_max, alpha, core_edge_fraction, size, compact, i, j, success, past_horizon))
 			fail = true;
 		#endif
 
@@ -440,11 +442,12 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 			printf_std();
 			fflush(stdout);
 		}
-		//printChk();
 
-		n_trav++;
-		if (success)
-			n_succ++;
+		if (!past_horizon) {
+			n_trav++;
+			if (success)
+				n_succ++;
+		}
 	}
 
 	#ifdef _OPENMP
@@ -552,6 +555,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 
 	bool TRAV_DEBUG = false;
 
+	int offset = N_tar * omp_get_thread_num();
 	float min_dist = 0.0f;
 	int loc = source;
 	int idx_a = source;
@@ -573,7 +577,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 		next = loc;
 		dist = INF;
 		min_dist = INF;
-		used[loc] = true;
+		used[loc+offset] = true;
 
 		//These would indicate corrupted data
 		#if DEBUG
@@ -806,7 +810,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 			return false;
 		}
 
-		if (!used[next])
+		if (!used[next+offset])
 			loc = next;
 		else {
 			if (TRAV_DEBUG) {
@@ -1135,7 +1139,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 		MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(edges.past_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(core_edge_exists, core_edges_size, MPI::BOOL, 0, MPI_COMM_WORLD);
+		MPI_Bcast(core_edge_exists, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
 	} else {
 		MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);

@@ -16,7 +16,7 @@
 # No Acceleration #
 #=================#
 
-#./lsf/causet_bat --ncores 40 --flags '--nodes 131072 --age 1.5 --alpha 2 --manifold f --link --compact --verbose -y --print' --start 51 --queue 'ser-par-10g-3' --nsamples 10
+#./lsf/causet_bat --ncores 40 --flags '--nodes 124416 --age 0.01 --alpha 1.7998 --manifold f --link --verbose -y --print --success 62208' --start 184 --queue 'ser-par-10g-3' --nsamples 15
 
 #./lsf/causet_bat --ncores 1 --flags '--nodes 1024 --age 1.5 --verbose -y --gen-ds-table --test' --start 59 --queue 'krioukov' --nsamples 1
 
@@ -26,9 +26,9 @@
 # GPU Acceleration #
 #==================#
 
-#./lsf/causet_bat --ncores 32 --flags '--nodes 256 --age 1.2 --core 1 --buffer 0.4 --verbose -y --link --action 5 --print' --start 59 --queue 'par-gpu' --nsamples 500
+#./lsf/causet_bat --ncores 32 --flags '--nodes 256 --age 1.2 --core 1 --buffer 0.3 --link --verbose -y --gpu --print --success 100000' --start 184 --queue 'par-gpu' --nsamples 50
 
-./lsf/causet_bat --ncores 32 --flags '--nodes 1048576 --energy 0.73 --alpha 10 --manifold f --link --verbose -y --gpu --print --success 1048576' --start 59 --queue 'par-gpu' --nsamples 1
+./lsf/causet_bat --ncores 32 --flags '--nodes 5026560 --age 0.01 --alpha 1.999972 --manifold f --link --verbose -y --gpu --print' --start 206 --queue 'par-gpu' --nsamples 1
 
 #=======================#
 # GPU, MPI Acceleration #
@@ -48,13 +48,13 @@
 
 #./lsf/causet_bat --ncores 40 --flags '--age 1.5 --link --compact --verbose -y --distances 0.001' --graph 1425566890 --start 60 --queue 'ser-par-10g-3' --readjob 59
 
-#./lsf/causet_bat --ncores 16 --flags '--age 1.5 --manifold f --link --compact --verbose -y --read-old-format' --graph 1415296494 --start '17a' --queue 'ser-par-10g' --readjob 17
+#./lsf/causet_bat --ncores 32 --flags '--age 0.008 --alpha 1.999974 --manifold f --link --verbose -y --print --success 1000000' --graph 1440086021 --start '207S' --queue 'krioukov' --readjob 207 --nsamples 10
 
 #==================#
 # GPU Acceleration #
 #==================#
 
-#./lsf/causet_bat --ncores 32 --flags '--age 1.5 --manifold f --relink --compact --verbose -y --gpu --read-old-format' --graph 1415296494 --start '17b' --queue 'par-gpu' --readjob 17
+#./lsf/causet_bat --ncores 32 --flags '--age 0.004 --alpha 1.999657 --manifold f --link --verbose -y --gpu --print --components' --graph 1440081852 --start '209S' --queue 'krioukov' --readjob 209
 
 #==================#
 # MPI Acceleration #

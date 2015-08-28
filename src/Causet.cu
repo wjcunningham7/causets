@@ -884,28 +884,28 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 							network->network_properties.cmpi.fail = 1;
 							goto LoadPoint2;
 						}
-						if (network->nodes.crd->y(i) <= 0.0 || network->nodes.crd->y(i) >= TWO_PI) {
+						if (network->nodes.crd->y(i) < 0.0 || network->nodes.crd->y(i) > TWO_PI) {
 							message = "Invalid value for 'theta' in node position file!\n";
 							network->network_properties.cmpi.fail = 1;
 							goto LoadPoint2;
 						}
 					} else if (network->network_properties.dim == 3 && (network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == FLRW)) {
-						if (network->nodes.crd->w(i) <= 0.0 || network->nodes.crd->w(i) >= static_cast<float>(HALF_PI - network->network_properties.zeta)) {
+						if (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > static_cast<float>(HALF_PI - network->network_properties.zeta)) {
 							message = "Invalid value for 'eta' in node position file!\n";
 							network->network_properties.cmpi.fail = 1;
 							goto LoadPoint2;
 						}
-						if (network->nodes.crd->x(i) <= 0.0 || (network->network_properties.flags.compact && network->nodes.crd->x(i) >= M_PI) || (!network->network_properties.flags.compact && network->nodes.crd->x(i) >= network->network_properties.chi_max)) {
+						if (network->nodes.crd->x(i) < 0.0 || (network->network_properties.flags.compact && network->nodes.crd->x(i) > M_PI) || (!network->network_properties.flags.compact && network->nodes.crd->x(i) > network->network_properties.chi_max)) {
 							message = "Invalid value for 'theta_1' in node position file!\n";
 							network->network_properties.cmpi.fail = 1;
 							goto LoadPoint2;
 						}
-						if (network->nodes.crd->y(i) <= 0.0 || network->nodes.crd->y(i) >= M_PI) {
+						if (network->nodes.crd->y(i) < 0.0 || network->nodes.crd->y(i) > M_PI) {
 							message = "Invalid value for 'theta_2' in node position file!\n";
 							network->network_properties.cmpi.fail = 1;
 							goto LoadPoint2;
 						}
-						if (network->nodes.crd->z(i) <= 0.0 || network->nodes.crd->z(i) >= TWO_PI) {
+						if (network->nodes.crd->z(i) < 0.0 || network->nodes.crd->z(i) > TWO_PI) {
 							message = "Invalid value for 'theta_3' in node position file!\n";
 							network->network_properties.cmpi.fail = 1;
 							goto LoadPoint2;
@@ -1208,7 +1208,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			outputStream << "\nCauset Initial Parameters:" << std::endl;
 			outputStream << "--------------------------" << std::endl;
 			outputStream << "Number of Nodes (N_tar)\t\t\t" << network.network_properties.N_tar << std::endl;
-			outputStream << "Expected Degrees (k_tar)\t\t\t" << network.network_properties.k_tar << std::endl;
+			outputStream << "Expected Degrees (k_tar)\t\t" << network.network_properties.k_tar << std::endl;
 			outputStream << "Dark Energy Density (omegaL)\t\t" << network.network_properties.omegaL << std::endl;
 			outputStream << "Rescaled Age (tau0)\t\t\t" << network.network_properties.tau0 << std::endl;
 			outputStream << "Spatial Scaling (alpha)\t\t\t" << network.network_properties.alpha << std::endl;
@@ -1220,6 +1220,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			if (links_exist) {
 				outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_observables.N_res << std::endl;
 				outputStream << "Resulting Average Degrees (k_res)\t" << network.network_observables.k_res << std::endl;
+				outputStream << "Resulting Error in <k>\t\t\t" << (fabs(network.network_properties.k_tar - network.network_observables.k_res) / network.network_properties.k_tar) << std::endl;
 			}
 			outputStream << "Minimum Rescaled Time\t\t\t" << network.nodes.id.tau[0] << std::endl;
 		} else if (network.network_properties.manifold == DE_SITTER) {
@@ -1236,6 +1237,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 				outputStream << "Resulting Nodes (N_res)\t\t\t" << network.network_observables.N_res << std::endl;
 				outputStream << "Resulting Average Degrees (k_res)\t" << network.network_observables.k_res << std::endl;
 				outputStream << "    Incl. Isolated Nodes\t\t" << (network.network_observables.k_res * network.network_observables.N_res) / network.network_properties.N_tar << std::endl;
+				outputStream << "Resulting Error in <k>\t\t\t" << (fabs(network.network_properties.k_tar - network.network_observables.k_res) / network.network_properties.k_tar) << std::endl;
 			}
 			outputStream << "Minimum Rescaled Time\t\t\t" << network.nodes.id.tau[0] << std::endl;
 		}
@@ -1346,7 +1348,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 					dataStream << network.nodes.crd->x(i);
 			} else if (network.network_properties.manifold == HYPERBOLIC)
 				dataStream << network.nodes.id.AS[i] << " " << network.nodes.crd->y(i) << " " << network.nodes.crd->x(i);
-			dataStream << std::endl;
+			dataStream << "\n";
 		}
 		dataStream.flush();
 		dataStream.close();
@@ -1361,7 +1363,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 				throw CausetException("Failed to open edge list file!\n");
 			for (i = 0; i < network.network_properties.N_tar; i++) {
 				for (j = 0; j < network.nodes.k_out[i]; j++)
-					dataStream << i << " " << network.edges.future_edges[idx + j] << std::endl;
+					dataStream << i << " " << network.edges.future_edges[idx + j] << "\n";
 				idx += network.nodes.k_out[i];
 			}
 			dataStream.flush();
@@ -1380,7 +1382,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 					if (network.nodes.k_in[i] + network.nodes.k_out[i] == k)
 						idx++;
 				if (idx > 0)
-					dataStream << k << " " << idx << std::endl;
+					dataStream << k << " " << idx << "\n";
 			}
 			dataStream.flush();
 			dataStream.close();
@@ -1397,7 +1399,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 					if (network.nodes.k_in[i] == k)
 						idx++;
 				if (idx > 0)
-					dataStream << k << " " << idx << std::endl;
+					dataStream << k << " " << idx << "\n";
 			}
 			dataStream.flush();
 			dataStream.close();
@@ -1414,7 +1416,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 					if (network.nodes.k_out[i] == k)
 						idx++;
 				if (idx > 0)
-					dataStream << k << " " << idx << std::endl;
+					dataStream << k << " " << idx << "\n";
 			}
 			dataStream.flush();
 			dataStream.close();
@@ -1428,7 +1430,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open clustering coefficient file!\n");
 			for (i = 0; i < network.network_properties.N_tar; i++)
-				dataStream << network.network_observables.clustering[i] << std::endl;
+				dataStream << network.network_observables.clustering[i] << "\n";
 			dataStream.flush();
 			dataStream.close();
 
@@ -1451,7 +1453,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 				}
 				if (ndk == 0)
 					ndk++;
-				dataStream << i << " " << (cdk / ndk) << std::endl;
+				dataStream << i << " " << (cdk / ndk) << "\n";
 			}
 			dataStream.flush();
 			dataStream.close();
@@ -1481,7 +1483,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open in-degree field file!\n");
 			for (i = 0; i < network.network_properties.N_df; i++)
-				dataStream << network.network_observables.in_degree_field[i] << std::endl;
+				dataStream << network.network_observables.in_degree_field[i] << "\n";
 
 			dataStream.flush();
 			dataStream.close();
@@ -1493,7 +1495,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open out-degree field file!\n");
 			for (i = 0; i < network.network_properties.N_df; i++)
-				dataStream << network.network_observables.out_degree_field[i] << std::endl;
+				dataStream << network.network_observables.out_degree_field[i] << "\n";
 
 			dataStream.flush();
 			dataStream.close();
@@ -1507,7 +1509,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open action file!\n");
 			for (i = 0; i < network.network_properties.max_cardinality; i++)
-				dataStream << network.network_observables.cardinalities[i] << std::endl;
+				dataStream << network.network_observables.cardinalities[i] << "\n";
 
 			dataStream.flush();
 			dataStream.close();

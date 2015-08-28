@@ -28,12 +28,13 @@ cp $homedir/etc/clustering $work/etc/
 cp $homedir/etc/clust_dist $work/etc/
 cp $homedir/etc/fields $work/etc/
 cp $homedir/etc/min_tau $work/etc/
+cp $homedir/etc/success $work/etc/
 
 cp $homedir/etc/raduc_table.cset.bin $work/etc/
 cp $homedir/etc/raducNC_table.cset.bin $work/etc/
 cp $homedir/etc/ctuc_table.cset.bin $work/etc/
-cp $homedir/etc/geodesics_flrw_table.cset.bin $work/etc/
-cp $homedir/etc/geodesics_ds_table.cset.bin $work/etc/
+#cp $homedir/etc/geodesics_flrw_table.cset.bin $work/etc/
+#cp $homedir/etc/geodesics_ds_table.cset.bin $work/etc/
 cp $homedir/etc/partial_fraction_coefficients.cset.bin $work/etc/
 
 cp $homedir/etc/mkdat $work/etc/
@@ -79,7 +80,9 @@ if [ @readjobid@ -ne 0 ] ; then
     exit 6;
   fi
 
-  # If the files exist then move the relevant data
-  cp $posfile $work/dat/pos/
-  cp $edgfile $work/dat/edg/
+  # If the files exist then move the relevant data (if necessary)
+  if [ "@jobid@" != "@readjobid@" ] ; then
+    cp $posfile $work/dat/pos/
+    cp $edgfile $work/dat/edg/
+  fi
 fi

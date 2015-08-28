@@ -233,7 +233,10 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	//Decode Adjacency Lists
 	stopwatchStart(&sDecodeLists);
-	#if DECODE_LISTS_GPU_V2
+	#if DECODE_CPU
+	if (!decodeListsCPU(edges, h_edges, g_idx))
+		return false;
+	#elif DECODE_LISTS_GPU_V2
 	if (!decodeLists_v2(edges, h_edges, g_idx, d_edges_size, ca, verbose))
 		return false;
 	#else
@@ -287,6 +290,8 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
 		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);
+		printf_red();
+		printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
 		printf_std();
 		fflush(stdout);
 	}
@@ -677,6 +682,42 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 	cuMemFree(d_edges);
 	d_edges = 0;
 	ca->devMemUsed -= sizeof(uint64_t) * d_edges_size;
+
+	return true;
+}
+
+bool decodeListsCPU(const Edge &edges, uint64_t *h_edges, const int * const g_idx)
+{
+	#if DEBUG
+	assert (edges.past_edges != NULL);
+	assert (edges.future_edges != NULL);
+	assert (h_edges != NULL);
+	assert (g_idx != NULL);
+	assert (*g_idx > 0);
+	#endif
+
+	uint64_t key;
+	unsigned int idx0, idx1;
+	int i;
+
+	quicksort(h_edges, 0, *g_idx - 1);
+
+	for (i = 0; i < *g_idx; i++) {
+		key = h_edges[i];
+		idx0 = key >> 32;
+		idx1 = key & 0x00000000FFFFFFFF;
+		edges.future_edges[i] = idx1;
+		h_edges[i] = ((uint64_t)idx1) << 32 | ((uint64_t)idx0);
+	}
+
+	quicksort(h_edges, 0, *g_idx - 1);
+
+	for (i = 0; i < *g_idx; i++) {
+		key = h_edges[i];
+		idx0 = key >> 32;
+		idx1 = key & 0x00000000FFFFFFFF;
+		edges.past_edges[i] = idx1;
+	}
 
 	return true;
 }

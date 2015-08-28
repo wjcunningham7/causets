@@ -582,12 +582,13 @@ inline double tauToEtaFLRWExact(const double &tau, const double a, const double 
 	} else
 		//This should never be reached
 		return NAN;
+	//printf("tau: %.16e\teta: %.16e\n", tau, eta);
 
 	eta *= a / alpha;
 
 	if (DEBUG) {
 		assert (eta == eta);
-		assert (eta > 0.0);
+		assert (eta >= 0.0);
 	}
 
 	return eta;

@@ -25,6 +25,8 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 
 bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, CaResources * const ca, const bool &verbose);
 
+bool decodeListsCPU(const Edge &edges, uint64_t *h_edges, const int * const g_idx);
+
 bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d_k_out, const int &N_tar, CaResources * const ca, const bool &verbose);
 
 bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const CUdeviceptr &d_k_out, const int *g_idx, const int &N_tar, int &N_res, int &N_deg2, float &k_res, CaResources * const ca, const bool &verbose);

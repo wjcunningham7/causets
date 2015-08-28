@@ -1153,12 +1153,13 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	idata.lower = x1;
 	idata.upper = 200;
 	double inf_dist = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	assert (inf_dist == inf_dist);
+	if (inf_dist != inf_dist) {
+		gsl_integration_workspace_free(idata.workspace);
+		return INF;
+	}
 	idata.lower = x2;
 	inf_dist += 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	assert (inf_dist == inf_dist);
-	if (omega12 > inf_dist) {
-		//printf("Distance: Inf\n");
+	if (inf_dist != inf_dist || omega12 > inf_dist) {
 		gsl_integration_workspace_free(idata.workspace);
 		return INF;
 	}
@@ -1174,7 +1175,10 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	double branch_cutoff;
 	if (c->w(future_idx) - c->w(past_idx) > 1.0E-14) {
 		branch_cutoff = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&ml, &idata, QAGS);
-		assert (branch_cutoff == branch_cutoff);
+		if (branch_cutoff != branch_cutoff) {
+			gsl_integration_workspace_free(idata.workspace);
+			return INF;
+		}
 	} else
 		branch_cutoff = 0.0;
 	//printf("Branch cutoff: %f\n", branch_cutoff);
@@ -1192,10 +1196,18 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 			idata.lower = x1;
 			idata.upper = mx;
 			res = integrate1D(&flrwLookupKernelX, (void*)&x0, &idata, QAGS);
-			assert (res == res);
+			//assert (res == res);
+			if (res != res) {
+				gsl_integration_workspace_free(idata.workspace);
+				return INF;
+			}
 			idata.lower = x2;
 			res += integrate1D(&flrwLookupKernelX, (void*)&x0, &idata, QAGS);
-			assert (res == res);
+			//assert (res == res);
+			if (res != res) {
+				gsl_integration_workspace_free(idata.workspace);
+				return INF;
+			}
 			res *= 2.0;
 			//printf("\tres: %e\n", res);
 			res -= omega12;
@@ -1208,7 +1220,11 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 			idata.lower = x1;
 			idata.upper = x2;
 			res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&x0, &idata, QAGS);
-			assert (res == res);
+			//assert (res == res);
+			if (res != res) {
+				gsl_integration_workspace_free(idata.workspace);
+				return INF;
+			}
 			res -= omega12;
 			if (res > 0.0)
 				lower = x0;
@@ -1228,16 +1244,34 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 		idata.lower = tau[past_idx];
 		idata.upper = geodesicMaxTau(manifold, lambda);
 		distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+		//assert (distance == distance);
+		if (distance != distance) {
+			gsl_integration_workspace_free(idata.workspace);
+			return INF;
+		}
 
 		idata.lower = tau[future_idx];
 		distance += integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+		//assert (distance == distance);
+		if (distance != distance) {
+			gsl_integration_workspace_free(idata.workspace);
+			return INF;
+		}
 	} else {
 		idata.lower = tau[past_idx];
 		idata.upper = tau[future_idx];
 		distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
+		//assert (distance == distance);
+		if (distance != distance) {
+			gsl_integration_workspace_free(idata.workspace);
+			return INF;
+		}
 	}
 
 	gsl_integration_workspace_free(idata.workspace);
+
+	//if (distance != distance)
+	//	return INF;
 
 	//printf("Distance: %f\n", distance);
 	//fflush(stdout);
