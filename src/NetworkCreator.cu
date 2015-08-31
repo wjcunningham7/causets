@@ -13,9 +13,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	assert (ca != NULL);
 	assert (cp != NULL);
 	assert (bm != NULL);
-	#else
-	//Disable the default GSL Error Handler
-	disableGSLErrHandler();
 	#endif
 
 	//Benchmarking
@@ -58,6 +55,9 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2)
 		network_properties->core_edge_fraction = 0.0;
 	#endif
+
+	//Disable the default GSL Error Handler
+	disableGSLErrHandler();
 
 	try {
 		if (network_properties->manifold == DE_SITTER || network_properties->manifold == FLRW) {
@@ -140,7 +140,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->alpha *= network_properties->a;
 				//Use lookup table to solve for k_tar
 				int method = 1;
-				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
+				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
 					network_properties->cmpi.fail = 1;
 
 				if (checkMpiErrors(network_properties->cmpi))
@@ -156,7 +156,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				//Non-Compact FLRW Constraints
 				int method = 0;
 				//int method = 1;
-				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->seed, network_properties->cmpi.rank, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
+				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
 					network_properties->cmpi.fail = 1;
 
 				if (checkMpiErrors(network_properties->cmpi))
@@ -241,7 +241,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 //Calculate Expected Average Degree in the FLRW Spacetime
 //See Causal Set Notes for detailed explanation of methods
-bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Manifold &manifold, double &a, const double &chi_max, double &tau0, const double &alpha, const double &delta, long &seed, const int &rank, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &compact, const bool &verbose, const bool &bench, const int method)
+bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Manifold &manifold, double &a, const double &chi_max, double &tau0, const double &alpha, const double &delta, const int &rank, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &compact, const bool &verbose, const bool &bench, const int method)
 {
 	#if DEBUG
 	assert (ca != NULL);
@@ -267,6 +267,7 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Man
 
 	double *table;
 	long size = 0L;
+	int seed = static_cast<int>(4000000000 * mrng.rng());
 
 	if (method == 0) {
 		//Method 1 of 3: Use Monte Carlo integration
@@ -435,9 +436,9 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			mem += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);	//For adjacency list
 		}
 
-		size_t dmem1 = 0, dmem2 = 0, dmem3 = 0;
-		size_t dmem;
+		size_t dmem = 0;
 		#ifdef CUDA_ENABLED
+		size_t dmem1 = 0, dmem2 = 0, dmem3 = 0;
 		if (use_gpu) {
 			size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
 			mem += sizeof(uint64_t) * d_edges_size;	//For encoded edge list
@@ -608,7 +609,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &tau0, const double &alpha, long &seed, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &compact, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//Values are in correct ranges
@@ -652,7 +653,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 		//Sample Theta3 from (0, 2pi), as described on p. 2 of [1]//
 		////////////////////////////////////////////////////////////
 
-		x = TWO_PI * ran2(&seed);
+		x = TWO_PI * mrng.rng();
 		#if DEBUG
 		assert (x > 0.0 && x < TWO_PI);
 		#endif
@@ -666,7 +667,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			//CDF derived from PDF identified in (2) of [2]//
 			/////////////////////////////////////////////////
 
-			do nodes.crd->x(i) = static_cast<float>(ATAN(ran2(&seed) / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			do nodes.crd->x(i) = static_cast<float>(ATAN(mrng.rng() / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			while (nodes.crd->x(i) >= static_cast<float>(HALF_PI - zeta));
 
 			#if DEBUG
@@ -685,7 +686,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			/////////////////////////////////////////////////////////
 
 			do {
-				rval = ran2(&seed);
+				rval = mrng.rng();
 
 				double p1[2];
 				p1[1] = rval;
@@ -747,7 +748,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			if (compact) {
 				//Sample Theta1 from (0, pi)
 				x = HALF_PI;
-				rval = ran2(&seed);
+				rval = mrng.rng();
 				if (!newton(&solveTheta1, &x, 250, TOL, &rval, NULL, NULL))
 					return false;
 				nodes.crd->x(i) = static_cast<float>(x);
@@ -755,7 +756,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 				assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < static_cast<float>(M_PI));
 				#endif
 			} else {
-				nodes.crd->x(i) = static_cast<float>(POW(ran2(&seed), 1.0 / 3.0, APPROX ? FAST : STL) * chi_max);
+				nodes.crd->x(i) = static_cast<float>(POW(mrng.rng(), 1.0 / 3.0, APPROX ? FAST : STL) * chi_max);
 				#if DEBUG
 				assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < static_cast<float>(chi_max));
 				#endif
@@ -763,7 +764,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			//if (i % NPRINT == 0) printf("Theta1: %5.5f\n", nodes.crd->x(i)); fflush(stdout);
 
 			//Sample Theta2 from (0, pi)
-			nodes.crd->y(i) = static_cast<float>(ACOS(1.0 - 2.0 * ran2(&seed), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			nodes.crd->y(i) = static_cast<float>(ACOS(1.0 - 2.0 * mrng.rng(), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			#if DEBUG
 			assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));
 			#endif

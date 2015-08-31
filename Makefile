@@ -134,9 +134,11 @@ OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.o, $(SOURCES))
 
 all : gpu
 
-cpu : check-env $(COBJS) $(CEXTOBJS) $(OBJS) link
+#cpu : check-env $(COBJS) $(CEXTOBJS) $(OBJS) link
+cpu : check-env $(COBJS) $(OBJS) link
 
-gpu : check-env $(COBJS) $(CEXTOBJS) $(CUDAOBJS) linkgpu bin
+#gpu : check-env $(COBJS) $(CEXTOBJS) $(CUDAOBJS) linkgpu bin
+gpu : check-env $(COBJS) $(CUDAOBJS) linkgpu bin
 
 ###############################
 # Check Environment Variables #
@@ -153,6 +155,8 @@ check-env :
 ######################
 
 $(COBJS) : | dirs
+
+$(OBJS) : | dirs
 
 $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -I $(INCDIR) -o $@ $<

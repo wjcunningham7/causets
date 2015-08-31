@@ -48,7 +48,7 @@
 				//Should be greater than 1.0
 
 //Debugging Flags
-#define DEBUG false	//Determines whether unit testing is in effect
+#define DEBUG true	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements
 
 #define NPRINT 1000	//Used for debugging statements inside loops
@@ -63,7 +63,7 @@
 			//This value is dependent on the GPU architecture
 			//DO NOT EDIT THIS VALUE
 
-#define GROUP_SIZE 4	//Number of block groups per grid dimension
+#define GROUP_SIZE 16	//Number of block groups per grid dimension
 			//Increase this by a power of 2 if too much GPU memory is
 			//requested in the generateLists() algorithm
 

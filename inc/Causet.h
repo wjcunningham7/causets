@@ -8,6 +8,7 @@
 #include <getopt.h>
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <math.h>
@@ -23,8 +24,6 @@
 //System Files for Parallel Acceleration
 #ifdef CUDA_ENABLED
 #include <cuda.h>
-//#pragma once
-//#include <cusp/multiply.h>
 #endif
 
 #ifdef MPI_ENABLED
@@ -39,13 +38,16 @@
 #endif
 
 //Other System Files
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_real.hpp>
+#include <boost/random/variate_generator.hpp>
 #include <boost/unordered_map.hpp>
 #include <sys/io.h>
 
 //Custom System Files
 #include <fastmath/FastMath.h>
 #include <fastmath/FastNumInt.h>
-#include <fastmath/ran2.h>
+//#include <fastmath/ran2.h>
 #include <fastmath/stopwatch.h>
 #include <printcolor/printcolor.h>
 
@@ -107,6 +109,19 @@ extern inline float4 make_float4(float w, float x, float y, float z)
 typedef int CUcontext;
 
 #endif
+
+//Boost RNG
+typedef boost::mt19937 Engine;
+typedef boost::uniform_real<double> Distribution;
+typedef boost::variate_generator<Engine, Distribution> Generator;
+
+struct MersenneRNG {
+	MersenneRNG() : dist(0.0, 1.0), rng(eng, dist) {}
+
+	Engine eng;
+	Distribution dist;
+	Generator rng;
+};
 
 //Causal Set Resources
 struct CaResources {
@@ -390,7 +405,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), dim(3), manifold(DE_SITTER), a(0.0), zeta(0.0), chi_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(-12345L), graphID(0), cmpi(CausetMPI()) {}
+	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), dim(3), manifold(DE_SITTER), a(0.0), zeta(0.0), chi_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()) {}
 
 	CausetFlags flags;
 
@@ -425,6 +440,8 @@ struct NetworkProperties {
 	int graphID;			//Unique Simulation ID
 
 	CausetMPI cmpi;			//MPI Flags
+
+	MersenneRNG mrng;		//Mersenne Twister RNG
 };
 
 //Measured values of the network
@@ -532,7 +549,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 
 bool loadNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
 
-bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed, const int &gpuID);
+bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID);
 
 bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link, const bool &relink);
 

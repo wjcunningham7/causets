@@ -238,7 +238,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, long &seed, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &compact, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -367,17 +367,26 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	#endif
 
 	#ifdef _OPENMP
-	long omp_seed = seed;
-	#pragma omp parallel for schedule (dynamic, 1) firstprivate (omp_seed) lastprivate (omp_seed) reduction (+ : n_trav, n_succ)
+	unsigned int seed = static_cast<unsigned int>(mrng.rng() * 4000000000);
+	#pragma omp parallel reduction (+ : n_trav, n_succ)
+	{
+	Engine eng;
+	Distribution dst(0.0, 1.0);
+	Generator rng(eng, dst);
+	rng.engine().seed(seed ^ omp_get_thread_num());
+	rng.distribution().reset();
+	#pragma omp for schedule (dynamic, 1)
+	#else
+	Generator &rng = mrng.rng;
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		//Pick Pair
 		uint64_t vec_idx;
 		#if SR_RANDOM
 		#ifdef _OPENMP
-		vec_idx = static_cast<uint64_t>(ran2ts(&omp_seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
+		vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
 		#else
-		vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
+		vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
 		#endif
 		#else
 		vec_idx = k * stride;
@@ -451,7 +460,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	}
 
 	#ifdef _OPENMP
-	seed = omp_seed;
+	}
 	#endif
 
 	free(used);
@@ -829,7 +838,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m
 //O(xxx) Efficiency (revise this)
-bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, long &seed, CaResources * const ca, Stopwatch &sMeasureDegreeField, const bool &compact, const bool &verbose, const bool &bench)
+bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &alpha, const double &delta, CaResources * const ca, Stopwatch &sMeasureDegreeField, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (c->getDim() == 4);

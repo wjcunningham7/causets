@@ -22,7 +22,8 @@
 
 # Greedy Routing
 #./bin/CausalSet --nodes 3513 --age 0.761631 --buffer 0.3 --link --verbose -y --test
-./bin/CausalSet --nodes 2518528 --alpha 5.9999 --energy 0.993 --manifold f --verbose --link --gpu --test
+#./bin/CausalSet --nodes 2518528 --alpha 5.9999 --energy 0.993 --manifold f --verbose --link --gpu --test
+./bin/CausalSet --energy 0.975 --alpha 5.9993 --graph 1440786261 --manifold f --link --verbose -y --success 6686720 --seed 1440861984
 
 # Measure de Sitter Action
 #./bin/CausalSet --graph 111 --age 1.2 --seed 18100 --buffer 0.3 --link --quiet-read --action 5

@@ -28,7 +28,20 @@
 
 #./lsf/causet_bat --ncores 32 --flags '--nodes 256 --age 1.2 --core 1 --buffer 0.3 --link --verbose -y --gpu --print --success 100000' --start 184 --queue 'par-gpu' --nsamples 50
 
-./lsf/causet_bat --ncores 32 --flags '--nodes 5026560 --age 0.01 --alpha 1.999972 --manifold f --link --verbose -y --gpu --print' --start 206 --queue 'par-gpu' --nsamples 1
+#./lsf/causet_bat --ncores 32 --flags '--nodes 181760 --energy 0.92 --alpha 5.9981 --manifold f --link --verbose -y --gpu --print --success 1000000' --start 210 --queue 'par-gpu' --nsamples 10
+#./lsf/causet_bat --ncores 32 --flags '--nodes 212992 --energy 0.93 --alpha 5.9998 --manifold f --link --verbose -y --gpu --print --success 1000000' --start 211 --queue 'par-gpu' --nsamples 10
+#./lsf/causet_bat --ncores 32 --flags '--nodes 254464 --energy 0.94 --alpha 5.9983 --manifold f --link --verbose -y --gpu --print --success 1000000' --start 212 --queue 'par-gpu' --nsamples 10
+
+#./lsf/causet_bat --ncores 32 --flags '--nodes 313088 --energy 0.95 --alpha 5.9985 --manifold f --link --verbose -y --gpu --print --success 1000000' --start 213 --queue 'par-gpu' --nsamples 10
+#./lsf/causet_bat --ncores 32 --flags '--nodes 401664 --energy 0.96 --alpha 5.9995 --manifold f --link --verbose -y --gpu --print --success 1000000' --start 214 --queue 'par-gpu' --nsamples 10
+#./lsf/causet_bat --ncores 32 --flags '--nodes 549888 --energy 0.97 --alpha 5.9998 --manifold f --link --verbose -y --gpu --print --success 1000000' --start 215 --queue 'par-gpu' --nsamples 10
+
+#./lsf/causet_bat --ncores 32 --flags '--nodes 668672 --energy 0.975 --alpha 5.9993 --manifold f --link --verbose -y --gpu --print' --start 216 --queue 'par-gpu' --nsamples 1
+#./lsf/causet_bat --ncores 32 --flags '--nodes 847616 --energy 0.98 --alpha 5.9995 --manifold f --link --verbose -y --gpu --print' --start 217 --queue 'par-gpu' --nsamples 1
+
+#./lsf/causet_bat --ncores 32 --flags '--nodes 1146624 --energy 0.985 --alpha 5.9997 --manifold f --link --verbose -y --gpu --print' --start 218 --queue 'par-gpu' --nsamples 1
+#./lsf/causet_bat --ncores 32 --flags '--nodes 1746176 --energy 0.99 --alpha 5.9998 --manifold f --link --verbose -y --gpu --print' --start 219 --queue 'par-gpu' --nsamples 1
+#./lsf/causet_bat --ncores 32 --flags '--nodes 2518528 --energy 0.993 --alpha 5.9999 --manifold f --link --verbose -y --gpu --print' --start 220 --queue 'par-gpu' --nsamples 1
 
 #=======================#
 # GPU, MPI Acceleration #
@@ -48,7 +61,7 @@
 
 #./lsf/causet_bat --ncores 40 --flags '--age 1.5 --link --compact --verbose -y --distances 0.001' --graph 1425566890 --start 60 --queue 'ser-par-10g-3' --readjob 59
 
-#./lsf/causet_bat --ncores 32 --flags '--age 0.008 --alpha 1.999974 --manifold f --link --verbose -y --print --success 1000000' --graph 1440086021 --start '207S' --queue 'krioukov' --readjob 207 --nsamples 10
+./lsf/causet_bat --ncores 32 --flags '--energy 0.975 --alpha 5.9993 --manifold f --link --verbose -y --print --success 6686720' --graph 1440786261 --start '216S' --queue 'krioukov' --readjob 216 --nsamples 10
 
 #==================#
 # GPU Acceleration #

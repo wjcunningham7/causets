@@ -28,10 +28,8 @@ int main(int argc, char **argv)
 	//Initialize 'Network' structure
 	Network network = Network(parseArgs(argc, argv, &cmpi));
 
-	long init_seed = network.network_properties.seed;
-	bool success = false;
-
 	int e_start = printStart((const char**)argv, cmpi.rank);
+	bool success = false;
 
 	#ifdef CUDA_ENABLED
 	//Identify and Connect to GPU
@@ -56,7 +54,7 @@ int main(int argc, char **argv)
 		cmpi.fail = 1;
 		goto CausetPoint1;
 	}
-	if (network.network_properties.flags.print_network && !printNetwork(network, cp, init_seed, cu.gpuID)) {
+	if (network.network_properties.flags.print_network && !printNetwork(network, cp, cu.gpuID)) {
 		cmpi.fail = 1;
 		goto CausetPoint1;
 	}
@@ -228,8 +226,8 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					throw CausetException("Invalid argument for 'success' parameter!\n");
 				break;
 			case 's':	//Random seed
-				network_properties.seed = -1.0 * atol(optarg);
-				if (network_properties.seed >= 0.0L)
+				network_properties.seed = atol(optarg);
+				if (network_properties.seed <= 0.0L)
 					throw CausetException("Invalid argument for 'seed' parameter!\n");
 				break;
 			case 'v':	//Verbose output
@@ -405,9 +403,11 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 	}
 	
 	//Initialize RNG
-	if (network_properties.seed == -12345L) {
+	if (network_properties.seed == 12345L) {
 		srand(time(NULL));
-		network_properties.seed = -1.0 * static_cast<long>(time(NULL));
+		network_properties.seed = static_cast<long>(time(NULL));
+		network_properties.mrng.rng.engine().seed(network_properties.seed);
+		network_properties.mrng.rng.distribution().reset();
 	}
 
 	return network_properties;
@@ -465,7 +465,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	int high = network->network_properties.N_tar - 1;
 
 	for (i = 0; i <= nb; i++) {
-		if (!generateNodes(network->nodes, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.seed, cp->sGenerateNodes, network->network_properties.flags.use_gpu, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+		if (!generateNodes(network->nodes, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.mrng, cp->sGenerateNodes, network->network_properties.flags.use_gpu, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 			network->network_properties.cmpi.fail = 1;
 			goto InitExit;
 		}
@@ -619,7 +619,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 
 	//Validate Embedding
 	if (network->network_properties.flags.validate_embedding) {
-		if (!validateEmbedding(network->network_observables.evd, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_emb, network->network_observables.N_res, network->network_observables.k_res, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.seed, network->network_properties.cmpi, ca, cp->sValidateEmbedding, network->network_properties.flags.compact, network->network_properties.flags.verbose))
+		if (!validateEmbedding(network->network_observables.evd, network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_emb, network->network_observables.N_res, network->network_observables.k_res, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sValidateEmbedding, network->network_properties.flags.compact, network->network_properties.flags.verbose))
 			return false;
 	}
 
@@ -637,7 +637,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				break;
 			}
 
-			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.seed, network->network_properties.cmpi, ca, cp->sMeasureSuccessRatio, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureSuccessRatio, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
 
@@ -651,7 +651,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 	//Measure Degree Fields
 	if (network->network_properties.flags.calc_deg_field) {
 		for (i = 0; i <= nb; i++) {
-			if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.crd, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.delta, network->network_properties.seed, ca, cp->sMeasureDegreeField, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+			if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.crd, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.alpha, network->network_properties.delta, ca, cp->sMeasureDegreeField, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
 				goto MeasureExit;
 			}
@@ -663,7 +663,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 
 	//Validate Distance Methods
 	if (network->network_properties.flags.validate_distances) {
-		if (!validateDistances(network->network_observables.dvd, network->nodes, network->network_properties.N_tar, network->network_properties.N_dst, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.alpha, network->network_properties.seed, ca, cp->sValidateDistances, network->network_properties.flags.compact, network->network_properties.flags.verbose)) {
+		if (!validateDistances(network->network_observables.dvd, network->nodes, network->network_properties.N_tar, network->network_properties.N_dst, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.chi_max, network->network_properties.alpha, network->network_properties.mrng, ca, cp->sValidateDistances, network->network_properties.flags.compact, network->network_properties.flags.verbose)) {
 			network->network_properties.cmpi.fail = 1;
 			goto MeasureExit;
 		}
@@ -1140,7 +1140,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 }
 
 //Print to File
-bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed, const int &gpuID)
+bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 {
 	if (!network.network_properties.flags.print_network)
 		return false;
@@ -1175,7 +1175,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			sstm << network.network_properties.a << "_";
 			sstm << network.network_properties.dim << "_";
 		}
-		sstm << init_seed;
+		sstm << network.network_properties.seed;
 		std::string filename = sstm.str();
 
 		//Write Simulation Parameters and Main Results to File
@@ -1336,6 +1336,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 		dataStream.open(sstm.str().c_str());
 		if (!dataStream.is_open())
 			throw CausetException("Failed to open node position file!\n");
+		dataStream << std::fixed << std::setprecision(9);
 		for (i = 0; i < network.network_properties.N_tar; i++) {
 			if (network.network_properties.manifold == DE_SITTER || network.network_properties.manifold == FLRW) {
 				if (network.network_properties.dim == 3) {
@@ -1375,15 +1376,19 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open degree distribution file!\n");
+
 			int k_max = network.network_observables.N_res - 1;
-			for (k = 1; k <= k_max; k++) {
-				idx = 0;
-				for (i = 0; i < network.network_properties.N_tar; i++)
-					if (network.nodes.k_in[i] + network.nodes.k_out[i] == k)
-						idx++;
-				if (idx > 0)
-					dataStream << k << " " << idx << "\n";
-			}
+			int *deg_dist = (int*)malloc(sizeof(int) * (k_max+1));
+			assert (deg_dist != NULL);
+			memset(deg_dist, 0, sizeof(int) * (k_max+1));
+
+			for (i = 0; i < network.network_properties.N_tar; i++)
+				deg_dist[network.nodes.k_in[i] + network.nodes.k_out[i]]++;
+
+			for (k = 1; k <= k_max; k++)
+				if (!!deg_dist[k])
+					dataStream << k << " " << deg_dist[k] << "\n";
+
 			dataStream.flush();
 			dataStream.close();
 
@@ -1393,14 +1398,15 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open in-degree distribution file!\n");
-			for (k = 1; k <= k_max; k++) {
-				idx = 0;
-				for (i = 0; i < network.network_properties.N_tar; i++)
-					if (network.nodes.k_in[i] == k)
-						idx++;
-				if (idx > 0)
-					dataStream << k << " " << idx << "\n";
-			}
+
+			memset(deg_dist, 0, sizeof(int) * (k_max+1));
+			for (i = 0; i < network.network_properties.N_tar; i++)
+				deg_dist[network.nodes.k_in[i]]++;
+
+			for (k = 1; k <= k_max; k++)
+				if (!!deg_dist[k])
+					dataStream << k << " " << deg_dist[k] << "\n";
+
 			dataStream.flush();
 			dataStream.close();
 
@@ -1410,16 +1416,20 @@ bool printNetwork(Network &network, CausetPerformance &cp, const long &init_seed
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open out-degree distribution file!\n");
-			for (k = 1; k <= k_max; k++) {
-				idx = 0;
-				for (i = 0; i < network.network_properties.N_tar; i++)
-					if (network.nodes.k_out[i] == k)
-						idx++;
-				if (idx > 0)
-					dataStream << k << " " << idx << "\n";
-			}
+
+			memset(deg_dist, 0, sizeof(int) * (k_max+1));
+			for (i = 0; i < network.network_properties.N_tar; i++)
+				deg_dist[network.nodes.k_out[i]]++;
+
+			for (k = 1; k <= k_max; k++)
+				if (!!deg_dist[k])
+					dataStream << k << " " << deg_dist[k] << "\n";
+
 			dataStream.flush();
 			dataStream.close();
+
+			free(deg_dist);
+			deg_dist = NULL;
 		}
 
 		if (network.network_properties.flags.calc_clustering) {

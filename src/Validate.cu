@@ -1004,7 +1004,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 //Generate confusion matrix for geodesic distances
 //Compares timelike/spacelike in 4D/5D
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, long &seed, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &compact, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &compact, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -1095,8 +1095,17 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	uint64_t c3 = evd.confusion[3];
 
 	#ifdef _OPENMP
-	long omp_seed = seed;
-	#pragma omp parallel for schedule (dynamic, 1) firstprivate(omp_seed) lastprivate(omp_seed) reduction (+ : c0, c1, c2, c3)
+	unsigned int seed = static_cast<unsigned int>(mrng.rng() * 4000000000);
+	#pragma omp parallel reduction (+ : c0, c1, c2, c3)
+	{
+	Engine eng;
+	Distribution dst(0.0, 1.0);
+	Generator rng(eng, dst);
+	rng.engine().seed(seed ^ omp_get_thread_num());
+	rng.distribution().reset();
+	#pragma omp for schedule (dynamic, 1)
+	#else
+	Generator &rng = mrng.rng;
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		//Choose a pair
@@ -1104,9 +1113,9 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 
 		if (VE_RANDOM) {
 			#ifdef _OPENMP
-			vec_idx = static_cast<uint64_t>(ran2ts(&omp_seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
+			vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
 			#else
-			vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
+			vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
 			#endif
 		} else
 			vec_idx = k * stride;
@@ -1145,7 +1154,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	}
 
 	#ifdef _OPENMP
-	seed = omp_seed;
+	}
 	#endif
 
 	evd.confusion[0] = c0;
@@ -1190,7 +1199,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 //distances calculated with exact formula
 //NOTE: This only works with de Sitter since there is not a known
 //formula for the embedded FLRW distance.
-bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, long &seed, CaResources * const ca, Stopwatch &sValidateDistances, const bool &compact, const bool &verbose)
+bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateDistances, const bool &compact, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -1244,17 +1253,26 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 	uint64_t c1 = dvd.confusion[1];
 
 	#ifdef _OPENMP
-	long omp_seed = seed;
-	#pragma omp parallel for schedule (dynamic, 1) firstprivate (omp_seed) lastprivate (omp_seed) reduction(+ : c0, c1)
+	unsigned int seed = static_cast<unsigned int>(mrng.rng() * 4000000000);
+	#pragma omp parallel reduction(+ : c0, c1)
+	{
+	Engine eng;
+	Distribution dst(0.0, 1.0);
+	Generator rng(eng, dst);
+	rng.engine().seed(seed ^ omp_get_thread_num());
+	rng.distribution().reset();
+	#pragma omp for schedule (dynamic, 1)
+	#else
+	Generator &rng = mrng.rng;
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		//Choose a pair
 		uint64_t vec_idx;
 		if (VD_RANDOM) {
 			#ifdef _OPENMP
-			vec_idx = static_cast<uint64_t>(ran2ts(&omp_seed, omp_get_thread_num()) * (max_pairs - 1)) + 1;
+			vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
 			#else
-			vec_idx = static_cast<uint64_t>(ran2(&seed) * (max_pairs - 1)) + 1;
+			vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
 			#endif
 		} else
 			vec_idx = k * stride;
@@ -1311,7 +1329,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 	}
 
 	#ifdef _OPENMP
-	seed = omp_seed;
+	}
 	#endif
 
 	//free(table);
