@@ -60,39 +60,63 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	disableGSLErrHandler();
 
 	try {
-		if (network_properties->manifold == DE_SITTER || network_properties->manifold == FLRW) {
+		if (network_properties->manifold == DE_SITTER || network_properties->manifold == DUST || network_properties->manifold == FLRW) {
 			//Check for under-constrained system
 			if (network_properties->N_tar == 0)
 				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
 			if (network_properties->tau0 == 0.0)
 				throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
+			if (network_properties->manifold == DE_SITTER && !network_properties->flags.compact && !network_properties->r_max)
+				throw CausetException("Flag '--slice', spatial scaling, must be specified!\n");
 		}
 
 		if (network_properties->manifold == DE_SITTER) {
 			//Constrain the de Sitter system
-			if (network_properties->delta == 0.0)
+			if (!network_properties->delta)
 				network_properties->a = 1.0;
-			network_properties->zeta = HALF_PI - network_properties->tau0;
-			network_properties->tau0 = etaToTau(HALF_PI - network_properties->zeta);
+
+			if (network_properties->flags.compact) {
+				network_properties->zeta = HALF_PI - network_properties->tau0;
+				network_properties->tau0 = etaToTauCompact(HALF_PI - network_properties->zeta);
+			} else {
+				network_properties->zeta = HALF_PI + 1.0;
+				network_properties->zeta1 = HALF_PI - tauToEtaFlat(network_properties->tau0);
+			}
 
 			#if DEBUG
-			assert (network_properties->zeta > 0.0 && network_properties->zeta < HALF_PI);
+			if (network_properties->flags.compact)
+				assert (network_properties->zeta > 0.0 && network_properties->zeta < HALF_PI);
+			else
+				assert (network_properties->zeta > HALF_PI);
 			assert (network_properties->tau0 > 0.0);
 			#endif
 
 			double eta0 = HALF_PI - network_properties->zeta;
+			double eta1 = HALF_PI - network_properties->zeta1;
 			if (network_properties->dim == 1) {
+				#if DEBUG
+				assert (network_properties->flags.compact);
+				#endif
 				network_properties->k_tar = network_properties->N_tar * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL) - 1.0) / (TAN(eta0, STL) * HALF_PI);
-				if (network_properties->delta != 0.0)
+				if (!!network_properties->delta)
 					network_properties->a = SQRT(network_properties->N_tar / (TWO_PI * network_properties->delta * TAN(eta0, STL)), STL);
 				else
 					network_properties->delta = network_properties->N_tar / (TWO_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
 			} else if (network_properties->dim == 3) {
-				network_properties->k_tar = network_properties->N_tar * (12.0 * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL)) - (6.0 * LOG(COS(eta0, STL), STL) + 5.0) / POW2(COS(eta0, STL), EXACT) - 7.0) / (POW2(2.0 + 1.0 / POW2(COS(eta0, STL), EXACT), EXACT) * TAN(eta0, STL) * 3.0 * HALF_PI);
-				if (network_properties->delta != 0.0)
-					network_properties->a = POW(network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI, EXACT) * network_properties->delta * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL)), 1.0 / 4.0, STL);
-				else
-					network_properties->delta = network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI * POW2(network_properties->a, EXACT), EXACT) * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL));
+				if (network_properties->flags.compact) {
+					network_properties->k_tar = network_properties->N_tar * (12.0 * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL)) - (6.0 * LOG(COS(eta0, STL), STL) + 5.0) / POW2(COS(eta0, STL), EXACT) - 7.0) / (POW2(2.0 + 1.0 / POW2(COS(eta0, STL), EXACT), EXACT) * TAN(eta0, STL) * 3.0 * HALF_PI);
+					if (!!network_properties->delta)
+						network_properties->a = POW(network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI, EXACT) * network_properties->delta * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL)), 0.25, STL);
+					else
+						network_properties->delta = network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI * POW2(network_properties->a, EXACT), EXACT) * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL));
+				} else {
+					int seed = static_cast<int>(4000000000 * network_properties->mrng.rng());
+					network_properties->k_tar = 9.0 * network_properties->N_tar * POW2(POW3(eta0 * eta1, EXACT), EXACT) * integrate2D(&rescaledDegreeDeSitterFlat, eta0, eta0, eta1, eta1, NULL, seed, 0) / (POW3(network_properties->r_max, EXACT) * POW2(POW3(eta1, EXACT) - POW3(eta0, EXACT), EXACT));
+					if (!!network_properties->delta)
+						network_properties->a = POW(9.0 * network_properties->N_tar * POW3(eta0 * eta1, EXACT) / (4.0 * M_PI * network_properties->delta * POW3(network_properties->r_max, EXACT) * (POW3(eta1, EXACT) - POW3(eta0, EXACT))), 0.25, STL);
+					else
+						network_properties->delta = 9.0 * network_properties->N_tar * POW3(eta0 * eta1, EXACT) / (4.0 * M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * POW3(network_properties->r_max, EXACT) * (POW3(eta1, EXACT) - POW3(eta0, EXACT)));
+				}
 			}
 
 			#if DEBUG
@@ -108,20 +132,29 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			if (!rank) printf_cyan();
 			printf_mpi(rank, "\t > Number of Nodes:\t\t%d\n", network_properties->N_tar);
 			printf_mpi(rank, "\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
-			printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
+			if (network_properties->flags.compact)
+				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
+			else {
+				printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", eta0);
+				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta1);
+				printf_mpi(rank, "\t > Max. Rescaled  Time:\t\t%.6f\n", network_properties->tau0);
+				printf_mpi(rank, "\t > Spatial Cutoff:\t\t%.6f\n", network_properties->r_max);
+			}
 			printf_mpi(rank, "\t > Node Density: \t\t%.6f\n", network_properties->delta);
 			printf_mpi(rank, "\t > Pseudoradius:\t\t%.6f\n", network_properties->a);
 			if (!rank) printf_std();
 			fflush(stdout);
 
 			//Miscellaneous Tasks
-			network_properties->flags.compact = true;
-
 			if (!network_properties->cmpi.rank && network_properties->flags.gen_ds_table && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 5.0, -5.0, 5.0, 0.01, 0.01, network_properties->manifold, network_properties->flags.verbose))
 				network_properties->cmpi.fail = 1;
 
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
+		} else if (network_properties->manifold == DUST) {
+			//Check for under-constrained system
+			if (network_properties->alpha == 0.0)
+				throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
 		} else if (network_properties->manifold == FLRW) {
 			//Check for under-constrained system (specific to FLRW)
 			if (network_properties->alpha == 0.0)
@@ -140,7 +173,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->alpha *= network_properties->a;
 				//Use lookup table to solve for k_tar
 				int method = 1;
-				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
+				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
 					network_properties->cmpi.fail = 1;
 
 				if (checkMpiErrors(network_properties->cmpi))
@@ -148,21 +181,19 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 			} else {
 				//This makes alpha characterize the boundary effects
-				network_properties->chi_max = 1.0;
-
-				//This makes the flag indicate the ratio (alpha * chi_max) / (a * tau_max)
-				//network_properties->alpha *= network_properties->tau0;
+				if (!network_properties->r_max)
+					network_properties->r_max = 1.0;
 
 				//Non-Compact FLRW Constraints
 				int method = 0;
 				//int method = 1;
-				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->chi_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
+				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
 					network_properties->cmpi.fail = 1;
 
 				if (checkMpiErrors(network_properties->cmpi))
 					return false;
 				
-				double q = 9.0 * network_properties->N_tar / (TWO_PI * POW3(network_properties->alpha * network_properties->chi_max, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
+				double q = 9.0 * network_properties->N_tar / (TWO_PI * POW3(network_properties->alpha * network_properties->r_max, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
 				network_properties->a = POW(q / network_properties->delta, 0.25, STL);
 				network_properties->alpha *= network_properties->a;
 			}
@@ -172,7 +203,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			#if DEBUG
 			assert (network_properties->a > 0.0);
 			assert (network_properties->k_tar > 0.0);
-			assert (HALF_PI - network_properties->zeta > 0.0);
+			assert (network_properties->zeta < HALF_PI);
 			#endif
 
 			//Display Constraints
@@ -210,10 +241,46 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		if (network_properties->edge_buffer == 0.0)
 			network_properties->edge_buffer = 0.2;
 
+		#ifdef CUDA_ENABLED
+		//Determine group size and decoding method
+		if (network_properties->flags.use_gpu) {
+			long glob_mem = 5000000000L;
+			long mem = glob_mem + 1L;
+			long d_edges_size = static_cast<long>(exp2(ceil(log2(network_properties->N_tar * network_properties->k_tar * (1.0 + network_properties->edge_buffer) / 2.0))));
+			float gsize = 0.5f;
+			bool dcpu = false;
+
+			while (mem > glob_mem) {
+				gsize *= 2.0f;
+				//long mbsize = static_cast<long>(ceil(static_cast<float>(network_properties->N_tar) / (BLOCK_SIZE * gsize * 2)));
+				long mbsize = static_cast<long>(ceil(static_cast<float>(network_properties->N_tar) / (BLOCK_SIZE * gsize)));
+				long mtsize = mbsize * BLOCK_SIZE;
+				long mesize = mtsize * mtsize;
+				long gmbsize = static_cast<long>(network_properties->N_tar * network_properties->k_tar * (1.0 + network_properties->edge_buffer) / (BLOCK_SIZE * gsize * 2));
+				long gmtsize = gmbsize * BLOCK_SIZE;
+
+				long mem1 = (40L * mtsize + mesize) * NBUFFERS;
+				long mem2 = 4L * (2L * d_edges_size + gmtsize);
+				long mem3 = 8L * (network_properties->N_tar + 2L * BLOCK_SIZE);
+
+				if (mem2 > glob_mem / 4L) {
+					mem2 = 0L;
+					dcpu = true;
+				}
+
+				long max = mem1;
+				if (mem2 > max) max = mem2;
+				if (mem3 > max) max = mem3;
+				mem = max;
+			}
+
+			network_properties->group_size = gsize < NBUFFERS ? NBUFFERS : gsize;
+			network_properties->flags.decode_cpu = dcpu;
+		}
+		#endif
+
 		if (network_properties->flags.calc_deg_field && network_properties->tau_m >= network_properties->tau0)
 			throw CausetException("You have chosen to measure the degree field at a time greater than the maximum time!\n");
-		if (network_properties->flags.calc_action && network_properties->max_cardinality >= network_properties->N_tar)
-			throw CausetException("Maximum cardinality (specified by --action) must be less than N.\n");
 		
 		uint64_t pair_multiplier = static_cast<uint64_t>(network_properties->N_tar) * (network_properties->N_tar - 1) / 2;
 		if (network_properties->flags.calc_success_ratio && network_properties->N_sr <= 1.0)
@@ -222,6 +289,16 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->N_emb *= pair_multiplier;
 		if (network_properties->flags.validate_distances && network_properties->N_dst <= 1.0)
 			network_properties->N_dst *= pair_multiplier;
+
+		if (network_properties->flags.calc_action) {
+			#if DEBUG
+			assert (network_properties->max_cardinality == -1 || network_properties->max_cardinality == 1);
+			#endif
+			if (network_properties->max_cardinality == -1)
+				network_properties->max_cardinality = 5;
+			else
+				network_properties->max_cardinality = network_properties->N_tar - 1;
+		}
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		network_properties->cmpi.fail = 1;
@@ -241,7 +318,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 //Calculate Expected Average Degree in the FLRW Spacetime
 //See Causal Set Notes for detailed explanation of methods
-bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Manifold &manifold, double &a, const double &chi_max, double &tau0, const double &alpha, const double &delta, const int &rank, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &compact, const bool &verbose, const bool &bench, const int method)
+bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Manifold &manifold, double &a, const double &r_max, double &tau0, const double &alpha, const double &delta, const int &rank, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &compact, const bool &verbose, const bool &bench, const int method)
 {
 	#if DEBUG
 	assert (ca != NULL);
@@ -254,7 +331,7 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Man
 	assert (method == 0 || method == 1 || method == 2);
 	if (!compact) {
 		assert (method == 0 || method == 1);
-		assert (chi_max > 0.0);
+		assert (r_max > 0.0);
 	} else
 		assert (a > 0.0);
 	#endif
@@ -289,7 +366,7 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Man
 				kappa *= 8.0 * M_PI;
 				kappa /= SINH(3.0 * tau0, STL) - 3.0 * tau0;
 				//printf("kappa: %.8e\n", kappa);
-				k_tar = (9.0 * kappa * N_tar) / (TWO_PI * POW3(alpha * chi_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
+				k_tar = (9.0 * kappa * N_tar) / (TWO_PI * POW3(alpha * r_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
 			}
 			stopwatchStop(&sCalcDegrees);
 		}	
@@ -309,7 +386,7 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Man
 			if (compact)
 				k_tar = lookupValue(table, size, &tau0, NULL, true) * delta * POW2(POW2(a, EXACT), EXACT);
 			else
-				k_tar = lookupValue(table, size, &tau0, NULL, true) * 9.0 * N_tar / (TWO_PI * POW3(alpha * chi_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
+				k_tar = lookupValue(table, size, &tau0, NULL, true) * 9.0 * N_tar / (TWO_PI * POW3(alpha * r_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
 			stopwatchStop(&sCalcDegrees);
 		}	
 
@@ -401,7 +478,7 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Man
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &link, const bool &relink, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &verbose, const bool &bench, const bool &yes)
 {
 	#if DEBUG
 	assert (ca != NULL);
@@ -444,7 +521,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			mem += sizeof(uint64_t) * d_edges_size;	//For encoded edge list
 			mem += sizeof(int);			//For g_idx
 
-			size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * GROUP_SIZE << 1)));
+			size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size << 1)));
 			size_t mthread_size = mblock_size * BLOCK_SIZE;
 			size_t m_edges_size = mthread_size * mthread_size;
 			size_t nbuf = GEN_ADJ_LISTS_GPU_V2 ? NBUFFERS : 1;
@@ -454,11 +531,11 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			dmem1 += sizeof(int) * mthread_size * nbuf << 1;		//For k_in and k_out buffers (device)
 			dmem1 += sizeof(bool) * m_edges_size * nbuf;			//For adjacency matrix buffers (device)
 
-			size_t g_mblock_size = static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / (BLOCK_SIZE * GROUP_SIZE << 1));
+			size_t g_mblock_size = static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / (BLOCK_SIZE * group_size << 1));
 			size_t g_mthread_size = g_mblock_size * BLOCK_SIZE;
 			dmem2 += sizeof(uint64_t) * d_edges_size;	//Encoded edge list used during parallel sorting
 			dmem2 += sizeof(int) * (DECODE_LISTS_GPU_V2 ? g_mthread_size : d_edges_size);	//For edge lists
-			if (DECODE_CPU)
+			if (decode_cpu)
 				dmem2 = 0;
 
 			dmem3 += sizeof(int) * N_tar << 1;	//Edge list pointers
@@ -609,7 +686,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &compact, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//Values are in correct ranges
@@ -620,7 +697,6 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 	assert (manifold == DE_SITTER || manifold == FLRW);
 	assert (a >= 0.0);
 	assert (tau0 > 0.0);
-	assert (HALF_PI - zeta > 0.0);
 	if (manifold == FLRW) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
@@ -628,10 +704,19 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 		assert (nodes.crd->y() != NULL);
 		assert (nodes.crd->z() != NULL);
 		assert (dim == 3);
-		if (!compact)
-			assert (chi_max > 0.0);
-	} else if (manifold == DE_SITTER)
-		assert (HALF_PI - zeta < HALF_PI);
+		assert (zeta < HALF_PI);
+	} else if (manifold == DE_SITTER) {
+		if (compact) {
+			assert (zeta > 0.0);
+			assert (zeta < HALF_PI);
+		} else {
+			assert (zeta > HALF_PI);
+			assert (zeta1 > HALF_PI);
+			assert (zeta > zeta1);
+		}
+	}
+	if (!compact)
+		assert (r_max > 0.0);
 	#endif
 
 	IntData idata = IntData();
@@ -675,7 +760,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			assert (nodes.crd->x(i) < static_cast<float>(HALF_PI - zeta));
 			#endif
 
-			nodes.id.tau[i] = static_cast<float>(etaToTau(static_cast<double>(nodes.crd->x(i))));
+			nodes.id.tau[i] = static_cast<float>(etaToTauCompact(static_cast<double>(nodes.crd->x(i))));
 		} else if (dim == 3) {
 			nodes.crd->z(i) = static_cast<float>(x);
 
@@ -702,10 +787,18 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 							return false;
 					}
 				} else if (manifold == DE_SITTER) {
-					x = 3.5;
-					p1[0] = zeta;
-					if (!newton(&solveTau, &x, 1000, TOL, p1, NULL, NULL))
-						return false;
+					if (compact) {
+						x = 3.5;
+						p1[0] = zeta;
+						if (!newton(&solveTau, &x, 1000, TOL, p1, NULL, NULL))
+							return false;
+					} else {
+						//In this case the eta distribution is used
+						double eta0 = HALF_PI - zeta;
+						double eta1 = HALF_PI - zeta1;
+						nodes.crd->w(i) = eta0 * POW(1.0 - rval * (1.0 - POW3(eta0 / eta1, EXACT)), -1.0 / 3.0, STL);
+						x = etaToTauFlat(nodes.crd->w(i));
+					}
 				}
 
 				nodes.id.tau[i] = static_cast<float>(x);
@@ -729,14 +822,17 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 				//#if DEBUG 
 				//assert (nodes.crd->w(i) < tauToEtaFLRWExact(tau0, a, alpha));
 				//#endif
-			} else if (manifold == DE_SITTER) {
-				nodes.crd->w(i) = static_cast<float>(tauToEta(static_cast<double>(nodes.id.tau[i])));
+			} else if (manifold == DE_SITTER && compact) {
+				nodes.crd->w(i) = static_cast<float>(tauToEtaCompact(static_cast<double>(nodes.id.tau[i])));
 				#if DEBUG
-				assert (nodes.crd->w(i) < tauToEta(tau0));
+				assert (nodes.crd->w(i) < tauToEtaCompact(tau0));
 				#endif
 			}
 			#if DEBUG
-			assert (nodes.crd->w(i) > 0.0);
+			if (manifold == DE_SITTER && !compact)
+				assert (nodes.crd->w(i) < 0.0);
+			else
+				assert (nodes.crd->w(i) > 0.0);
 			#endif
 				
 			///////////////////////////////////////////////////////
@@ -756,9 +852,9 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 				assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < static_cast<float>(M_PI));
 				#endif
 			} else {
-				nodes.crd->x(i) = static_cast<float>(POW(mrng.rng(), 1.0 / 3.0, APPROX ? FAST : STL) * chi_max);
+				nodes.crd->x(i) = static_cast<float>(POW(mrng.rng(), 1.0 / 3.0, APPROX ? FAST : STL) * r_max);
 				#if DEBUG
-				assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < static_cast<float>(chi_max));
+				assert (nodes.crd->x(i) >= 0.0f && nodes.crd->x(i) <= static_cast<float>(r_max));
 				#endif
 			}
 			//if (i % NPRINT == 0) printf("Theta1: %5.5f\n", nodes.crd->x(i)); fflush(stdout);
@@ -766,7 +862,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			//Sample Theta2 from (0, pi)
 			nodes.crd->y(i) = static_cast<float>(ACOS(1.0 - 2.0 * mrng.rng(), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			#if DEBUG
-			assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));
+			assert (nodes.crd->y(i) >= 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));
 			#endif
 			//if (i % NPRINT == 0) printf("Theta2: %5.5f\n", nodes.crd->y(i)); fflush(stdout);
 		}
@@ -806,7 +902,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//No null pointers
@@ -823,21 +919,28 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	assert (dim == 1 || dim == 3);
 	assert (manifold == DE_SITTER || manifold == FLRW);
 	assert (a > 0.0);
-	assert (HALF_PI - zeta > 0.0);
 	assert (tau0 > 0.0);
-	if (manifold == DE_SITTER)
-		assert (HALF_PI - zeta < HALF_PI);
-	else if (manifold == FLRW) {
+	if (manifold == DE_SITTER) {
+		if (compact) {
+			assert (zeta > 0.0);
+			assert (zeta < HALF_PI);
+		} else {
+			assert (zeta > HALF_PI);
+			assert (zeta1 > HALF_PI);
+			assert (zeta > zeta1);
+		}
+	} else if (manifold == FLRW) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->x() != NULL);
 		assert (nodes.crd->y() != NULL);
 		assert (nodes.crd->z() != NULL);
 		assert (dim == 3);
-		if (!compact)
-			assert (chi_max > 0.0);
+		assert (zeta < HALF_PI);
 		assert (alpha > 0.0);
 	}
+	if (!compact)
+		assert (r_max > 0.0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	#endif
@@ -860,7 +963,7 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 		for (j = i + 1; j < N_tar; j++) {
 			//Apply Causal Condition (Light Cone)
 			//Assume nodes are already temporally ordered
-			related = nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, i, j, NULL);
+			related = nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, i, j, NULL);
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {

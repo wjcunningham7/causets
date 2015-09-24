@@ -137,6 +137,7 @@ struct CaResources {
 //Manifold Types
 enum Manifold {
 	DE_SITTER,
+	DUST,
 	FLRW,
 	HYPERBOLIC
 };
@@ -373,9 +374,10 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : use_gpu(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), /*calc_geodesics(false),*/ validate_embedding(false), validate_distances(false), compact(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), /*calc_geodesics(false),*/ validate_embedding(false), validate_distances(false), compact(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
+	bool decode_cpu;		//Decode edge list using serial sort
 	bool print_network;		//Print to File
 	bool link;			//Link Nodes after Generation
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
@@ -405,7 +407,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), dim(3), manifold(DE_SITTER), a(0.0), zeta(0.0), chi_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()) {}
+	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), dim(3), manifold(DE_SITTER), a(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1) {}
 
 	CausetFlags flags;
 
@@ -424,8 +426,9 @@ struct NetworkProperties {
 
 	double a;			//Hyperboloid Pseudoradius
 	double zeta;			//Pi/2 - Eta_0
+	double zeta1;			//Pi/2 - Eta_1
 
-	double chi_max;			//Size of the Spatial Slice
+	double r_max;			//Size of the Spatial Slice (Radius)
 	double tau0;			//Rescaled Age of Universe
 	double alpha;			//Rescaled Ratio of Matter Density to Dark Energy Density
 	double delta;			//Node Density
@@ -442,6 +445,8 @@ struct NetworkProperties {
 	CausetMPI cmpi;			//MPI Flags
 
 	MersenneRNG mrng;		//Mersenne Twister RNG
+
+	int group_size;			//Number of mega-blocks per grid dimension
 };
 
 //Measured values of the network

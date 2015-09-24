@@ -16,11 +16,11 @@ import sys
 #========================#
 
 # Number of nodes
-n = 2518528
+n = 7440640
 
 # Expected average degree
 # If this is not known beforehand, run ./bin/CausalSet with additional flag --test
-k = 130.431
+k = 272.011
 
 # Buffer used in edge list
 # The default value is +20%
@@ -65,6 +65,9 @@ while mem > glob_mem:
 	mem1 = (40 * mthread_size + m_edges_size) * nbuffers
 	mem2 = 4 * (2 * d_edges_size + g_mthread_size)
 	mem3 = 8 * (n + 2 * block_size)
+	sys.stdout.write('\nmem1: %d\n' % mem1)
+	sys.stdout.write('mem2: %d\n' % mem2)
+	sys.stdout.write('mem3: %d\n' % mem3)
 
 	if mem2 > glob_mem / 4:
 		mem2 = 0

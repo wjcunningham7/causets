@@ -3,7 +3,7 @@
 
 #include "Operations_GPU.h"
 #include "Operations.h"
-#include "Cusp.h"
+//#include "Cusp.h"
 
 /////////////////////////////
 //(C) Will Cunningham 2015 //

@@ -35,15 +35,15 @@ static const double k3[] = { 2.0, 8.0, 14.0, 20.0, 26.0, 32.0, 38.0, 44.0, 50.0,
 
 inline double omegaRegion1(const double &x, const double &lambda, const double &z, double * const err, int * const nterms)
 {
-	if (DEBUG) {
-		assert (err != NULL);
-		assert (nterms != NULL);
-		assert (x >= 0.0 && x <= GEODESIC_LOWER);
-		assert (lambda != 0.0);
-		assert (z != 0.0);
-		assert (*err >= 0.0);
-		assert (!(*err == 0.0 && *nterms == -1));
-	}
+	#if DEBUG
+	assert (err != NULL);
+	assert (nterms != NULL);
+	assert (x >= 0.0 && x <= GEODESIC_LOWER);
+	assert (lambda != 0.0);
+	assert (z != 0.0);
+	assert (*err >= 0.0);
+	assert (!(*err == 0.0 && *nterms == -1));
+	#endif
 
 	double omega = 0.0;
 
@@ -146,30 +146,30 @@ inline double omegaRegion1(const double &x, const double &lambda, const double &
 //Described in [4]
 inline double theta_nm(const int &n, const int &m)
 {
-	if (DEBUG) {
-		assert (n >= 0);
-		assert (m >= 1);
-	}
+	#if DEBUG
+	assert (n >= 0);
+	assert (m >= 1);
+	#endif
 
 	return static_cast<double>(m * M_PI / (2.0 * n + 1.0));
 }
 
 inline double sigma_nm(const int &n, const int &m)
 {
-	if (DEBUG) {
-		assert (n >= 0);
-		assert (m >= 1);
-	}
+	#if DEBUG
+	assert (n >= 0);
+	assert (m >= 1);
+	#endif
 
 	return SQRT(1.0 + POW2(SIN(theta_nm(n, m), APPROX ? FAST : STL), EXACT), STL);
 }
 
 inline double rho_nm(const int &n, const int &m)
 {
-	if (DEBUG) {
-		assert (n >= 0);
-		assert (m >= 1);
-	}
+	#if DEBUG
+	assert (n >= 0);
+	assert (m >= 1);
+	#endif
 
 	return SQRT(1.0 + POW2(COS(theta_nm(n, m), APPROX ? FAST : STL), EXACT), STL);
 }
@@ -177,10 +177,10 @@ inline double rho_nm(const int &n, const int &m)
 //Returns a complex phi for lambda > 0
 inline double2 ellipticPhi(const double &x, const double &lambda)
 {
-	if (DEBUG) {
-		assert (x > 0.0);
-		assert (lambda > 0.0);
-	}
+	#if DEBUG
+	assert (x > 0.0);
+	assert (lambda > 0.0);
+	#endif
 
 	double2 phi;
 	double z = lambda * POW2(POW2(x, EXACT), EXACT);
@@ -193,8 +193,9 @@ inline double2 ellipticPhi(const double &x, const double &lambda)
 	phi.x = -1.0 * ATAN(SQRT(t1 - t2, STL), STL, VERY_HIGH_PRECISION);
 	//printf("phiR: %f\n", phi.x);
 
-	if (DEBUG)
-		assert (phi.x > -1.0 * HALF_PI / 2.0);
+	#if DEBUG
+	assert (phi.x > -1.0 * HALF_PI / 2.0);
+	#endif
 
 	double t3 = 2.0 * a;
 	double t4 = t3 + SQRT(POW2(t3, EXACT) + 1.0, STL);
@@ -203,8 +204,9 @@ inline double2 ellipticPhi(const double &x, const double &lambda)
 	phi.y = 0.5 * LOG(t4 + t5, APPROX ? FAST : STL);
 	//printf("phiI: %f\n", phi.y);
 
-	if (DEBUG)
-		assert (phi.y >= 0.0);
+	#if DEBUG
+	assert (phi.y >= 0.0);
+	#endif
 
 	return phi;
 }
@@ -212,11 +214,11 @@ inline double2 ellipticPhi(const double &x, const double &lambda)
 //xi(phi, tau_m) = arctan(tau_m * tan(phi))
 inline double2 ellipticXi(const double2 &upsilon, const double &tau_nm)
 {
-	if (DEBUG) {
-		assert (upsilon.x <= 0.0);
-		assert (upsilon.y >= 0.0 && upsilon.y < 1.0);
-		assert (tau_nm > 0.0);
-	}
+	#if DEBUG
+	assert (upsilon.x <= 0.0);
+	assert (upsilon.y >= 0.0 && upsilon.y < 1.0);
+	assert (tau_nm > 0.0);
+	#endif
 
 	double2 xi;
 	double a = upsilon.y;
@@ -233,10 +235,10 @@ inline double2 ellipticXi(const double2 &upsilon, const double &tau_nm)
 		xi.x -= HALF_PI;
 	xi.y = 0.25 * LOG((ac2_bc2 + 2.0 * a * c + 1.0) / (ac2_bc2 - 2.0 * a * c + 1.0), STL);
 
-	if (DEBUG) {
-		assert (xi.x < 0.0);
-		assert (xi.y > 0.0);
-	}
+	#if DEBUG
+	assert (xi.x < 0.0);
+	assert (xi.y > 0.0);
+	#endif
 
 	return xi;
 }
@@ -245,10 +247,10 @@ inline double2 ellipticXi(const double2 &upsilon, const double &tau_nm)
 //This form assumes phi is real-valued
 inline double ellipticIntF(const double &phi, const int &n)
 {
-	if (DEBUG) {
-		//assert (phi % HALF_PI != 0.0);
-		assert (n >= 0);
-	}
+	#if DEBUG
+	//assert (phi % HALF_PI != 0.0);
+	assert (n >= 0);
+	#endif
 
 	double f = 0.0;
 	double s;
@@ -272,11 +274,11 @@ inline double ellipticIntF(const double &phi, const int &n)
 //This function returns Re[(1 \pm i) * F_n(phi, i)]
 inline double ellipticIntF_Complex(const double2 &phi, const int &n, const bool &plus)
 {
-	if (DEBUG) {
-		assert (phi.x > -0.25 * M_PI && phi.x <= 0.0);
-		assert (phi.y >= 0.0);
-		assert (n >= 0);
-	}
+	#if DEBUG
+	assert (phi.x > -0.25 * M_PI && phi.x <= 0.0);
+	assert (phi.y >= 0.0);
+	assert (n >= 0);
+	#endif
 
 	double2 upsilon;
 	double2 xi;
@@ -310,10 +312,10 @@ inline double ellipticIntF_Complex(const double2 &phi, const int &n, const bool 
 //This form assumes phi is real-valued
 inline double ellipticIntE(const double &phi, const int &n)
 {
-	if (DEBUG) {
-		//assert (phi % HALF_PI != 0.0);
-		assert (n >= 0);
-	}
+	#if DEBUG
+	//assert (phi % HALF_PI != 0.0);
+	assert (n >= 0);
+	#endif
 
 	double e = 0.0;
 	double t, r;
@@ -337,11 +339,11 @@ inline double ellipticIntE(const double &phi, const int &n)
 //This function returns Re[(1 \pm i) * E_n(phi, i)]
 inline double ellipticIntE_Complex(const double2 &phi, const int &n, const bool &plus)
 {
-	if (DEBUG) {
-		assert (phi.x > -0.25 * M_PI && phi.x <= 0.0);
-		assert (phi.y >= 0.0);
-		assert (n >= 0);
-	}
+	#if DEBUG
+	assert (phi.x > -0.25 * M_PI && phi.x <= 0.0);
+	assert (phi.y >= 0.0);
+	assert (n >= 0);
+	#endif
 
 	double2 upsilon;
 	double2 xi;
@@ -371,14 +373,14 @@ inline double ellipticIntE_Complex(const double2 &phi, const int &n, const bool 
 //Revise this later to simplify elliptic integral calculations
 inline double omegaRegion2a(const double &x, const double &lambda, double * const err, int * const nterms)
 {
-	if (DEBUG) {
-		assert (err != NULL);
-		assert (nterms != NULL);
-		assert (x >= GEODESIC_LOWER && x <= GEODESIC_UPPER);
-		assert (lambda > 0.0);
-		assert (*err >= 0.0);
-		assert (!(*err == 0.0 && *nterms == -1));
-	}
+	#if DEBUG
+	assert (err != NULL);
+	assert (nterms != NULL);
+	assert (x >= GEODESIC_LOWER && x <= GEODESIC_UPPER);
+	assert (lambda > 0.0);
+	assert (*err >= 0.0);
+	assert (!(*err == 0.0 && *nterms == -1));
+	#endif
 
 	double2 phi = ellipticPhi(x, lambda);
 	double elF_plus = ellipticIntF_Complex(phi, *nterms, true);
@@ -406,14 +408,14 @@ inline double omegaRegion2a(const double &x, const double &lambda, double * cons
 //Region 2, Negative Lambda
 inline double omegaRegion2b(const double &x, const double &lambda, double * const err, int * const nterms)
 {
-	if (DEBUG) {
-		assert (err != NULL);
-		assert (nterms != NULL);
-		assert (x >= GEODESIC_LOWER && x <= GEODESIC_UPPER);
-		assert (lambda < 0.0);
-		assert (*err >= 0.0);
-		assert (!(*err == 0.0 && *nterms == -1));
-	}
+	#if DEBUG
+	assert (err != NULL);
+	assert (nterms != NULL);
+	assert (x >= GEODESIC_LOWER && x <= GEODESIC_UPPER);
+	assert (lambda < 0.0);
+	assert (*err >= 0.0);
+	assert (!(*err == 0.0 && *nterms == -1));
+	#endif
 
 	double s = POW(-1.0 * lambda, 0.25, APPROX ? FAST : STL) * x;
 	if (ABS(s - 1.0, STL) < 1.0E-14)
@@ -445,12 +447,12 @@ inline double omegaRegion2b(const double &x, const double &lambda, double * cons
 
 inline long double ln_hnl(const double &x, const double &lambda, const int &l, const int &n)
 {
-	if (DEBUG) {
-		assert (x >= GEODESIC_UPPER);
-		assert (lambda != 0.0);
-		assert (l >= 0 && !(l % 2));
-		assert (n >= 0 && n <= (3 * l) / 2);
-	}
+	#if DEBUG
+	assert (x >= GEODESIC_UPPER);
+	assert (lambda != 0.0);
+	assert (l >= 0 && !(l % 2));
+	assert (n >= 0 && n <= (3 * l) / 2);
+	#endif
 
 	long double t1 = - 1.5L * l - 0.5L;
 	long double t2 = n + t1;
@@ -461,11 +463,11 @@ inline long double ln_hnl(const double &x, const double &lambda, const int &l, c
 
 inline long double ln_fl(const double &x, const double &lambda, const int &l)
 {
-	if (DEBUG) {
-		assert (x >= GEODESIC_UPPER);
-		assert (lambda != 0.0);
-		assert (l >= 0 && !(l % 2));
-	}
+	#if DEBUG
+	assert (x >= GEODESIC_UPPER);
+	assert (lambda != 0.0);
+	assert (l >= 0 && !(l % 2));
+	#endif
 
 	long double t1 = log(tgld(1.5L * l + 1.000001L));
 	long double t2 = -1.5L * l - 0.5L;
@@ -487,11 +489,11 @@ inline long double ln_fl(const double &x, const double &lambda, const int &l)
 //Must multiply by csc((1-3l)pi/2) after taking e^(ln_Fl)
 inline long double ln_Fl(const double &x, const double &lambda, const int &l)
 {
-	if (DEBUG) {
-		assert (x >= GEODESIC_UPPER);
-		assert (lambda != 0.0);
-		assert (l >= 0 && !(l % 2));
-	}
+	#if DEBUG
+	assert (x >= GEODESIC_UPPER);
+	assert (lambda != 0.0);
+	assert (l >= 0 && !(l % 2));
+	#endif
 
 	long double t1 = -1.0L * log(SQRT_PI);
 	long double t2 = -1.5L * l + 0.5L;
@@ -506,15 +508,15 @@ inline long double ln_Fl(const double &x, const double &lambda, const int &l)
 //Calculates the even terms in the series for x, lambda
 inline double omegaRegion3a(const double &x, const double &lambda, const double &z, double * const err, int * const nterms)
 {
-	if (DEBUG) {
-		assert (err != NULL);
-		assert (nterms != NULL);
-		assert (x >= GEODESIC_UPPER);
-		assert (lambda != 0.0);
-		assert (z != 0.0);
-		assert (*err >= 0.0);
-		assert (!(*err == 0.0 && *nterms == -1));
-	}
+	#if DEBUG
+	assert (err != NULL);
+	assert (nterms != NULL);
+	assert (x >= GEODESIC_UPPER);
+	assert (lambda != 0.0);
+	assert (z != 0.0);
+	assert (*err >= 0.0);
+	assert (!(*err == 0.0 && *nterms == -1));
+	#endif
 
 	double omega3a = 0.0;
 
@@ -616,16 +618,16 @@ inline double omegaRegion3a(const double &x, const double &lambda, const double 
 //Note this is used when lambda is large and the Hypergeometric function diverges
 inline double omegaRegion3aDiv(const double &x1, const double &x2, const double &lambda, double * const err, int * const nterms)
 {
-	if (DEBUG) {
-		assert (err != NULL);
-		assert (nterms != NULL);
-		assert (x1 >= GEODESIC_UPPER);
-		assert (x2 >= GEODESIC_UPPER);
-		assert (x2 > x1);
-		assert (lambda != 0.0);
-		assert (*err >= 0.0);
-		assert (!(*err == 0.0 && *nterms == -1));
-	}
+	#if DEBUG
+	assert (err != NULL);
+	assert (nterms != NULL);
+	assert (x1 >= GEODESIC_UPPER);
+	assert (x2 >= GEODESIC_UPPER);
+	assert (x2 > x1);
+	assert (lambda != 0.0);
+	assert (*err >= 0.0);
+	assert (!(*err == 0.0 && *nterms == -1));
+	#endif
 
 	double omega3aD = 0.0;
 
@@ -678,17 +680,17 @@ inline double omegaRegion3aDiv(const double &x1, const double &x2, const double 
 //z should be sqrt(1 + lambda x^4)
 inline double omegaRegion3b(const double * const table, const double &x, const double &lambda, const double &z, double * const err, int * const nterms, const long &size)
 {
-	if (DEBUG) {
-		assert (table != NULL);
-		assert (err != NULL);
-		assert (nterms != NULL);
-		assert (x >= GEODESIC_UPPER);
-		assert (lambda != 0.0);
-		assert (*err >= 0.0);
-		assert (!(*err == 0.0 && *nterms == -1));
-		assert (size > 0L);
-		assert (*nterms <= 100);	//Limit of the lookup table
-	}
+	#if DEBUG
+	assert (table != NULL);
+	assert (err != NULL);
+	assert (nterms != NULL);
+	assert (x >= GEODESIC_UPPER);
+	assert (lambda != 0.0);
+	assert (*err >= 0.0);
+	assert (!(*err == 0.0 && *nterms == -1));
+	assert (size > 0L);
+	assert (*nterms <= 100);	//Limit of the lookup table
+	#endif
 
 	double omega3b = 0.0;
 	int p;
@@ -739,21 +741,21 @@ inline double omegaRegion3b(const double * const table, const double &x, const d
 //Region 3
 inline double omegaRegion3(const double * const table, const double &x1, const double &x2, const double &lambda, const double &z1, const double &z2, double * const err, int * const nterms, const long &size)
 {
-	if (DEBUG) {
-		assert (table != NULL);
-		assert (err != NULL);
-		assert (nterms != NULL);
-		assert (x1 >= GEODESIC_UPPER);
-		assert (x2 >= GEODESIC_UPPER);
-		assert (x2 > x1);
-		assert (lambda != 0.0);
-		assert (z1 != 0.0);
-		assert (z2 != 0.0);
-		assert (*err > 0.0);	
-		assert (!(*err == 0.0 && *nterms == -1));
-		assert (size > 0L);
-		assert (*nterms <= 100);	//Limit of the lookup table
-	}
+	#if DEBUG
+	assert (table != NULL);
+	assert (err != NULL);
+	assert (nterms != NULL);
+	assert (x1 >= GEODESIC_UPPER);
+	assert (x2 >= GEODESIC_UPPER);
+	assert (x2 > x1);
+	assert (lambda != 0.0);
+	assert (z1 != 0.0);
+	assert (z2 != 0.0);
+	assert (*err > 0.0);	
+	assert (!(*err == 0.0 && *nterms == -1));
+	assert (size > 0L);
+	assert (*nterms <= 100);	//Limit of the lookup table
+	#endif
 
 	double omega;
 	double er, final_err;
@@ -801,21 +803,21 @@ inline double omegaRegion3(const double * const table, const double &x1, const d
 //NOTE: x is related to tau by x = sinh(1.5*tau)^(1/3)
 inline double omegaRegionXY(const double * const table, const double &x1, const double &x2, const double &lambda, const double &z1, const double &z2, double * const err, int * const nterms, const long &size)
 {
-	if (DEBUG) {
-		assert (table != NULL);
-		assert (err != NULL);
-		assert (nterms != NULL);
-		assert (x1 >= 0.0);
-		assert (x2 >= 0.0);
-		assert (x2 > x1);
-		assert (lambda != 0.0);
-		assert (z1 != 0.0);
-		assert (z2 != 0.0);
-		assert (*err >= 0.0);
-		assert (!(*err == 0.0 && *nterms == -1));
-		assert (size > 0L);
-		assert (*nterms <= 100);	//Limit of the lookup table for Region 3
-	}
+	#if DEBUG
+	assert (table != NULL);
+	assert (err != NULL);
+	assert (nterms != NULL);
+	assert (x1 >= 0.0);
+	assert (x2 >= 0.0);
+	assert (x2 > x1);
+	assert (lambda != 0.0);
+	assert (z1 != 0.0);
+	assert (z2 != 0.0);
+	assert (*err >= 0.0);
+	assert (!(*err == 0.0 && *nterms == -1));
+	assert (size > 0L);
+	assert (*nterms <= 100);	//Limit of the lookup table for Region 3
+	#endif
 
 	double omega;
 	double z_lower = -1.0 * lambda * POW2(POW2(GEODESIC_LOWER, EXACT), EXACT);
@@ -849,8 +851,9 @@ inline double omegaRegionXY(const double * const table, const double &x1, const 
 //Returns tau_max=f(lambda) with lambda < 0
 inline double geodesicMaxTau(const Manifold &manifold, const double &lambda)
 {
-	if (DEBUG)
-		assert (manifold == DE_SITTER || manifold == FLRW);
+	#if DEBUG
+	assert (manifold == DE_SITTER || manifold == FLRW);
+	#endif
 
 	if (lambda >= 0.0)
 		return 0.0f;
@@ -869,8 +872,9 @@ inline double geodesicMaxTau(const Manifold &manifold, const double &lambda)
 //Returns x_max = f(lambda) with lambda < 0
 inline double geodesicMaxX(const double &lambda)
 {
-	if (DEBUG)
-		assert (lambda < 0.0);
+	#if DEBUG
+	assert (lambda < 0.0);
+	#endif
 
 	return POW(-1.0 * lambda, -0.25, APPROX ? FAST : STL);
 }
@@ -881,20 +885,20 @@ inline double geodesicMaxX(const double &lambda)
 //NOTE: x is related to tau by x = sinh(1.5*tau)^(1/3)
 inline double solveOmega12(const double * const table, const double &x1, const double &x2, const double &lambda, const double &z1, const double &z2, double * const err, int * const nterms, const long &size)
 {
-	if (DEBUG) {
-		assert (table != NULL);
-		assert (err != NULL);
-		assert (nterms != NULL);
-		assert (x1 >= 0.0);
-		assert (x2 >= 0.0);
-		assert (lambda != 0.0);
-		assert (z1 != 0.0);
-		assert (z2 != 0.0);
-		assert (*err >= 0.0);
-		assert (!(*err == 0.0 && *nterms == -1));
-		assert (size > 0L);
-		assert (*nterms <= 100);	//Limit of the lookup table for Region 3
-	}
+	#if DEBUG
+	assert (table != NULL);
+	assert (err != NULL);
+	assert (nterms != NULL);
+	assert (x1 >= 0.0);
+	assert (x2 >= 0.0);
+	assert (lambda != 0.0);
+	assert (z1 != 0.0);
+	assert (z2 != 0.0);
+	assert (*err >= 0.0);
+	assert (!(*err == 0.0 && *nterms == -1));
+	assert (size > 0L);
+	assert (*nterms <= 100);	//Limit of the lookup table for Region 3
+	#endif
 
 	double omega = 0.0;
 	double zm = 1.0;
@@ -918,15 +922,16 @@ inline double solveOmega12(const double * const table, const double &x1, const d
 //For use with GNU Scientific Library
 inline double embeddedZ1(double x, void *params)
 {
-	if (DEBUG) {
-		assert (params != NULL);
-		assert (x >= 0.0);
-	}
+	#if DEBUG
+	assert (params != NULL);
+	assert (x >= 0.0);
+	#endif
 
 	double alpha_tilde = ((double*)params)[0];
 
-	if (DEBUG)
-		assert (alpha_tilde != 0.0);
+	#if DEBUG
+	assert (alpha_tilde != 0.0);
+	#endif
 
 	return SQRT(1.0 + (x / (POW3(alpha_tilde, EXACT) + POW3(x, EXACT))), STL);
 }
@@ -1070,8 +1075,9 @@ inline double deSitterLookupExact(const double &tau, const double &lambda)
 //See how this is called by looking in distance_v2() below
 inline double flrwLookupApprox(double x, void *params)
 {
-	if (DEBUG)
-		assert (x >= 0.0);
+	#if DEBUG
+	assert (x >= 0.0);
+	#endif
 
 	double x4 = POW2(POW2(x, EXACT), EXACT);
 	double x6 = x4 * POW2(x, EXACT);
@@ -1083,10 +1089,10 @@ inline double flrwLookupApprox(double x, void *params)
 // Distance Algorithms //
 //=====================//
 
-//Returns the distance between two nodes in the non-compact FLRW manifold
+//Returns the distance between two nodes in the non-compact K = 0 FLRW manifold
 //Version 2 does not use the lookup table for lambda = f(omega12, tau1, tau2)
 //O(xxx) Efficiency (revise this)
-inline double distanceFLRW(const double * const table, Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const long &size, const bool &compact, int past_idx, int future_idx)
+inline double distanceFLRW(const double * const table, Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const long &size, const bool &compact, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (table != NULL);
@@ -1102,8 +1108,8 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	assert (dim == 3);
 	assert (manifold == FLRW);
 	assert (a > 0.0);
-	assert (HALF_PI - zeta > 0.0);
-	assert (chi_max > 0.0);
+	assert (zeta < HALF_PI);
+	assert (r_max > 0.0);
 	assert (alpha > 0.0);
 	assert (size > 0L);
 	assert (!compact);
@@ -1113,15 +1119,15 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	#endif
 
 	if (future_idx < past_idx) {
-		int tmp = past_idx;
-		past_idx = future_idx;
-		future_idx = tmp;
+		//Bitwise swap
+		past_idx ^= future_idx;
+		future_idx ^= past_idx;
+		past_idx ^= future_idx;
 	}
 
 	IntData idata = IntData();
 	idata.limit = 60;
 	idata.tol = 1.0e-5;
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 	double x1 = pow(sinh(1.5 * tau[past_idx]), 1.0 / 3.0);
 	double x2 = pow(sinh(1.5 * tau[future_idx]), 1.0 / 3.0);
@@ -1129,7 +1135,7 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	double omega12;
 	double lambda;
 
-	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, past_idx, future_idx, &omega12);
 	//printf("dt: %.16e\tdx: %f\n", c->w(future_idx) - c->w(past_idx), omega12);
 	omega12 *= alpha / a;
 
@@ -1149,7 +1155,7 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	}
 
 	//Check if distance is infinite
-	lambda = 0.0;
+	/*lambda = 0.0;
 	idata.lower = x1;
 	idata.upper = 200;
 	double inf_dist = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
@@ -1162,7 +1168,11 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	if (inf_dist != inf_dist || omega12 > inf_dist) {
 		gsl_integration_workspace_free(idata.workspace);
 		return INF;
-	}
+	}*/
+	double inf_dist = 4.0 * tgamma(1.0 / 3.0) * tgamma(7.0 / 6.0) / sqrt(M_PI) - tauToEtaFLRWExact(tau[past_idx], 1.0, 1.0) - tauToEtaFLRWExact(tau[future_idx], 1.0, 1.0);
+	if (omega12 > inf_dist)
+		return INF;
+
 	//printf("inf_dist: %f\n", inf_dist);
 
 	//Use upper or lower branch of the solution
@@ -1171,6 +1181,7 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 
 	idata.lower = x1;
 	idata.upper = x2;
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 	//printf("x2 - x1 = %.8e\n", x2 - x1);
 	double branch_cutoff;
 	if (c->w(future_idx) - c->w(past_idx) > 1.0E-14) {
@@ -1240,7 +1251,7 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	//fflush(stdout);
 
 	double distance;
-	if (!timelike) {
+	if (!timelike && upper_branch) {
 		idata.lower = tau[past_idx];
 		idata.upper = geodesicMaxTau(manifold, lambda);
 		distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
@@ -1279,7 +1290,8 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	return distance;
 }
 
-inline double distanceDeSitter(Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const bool &compact, int past_idx, int future_idx)
+//Returns the geodesic distance for two points on a K = 1 de Sitter manifold
+inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &compact, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (c != NULL);
@@ -1294,16 +1306,18 @@ inline double distanceDeSitter(Coordinates *c, const float * const tau, const in
 	assert (dim == 3);
 	assert (manifold == DE_SITTER);
 	assert (a > 0.0);
-	assert (HALF_PI - zeta > 0.0);
+	assert (zeta > 0.0);
+	assert (zeta < HALF_PI);
 	assert (compact);
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
 	#endif
 
 	if (future_idx < past_idx) {
-		int tmp = past_idx;
-		past_idx = future_idx;
-		future_idx = tmp;
+		//Bitwise swap
+		past_idx ^= future_idx;
+		future_idx ^= past_idx;
+		past_idx ^= future_idx;
 	}
 
 	IntData idata = IntData();
@@ -1312,8 +1326,8 @@ inline double distanceDeSitter(Coordinates *c, const float * const tau, const in
 	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 	double omega12, lambda;
-	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, chi_max, alpha, compact, past_idx, future_idx, &omega12);
-	printf("\ndt: %f\tdx: %f\n", c->w(future_idx) - c->w(past_idx), omega12);
+	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, past_idx, future_idx, &omega12);
+	//printf("\ndt: %f\tdx: %f\n", c->w(future_idx) - c->w(past_idx), omega12);
 
 	//Bisection Method
 	double res = 1.0, tol = 1.0e-5;
@@ -1323,11 +1337,11 @@ inline double distanceDeSitter(Coordinates *c, const float * const tau, const in
 	if (!timelike) {
 		lower = -1.0 / (cosh(tau[future_idx]) * cosh(tau[future_idx]));
 		upper = 0.0;
-		printf("Spacelike.\n");
+		//printf("Spacelike.\n");
 	} else {
 		lower = 0.0;
 		upper = 1000.0;
-		printf("Timelike.\n");
+		//printf("Timelike.\n");
 	}
 
 	//Check if distance is infinite
@@ -1338,10 +1352,10 @@ inline double distanceDeSitter(Coordinates *c, const float * const tau, const in
 	idata.lower = tau[future_idx];
 	inf_dist += integrate1D(&deSitterLookupKernel, (void*)&lambda, &idata, QAGS);
 	if (omega12 > inf_dist) {
-		printf("Distance: Inf\n");
+		//printf("Distance: Inf\n");
 		return INF;
 	}
-	printf("inf_dist: %f\n", inf_dist);
+	//printf("inf_dist: %f\n", inf_dist);
 
 	//Use upper or lower branch of the solution
 	double ml = -1.0 / (cosh(tau[future_idx]) * cosh(tau[future_idx]));
@@ -1350,7 +1364,7 @@ inline double distanceDeSitter(Coordinates *c, const float * const tau, const in
 	idata.lower = tau[past_idx];
 	idata.upper = tau[future_idx];
 	double branch_cutoff = integrate1D(&deSitterLookupKernel, (void*)&ml, &idata, QAGS);
-	printf("Branch cutoff: %f\n", branch_cutoff);
+	//printf("Branch cutoff: %f\n", branch_cutoff);
 	if (!timelike && omega12 > branch_cutoff) 
 		upper_branch = true;
 
@@ -1359,7 +1373,7 @@ inline double distanceDeSitter(Coordinates *c, const float * const tau, const in
 		x0 = (lower + upper) / 2.0;
 		if (!timelike && upper_branch) {
 			mt = acosh(1.0 / sqrt(-1.0 * x0));
-			printf("[0] lambda: %f\tt1: %f\tt2: %f\ttm: %f\n", x0, tau[past_idx], tau[future_idx], mt);
+			//printf("[0] lambda: %f\tt1: %f\tt2: %f\ttm: %f\n", x0, tau[past_idx], tau[future_idx], mt);
 			//res = 2.0 * deSitterLookupExact(mt, x0);
 			idata.lower = tau[past_idx];
 			idata.upper = mt;
@@ -1371,14 +1385,14 @@ inline double distanceDeSitter(Coordinates *c, const float * const tau, const in
 			assert (res == res);
 			//res -= deSitterLookupExact(tau[future_idx], x0);
 			//assert (res == res);
-			printf("\tres = %f\n", res);
+			//printf("\tres = %f\n", res);
 			res -= omega12;
 			if (res < 0.0)
 				lower = x0;
 			else
 				upper = x0;
 		} else {
-			printf("[1] lambda: %f\tt1: %f\tt2: %f\n", x0, tau[past_idx], tau[future_idx]);
+			//printf("[1] lambda: %f\tt1: %f\tt2: %f\n", x0, tau[past_idx], tau[future_idx]);
 			//res = deSitterLookupExact(tau[future_idx], x0);
 			idata.lower = tau[past_idx];
 			idata.upper = tau[future_idx];
@@ -1386,7 +1400,7 @@ inline double distanceDeSitter(Coordinates *c, const float * const tau, const in
 			assert (res == res);
 			//res -= deSitterLookupExact(tau[past_idx], x0);
 			//assert (res == res);
-			printf("\tres = %f\n", res);
+			//printf("\tres = %f\n", res);
 			res -= omega12;
 			if (res > 0.0)
 				lower = x0;
@@ -1397,11 +1411,11 @@ inline double distanceDeSitter(Coordinates *c, const float * const tau, const in
 	}
 	lambda = x0;
 
-	printf("Lambda: %f\n", lambda);
-	fflush(stdout);
+	//printf("Lambda: %f\n", lambda);
+	//fflush(stdout);
 
 	double distance;
-	if (!timelike) {
+	if (!timelike && upper_branch) {
 		idata.lower = tau[past_idx];
 		idata.upper = acosh(1.0 / sqrt(-1.0 * x0));
 		distance = integrate1D(&deSitterDistKernel, (void*)&lambda, &idata, QAGS);
@@ -1414,30 +1428,126 @@ inline double distanceDeSitter(Coordinates *c, const float * const tau, const in
 		distance = integrate1D(&deSitterDistKernel, (void*)&lambda, &idata, QAGS);
 	}
 
-	printf("Distance: %f\n", distance);
-	fflush(stdout);
+	//printf("Distance: %f\n", distance);
+	//fflush(stdout);
 
 	gsl_integration_workspace_free(idata.workspace);
 
 	return distance;
 }
 
+//Returns the geodesic distance for two points on a K = 0 de Sitter manifold
+inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &compact, int past_idx, int future_idx)
+{
+	#if DEBUG
+	assert (c != NULL);
+	assert (!c->isNull());
+	assert (c->getDim() == 4);
+	assert (c->w() != NULL);
+	assert (c->x() != NULL);
+	assert (c->y() != NULL);
+	assert (c->z() != NULL);
+	assert (tau != NULL);
+	assert (N_tar > 0);
+	assert (dim == 3);
+	assert (manifold == DE_SITTER);
+	assert (a > 0.0);
+	assert (zeta > HALF_PI);
+	assert (zeta1 > HALF_PI);
+	assert (zeta > zeta1);
+	assert (!compact);
+	assert (past_idx >= 0 && past_idx < N_tar);
+	assert (future_idx >= 0 && future_idx < N_tar);
+	#endif
+
+	if (future_idx < past_idx) {
+		//Bitwise swap
+		past_idx ^= future_idx;
+		future_idx ^= past_idx;
+		past_idx ^= future_idx;
+	}
+
+	double omega12, lambda;
+	double x1 = tauToEtaFlat(tau[past_idx]);
+	double x2 = tauToEtaFlat(tau[future_idx]);
+	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, past_idx, future_idx, &omega12);
+
+	//Bisection Method
+	double res = 1.0, tol = 1.0e-5;
+	double lower, upper;
+	int iter = 0, max_iter = 10000;
+
+	if (!timelike) {
+		lower = -1.0 * x2 * x2;
+		upper = 0.0;
+	} else {
+		lower = 0.0;
+		upper = 1000.0;
+	}
+
+	//Check if distance is infinite
+	double inf_dist = fabs(x1) + fabs(x2);
+	if (omega12 > inf_dist)
+		return INF;
+
+	//Use upper or lower branch of the solution
+	bool upper_branch = false;
+	double branch_cutoff = sqrt(x1 * x1 - x2 * x2);
+	if (!timelike && omega12 > branch_cutoff)
+		upper_branch = true;
+
+	double x0;
+	while (upper - lower > tol && iter < max_iter) {
+		x0 = (lower + upper) / 2.0;
+		if (!timelike && upper_branch) {
+			res = sqrt(x1 * x1 + x0) + sqrt(x2 * x2 + x0);
+			res -= omega12;
+			if (res < 0.0)
+				lower = x0;
+			else
+				upper = x0;
+		} else {
+			res = sqrt(x1 * x1 + x0) - sqrt(x2 * x2 + x0);
+			res -= omega12;
+			if (res > 0.0)
+				lower = x0;
+			else
+				upper = x0;
+		}
+		iter++;
+	}
+	lambda = x0;
+
+	double distance;
+	if (timelike)
+		distance = asinh(sqrt(lambda) / x1) - asinh(sqrt(lambda) / x2);
+	else {
+		if (upper_branch)
+			distance = asin(sqrt(-lambda) / x1) + asin(sqrt(-lambda) / x2) + M_PI;
+		else
+			distance = asin(sqrt(-lambda) / x1) - asin(sqrt(-lambda) / x2);
+	}
+
+	return distance;
+}
+
+//NOTE: This function is no longer supported or maintained
 //Returns the exact distance between two nodes in 4D
 //Uses a pre-generated lookup table
 //O(xxx) Efficiency (revise this)
 inline double distance_v1(const double * const table, const float4 &node_a, const float tau_a, const float4 &node_b, const float tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const long &size, const bool &compact)
 {
-	if (DEBUG) {
-		assert (manifold == DE_SITTER || manifold == FLRW);
-		if (manifold == FLRW) {
-			assert (table != NULL);
-			assert (alpha > 0.0);
-			assert (size > 0);
-			assert (!compact);
-		}
-		assert (dim == 3);
-		assert (a > 0.0);
+	#if DEBUG
+	assert (manifold == DE_SITTER || manifold == FLRW);
+	if (manifold == FLRW) {
+		assert (table != NULL);
+		assert (alpha > 0.0);
+		assert (size > 0);
+		assert (!compact);
 	}
+	assert (dim == 3);
+	assert (a > 0.0);
+	#endif
 
 	//Check if they are the same node
 	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
@@ -1511,15 +1621,15 @@ inline double distance_v1(const double * const table, const float4 &node_a, cons
 	return distance;
 }
 
-//Returns the embedded distance between two nodes in 5D
+//Returns the embedded distance between two nodes in a 5D embedding
 //O(xxx) Efficiency (revise this)
 inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &dim, const Manifold &manifold, const double &a, const double &alpha, const bool &compact)
 {
-	if (DEBUG) {
-		assert (dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW);
-		assert (compact);
-	}
+	#if DEBUG
+	assert (dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW);
+	//assert (compact);
+	#endif
 
 	//Check if they are the same node
 	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
@@ -1546,7 +1656,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		z0_a = integrate1D(&embeddedZ1, (void*)&alpha_tilde, &idata, QNG);
 		idata.upper = z1_b;
 		z1_b = integrate1D(&embeddedZ1, (void*)&alpha_tilde, &idata, QNG);
-	} else if (manifold == DE_SITTER) {
+	} else if (manifold == DE_SITTER && compact) {
 		z0_a = SINH(tau_a, APPROX ? FAST : STL);
 		z0_b = SINH(tau_b, APPROX ? FAST : STL);
 
@@ -1554,11 +1664,21 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		z1_b = COSH(tau_b, APPROX ? FAST : STL);
 	}
 
-	#if DIST_V2
-	inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
-	#else
-	inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
-	#endif
+	if (manifold == DE_SITTER && !compact) {
+		inner_product_ab = POW2(node_a.w, EXACT) + POW2(node_b.w, EXACT);
+		#if DIST_V2
+		inner_product_ab -= flatProduct_v2(node_a, node_b);
+		#else
+		inner_product_ab -= flatProduct_v1(node_a, node_b);
+		#endif
+		inner_product_ab /= 2.0 * node_a.w * node_b.w;
+	} else {
+		#if DIST_V2
+		inner_product_ab = z1_a * z1_b * sphProduct_v2(node_a, node_b) - z0_a * z0_b;
+		#else
+		inner_product_ab = z1_a * z1_b * sphProduct_v1(node_a, node_b) - z0_a * z0_b;
+		#endif
+	}
 
 	if (manifold == FLRW)
 		inner_product_ab /= POW2(alpha_tilde, EXACT);
@@ -1582,11 +1702,11 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 //O(xxx) Efficiency (revise this)
 inline double distanceH(const float2 &hc_a, const float2 &hc_b, const int &dim, const Manifold &manifold, const double &zeta)
 {
-	if (DEBUG) {
-		assert (dim == 1);
-		assert (manifold == HYPERBOLIC);
-		assert (zeta != 0.0);
-	}
+	#if DEBUG
+	assert (dim == 1);
+	assert (manifold == HYPERBOLIC);
+	assert (zeta != 0.0);
+	#endif
 
 	if (hc_a.x == hc_b.x && hc_a.y == hc_b.y)
 		return 0.0f;

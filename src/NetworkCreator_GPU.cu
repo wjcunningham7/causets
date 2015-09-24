@@ -151,7 +151,7 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -205,7 +205,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	stopwatchStart(&sGenAdjList);
 	#if GEN_ADJ_LISTS_GPU_V2
-	if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, ca, ctx, compact, verbose))
+	if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, compact, verbose))
 		return false;
 	#else
 	if (!generateLists_v1(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, ca, compact, verbose))
@@ -233,16 +233,18 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	//Decode Adjacency Lists
 	stopwatchStart(&sDecodeLists);
-	#if DECODE_CPU
-	if (!decodeListsCPU(edges, h_edges, g_idx))
-		return false;
-	#elif DECODE_LISTS_GPU_V2
-	if (!decodeLists_v2(edges, h_edges, g_idx, d_edges_size, ca, verbose))
-		return false;
-	#else
-	if (!decodeLists_v1(edges, h_edges, g_idx, d_edges_size, ca, verbose))
-		return false;
-	#endif
+	if (decode_cpu) {
+		if (!decodeListsCPU(edges, h_edges, g_idx))
+			return false;
+	} else {
+		#if DECODE_LISTS_GPU_V2
+		if (!decodeLists_v2(edges, h_edges, g_idx, d_edges_size, group_size, ca, verbose))
+			return false;
+		#else
+		if (!decodeLists_v1(edges, h_edges, g_idx, d_edges_size, ca, verbose))
+			return false;
+		#endif
+	}
 	stopwatchStop(&sDecodeLists);
 
 	//Free Host Memory
@@ -328,7 +330,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, CaResources * const ca, const CUcontext &ctx, const bool &compact, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &compact, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -373,7 +375,8 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	bool diag;
 
 	//Thread blocks are grouped into "mega" blocks
-	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * GROUP_SIZE)));
+	//size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * group_size)));
+	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
 	size_t mthread_size = mblock_size * BLOCK_SIZE;
 	size_t m_edges_size = mthread_size * mthread_size;
 
@@ -424,20 +427,26 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	dim3 threads_per_block(1, BLOCK_SIZE, 1);
 	dim3 blocks_per_grid(gridx, gridy, 1);
 
-	size_t final_size = N_tar - mthread_size * (2 * GROUP_SIZE - 1);
+	//size_t final_size = N_tar - mthread_size * (2 * group_size - 1);
+	size_t final_size = N_tar - mthread_size * (group_size - 1);
 	size_t size0, size1;
 
+	printf("group_size: %d\n", group_size);
 	//Index 'i' marks the row and 'j' marks the column
-	for (i = 0; i < 2 * GROUP_SIZE; i++) {
-		for (j = 0; j < 2 * GROUP_SIZE / NBUFFERS; j++) {
+	//for (i = 0; i < 2 * group_size; i++) {
+	for (i = 0; i < group_size; i++) {
+		//for (j = 0; j < 2 * group_size / NBUFFERS; j++) {
+		for (j = 0; j < group_size / NBUFFERS; j++) {
 			for (m = 0; m < NBUFFERS; m++) {
 				if (i > j * NBUFFERS + m)
 					continue;
 
 				diag = (i == j * NBUFFERS + m);
 
-				size0 = (i < 2 * GROUP_SIZE - 1) ? mthread_size : final_size;
-				size1 = (j * NBUFFERS + m < 2 * GROUP_SIZE - 1) ? mthread_size : final_size;
+				//size0 = (i < 2 * group_size - 1) ? mthread_size : final_size;
+				size0 = (i < group_size - 1) ? mthread_size : final_size;
+				//size1 = (j * NBUFFERS + m < 2 * group_size - 1) ? mthread_size : final_size;
+				size1 = (j * NBUFFERS + m < group_size - 1) ? mthread_size : final_size;
 
 				//Clear Device Buffers
 				checkCudaErrors(cuMemsetD32Async(d_k_in[m], 0, mthread_size, stream[m]));
@@ -450,10 +459,10 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 				checkCudaErrors(cuMemcpyHtoDAsync(d_y0[m], nodes.crd->y() + i * mthread_size, sizeof(float) * size0, stream[m]));
 				checkCudaErrors(cuMemcpyHtoDAsync(d_z0[m], nodes.crd->z() + i * mthread_size, sizeof(float) * size0, stream[m]));
 
-				checkCudaErrors(cuMemcpyHtoDAsync(d_w1[m], nodes.crd->w() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * size1, stream[m]));
-				checkCudaErrors(cuMemcpyHtoDAsync(d_x1[m], nodes.crd->x() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * size1, stream[m]));
-				checkCudaErrors(cuMemcpyHtoDAsync(d_y1[m], nodes.crd->y() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * size1, stream[m]));
-				checkCudaErrors(cuMemcpyHtoDAsync(d_z1[m], nodes.crd->z() + (j*NBUFFERS+m) * mthread_size, sizeof(float) * size1, stream[m]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_w1[m], nodes.crd->w() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_x1[m], nodes.crd->x() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_y1[m], nodes.crd->y() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_z1[m], nodes.crd->z() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
 
 				//Execute Kernel
 				GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1, diag, compact);
@@ -546,7 +555,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 }
 
 //Decode past and future edge lists using Bitonic Sort
-bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, CaResources * const ca, const bool &verbose)
+bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &verbose)
 {
 	#if DEBUG
 	assert (edges.past_edges != NULL);
@@ -563,14 +572,14 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 	int cpy_size;
 	int i, j, k;
 
-	size_t g_mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(*g_idx) / (BLOCK_SIZE * GROUP_SIZE)));
+	size_t g_mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(*g_idx) / (BLOCK_SIZE * group_size)));
 	size_t g_mthread_size = g_mblock_size * BLOCK_SIZE;
 
 	//DEBUG
 	/*printf_red();
 	printf("G_IDX:          %d\n", *g_idx);
 	printf("BLOCK_SIZE:     %d\n", BLOCK_SIZE);
-	printf("GROUP_SIZE:     %d\n", GROUP_SIZE);
+	printf("GROUP_SIZE:     %d\n", group_size);
 	printf("G_MBLOCK_SIZE:  %zu\n", g_mblock_size);
 	printf("G_MTHREAD_SIZE: %zu\n", g_mthread_size);
 	printf_std();
@@ -612,7 +621,7 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 	unsigned int gridx_decode = static_cast<unsigned int>(ceil(static_cast<float>(g_mthread_size) / BLOCK_SIZE));
 	dim3 blocks_per_grid_decode(gridx_decode, 1, 1);
 
-	for (i = 0; i < GROUP_SIZE; i++) {
+	for (i = 0; i < group_size; i++) {
 		//Clear Device Buffers
 		checkCudaErrors(cuMemsetD32(d_future_edges, 0, g_mthread_size));
 
@@ -652,7 +661,7 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 	checkCudaErrors(cuMemAlloc(&d_past_edges, sizeof(int) * g_mthread_size));
 	ca->devMemUsed += sizeof(int) * g_mthread_size;
 
-	for (i = 0; i < GROUP_SIZE; i++) {
+	for (i = 0; i < group_size; i++) {
 		//Clear Device Buffers
 		checkCudaErrors(cuMemsetD32(d_past_edges, 0, g_mthread_size));
 

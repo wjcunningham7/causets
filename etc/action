@@ -14,18 +14,17 @@ import math
 import numpy as np
 import sys
 
-if (len(sys.argv) == 1):
-	sys.stdout.write('Must specify max. cardinality.\n')
-	sys.exit(1)
-elif (len(sys.argv) > 2):
+smeared = false
+
+if len(sys.argv) == 1:
+	if sys.argv[1] == 'smeared':
+		smeared = true
+	else:
+		sys.stdout.write('Invalid argument.\n')
+		sys.exit(1)
+elif len(sys.argv) > 1:
 	sys.stdout.write('Too many parameters specified.\n')
 	sys.exit(2)
-
-M = int(sys.argv[1])
-
-if (M < 0):
-	sys.stdout.write('Invalid argument.\n')
-	sys.exit(3)
 
 basedir = ''
 act_files = glob.glob(basedir + 'dat/act/*.cset.act.dat')
@@ -50,9 +49,19 @@ for file in act_files:
 		c_idx += 1
 	h.close()
 	
-	# Right now only works for local action
-	if M == 5:
-		a[a_idx] = float(c[0] - c[1] + 9 * c[2] - 16 * c[3] + 8 * c[4])
+	if smeared:
+		lk = 3.0
+		epsilon = 1.0 / math.pow(lk, 4.0)
+		eps1 = epsilon / (1.0 - epsilon)
+		for i in range(1, c_idx + 1):
+			ni = float(c_idx[i])
+			f = 1.0 - 9.0 * eps1 * ni + 8.0 * eps1 * eps1 * ni * (ni - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * ni * (ni - 1.0) *  (ni - 2.0)
+			f *= math.pow(1.0 - epsilon, ni)
+			a[a_idx] += ni * f
+		a[a_idx] *= math.pow(epsilon, 1.5)
+		a[a_idx] = epsilon * (c_idx + 1.0) - a[a_idx]
+	else:
+		a[a_idx] = (4.0 / math.sqrt(6.0)) * float(c[0] - c[1] + 9 * c[2] - 16 * c[3] + 8 * c[4])
 	a_idx += 1
 
 avg_action = np.mean(a)

@@ -81,7 +81,7 @@ bool measureActionGPU(int *& cardinalities, float &action, const Node &nodes, co
 	#endif
 
 	//cusp::csr_matrix<int,float,cusp::host_memory> csr_host(5,8,12);
-	func1();
+	//func1();
 
 	//Adjacency List Tiles
 	CUdeviceptr d_adj0, d_adj1;

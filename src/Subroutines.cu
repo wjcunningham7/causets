@@ -336,13 +336,14 @@ void swap(const int * const *& list0, const int * const *& list1, int &idx0, int
 	list0 = list1;
 	list1 = tmp_list;
 
-	int tmp = idx0;
-	idx0 = idx1;
-	idx1 = tmp;
+	//Bitwise swaps
+	idx0 ^= idx1;
+	idx1 ^= idx0;
+	idx0 ^= idx1;
 
-	tmp = max0;
-	max0 = max1;
-	max1 = tmp;
+	max0 ^= max1;
+	max1 ^= max0;
+	max0 ^= max1;
 }
 
 //Bisection Method

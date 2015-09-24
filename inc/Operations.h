@@ -54,9 +54,9 @@ inline double tau0Compact(const double &x, const int &N_tar, const double &alpha
 	return SINH(3.0 * x, APPROX ? FAST : STL) - 3.0 * (x + static_cast<double>(N_tar) / (POW2(M_PI, EXACT) * delta * a * POW3(alpha, EXACT)));
 }
 
-inline double tau0Flat(const double &x, const int &N_tar, const double &alpha, const double &delta, const double &a, const double &chi_max)
+inline double tau0Flat(const double &x, const int &N_tar, const double &alpha, const double &delta, const double &a, const double &r_max)
 {
-	return SINH(3.0 * x, APPROX ? FAST : STL) - 3.0 * (x + static_cast<double>(N_tar) / (1.5 * M_PI * delta * a * POW3(alpha * chi_max, EXACT)));
+	return SINH(3.0 * x, APPROX ? FAST : STL) - 3.0 * (x + static_cast<double>(N_tar) / (1.5 * M_PI * delta * a * POW3(alpha * r_max, EXACT)));
 }
 
 inline double tau0Prime(const double &x)
@@ -105,13 +105,13 @@ inline double theta1_Prime4D(const double &x)
 //Used in 1+1 and 3+1 Causets
 inline double solveZeta(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG) {
-		assert (p2 != NULL);
-		assert (p3 != NULL);
-		assert (p2[0] > 0.0f);			//k_tar
-		assert (p3[0] > 0);			//N_tar
-		assert (p3[1] == 1 || p3[1] == 3);	//dim
-	}
+	#if DEBUG
+	assert (p2 != NULL);
+	assert (p3 != NULL);
+	assert (p2[0] > 0.0f);			//k_tar
+	assert (p3[0] > 0);			//N_tar
+	assert (p3[1] == 1 || p3[1] == 3);	//dim
+	#endif
 
 	return ((p3[1] == 1) ?
 		-1.0 * eta02D(x, p3[0], p2[0]) / eta0Prime2D(x) :
@@ -122,13 +122,13 @@ inline double solveZeta(const double &x, const double * const p1, const float * 
 //Used in 1+1 and 3+1 Causets
 inline double solveZetaBisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG) {
-		assert (p2 != NULL);
-		assert (p3 != NULL);
-		assert (p2[0] > 0.0f);			//k_tar
-		assert (p3[0] > 0);			//N_tar
-		assert (p3[1] == 1 || p3[1] == 3);	//dim
-	}
+	#if DEBUG
+	assert (p2 != NULL);
+	assert (p3 != NULL);
+	assert (p2[0] > 0.0f);			//k_tar
+	assert (p3[0] > 0);			//N_tar
+	assert (p3[1] == 1 || p3[1] == 3);	//dim
+	#endif
 
 	return ((p3[1] == 1) ?
 		eta02D(x, p3[0], p2[0]) :
@@ -139,29 +139,29 @@ inline double solveZetaBisec(const double &x, const double * const p1, const flo
 //Used in Universe Causet
 inline double solveTau0Compact(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG) {
-		assert (p1 != NULL);
-		assert (p3 != NULL);
-		assert (p1[0] > 0.0);	//alpha
-		assert (p1[1] > 0.0);	//delta
-		assert (p1[2] > 0.0);	//a
-		assert (p3[0] > 0);	//N_tar
-	}
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p3 != NULL);
+	assert (p1[0] > 0.0);	//alpha
+	assert (p1[1] > 0.0);	//delta
+	assert (p1[2] > 0.0);	//a
+	assert (p3[0] > 0);	//N_tar
+	#endif
 
 	return (-1.0 * tau0Compact(x, p3[0], p1[0], p1[1], p1[2]) / tau0Prime(x));
 }
 
 inline double solveTau0Flat(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG) {
-		assert (p1 != NULL);
-		assert (p3 != NULL);
-		assert (p1[0] > 0.0);	//alpha
-		assert (p1[1] > 0.0);	//delta
-		assert (p1[2] > 0.0);	//a
-		assert (p1[3] > 0.0);	//chi_max
-		assert (p3[0] > 0);	//N_tar
-	}
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p3 != NULL);
+	assert (p1[0] > 0.0);	//alpha
+	assert (p1[1] > 0.0);	//delta
+	assert (p1[2] > 0.0);	//a
+	assert (p1[3] > 0.0);	//r_max
+	assert (p3[0] > 0);	//N_tar
+	#endif
 
 	return (-1.0 * tau0Flat(x, p3[0], p1[0], p1[1], p1[2], p1[3]) / tau0Prime(x));
 }
@@ -170,11 +170,11 @@ inline double solveTau0Flat(const double &x, const double * const p1, const floa
 //Used in 3+1 Causet
 inline double solveTau(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG) {
-		assert (p1 != NULL);
-		assert (p1[0] > 0.0 && p1[0] < HALF_PI);	//zeta
-		assert (p1[1] > 0.0 && p1[1] < 1.0);		//rval
-	}
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0 && p1[0] < HALF_PI);	//zeta
+	assert (p1[1] > 0.0 && p1[1] < 1.0);		//rval
+	#endif
 
 	return (-1.0 * tau4D(x, p1[0], p1[1]) / tauPrime4D(x, p1[0]));
 }
@@ -183,11 +183,11 @@ inline double solveTau(const double &x, const double * const p1, const float * c
 //Used in Universe Causet
 inline double solveTauUniverse(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG) {
-		assert (p1 != NULL);
-		assert (p1[0] > 0.0);			//tau0
-		assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
-	}
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0);			//tau0
+	assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
+	#endif
 
 	return (-1.0 * tauUniverse(x, p1[0], p1[1]) / tauPrimeUniverse(x, p1[0]));
 }
@@ -196,11 +196,11 @@ inline double solveTauUniverse(const double &x, const double * const p1, const f
 //Used in Universe Causet
 inline double solveTauUnivBisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG) {
-		assert (p1 != NULL);
-		assert (p1[0] > 0.0);			//tau0
-		assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
-	}
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0);			//tau0
+	assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
+	#endif
 
 	return tauUniverse(x, p1[0], p1[1]);
 }
@@ -209,10 +209,10 @@ inline double solveTauUnivBisec(const double &x, const double * const p1, const 
 //Used in 3+1 and Universe Causets
 inline double solveTheta1(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
-	if (DEBUG) {
-		assert (p1 != NULL);
-		assert (p1[0] > 0.0 && p1[0] < 1.0);	//rval
-	}
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0 && p1[0] < 1.0);	//rval
+	#endif
 
 	return (-1.0 * theta1_4D(x, p1[0]) / theta1_Prime4D(x));
 }
@@ -225,12 +225,12 @@ inline double solveTheta1(const double &x, const double * const p1, const float 
 
 inline double solveDeltaCompact(const int &N_tar, const double &a, const double &tau0, const double &alpha)
 {
-	if (DEBUG) {
-		assert (N_tar > 0);
-		assert (a > 0.0);
-		assert (tau0 > 0.0);
-		assert (alpha > 0.0);
-	}
+	#if DEBUG
+	assert (N_tar > 0);
+	assert (a > 0.0);
+	assert (tau0 > 0.0);
+	assert (alpha > 0.0);
+	#endif
 
 	double delta;
 	if (tau0 > LOG(MTAU, STL) / 3.0)
@@ -238,42 +238,44 @@ inline double solveDeltaCompact(const int &N_tar, const double &a, const double 
 	else
 		delta = 3.0 * N_tar / (POW2(M_PI, EXACT) * a * POW3(alpha, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
 
-	if (DEBUG)
-		assert (delta > 0.0);
+	#if DEBUG
+	assert (delta > 0.0);
+	#endif
 
 	return delta;
 }
 
-inline double solveDeltaFlat(const int &N_tar, const double &a, const double &chi_max, const double &tau0, const double &alpha)
+inline double solveDeltaFlat(const int &N_tar, const double &a, const double &r_max, const double &tau0, const double &alpha)
 {
-	if (DEBUG) {
-		assert (N_tar > 0);
-		assert (a > 0.0);
-		assert (chi_max > 0.0);
-		assert (tau0 > 0.0);
-		assert (alpha > 0.0);
-	}
+	#if DEBUG
+	assert (N_tar > 0);
+	assert (a > 0.0);
+	assert (r_max > 0.0);
+	assert (tau0 > 0.0);
+	assert (alpha > 0.0);
+	#endif
 
 	double delta;
 	if (tau0 > LOG(MTAU, STL) / 3.0)
-		delta = exp(LOG(9.0 * N_tar / (M_PI * a * POW3(alpha * chi_max, EXACT)), STL) - 3.0 * tau0);
+		delta = exp(LOG(9.0 * N_tar / (M_PI * a * POW3(alpha * r_max, EXACT)), STL) - 3.0 * tau0);
 	else
-		delta = 9.0 * N_tar / (2.0 * M_PI * a * POW3(alpha * chi_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
+		delta = 9.0 * N_tar / (2.0 * M_PI * a * POW3(alpha * r_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
 
-	if (DEBUG)
-		assert (delta > 0.0);
+	#if DEBUG
+	assert (delta > 0.0);
+	#endif
 
 	return delta;
 }
 
 inline int solveNtarCompact(const double &a, const double &tau0, const double &alpha, const double &delta)
 {
-	if (DEBUG) {
-		assert (a > 0.0);
-		assert (tau0 > 0.0);
-		assert (alpha > 0.0);
-		assert (delta > 0.0);
-	}
+	#if DEBUG
+	assert (a > 0.0);
+	assert (tau0 > 0.0);
+	assert (alpha > 0.0);
+	assert (delta > 0.0);
+	#endif
 
 	int N_tar;
 	if (tau0 > LOG(MTAU, STL) / 3.0)
@@ -281,42 +283,44 @@ inline int solveNtarCompact(const double &a, const double &tau0, const double &a
 	else
 		N_tar = static_cast<int>(POW2(M_PI, EXACT) * delta * a * POW3(alpha, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0) / 3.0);
 
-	if (DEBUG)
-		assert (N_tar > 0);
+	#if DEBUG
+	assert (N_tar > 0);
+	#endif
 
 	return N_tar;
 }
 
-inline int solveNtarFlat(const double &a, const double &chi_max, const double &tau0, const double &alpha, const double &delta)
+inline int solveNtarFlat(const double &a, const double &r_max, const double &tau0, const double &alpha, const double &delta)
 {
-	if (DEBUG) {
-		assert (a > 0.0);
-		assert (chi_max > 0.0);
-		assert (tau0 > 0.0);
-		assert (alpha > 0.0);
-		assert (delta > 0.0);
-	}
+	#if DEBUG
+	assert (a > 0.0);
+	assert (r_max > 0.0);
+	assert (tau0 > 0.0);
+	assert (alpha > 0.0);
+	assert (delta > 0.0);
+	#endif
 
 	int N_tar;
 	if (tau0 > LOG(MTAU, STL) / 3.0)
-		N_tar = static_cast<int>(exp(LOG(9.0 / (M_PI * delta * a * POW3(alpha * chi_max, EXACT)), EXACT) - 3.0 * tau0));
+		N_tar = static_cast<int>(exp(LOG(9.0 / (M_PI * delta * a * POW3(alpha * r_max, EXACT)), EXACT) - 3.0 * tau0));
 	else
-		N_tar = static_cast<int>(2.0 * M_PI * delta * a * POW3(alpha * chi_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0) / 9.0);
+		N_tar = static_cast<int>(2.0 * M_PI * delta * a * POW3(alpha * r_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0) / 9.0);
 
-	if (DEBUG)
-		assert (N_tar > 0);
+	#if DEBUG
+	assert (N_tar > 0);
+	#endif
 
 	return N_tar;
 }
 
 inline double solveAlphaCompact(const int &N_tar, const double &a, const double &tau0, const double &delta)
 {
-	if (DEBUG) {
-		assert (N_tar > 0);
-		assert (a > 0.0);
-		assert (tau0 > 0.0);
-		assert (delta > 0.0);
-	}
+	#if DEBUG
+	assert (N_tar > 0);
+	assert (a > 0.0);
+	assert (tau0 > 0.0);
+	assert (delta > 0.0);
+	#endif
 
 	double alpha;
 	if (tau0 > LOG(MTAU, STL) / 3.0)
@@ -324,21 +328,22 @@ inline double solveAlphaCompact(const int &N_tar, const double &a, const double 
 	else
 		alpha = POW(3.0 * N_tar / (POW2(M_PI, EXACT) * delta * a * (SINH(3.0 * tau0, STL) - 3.0 * tau0)), (1.0 / 3.0), STL);
 
-	if (DEBUG)
-		assert (alpha > 0.0);
+	#if DEBUG
+	assert (alpha > 0.0);
+	#endif
 
 	return alpha;
 }
 
-inline double solveAlphaFlat(const int &N_tar, const double &a, const double &chi_max, const double &tau0, const double &delta)
+inline double solveAlphaFlat(const int &N_tar, const double &a, const double &r_max, const double &tau0, const double &delta)
 {
-	if (DEBUG) {
-		assert (N_tar > 0);
-		assert (a > 0.0);
-		assert (chi_max > 0.0);
-		assert (tau0 > 0.0);
-		assert (delta > 0.0);
-	}
+	#if DEBUG
+	assert (N_tar > 0);
+	assert (a > 0.0);
+	assert (r_max > 0.0);
+	assert (tau0 > 0.0);
+	assert (delta > 0.0);
+	#endif
 
 	double alpha;
 	if (tau0 > LOG(MTAU, STL) / 3.0)
@@ -346,8 +351,9 @@ inline double solveAlphaFlat(const int &N_tar, const double &a, const double &ch
 	else
 		alpha = POW(9.0 * N_tar / (2.0 * M_PI * delta * a * (SINH(3.0 * tau0, STL) - 3.0 * tau0)), (1.0 / 3.0), STL);
 
-	if (DEBUG)
-		assert (alpha > 0.0);
+	#if DEBUG
+	assert (alpha > 0.0);
+	#endif
 
 	return alpha;
 }
@@ -438,37 +444,46 @@ inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 //=========================//
 
 //Assumes coordinates have been temporally ordered
-inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &chi_max, const double &alpha, const bool &compact, int past_idx, int future_idx, double *omega12)
+inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &compact, int past_idx, int future_idx, double *omega12)
 {
-	if (DEBUG) {
-		assert (!c->isNull());
-		assert (dim == 1 || dim == 3);
-		assert (manifold == DE_SITTER || manifold == FLRW);
+	#if DEBUG
+	assert (!c->isNull());
+	assert (dim == 1 || dim == 3);
+	assert (manifold == DE_SITTER || manifold == FLRW);
 
-		if (dim == 1)
-			assert (c->getDim() == 2);
-		else if (dim == 3) {
-			assert (c->getDim() == 4);
-			assert (c->w() != NULL);
-			assert (c->z() != NULL);
-		}
-
-		assert (c->x() != NULL);
-		assert (c->y() != NULL);
-
-		assert (N_tar > 0);
-		assert (a > 0.0);
-		assert (HALF_PI - zeta > 0.0);
-		if (manifold == FLRW) {
-			if (!compact)
-				assert (chi_max > 0.0);
-			assert (alpha > 0.0);
-		}
-		
-		assert (past_idx >= 0 && past_idx < N_tar);
-		assert (future_idx >= 0 && future_idx < N_tar);
-		assert (past_idx < future_idx);
+	if (dim == 1)
+		assert (c->getDim() == 2);
+	else if (dim == 3) {
+		assert (c->getDim() == 4);
+		assert (c->w() != NULL);
+		assert (c->z() != NULL);
 	}
+
+	assert (c->x() != NULL);
+	assert (c->y() != NULL);
+
+	assert (N_tar > 0);
+	assert (a > 0.0);
+	if (manifold == DE_SITTER) {
+		if (compact) {
+			assert (zeta > 0.0);
+			assert (zeta < HALF_PI);
+		} else {
+			assert (zeta > HALF_PI);
+			assert (zeta1 > HALF_PI);
+			assert (zeta > zeta1);
+		}
+	} else if (manifold == FLRW) {
+		assert (zeta < HALF_PI);
+		assert (alpha > 0.0);
+	}
+	if (!compact)
+		assert (r_max > 0.0);
+		
+	assert (past_idx >= 0 && past_idx < N_tar);
+	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (past_idx < future_idx);
+	#endif
 
 	float dt = 0.0f, dx = 0.0f;
 
@@ -478,10 +493,13 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 	else if (dim == 3)
 		dt = c->w(future_idx) - c->w(past_idx);
 
-	if (DEBUG) {
-		assert (dt >= 0.0f);
+	#if DEBUG
+	assert (dt >= 0.0f);
+	if (!compact && manifold == DE_SITTER)
+		assert (dt <= zeta - zeta1);
+	else
 		assert (dt <= static_cast<float>(HALF_PI - zeta));
-	}
+	#endif
 
 	//Spatial Interval
 	if (dim == 1)
@@ -489,24 +507,27 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 	else if (dim == 3) {
 		if (compact) {
 			//Spherical Law of Cosines
-			if (DIST_V2)
+			#if DIST_V2
 				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-			else
+			#else
 				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			#endif
 		} else {
 			//Law of Cosines
-			if (DIST_V2)
+			#if DIST_V2
 				dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? BITWISE : STL));
-			else
+			#else
 				dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? BITWISE : STL));
+			#endif
 		}
 	}
 
-	if (compact) {
-		if (DEBUG) assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
-	} else {
-		if (DEBUG) assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(chi_max));
-	}
+	#if DEBUG
+	if (compact)
+		assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
+	else
+		assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(r_max));
+	#endif
 
 	if (omega12 != NULL)
 		*omega12 = dx;
@@ -523,22 +544,44 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 
 //Formulae in de Sitter
 
-//Conformal to Rescaled Time (de Sitter)
-inline double etaToTau(const double eta)
+//Conformal to Rescaled Time (de Sitter compact)
+inline double etaToTauCompact(const double eta)
 {
-	if (DEBUG)
-		assert (eta > 0.0 && eta < HALF_PI);
+	#if DEBUG
+	assert (eta > 0.0 && eta < HALF_PI);
+	#endif
 
 	return ACOSH(1.0 / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 }
 
-//Rescaled to Conformal Time (de Sitter)
-inline double tauToEta(const double tau)
+//Conformal to Rescaled Time (de Sitter flat)
+inline double etaToTauFlat(const double eta)
 {
-	if (DEBUG)
-		assert (tau > 0.0);
+	#if DEBUG
+	assert (eta < 0.0 && -1.0 * eta < HALF_PI);
+	#endif
+
+	return -1.0 * LOG(-1.0 * eta, APPROX ? FAST : STL);
+}
+
+//Rescaled to Conformal Time (de Sitter compact)
+inline double tauToEtaCompact(const double tau)
+{
+	#if DEBUG
+	assert (tau > 0.0);
+	#endif
 
 	return ACOS(1.0 / COSH(tau, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+}
+
+//Rescaled to Conformal Time (de Sitter flat)
+inline double tauToEtaFlat(const double tau)
+{
+	#if DEBUG
+	assert (tau > 0.0);
+	#endif
+
+	return -1.0 * exp(-1.0 * tau);
 }
 
 //Formulae in FLRW
@@ -546,8 +589,9 @@ inline double tauToEta(const double tau)
 //For use with GNU Scientific Library
 inline double tauToEtaFLRW(double tau, void *params)
 {
-	if (DEBUG)
-		assert (tau > 0.0);
+	#if DEBUG
+	assert (tau > 0.0);
+	#endif
 
 	return POW(SINH(1.5 * tau, APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL);
 }
@@ -555,11 +599,11 @@ inline double tauToEtaFLRW(double tau, void *params)
 //'Exact' Solution (Hypergeomtric Series)
 inline double tauToEtaFLRWExact(const double &tau, const double a, const double alpha)
 {
-	if (DEBUG) {
-		assert (tau > 0.0);
-		assert (a > 0.0);
-		assert (alpha > 0.0);
-	}
+	#if DEBUG
+	assert (tau > 0.0);
+	assert (a > 0.0);
+	assert (alpha > 0.0);
+	#endif
 
 	double eta = 0.0;
 
@@ -586,10 +630,10 @@ inline double tauToEtaFLRWExact(const double &tau, const double a, const double 
 
 	eta *= a / alpha;
 
-	if (DEBUG) {
-		assert (eta == eta);
-		assert (eta >= 0.0);
-	}
+	#if DEBUG
+	assert (eta == eta);
+	assert (eta >= 0.0);
+	#endif
 
 	return eta;
 }
@@ -597,18 +641,19 @@ inline double tauToEtaFLRWExact(const double &tau, const double a, const double 
 //Gives Input to 'ctuc' Lookup Table
 inline double etaToTauFLRW(const double &eta, const double &a, const double &alpha)
 {
-	if (DEBUG) {
-		assert (eta > 0.0);
-		assert (a > 0.0);
-		assert (alpha > 0.0);
-	}
+	#if DEBUG
+	assert (eta > 0.0);
+	assert (a > 0.0);
+	assert (alpha > 0.0);
+	#endif
 
 	double g = 9.0 * GAMMA(2.0 / 3.0, STL) * alpha * eta / a;
 	g -= 4.0 * SQRT(3.0, APPROX ? BITWISE : STL) * POW(M_PI, 1.5, STL) / GAMMA(5.0 / 6.0, STL);
 	g /= 3.0 * GAMMA(-1.0 / 3.0, STL);
 
-	if (DEBUG)
-		assert (g > 0.0);
+	#if DEBUG
+	assert (g > 0.0);
+	#endif
 
 	return g;
 }
@@ -617,18 +662,37 @@ inline double etaToTauFLRW(const double &eta, const double &a, const double &alp
 // Average Degree Formulae //
 //=========================//
 
+//Rescaled Average Degree in Flat (K = 0) de Sitter Causet
+
+//This kernel is used in numerical integration
+//This result should be multipled by 4pi*(eta0*eta1)^3/(eta1^3 - eta0^3)
+inline double rescaledDegreeDeSitterFlat(int dim, double x[], double *params)
+{
+	#if DEBUG
+	assert (dim > 0);
+	assert (x[0] < 0.0 && x[0] > -1.0 * HALF_PI);
+	assert (x[1] < 0.0 && x[1] > -1.0 * HALF_PI);
+	#endif
+
+	//Identify x[0] with eta' coordinate
+	//Identify x[1] with eta'' coordinate
+	
+	double t = POW2(POW2(x[0] * x[1], EXACT), EXACT);
+	return ABS(POW3(x[0] - x[1], EXACT), STL) / t;
+}
+
 //Rescaled Average Degree in Non-Compact FLRW Causet
 
 //This is a kernel used in numerical integration
 //Note to get the (non-compact) rescaled average degree this result must still be
-//multiplied by 8pi/3 * (sinh(3tau0)-3tau0)^(-1)
+//multiplied by 8pi / (sinh(3tau0)-3tau0)
 inline double rescaledDegreeFLRW_NC(int dim, double x[], double *params)
 {
-	if (DEBUG) {
-		assert (dim > 0);
-		assert (x[0] > 0.0);
-		assert (x[1] > 0.0);
-	}
+	#if DEBUG
+	assert (dim > 0);
+	assert (x[0] > 0.0);
+	assert (x[1] > 0.0);
+	#endif
 
 	//Identify x[0] with tau' coordinate
 	//Identify x[1] with tau'' coordinate
@@ -673,11 +737,11 @@ inline double xi(double &r)
 //multiplied by 8pi/(sinh(3tau0)-3tau0)
 inline double rescaledDegreeFLRW(int dim, double x[], double *params)
 {
-	if (DEBUG) {
-		assert (dim > 0);
-		assert (x[0] > 0.0);
-		assert (x[1] > 0.0);
-	}
+	#if DEBUG
+	assert (dim > 0);
+	assert (x[0] > 0.0);
+	assert (x[1] > 0.0);
+	#endif
 
 	//Identify x[0] with x coordinate
 	//Identify x[1] with r coordinate
@@ -687,8 +751,9 @@ inline double rescaledDegreeFLRW(int dim, double x[], double *params)
 	z = POW3(ABS(xi(x[0]) - xi(x[1]), STL), EXACT) * POW2(x[0], EXACT) * POW3(x[1], EXACT) * SQRT(x[1], STL);
 	z /= (SQRT(1.0 + 1.0 / POW3(x[0], EXACT), STL) * SQRT(1.0 + POW3(x[1], EXACT), STL));
 
-	if (DEBUG)
-		assert (z > 0.0);
+	#if DEBUG
+	assert (z > 0.0);
+	#endif
 
 	return z;
 }
@@ -699,17 +764,18 @@ inline double rescaledDegreeFLRW(int dim, double x[], double *params)
 //Uses 'ctuc' lookup table
 inline double rescaledScaleFactor(double *table, double size, double eta, double a, double alpha)
 {
-	if (DEBUG) {
-		assert (table != NULL);
-		assert (size > 0.0);
-		assert (eta > 0.0);
-		assert (a > 0.0);
-		assert (alpha > 0.0);
-	}
+	#if DEBUG
+	assert (table != NULL);
+	assert (size > 0.0);
+	assert (eta > 0.0);
+	assert (a > 0.0);
+	assert (alpha > 0.0);
+	#endif
 
 	double g = etaToTauFLRW(eta, a, alpha);
-	if (DEBUG) 
-		assert (g > 0.0);
+	#if DEBUG
+	assert (g > 0.0);
+	#endif
 
 	long l_size = static_cast<long>(size);
 
@@ -730,8 +796,9 @@ inline double rescaledScaleFactor(double *table, double size, double eta, double
 		}
 	}
 	
-	if (DEBUG)
-		assert (tau > 0.0);
+	#if DEBUG
+	assert (tau > 0.0);
+	#endif
 		
 	return POW(SINH(1.5 * tau, APPROX ? FAST : STL), 2.0 / 3.0, APPROX ? FAST : STL);
 }
@@ -741,15 +808,15 @@ inline double rescaledScaleFactor(double *table, double size, double eta, double
 //multipled by (4pi/3)*delta*alpha^4/psi
 inline double averageDegreeFLRW(int dim, double x[], double *params)
 {
-	if (DEBUG) {
-		assert (params != NULL);
-		assert (dim > 0);
-		assert (x[0] > 0.0);
-		assert (x[1] > 0.0);
-		assert (params[0] > 0.0);
-		assert (params[1] > 0.0);
-		assert (params[2] > 0.0);
-	}
+	#if DEBUG
+	assert (params != NULL);
+	assert (dim > 0);
+	assert (x[0] > 0.0);
+	assert (x[1] > 0.0);
+	assert (params[0] > 0.0);
+	assert (params[1] > 0.0);
+	assert (params[2] > 0.0);
+	#endif
 
 	//Identify x[0] with eta'
 	//Identify x[1] with eta''
@@ -764,8 +831,9 @@ inline double averageDegreeFLRW(int dim, double x[], double *params)
 	z *= POW2(POW2(rescaledScaleFactor(&params[3], params[2], x[0], params[0], params[1]), EXACT), EXACT);
 	z *= POW2(POW2(rescaledScaleFactor(&params[3], params[2], x[1], params[0], params[1]), EXACT), EXACT);
 
-	if (DEBUG)
-		assert (z > 0.0);
+	#if DEBUG
+	assert (z > 0.0);
+	#endif
 
 	return z;
 }
@@ -773,10 +841,10 @@ inline double averageDegreeFLRW(int dim, double x[], double *params)
 //For use with GNU Scientific Library
 inline double psi(double eta, void *params)
 {
-	if (DEBUG) {
-		assert (params != NULL);
-		assert (eta > 0.0);
-	}
+	#if DEBUG
+	assert (params != NULL);
+	assert (eta > 0.0);
+	#endif
 
 	//Identify params[0] with a
 	//Identify params[1] with alpha
@@ -793,10 +861,10 @@ inline double psi(double eta, void *params)
 //For use with GNU Scientific Library
 inline double degreeFieldTheory(double eta, void *params)
 {
-	if (DEBUG) {
-		assert (params != NULL);
-		assert (eta > 0.0);
-	}
+	#if DEBUG
+	assert (params != NULL);
+	assert (eta > 0.0);
+	#endif
 
 	//Identify params[0] with eta_m
 	//Identify params[1] with a

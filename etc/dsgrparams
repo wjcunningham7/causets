@@ -4,15 +4,26 @@ import math
 import numpy as np
 import sys
 
-q = 600
+q = 90
+r = 5
 
-omega = 0.91
+omega = 0.993
 #tau0 = 0.8
 tau0 = (2.0 / 3.0) * np.arctanh(math.pow(omega, 0.5))
-eta0 = math.acos(1.0 / math.cosh(tau0))
+eta1 = -1.0
+eta2 = -math.exp(-tau0)
 
-N = int((2.0 * math.pi * math.pi / 3.0) * q * (2.0 + math.cosh(tau0) * math.cosh(tau0)) * math.sinh(tau0))
+#K = 1
+#N = int((2.0 * math.pi * math.pi / 3.0) * q * (2.0 + math.cosh(tau0) * math.cosh(tau0)) * math.sinh(tau0))
 
-sys.stdout.write('N:    %d\n' % N)
-sys.stdout.write('tau0: %f\n' % tau0)
-sys.stdout.write('eta0: %f\n' % eta0)
+#K = 0
+eta13 = math.pow(eta1, 3.0)
+eta23 = math.pow(eta2, 3.0)
+n0 = (4.0 * math.pi / 9.0) * q * math.pow(r, 3.0) * ((eta23 - eta13) / (eta13 * eta23))
+n1 = 256 * int(math.floor(n0 / 256))
+r1 = eta1 * eta2 * math.pow(9.0 * n1 / (4.0 * math.pi * q * (eta23 - eta13)), 1.0 / 3.0)
+
+sys.stdout.write('N:    %d\n' % n1)
+sys.stdout.write('R:    %f\n' % r1)
+#sys.stdout.write('tau0: %f\n' % tau0)
+#sys.stdout.write('eta2: %f\n' % eta2)
