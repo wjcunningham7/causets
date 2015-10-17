@@ -14,15 +14,15 @@ import math
 import numpy as np
 import sys
 
-smeared = false
+smeared = False
 
-if len(sys.argv) == 1:
+if len(sys.argv) == 2:
 	if sys.argv[1] == 'smeared':
-		smeared = true
+		smeared = True
 	else:
 		sys.stdout.write('Invalid argument.\n')
 		sys.exit(1)
-elif len(sys.argv) > 1:
+elif len(sys.argv) > 2:
 	sys.stdout.write('Too many parameters specified.\n')
 	sys.exit(2)
 
@@ -35,17 +35,13 @@ c = []
 for i in range(0,len(act_files)):
 	a.append(0)
 
-# Array of cardinalities (re-used for each sample)
-for i in range(0, M):
-	c.append(0)
-
 a_idx = 0
 for file in act_files:
 	h = open(file)
 	lines = h.readlines()
 	c_idx = 0
 	for line in lines:
-		c[c_idx] = int(line)
+		c.append(int(line))
 		c_idx += 1
 	h.close()
 	
@@ -53,16 +49,19 @@ for file in act_files:
 		lk = 3.0
 		epsilon = 1.0 / math.pow(lk, 4.0)
 		eps1 = epsilon / (1.0 - epsilon)
-		for i in range(1, c_idx + 1):
-			ni = float(c_idx[i])
+		for i in range(1, c_idx):
+			ni = float(c[i])
 			f = 1.0 - 9.0 * eps1 * ni + 8.0 * eps1 * eps1 * ni * (ni - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * ni * (ni - 1.0) *  (ni - 2.0)
 			f *= math.pow(1.0 - epsilon, ni)
 			a[a_idx] += ni * f
 		a[a_idx] *= math.pow(epsilon, 1.5)
 		a[a_idx] = epsilon * (c_idx + 1.0) - a[a_idx]
 	else:
-		a[a_idx] = (4.0 / math.sqrt(6.0)) * float(c[0] - c[1] + 9 * c[2] - 16 * c[3] + 8 * c[4])
+		a[a_idx] = float(c[0] - c[1] + 9 * c[2] - 16 * c[3] + 8 * c[4])
+	a[a_idx] *= 4.0 / math.sqrt(6.0)
+
 	a_idx += 1
+	c = []
 
 avg_action = np.mean(a)
 std_action = np.std(a)

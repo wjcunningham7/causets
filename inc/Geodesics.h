@@ -2,6 +2,7 @@
 #define GEODESICS_H_
 
 #include "Causet.h"
+#include "CuResources.h"
 #include "Operations.h"
 
 #include <boost/math/special_functions/gamma.hpp>
@@ -852,23 +853,23 @@ inline double omegaRegionXY(const double * const table, const double &x1, const 
 inline double geodesicMaxTau(const Manifold &manifold, const double &lambda)
 {
 	#if DEBUG
-	assert (manifold == DE_SITTER || manifold == FLRW);
+	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW);
+	assert (lambda < 0.0);
 	#endif
 
-	if (lambda >= 0.0)
-		return 0.0f;
-
 	if (manifold == FLRW)
-		return (2.0 / 3.0) * ASINH(POW(ABS(lambda, STL), -0.75, STL), STL, VERY_HIGH_PRECISION);
+		return (2.0 / 3.0) * ASINH(POW(-lambda, -0.75, STL), STL, VERY_HIGH_PRECISION);
+	else if (manifold == DUST)
+		return (2.0 / 3.0) * POW(-lambda, -0.75, STL);
 	else if (manifold == DE_SITTER) {
-		double g = POW(ABS(lambda, STL), -0.5, STL);
+		double g = POW(-lambda, -0.5, STL);
 		return g >= 1.0 ? ACOSH(g, STL, VERY_HIGH_PRECISION) : 0.0;
 	}
 
 	return 0.0;
 }
 
-//Maximum X Time in FLRW Geodesic (non-embedded)
+//Maximum X Time in Dust or FLRW Geodesic (non-embedded)
 //Returns x_max = f(lambda) with lambda < 0
 inline double geodesicMaxX(const double &lambda)
 {
@@ -945,7 +946,7 @@ inline double deSitterDistKernel(double x, void *params)
 {
 	#if DEBUG
 	assert (params != NULL);
-	assert (x >= 0);
+	assert (x >= 0.0);
 	#endif
 
 	double *p = (double*)params;
@@ -957,11 +958,26 @@ inline double deSitterDistKernel(double x, void *params)
 	return distance;
 }
 
+inline double dustDistKernel(double x, void *params)
+{
+	#if DEBUG
+	assert (params != NULL);
+	assert (x >= 0.0);
+	#endif
+
+	double lambda = ((double*)params)[0];
+
+	double g43 = lambda * POW(1.5 * x, 4.0 / 3.0, STL);
+	double distance = SQRT(ABS(g43 / (1.0 + g43), STL), STL);
+
+	return distance;
+}
+
 inline double flrwDistKernel(double x, void *params)
 {
 	#if DEBUG
 	assert (params != NULL);
-	assert (x >= 0);
+	assert (x >= 0.0);
 	#endif
 
 	double lambda = ((double*)params)[0];
@@ -1011,6 +1027,23 @@ inline double flrwLookupKernelX(double x, void *params)
 
 	double g = 1.0 + lambda * x4;
 	double omega12 = 1.0 / sqrt(g * (1.0 + x6));
+
+	return omega12;
+}
+
+//x = (1.5*tau)^(4/3)
+//Multiply by 2 afterwards
+inline double dustLookupKernel(double x, void *params)
+{
+	#if DEBUG
+	assert (params != NULL);
+	assert (x >= 0.0);
+	#endif
+
+	double lambda = ((double*)params)[0];
+
+	double x4 = POW2(POW2(x, EXACT), EXACT);
+	double omega12 = 1.0 / SQRT(1.0 + lambda * x4, STL);
 
 	return omega12;
 }
@@ -1155,20 +1188,6 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	}
 
 	//Check if distance is infinite
-	/*lambda = 0.0;
-	idata.lower = x1;
-	idata.upper = 200;
-	double inf_dist = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	if (inf_dist != inf_dist) {
-		gsl_integration_workspace_free(idata.workspace);
-		return INF;
-	}
-	idata.lower = x2;
-	inf_dist += 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	if (inf_dist != inf_dist || omega12 > inf_dist) {
-		gsl_integration_workspace_free(idata.workspace);
-		return INF;
-	}*/
 	double inf_dist = 4.0 * tgamma(1.0 / 3.0) * tgamma(7.0 / 6.0) / sqrt(M_PI) - tauToEtaFLRWExact(tau[past_idx], 1.0, 1.0) - tauToEtaFLRWExact(tau[future_idx], 1.0, 1.0);
 	if (omega12 > inf_dist)
 		return INF;
@@ -1286,6 +1305,194 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 
 	//printf("Distance: %f\n", distance);
 	//fflush(stdout);
+
+	return distance;
+}
+
+//Returns the geodesic distance for two points on a K = 0 dust manifold
+inline double distanceDust(Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &compact, int past_idx, int future_idx)
+{
+	#if DEBUG
+	assert (c != NULL);
+	assert (!c->isNull());
+	assert (c->getDim() == 4);
+	assert (c->w() != NULL);
+	assert (c->x() != NULL);
+	assert (c->y() != NULL);
+	assert (c->z() != NULL);
+	assert (tau != NULL);
+	assert (N_tar > 0);
+	assert (dim == 3);
+	assert (manifold == DUST);
+	assert (a > 0.0);
+	assert (zeta < HALF_PI);
+	assert (r_max > 0.0);
+	assert (alpha > 0.0);
+	assert (!compact);
+	assert (past_idx >= 0 && past_idx < N_tar);
+	assert (future_idx >= 0 && future_idx < N_tar);
+	#endif
+
+	if (future_idx < past_idx) {
+		//Bitwise swap
+		past_idx ^= future_idx;
+		future_idx ^= past_idx;
+		past_idx ^= future_idx;
+	}
+
+	IntData idata = IntData();
+	idata.limit = 60;
+	idata.tol = 1.0e-5;
+
+	double x1 = pow(1.5 * tau[past_idx], 1.0 / 3.0);
+	double x2 = pow(1.5 * tau[future_idx], 1.0 / 3.0);
+	//printf("x1: %.8f\tx2: %.8f\n", x1, x2);
+	double omega12;
+	double lambda;
+
+	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, past_idx, future_idx, &omega12);
+	//printf("dt: %.8f\tdx: %.8f\n", c->w(future_idx) - c->w(past_idx), omega12);
+	omega12 *= alpha / a;
+
+	//Bisection Method
+	double res = 1.0, tol = 1.0E-5;
+	double lower, upper;
+	int iter = 0, max_iter = 10000;
+
+	if (!timelike) {
+		lower = -1.0 / (x2 * x2 * x2 * x2);
+		upper = 0.0;
+		//printf("Spacelike.\n");
+	} else {
+		lower = 0.0;
+		upper = 1000.0;
+		//printf("Timelike.\n");
+	}
+
+	//Use upper or lower branch of the solution
+	bool upper_branch = false;
+
+	//For use with 2F1
+	HyperType ht;
+	double f;
+	double f_err = 1.0E-6;
+	int f_nt;
+
+	double z = POW2(POW2(x1 / x2, EXACT), EXACT);
+	ht = getHyperType(z);
+	f_nt = getNumTerms(ht.w, f_err);
+	
+	//Turning point for \tilde{omega12}
+	double branch_cutoff;
+	switch (ht.type) {
+	case 0:
+		// 0 <= z <= 0.5
+		//printf("Case 0.\n");
+		_2F1(0.25, 0.5, 1.25, ht.w, &f, &f_err, &f_nt, false);
+		branch_cutoff = POW2(GAMMA(0.25, STL), EXACT) * x2/ SQRT(8.0 * M_PI, STL) - 2.0 * x1 * f;
+		break;
+	case 1:
+		// 0.5 < z <= 1
+		//printf("Case 1.\n");
+		_2F1(1.0, 0.75, 1.5, ht.w, &f, &f_err, &f_nt, false);
+		branch_cutoff = x1 * SQRT(ht.w, STL) * f;
+		break;
+	default:
+		//This should never be reached
+		//printf("Default.\n");
+		return NAN;
+	}
+	//printf("Branch cutoff: %.8f\n", branch_cutoff);
+	assert (branch_cutoff == branch_cutoff);
+
+	if (!!branch_cutoff && fabs(omega12 - branch_cutoff) / branch_cutoff < 1.0e-3)
+		omega12 = branch_cutoff;
+	if (!timelike && omega12 > branch_cutoff)
+		upper_branch = true;
+
+	double x0, mx;
+	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+	while (fabs(res) > tol && iter < max_iter) {
+		x0 = (lower + upper) / 2.0;
+		if (upper_branch) {
+			mx = geodesicMaxX(x0);
+			idata.lower = x1;
+			idata.upper = mx;
+			res = integrate1D(&dustLookupKernel, (void*)&x0, &idata, QAGS);
+			//assert (res == res);
+			if (res != res) {
+				gsl_integration_workspace_free(idata.workspace);
+				return INF;
+			}
+			idata.lower = x2;
+			res += integrate1D(&dustLookupKernel, (void*)&x0, &idata, QAGS);
+			//Problem recorded here
+			//assert (res == res);
+			if (res != res) {
+				//printf("x1: %f\tx2: %f\tomega: %f\tcutoff: %f\n", x1, x2, omega12, branch_cutoff);
+				//printf("lower: %f\tupper: %f\n", x2, mx);
+				//printChk();
+				gsl_integration_workspace_free(idata.workspace);
+				return INF;
+			}
+			res *= 2.0;
+			res -= omega12;
+			if (res < 0.0)
+				lower = x0;
+			else
+				upper = x0;
+		} else {
+			idata.lower = x1;
+			idata.upper = x2;
+			res = 2.0 * integrate1D(&dustLookupKernel, (void*)&x0, &idata, QAGS);
+			//assert (res == res);
+			if (res != res) {
+				gsl_integration_workspace_free(idata.workspace);
+				return INF;
+			}
+			res -= omega12;
+			if (res > 0.0)
+				lower = x0;
+			else
+				upper = x0;
+		}
+		iter++;
+	}
+	lambda = x0;
+	//printf("x1: %f\tx2: %f\tlam: %f\tdx: %f\n", x1, x2, lambda, omega12);
+	//printf("tau1: %f\ttau2: %f\n", tau[past_idx], tau[future_idx]);
+
+	double distance;
+	if (upper_branch) {
+		idata.lower = tau[past_idx];
+		idata.upper = geodesicMaxTau(manifold, lambda);
+		distance = integrate1D(&dustDistKernel, (void*)&lambda, &idata, QAGS);
+		//assert (distance == distance);
+		if (distance != distance) {
+			gsl_integration_workspace_free(idata.workspace);
+			return INF;
+		}
+
+		idata.lower = tau[future_idx];
+		distance += integrate1D(&dustDistKernel, (void*)&lambda, &idata, QAGS);
+		//assert (distance == distance);
+		if (distance != distance) {
+			gsl_integration_workspace_free(idata.workspace);
+			return INF;
+		}
+	} else {
+		idata.lower = tau[past_idx];
+		idata.upper = tau[future_idx];
+		distance = integrate1D(&dustDistKernel, (void*)&lambda, &idata, QAGS);
+		//assert (distance == distance);
+		if (distance != distance) {
+			gsl_integration_workspace_free(idata.workspace);
+			return INF;
+		}
+	}
+
+	gsl_integration_workspace_free(idata.workspace);
+	//printf("distance: %f\n\n", distance);
 
 	return distance;
 }
@@ -1496,7 +1703,7 @@ inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, cons
 	if (!timelike && omega12 > branch_cutoff)
 		upper_branch = true;
 
-	double x0;
+	double x0 = 0.0;
 	while (upper - lower > tol && iter < max_iter) {
 		x0 = (lower + upper) / 2.0;
 		if (!timelike && upper_branch) {

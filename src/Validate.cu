@@ -625,10 +625,8 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		fflush(stdout);
 	}
 	
-	#if DEBUG
-	if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
-		return false;
-	#endif
+	//if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
+	//	return false;
 
 	//Print Results
 	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v1.cset.dbg.dat", "out-degrees_GPU_v1.cset.dbg.dat")) return false;
@@ -2240,7 +2238,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 	#if DEBUG
 	assert (!nodes.crd->isNull());
 	assert (dim == 1 || dim == 3);
-	assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
+	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW || manifold == HYPERBOLIC);
 
 	if (manifold == HYPERBOLIC)
 		assert (dim == 1);
@@ -2252,7 +2250,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
-		assert (manifold == DE_SITTER || manifold == FLRW);
+		assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW);
 	}
 
 	assert (nodes.crd->x() != NULL);
@@ -2268,9 +2266,9 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 	//assert (table != NULL);
 
 	assert (N_tar > 0);
-	if (manifold == DE_SITTER || manifold == FLRW) {
+	if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW) {
 		assert (a > 0.0);
-		if (manifold == FLRW) {
+		if (manifold == DUST || manifold == FLRW) {
 			assert (zeta < HALF_PI);
 			assert (alpha > 0.0);
 		} else {
@@ -2303,20 +2301,15 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 	int next;
 	int m;
 
-	if (TRAV_DEBUG) {
-		printf_cyan();
-		printf("Beginning at %d. Looking for %d.\n", source, dest);
-		printf_std();
-		fflush(stdout);
-	}
-
 	//Check if source and destination can be connected by any geodesic
 	if (manifold == DE_SITTER || manifold == FLRW) {
 		if (compact || manifold == DE_SITTER)
 			dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact));
 		else
 			dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, size, compact, idx_a, idx_b);
-	} else if (manifold == HYPERBOLIC)
+	} else if (manifold == DUST)
+		dist = distanceDust(nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, idx_a, idx_b);
+	else if (manifold == HYPERBOLIC)
 		dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 	else
 		return false;
@@ -2327,6 +2320,13 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 	if (dist + 1.0 > INF) {
 		past_horizon = true;
 		return true;
+	}
+
+	if (TRAV_DEBUG) {
+		printf_cyan();
+		printf("Beginning at [%d : %.4f].\tLooking for [%d : %.4f].\n", source, nodes.id.tau[source], dest, nodes.id.tau[dest]);
+		printf_std();
+		fflush(stdout);
 	}
 
 	//While the current location (loc) is not equal to the destination (dest)
@@ -2347,18 +2347,18 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 		//(1) Check past relations
 		for (m = 0; m < nodes.k_in[loc]; m++) {
 			idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
-			if (TRAV_DEBUG) {
+			/*if (TRAV_DEBUG) {
 				printf_cyan();
 				printf("\tConsidering past neighbor %d.\n", idx_a);
 				printf_std();
 				fflush(stdout);
-			}
+			}*/
 
 			//(A) If the current location's past neighbor is the destination, return true
 			if (idx_a == idx_b) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
-					printf("Moving to %d.\n", idx_a);
+					printf("Moving to [%d : %.4f].\n", idx_a, nodes.id.tau[idx_a]);
 					printf_red();
 					printf("SUCCESS\n");
 					printf_std();
@@ -2372,8 +2372,8 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
-					printf("Moving to %d.\n", idx_a);
-					printf("Moving to %d.\n", idx_b);
+					printf("Moving to [%d : %.4f].\n", idx_a, nodes.id.tau[idx_a]);
+					printf("Moving to [%d : %.4f].\n", idx_b, nodes.id.tau[idx_b]);
 					printf_red();
 					printf("SUCCESS\n");
 					printf_std();
@@ -2389,7 +2389,9 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact));
 				else
 					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, size, compact, idx_a, idx_b);
-			} else if (manifold == HYPERBOLIC)
+			} else if (manifold == DUST)
+				dist = distanceDust(nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, idx_a, idx_b);
+			else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 			else
 				return false;
@@ -2408,18 +2410,18 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 		//(2) Check future relations
 		for (m = 0; m < nodes.k_out[loc]; m++) {
 			idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
-			if (TRAV_DEBUG) {
+			/*if (TRAV_DEBUG) {
 				printf_cyan();
 				printf("\tConsidering future neighbor %d.\n", idx_a);
 				printf_std();
 				fflush(stdout);
-			}
+			}*/
 
 			//(D) If the current location's future neighbor is the destination, return true
 			if (idx_a == idx_b) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
-					printf("Moving to %d.\n", idx_a);
+					printf("Moving to [%d : %.4f].\n", idx_a, nodes.id.tau[idx_a]);
 					printf_red();
 					printf("SUCCESS\n");
 					printf_std();
@@ -2433,8 +2435,8 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
-					printf("Moving to %d.\n", idx_a);
-					printf("Moving to %d.\n", idx_b);
+					printf("Moving to [%d : %.4f].\n", idx_a, nodes.id.tau[idx_a]);
+					printf("Moving to [%d : %.4f].\n", idx_b, nodes.id.tau[idx_b]);
 					printf_red();
 					printf("SUCCESS\n");
 					printf_std();
@@ -2450,7 +2452,9 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact));
 				else
 					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, size, compact, idx_a, idx_b);
-			} else if (manifold == HYPERBOLIC)
+			} else if (manifold == DUST)
+				dist = distanceDust(nodes.crd, nodes.id.tau, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, idx_a, idx_b);
+			else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
 			else
 				return false;
@@ -2468,7 +2472,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 
 		if (TRAV_DEBUG && min_dist + 1.0 < INF) {
 			printf_cyan();
-			printf("Moving to %d.\n", next);
+			printf("Moving to [%d : %.4f].\n", next, nodes.id.tau[next]);
 			printf_std();
 			fflush(stdout);
 		}

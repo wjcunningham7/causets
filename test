@@ -6,36 +6,65 @@
 # Northeastern University #
 ###########################
 
+####################################
+# Examples of How to Use CausalSet #
+####################################
+
+# 1+1 de Sitter, spherical foliation
+#./bin/CausalSet --nodes 24586 --age 1.5707577 --dim 1 --compact --link --print
+
+# 3+1 de Sitter, spherical foliation
+#./bin/CausalSet --nodes 65536 --age 1.2 --buffer 0.3 --compact --link --gpu --print
+
+# 3+1 de Sitter, flat foliation
+#./bin/CausalSet --nodes 122880 --age 0.848152 --slice 4.9997 --buffer 0.3 --link --gpu --print
+
+# 3+1 Dust, flat foliation
+#./bin/CausalSet --nodes 10240 --age 0.848152 --alpha 2 --manifold d --link --gpu --print
+
+# 3+1 FLRW, flat foliation
+#./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 3 --manifold f --link --gpu --print
+
+# 1+1 Hyperbolic, reading file 'dat/pos/321.cset.pos.dat'
+#./bin/CausalSet --graph 321 --dim 1 --manifold h --relink --print
+
+########################
+# The Validation Tests #
+########################
+
+# de Sitter Embedding
+#./bin/CausalSet --nodes 20480 --age 1.5 --seed 18100 --buffer 0.3 --compact --link --embedding 100
+
+# de Sitter Distances
+#./bin/CausalSet --nodes 2048 --age 1.2 --seed 18100 --buffer 0.3 --compact --link --gpu --distances 100
+
+# FLRW Distances
+#./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 2 --seed 18100 --manifold f --compact --link --gpu --distances 100
+
+
 #####################################
 # These are experimental parameters #
 #####################################
 
-# Examples of how to run 1+1 de Sitter, 3+1 de Sitter, and 3+1 Flat FLRW
-#./bin/CausalSet --nodes 24586 --age 1.5707577 --dim 1 --link --print --components
-#./bin/CausalSet --nodes 65536 --age 0.8 --alpha 4.6784 --verbose -y --link --gpu
-./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 3 --seed 18100 --manifold f --verbose -y --link --gpu
-
-#./bin/CausalSet --nodes 131072 --age 0.7 --slice 3
-
-# Validation Tests
-#./bin/CausalSet --nodes 20480 --age 1.5 --seed 18100 --buffer 0.3 --link --embedding 100
-#./bin/CausalSet --nodes 2048 --age 1.2 --seed 18100 --buffer 0.3 --compact --link --gpu --distances 100
-#./bin/CausalSet --nodes 131072 --age 0.7 --slice 3 --buffer 0.3 --link --gpu --distances 100
-#./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 2 --seed 18100 --manifold f --compact --link --gpu --distances 100
+./bin/CausalSet --nodes 10240 --age 4.6416 --alpha 1.9996 --manifold d --link --gpu --test
 
 # Greedy Routing
 #./bin/CausalSet --nodes 3513 --age 0.761631 --buffer 0.3 --link --verbose -y --test
-#age=0.993
-#num=7440640
-#rad=4.9999
-#./bin/CausalSet --nodes $num --energy $age --slice $rad --buffer 0.3 --link --verbose -y --gpu --test
-#./bin/CausalSet --nodes 318208 --alpha 5.9991 --energy 0.94 --manifold f --verbose --link --gpu --test
+#energy=0.82
+#num=40704
+#rad=5.9908
+#seed=1444666562
+#./bin/CausalSet --nodes $num --age $age --slice $rad --buffer 0.3 --verbose -y --gpu --link --success 200
+#./bin/CausalSet --nodes $num --energy $energy --alpha $rad --seed $seed --manifold d --link --gpu --success 100000
+#./bin/CausalSet --nodes $num --alpha $rad --age $age --manifold f --verbose -y --link --gpu --success 1000
 #./bin/CausalSet --energy 0.975 --alpha 5.9993 --graph 1440786261 --manifold f --link --verbose -y --success 20000000
 
 # Measure de Sitter Action
-#./bin/CausalSet --graph 111 --age 1.2 --seed 18100 --buffer 0.3 --link --quiet-read --action 5
+#./bin/CausalSet --graph 123 --age 1.2 --seed 18100 --buffer 0.3 --compact --link --quiet-read --action smeared --print
+#./bin/CausalSet --graph 222 --age 0.6 --seed 18100 --buffer 0.3 --compact --link --action smeared --print
+#./bin/CausalSet --graph 333 --age 1.2 --seed 18100 --buffer 0.3 --compact --link
 #for (( i=0; i<=1000; i++ )) ; do
-#./bin/CausalSet --nodes 1048576 --age 1.2 --buffer 0.3 --compact --verbose -y --link --gpu --test
+#./bin/CausalSet --nodes 65536 --age 1.2 --buffer 0.3 --compact --verbose -y --link --gpu --action smeared
 #done
 #./bin/CausalSet --nodes 32768 --age 1.2 --seed 18100 --buffer 0.3 --verbose -y --link --gpu --action 5 --core 1
 

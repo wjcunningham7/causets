@@ -207,9 +207,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				break;
 			//case 'h' is located at the end
 			case 'm':	//Manifold
-				if (!strcmp(optarg, "d"))
+				if (!strcmp(optarg, "s"))
 					network_properties.manifold = DE_SITTER;
-				else if (!strcmp(optarg, "u"))
+				else if (!strcmp(optarg, "d"))
 					network_properties.manifold = DUST;
 				else if (!strcmp(optarg, "f"))
 					network_properties.manifold = FLRW;
@@ -326,14 +326,16 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "CausalSet Options...................\n");
 				printf_mpi(rank, "====================================\n");
 				printf_mpi(rank, "Flag:\t\t\tMeaning:\t\t\tSuggested Values:\n");
-				printf_mpi(rank, "  -A, --action\t\tMeasure Action\t\t\t5\n");
-				printf_mpi(rank, "  -a, --age\t\tRescaled (Conformal) Age of FLRW (de Sitter) Spacetime\t0.85\n");
-				printf_mpi(rank, "      --alpha\t\tSpatial Scaling Parameter\t\t2.0\n");
+				printf_mpi(rank, "  -A, --action\t\tMeasure Action\t\t\tlocal, smeared\n");
+				printf_mpi(rank, "  -a, --age\t\tRescaled (Conformal) Age of\n");
+				printf_mpi(rank, "\t\t\tFLRW (de Sitter) Spacetime\t0.85\n");
+				printf_mpi(rank, "      --alpha\t\tSpatial Scaling/Cutoff\t\t2.0\n");
 				//printf_mpi(rank, "      --autocorr\tCalculate Autocorrelations\n");
 				printf_mpi(rank, "      --benchmark\tBenchmark Algorithms\n");
-				printf_mpi(rank, "  -b, --buffer\t\tEdge Buffer\t\t\t25000\n");
+				printf_mpi(rank, "  -b, --buffer\t\tEdge Buffer\t\t\t0.3\n");
 				printf_mpi(rank, "  -C, --clustering\tMeasure Clustering\n");
 				printf_mpi(rank, "      --compact\t\tUse Compactification\n");
+				printf_mpi(rank, "\t\t\tor Spherical Foliation\n");
 				printf_mpi(rank, "      --components\tMeasure Graph Components\n");
 				printf_mpi(rank, "  -c, --core\t\tCore Edge Fraction\t\t0.01\n");
 				printf_mpi(rank, "  -d, --delta\t\tNode Density\t\t\t10000\n");
@@ -342,7 +344,8 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --embedding\tValidate Embedding\t\t0.01, 10000\n");
 				printf_mpi(rank, "  -e, --energy\t\tDark Energy Density\t\t0.73\n");
 				printf_mpi(rank, "  -F, --fields\t\tMeasure Degree Fields\n");
-				printf_mpi(rank, "      --gen-ds-table\tGenerate de Sitter Geo. Table\n");
+				printf_mpi(rank, "      --gen-ds-table\tGenerate de Sitter\n");
+				printf_mpi(rank, "\t\t\tGeodesic Table\n");
 				printf_mpi(rank, "      --gen-flrw-table\tGenerate FLRW Geodesic Table\n");
 				//printf_mpi(rank, "  -G, --geodesics\tGeodesic Estimator\n");
 				#ifdef CUDA_ENABLED
@@ -351,16 +354,18 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
 				printf_mpi(rank, "  -h, --help\t\tDisplay This Menu\n");
 				printf_mpi(rank, "      --link\t\tLink Nodes to Create Graph\n");
-				printf_mpi(rank, "  -m, --manifold\tManifold\t\t\t[d]e sitter, [f]lrw, [h]yperbolic\n");
+				printf_mpi(rank, "  -m, --manifold\tManifold\t\t\tde [s]itter, [d]ust,\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t[f]lrw, [h]yperbolic\n");
 				printf_mpi(rank, "  -n, --nodes\t\tNumber of Nodes\t\t\t1000, 10000, 100000\n");
 				printf_mpi(rank, "      --print\t\tPrint Results\n");
-				printf_mpi(rank, "      --quiet-read\tIgnore any warnings when reading graph\n");
+				printf_mpi(rank, "      --quiet-read\tIgnore any warnings when\n");
+				printf_mpi(rank, "\t\t\treading graph\n");
 				printf_mpi(rank, "      --read-old-format\tRead Positions in Old Format\n");
 				printf_mpi(rank, "      --relink\t\tIgnore Pre-Existing Links\n");
 				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.01, 10000\n");
 				printf_mpi(rank, "  -s, --seed\t\tRandom Seed\t\t\t18100\n");
 				printf_mpi(rank, "      --slice\t\tSize of Spatial Slice\t\t1.0\n");
-				printf_mpi(rank, "      --test\t\tTest FLRW Parameters\n");
+				printf_mpi(rank, "      --test\t\tTest Parameters Only\n");
 				printf_mpi(rank, "  -v, --verbose\t\tVerbose Output\n");
 				printf_mpi(rank, "  -y\t\t\tSuppress User Queries\n");
 				printf_mpi(rank, "  -z, --zeta\t\tHyperbolic Curvature\t\t1.0\n");
@@ -765,7 +770,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		int i, j;
 		unsigned int e0, e1;
 		unsigned int idx0 = 0, idx1 = 0;
-		unsigned int tmp;
 
 		std::string message;
 		char d[] = " \t";
@@ -788,7 +792,8 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			network->network_properties.cmpi.fail = 1;
 			goto LoadPoint1;
 		}
-		
+	
+		if (network->network_properties.flags.link) {	
 		dataname.str("");
 		dataname.clear();
 		dataname << "./dat/edg/" << network->network_properties.graphID << ".cset.edg.dat";
@@ -801,6 +806,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			message = "Failed to open edge list file!\n";
 			network->network_properties.cmpi.fail = 1;
 			goto LoadPoint1;
+		}
 		}
 
 		#ifdef MPI_ENABLED
@@ -849,7 +855,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			for (i = 0; i < network->network_properties.N_tar; i++) {
 				getline(dataStream, line);
 
-				if (network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == FLRW) {
+				if (network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == DUST || network->network_properties.manifold == FLRW) {
 					if (network->network_properties.dim == 1) {
 						network->nodes.crd->x(i) = atof(strtok((char*)line.c_str(), delimeters));
 						network->nodes.crd->y(i) = atof(strtok(NULL, delimeters));
@@ -861,6 +867,9 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 								network->nodes.crd->w(i) = integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * network->network_properties.a / network->network_properties.alpha;
 							} else
 								network->nodes.crd->w(i) = tauToEtaFLRWExact(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
+						} else if (network->network_properties.manifold == DUST) {
+							network->nodes.id.tau[i] = atof(strtok((char*)line.c_str(), delimeters));
+							network->nodes.crd->w(i) = tauToEtaDust(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
 						} else if (network->network_properties.manifold == DE_SITTER) {
 							network->nodes.crd->w(i) = atof(strtok((char*)line.c_str(), delimeters));
 							network->nodes.id.tau[i] = etaToTauCompact(network->nodes.crd->w(i));
@@ -894,7 +903,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 							network->network_properties.cmpi.fail = 1;
 							goto LoadPoint2;
 						}
-					} else if (network->network_properties.dim == 3 && (network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == FLRW)) {
+					} else if (network->network_properties.dim == 3 && (network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == DUST || network->network_properties.manifold == FLRW)) {
 						if (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > static_cast<float>(HALF_PI - network->network_properties.zeta)) {
 							message = "Invalid value for 'eta' in node position file!\n";
 							network->network_properties.cmpi.fail = 1;
@@ -933,7 +942,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		quicksort(network->nodes, network->network_properties.dim, network->network_properties.manifold, 0, network->network_properties.N_tar - 1);
 
 		//Re-Link Using linkNodes Subroutine
-		if ((network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == FLRW) && network->network_properties.flags.relink) {
+		if ((network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == DUST || network->network_properties.manifold == FLRW) && network->network_properties.flags.relink) {
 			#ifdef CUDA_ENABLED
 			if (network->network_properties.flags.use_gpu) {
 				#if LINK_NODES_GPU_V2
@@ -989,7 +998,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 				e1 = atoi(strtok(NULL, delimeters));
 				//printf("%d %d\n", e0, e1);
 
-				if (network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == FLRW) {
+				if (network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == DUST || network->network_properties.manifold == FLRW) {
 					idx0 = e0;
 					idx1 = e1;
 				} else if (network->network_properties.manifold == HYPERBOLIC) {
@@ -998,9 +1007,9 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 				}
 
 				if (idx1 < idx0) {
-					tmp = idx0;
-					idx0 = idx1;
-					idx1 = tmp;
+					idx0 ^= idx1;
+					idx1 ^= idx0;
+					idx0 ^= idx1;
 				}
 
 				network->nodes.k_in[idx1]++;
@@ -1024,6 +1033,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 				idx1 = key & 0x00000000FFFFFFFF;
 				network->edges.future_edges[i] = idx1;
 				edges[i] = ((uint64_t)idx1) << 32 | ((uint64_t)idx0);
+				//printf("%d %d\n", idx0, idx1);
 			
 				if ((int)idx0 != node_idx) {
 					if (idx0 - node_idx > 1)
@@ -1059,6 +1069,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 					node_idx = idx0;
 				}
 			}
+
 			for (i = idx0 + 1; i < network->network_properties.N_tar; i++)
 				network->edges.past_edge_row_start[i] = -1;
 			printf("\t\tPast Edges Parsed.\n");
@@ -1112,7 +1123,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 				return false;
 		}
 		
-		if (((network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == FLRW) && network->network_properties.flags.relink) || !network->network_properties.flags.link)
+		if (((network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == DUST || network->network_properties.manifold == FLRW) && network->network_properties.flags.relink) || !network->network_properties.flags.link)
 			return true;
 
 		printf_mpi(rank, "\t\tCompleted.\n");
@@ -1164,8 +1175,12 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			sstm << "Dev" << gpuID << "_";
 		else
 			sstm << "CPU_";
-		if (network.network_properties.manifold == FLRW) {
-			sstm << "U";
+		if (network.network_properties.manifold == DUST || network.network_properties.manifold == FLRW) {
+			if (network.network_properties.manifold == DUST)
+				sstm << "D";
+			else if (network.network_properties.manifold == FLRW)
+				sstm << "F";
+
 			if (network.network_properties.flags.compact)
 				sstm << "C_";
 			else
@@ -1174,7 +1189,12 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			sstm << network.network_properties.alpha << "_";
 			sstm << network.network_properties.a << "_";
 			sstm << network.network_properties.delta << "_";
-		} else {
+		} else if (network.network_properties.manifold == DE_SITTER) {
+			sstm << "S";
+			if (network.network_properties.flags.compact)
+				sstm << "C_";
+			else
+				sstm << "F_";
 			sstm << network.network_properties.N_tar << "_";
 			sstm << network.network_properties.k_tar << "_";
 			sstm << network.network_properties.a << "_";
@@ -1209,12 +1229,13 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 
 		bool links_exist = network.network_properties.flags.link || network.network_properties.flags.relink;
 
-		if (network.network_properties.manifold == FLRW) {
+		if (network.network_properties.manifold == DUST || network.network_properties.manifold == FLRW) {
 			outputStream << "\nCauset Initial Parameters:" << std::endl;
 			outputStream << "--------------------------" << std::endl;
 			outputStream << "Number of Nodes (N_tar)\t\t\t" << network.network_properties.N_tar << std::endl;
 			outputStream << "Expected Degrees (k_tar)\t\t" << network.network_properties.k_tar << std::endl;
-			outputStream << "Dark Energy Density (omegaL)\t\t" << network.network_properties.omegaL << std::endl;
+			if (network.network_properties.manifold == FLRW)
+				outputStream << "Dark Energy Density (omegaL)\t\t" << network.network_properties.omegaL << std::endl;
 			outputStream << "Rescaled Age (tau0)\t\t\t" << network.network_properties.tau0 << std::endl;
 			outputStream << "Spatial Scaling (alpha)\t\t\t" << network.network_properties.alpha << std::endl;
 			outputStream << "Temporal Scaling (a)\t\t\t" << network.network_properties.a << std::endl;
@@ -1296,7 +1317,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 
 		outputStream << "\nAlgorithmic Performance:" << std::endl;
 		outputStream << "--------------------------" << std::endl;
-		if (network.network_properties.manifold == FLRW)
+		if (network.network_properties.manifold == DUST || network.network_properties.manifold == FLRW)
 			outputStream << "calcDegrees:\t\t\t\t" << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
 		outputStream << "createNetwork:\t\t\t\t" << cp.sCreateNetwork.elapsedTime << " sec" << std::endl;
 		outputStream << "generateNodes:\t\t\t\t" << cp.sGenerateNodes.elapsedTime << " sec" << std::endl;
@@ -1343,9 +1364,9 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			throw CausetException("Failed to open node position file!\n");
 		dataStream << std::fixed << std::setprecision(9);
 		for (i = 0; i < network.network_properties.N_tar; i++) {
-			if (network.network_properties.manifold == DE_SITTER || network.network_properties.manifold == FLRW) {
+			if (network.network_properties.manifold == DE_SITTER || network.network_properties.manifold == DUST || network.network_properties.manifold == FLRW) {
 				if (network.network_properties.dim == 3) {
-					if (network.network_properties.manifold == FLRW)
+					if (network.network_properties.manifold == DUST || network.network_properties.manifold == FLRW)
 						dataStream << network.nodes.id.tau[i];
 					else if (network.network_properties.manifold == DE_SITTER)
 						dataStream << network.nodes.crd->w(i);
@@ -1626,7 +1647,7 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 	int rank = network->network_properties.cmpi.rank;
 	bool links_exist = network->network_properties.flags.link || network->network_properties.flags.relink;
 
-	if (network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == FLRW) {
+	if (network->network_properties.manifold == DE_SITTER || network->network_properties.manifold == DUST || network->network_properties.manifold == FLRW) {
 		free(network->nodes.id.tau);
 		network->nodes.id.tau = NULL;
 		hostMemUsed -= sizeof(float) * network->network_properties.N_tar;

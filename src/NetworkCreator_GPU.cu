@@ -298,10 +298,8 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		fflush(stdout);
 	}
 
-	#if DEBUG
-	if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
-		return false;
-	#endif
+	//if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
+	//	return false;
 
 	//Print Results
 	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
@@ -377,7 +375,8 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	//Thread blocks are grouped into "mega" blocks
 	//size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * group_size)));
 	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
-	size_t mthread_size = mblock_size * BLOCK_SIZE;
+	//size_t mthread_size = mblock_size * BLOCK_SIZE;
+	size_t mthread_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / group_size));
 	size_t m_edges_size = mthread_size * mthread_size;
 
 	//Create Streams
@@ -431,7 +430,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	size_t final_size = N_tar - mthread_size * (group_size - 1);
 	size_t size0, size1;
 
-	printf("group_size: %d\n", group_size);
+	//printf("group_size: %d\n", group_size);
 	//Index 'i' marks the row and 'j' marks the column
 	//for (i = 0; i < 2 * group_size; i++) {
 	for (i = 0; i < group_size; i++) {
@@ -447,6 +446,9 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 				size0 = (i < group_size - 1) ? mthread_size : final_size;
 				//size1 = (j * NBUFFERS + m < 2 * group_size - 1) ? mthread_size : final_size;
 				size1 = (j * NBUFFERS + m < group_size - 1) ? mthread_size : final_size;
+
+				//printf("\nsize0: %zd\n", size0);
+				//printf("size1: %zd\n", size1);
 
 				//Clear Device Buffers
 				checkCudaErrors(cuMemsetD32Async(d_k_in[m], 0, mthread_size, stream[m]));

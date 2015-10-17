@@ -449,7 +449,7 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 	#if DEBUG
 	assert (!c->isNull());
 	assert (dim == 1 || dim == 3);
-	assert (manifold == DE_SITTER || manifold == FLRW);
+	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW);
 
 	if (dim == 1)
 		assert (c->getDim() == 2);
@@ -548,7 +548,7 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 inline double etaToTauCompact(const double eta)
 {
 	#if DEBUG
-	assert (eta > 0.0 && eta < HALF_PI);
+	assert (eta >= 0.0 && eta < HALF_PI);
 	#endif
 
 	return ACOSH(1.0 / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
@@ -581,7 +581,33 @@ inline double tauToEtaFlat(const double tau)
 	assert (tau > 0.0);
 	#endif
 
-	return -1.0 * exp(-1.0 * tau);
+	return -exp(-tau);
+}
+
+//Formulae for Dust
+
+//Conformal to Rescaled Time (Dust)
+inline double etaToTauDust(const double eta, const double a, const double alpha)
+{
+	#if DEBUG
+	assert (eta > 0.0);
+	assert (a > 0.0);
+	assert (alpha > 0.0);
+	#endif
+
+	return POW3(eta * alpha / a, EXACT) / 12.0;
+}
+
+//Rescaled to Conformal Time (Dust)
+inline double tauToEtaDust(const double tau, const double a, const double alpha)
+{
+	#if DEBUG
+	assert (tau > 0.0);
+	assert (a > 0.0);
+	assert (alpha > 0.0);
+	#endif
+
+	return POW(12.0 * tau, 1.0 / 3.0, STL) * a / alpha;
 }
 
 //Formulae in FLRW
@@ -679,6 +705,25 @@ inline double rescaledDegreeDeSitterFlat(int dim, double x[], double *params)
 	
 	double t = POW2(POW2(x[0] * x[1], EXACT), EXACT);
 	return ABS(POW3(x[0] - x[1], EXACT), STL) / t;
+}
+
+//Rescaled Average Degree in Dusty Causet
+//This result should be multiplied by (108pi / tau0^3)
+inline double rescaledDegreeDust(int dim, double x[], double *params)
+{
+	#if DEBUG
+	assert (dim > 0);
+	assert (x[0] > 0.0);
+	assert (x[1] > 0.0);
+	#endif
+
+	//Identify x[0] with the tau' coordinate
+	//Identify x[1] with the tau'' coordinate
+	
+	double h1 = x[0] * x[1];
+	double h2 = ABS(POW(x[0], 1.0 / 3.0, STL) - POW(x[1], 1.0 / 3.0, STL), STL);
+
+	return POW2(h1, EXACT) * POW3(h2, EXACT);
 }
 
 //Rescaled Average Degree in Non-Compact FLRW Causet

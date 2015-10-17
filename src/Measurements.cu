@@ -243,7 +243,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	#if DEBUG
 	assert (!nodes.crd->isNull());
 	assert (dim == 1 || dim == 3);
-	assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
+	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW || manifold == HYPERBOLIC);
 
 	if (manifold == HYPERBOLIC)
 		assert (dim == 1);
@@ -255,7 +255,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
-		assert (manifold == DE_SITTER || manifold == FLRW);
+		assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW);
 	}
 
 	assert (nodes.crd->x() != NULL);
@@ -269,7 +269,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 
 	assert (N_tar > 0);
 	assert (N_sr > 0 && N_sr <= ((uint64_t)N_tar * (N_tar - 1)) >> 1);
-	if (manifold == FLRW)
+	if (manifold == DUST || manifold == FLRW)
 		assert (alpha > 0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
@@ -338,10 +338,25 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		return false;
 	ca->hostMemUsed += size;
 
-	//DEBUG
 	//validateDistApprox(nodes, edges, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact);
 	//printChk();
-	//END DEBUG
+
+	/*int idx0 = 0, idx1 = 0;
+	for (int i = 0; i < N_tar; i++) {
+		if (fabs(nodes.crd->y(i) - 0.01) < 1E-9)
+			idx0 = i;
+		if (fabs(nodes.crd->y(i) - HALF_PI / 12.0) < 1E-6)
+			idx1 = i;
+	}
+	double omega12;
+	nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, idx0, idx1, &omega12);
+	printf("omega12: %f\n", omega12);
+	bool s = false, p = false;
+	if (!traversePath_v1(nodes, edges, core_edge_exists, &used[0], table, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, size, compact, idx0, idx1, s, p))
+		return false;
+	printf("success: %d\n", (int)s);
+	printf("past hz: %d\n", (int)p);
+	printChk();*/
 
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -860,11 +875,6 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 			assert (HALF_PI > 0.0);
 			assert (HALF_PI < HALF_PI);
 		} else {
-			//assert (HALF_PI - zeta < 0.0);
-			//assert (HALF_PI - zeta > -1.0 * HALF_PI);
-			//assert (HALF_PI - zeta1 < 0.0);
-			//assert (HALF_PI - zeta1 > -1.0 * HALF_PI);
-			//assert (zeta > zeta1);
 			assert (zeta > HALF_PI);
 			assert (zeta1 > HALF_PI);
 			assert (zeta > zeta1);
@@ -1074,7 +1084,6 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	//assert (dim == 1 || dim == 3);
 	assert (dim == 3);			//Add 1+1 de Sitter later!
 	assert (manifold == DE_SITTER);
 
