@@ -427,7 +427,7 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &dim, const Man
 				if (manifold == DUST) {
 					double kappa = integrate2D(&rescaledDegreeDust, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
 					kappa *= 108 * M_PI / POW3(tau0, EXACT);
-					//printf("kappa: %.8e\n", kappa);
+					printf("kappa: %.8e\n", kappa);
 					k_tar = (N_tar * kappa) / (M_PI * POW3(alpha * r_max * tau0, EXACT));
 				} else if (manifold == FLRW) {
 					double kappa = integrate2D(&rescaledDegreeFLRW_NC, 0.0, 0.0, tau0, tau0, NULL, seed, 0);

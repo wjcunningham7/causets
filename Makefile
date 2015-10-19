@@ -33,7 +33,7 @@ ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
 CUDA_SDK_PATH 	?= /shared/apps/cuda7.0/samples
 CUDA_HOME 	?= /shared/apps/cuda7.0
 else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
-CUDA_SDK_PATH	?= /usr/local/cuda-5.0/samples
+CUDA_SDK_PATH	?= /usr/local/cuda-7.5/samples
 CUDA_HOME	?= /usr/local/cuda
 else
 $(error Cannot find CUDA directories!)

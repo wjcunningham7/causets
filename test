@@ -46,7 +46,9 @@
 # These are experimental parameters #
 #####################################
 
-./bin/CausalSet --nodes 10240 --age 4.6416 --alpha 1.9996 --manifold d --link --gpu --test
+for (( i=0; i<=10; i++ )) ; do
+./bin/CausalSet --nodes 26624 --age 0.2154 --alpha 2.9941 --manifold d --link --gpu --verbose -y --print --success 26624
+done
 
 # Greedy Routing
 #./bin/CausalSet --nodes 3513 --age 0.761631 --buffer 0.3 --link --verbose -y --test

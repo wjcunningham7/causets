@@ -4,10 +4,10 @@ import math
 import numpy as np
 import sys
 
-k = 20
-tau0 = 4.6416
-alpha = 15.5
-kappa = 6.82491865e+01
+k = 10
+tau0 = 0.2154
+alpha = float(sys.argv[1])
+kappa = 3.16526029e-04
 
 omega = math.pow(math.tanh(1.5*tau0), 2)
 q = k / kappa
