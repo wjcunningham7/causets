@@ -794,24 +794,27 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		}
 	
 		if (network->network_properties.flags.link) {	
-		dataname.str("");
-		dataname.clear();
-		dataname << "./dat/edg/" << network->network_properties.graphID << ".cset.edg.dat";
-		dataStream.open(dataname.str().c_str());
-		if (dataStream.is_open()) {
-			while(getline(dataStream, line))
-				N_edg++;
-			dataStream.close();
-		} else {
-			message = "Failed to open edge list file!\n";
-			network->network_properties.cmpi.fail = 1;
-			goto LoadPoint1;
-		}
+			dataname.str("");
+			dataname.clear();
+			dataname << "./dat/edg/" << network->network_properties.graphID << ".cset.edg.dat";
+			dataStream.open(dataname.str().c_str());
+			if (dataStream.is_open()) {
+				while(getline(dataStream, line))
+					N_edg++;
+				dataStream.close();
+			} else {
+				message = "Failed to open edge list file!\n";
+				network->network_properties.cmpi.fail = 1;
+				goto LoadPoint1;
+			}
 		}
 
 		#ifdef MPI_ENABLED
 		}
-		#endif 
+		#endif
+
+		//printf("Number of Nodes: %d\n", network->network_properties.N_tar);
+		//printf("Number of Edges: %d\n", N_edg);
 
 		LoadPoint1:
 		if (checkMpiErrors(network->network_properties.cmpi)) {
@@ -1011,6 +1014,9 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 					idx1 ^= idx0;
 					idx0 ^= idx1;
 				}
+
+				assert (idx0 < network->network_properties.N_tar);
+				assert (idx1 < network->network_properties.N_tar);
 
 				network->nodes.k_in[idx1]++;
 				network->nodes.k_out[idx0]++;

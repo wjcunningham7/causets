@@ -1191,6 +1191,8 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	finish = start + mpi_chunk;
 	#endif
 
+	int num = 0;
+
 	if (max_cardinality == 1)
 		goto ActionExit;
 
@@ -1207,6 +1209,11 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
+
+		if (i == j)
+			continue;
+		num++;
+		printf("i: %d\tj: %d\n", i, j);
 
 		int elements = 0;
 		bool too_many = false;
@@ -1258,6 +1265,8 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 		if (!too_many)
 			cardinalities[omp_get_thread_num()*max_cardinality+elements+1]++;
 	}
+
+	printf("Num: %d\n", num);
 
 	//Reduction used when OpenMP has been used
 	for (m = 1; m < omp_get_max_threads(); m++)

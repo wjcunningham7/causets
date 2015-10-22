@@ -46,9 +46,8 @@
 # These are experimental parameters #
 #####################################
 
-for (( i=0; i<=10; i++ )) ; do
-./bin/CausalSet --nodes 26624 --age 0.2154 --alpha 2.9941 --manifold d --link --gpu --verbose -y --print --success 26624
-done
+# Study Dust Manifold
+#./bin/CausalSet --nodes 26624 --age 0.2154 --alpha 2.9941 --manifold d --link --gpu
 
 # Greedy Routing
 #./bin/CausalSet --nodes 3513 --age 0.761631 --buffer 0.3 --link --verbose -y --test
@@ -64,9 +63,9 @@ done
 # Measure de Sitter Action
 #./bin/CausalSet --graph 123 --age 1.2 --seed 18100 --buffer 0.3 --compact --link --quiet-read --action smeared --print
 #./bin/CausalSet --graph 222 --age 0.6 --seed 18100 --buffer 0.3 --compact --link --action smeared --print
-#./bin/CausalSet --graph 333 --age 1.2 --seed 18100 --buffer 0.3 --compact --link
+#./bin/CausalSet --graph 333 --age 1.2 --seed 18100 --buffer 0.3 --compact --link --action smeared --print
 #for (( i=0; i<=1000; i++ )) ; do
-#./bin/CausalSet --nodes 65536 --age 1.2 --buffer 0.3 --compact --verbose -y --link --gpu --action smeared
+./bin/CausalSet --nodes 1024 --age 0.5 --buffer 0.3 --compact --test
 #done
 #./bin/CausalSet --nodes 32768 --age 1.2 --seed 18100 --buffer 0.3 --verbose -y --link --gpu --action 5 --core 1
 
