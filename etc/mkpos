@@ -1,0 +1,8 @@
+#!/bin/bash
+
+n=$1
+gid=$2
+
+for (( i=0 ; i<${n} ; i++ )) ; do
+echo "0 0 0 0" >> dat/pos/$2.cset.pos.dat
+done

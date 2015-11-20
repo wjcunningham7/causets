@@ -85,7 +85,7 @@ MPIFLAGS2	:=
 # OpenMP or MPI Acceleration #
 ##############################
 
-USE_OMP		:= 0
+USE_OMP		:= 1
 USE_MPI		:= 0
 
 ifneq ($(USE_OMP), 0)
@@ -235,7 +235,7 @@ cleanlog :
 	@ rm -f causet.log
 
 cleanscratch :
-	@ rm -rf /scratch/cunningham
+	@ rm -rf /scratch/cunningham/*
 
 cleandata :
 	@ rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/emb/*.cset.emb.dat $(DATDIR)/emb/tn/*.cset.emb_fn.dat $(DATDIR)/emb/fp/*.cset.emb_fp.dat $(ETCDIR)/data_keys.cset.key $(DATDIR)/ref/*.ref $(DATDIR)/idf/*.cset.idf.dat $(DATDIR)/odf/*.cset.odf.dat $(DATDIR)/act/*.cset.act.dat

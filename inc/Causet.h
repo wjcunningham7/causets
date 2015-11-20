@@ -374,7 +374,7 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), /*calc_geodesics(false),*/ validate_embedding(false), validate_distances(false), compact(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), /*calc_geodesics(false),*/ validate_embedding(false), validate_distances(false), symmetric(false), compact(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
 	bool decode_cpu;		//Decode edge list using serial sort
@@ -398,6 +398,7 @@ struct CausetFlags {
 	bool validate_embedding;	//Find Embedding Statistics
 	bool validate_distances;	//Compare Distance Methods
 	
+	bool symmetric;			//Symmetric temporal patch in closed de Sitter
 	bool compact;			//Use Compactification of theta1 Coordinate
 	bool verbose;			//Verbose Output
 	bool bench;			//Benchmark Algorithms

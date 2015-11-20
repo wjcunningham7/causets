@@ -516,16 +516,15 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	return true;
 }
 
-//NOTE: This function has not been maintained and is not intended for use
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
-//O(xxx) Efficiency (revise this)
+//Uses version 2 of the algorithm - spatial distances instead of geodesics
 bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
 	assert (dim == 1 || dim == 3);
-	assert (manifold == DE_SITTER || manifold == FLRW || manifold == HYPERBOLIC);
+	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW || manifold == HYPERBOLIC);
 
 	if (manifold == HYPERBOLIC)
 		assert (dim == 1);
@@ -550,48 +549,47 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 	assert (edges.future_edge_row_start != NULL);
 	assert (core_edge_exists != NULL);
 	assert (used != NULL);
-	assert (table != NULL);
+	//assert (table != NULL);
 		
 	assert (N_tar > 0);
-	if (manifold == DE_SITTER || manifold == FLRW) {
+	if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW) {
 		assert (a > 0.0);
-		if (manifold == FLRW)
-			assert (alpha > 0.0);
-		if (!compact)
-			assert (r_max > 0.0);
-	}
-	if (manifold == DE_SITTER) {
-		if (compact) {
-			assert (zeta > 0.0);
+		if (manifold == DUST || manifold == FLRW) {
 			assert (zeta < HALF_PI);
+			assert (alpha > 0.0);
 		} else {
-			assert (zeta > HALF_PI);
-			assert (zeta1 > HALF_PI);
-			assert (zeta > zeta1);
+			if (compact) {
+				assert (zeta > 0.0);
+				assert (zeta < HALF_PI);
+			} else {
+				assert (zeta > HALF_PI);
+				assert (zeta1 > HALF_PI);
+				assert (zeta > zeta1);
+			}
 		}
-	} else if (manifold == FLRW)
-		assert (zeta < HALF_PI);
+	}	
+	if (!compact)
+		assert (r_max > 0.0);
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
-	assert (size > 0);
+	//assert (size > 0);
 	assert (source >= 0 && source < N_tar);
 	assert (dest >= 0 && dest < N_tar);
 	#endif
 
 	bool TRAV_DEBUG = false;
 
-	int offset = N_tar * omp_get_thread_num();
-	float min_dist = 0.0f;
+	double min_dist = 0.0;
 	int loc = source;
 	int idx_a = source;
 	int idx_b = dest;
 
-	float dist;
+	double dist;
 	int next;
+	int m;
 
 	if (TRAV_DEBUG) {
 		printf_cyan();
 		printf("Beginning at %d. Looking for %d.\n", source, dest);
-		//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(source), nodes.crd->x(source), nodes.crd->y(source), nodes.crd->z(source));
 		printf_std();
 		fflush(stdout);
 	}
@@ -601,9 +599,9 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 		next = loc;
 		dist = INF;
 		min_dist = INF;
-		used[loc+offset] = true;
+		used[loc] = true;
 
-		//These would indicate corrupted data
+		//These indicate corrupted data
 		#if DEBUG
 		assert (!(edges.past_edge_row_start[loc] == -1 && nodes.k_in[loc] > 0));
 		assert (!(edges.past_edge_row_start[loc] != -1 && nodes.k_in[loc] == 0));
@@ -611,71 +609,40 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 		assert (!(edges.future_edge_row_start[loc] != -1 && nodes.k_out[loc] == 0));
 		#endif
 
-		//(1) Check past relations
-		for (int m = 0; m < nodes.k_in[loc]; m++) {
-			idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
+		//(1) Check if destination is a neigbhor
+		if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
 			if (TRAV_DEBUG) {
 				printf_cyan();
-				printf("\tConsidering past neighbor %d\n", idx_a);
+				printf("Moving to %d.\n", idx_a);
+				printf_red();
+				printf("SUCCESS\n");
 				printf_std();
 				fflush(stdout);
 			}
+			success = true;
+			return true;
+		}
 
-			//(A) If the current location's (loc's) past neighbor (idx_a) is the destination (idx_b) then return true
-			if (idx_a == idx_b) {
-				if (TRAV_DEBUG) {
-					printf_cyan();
-					printf("Moving to %d.\n", idx_a);
-					printf_red();
-					printf("SUCCESS\n");
-					printf_std();
-					fflush(stdout);
-				}
-				success = true;
-				return true;
-			}
+		//(2) Check minimal past relations
+		for (m = 0; m < nodes.k_in[loc]; m++) {
+			idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
+			/*if (TRAV_DEBUG) {
+				printf_cyan();
+				printf("\tConsidering past neighbor %d.\n", idx_a);
+				printf_std();
+				fflush(stdout);
+			}*/
 
-			//(B) If the current location's past neighbor is directly connected to the destination then return true
-			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
-				if (TRAV_DEBUG) {
-					printf_cyan();
-					printf("Moving to %d.\n", idx_a);
-					printf("Moving to %d.\n", idx_b);
-					printf_red();
-					printf("SUCCESS\n");
-					printf_std();
-					fflush(stdout);
-				}
-				success = true;
-				return true;
-			}
+			//Continue if not a minimal element
+			if (!!nodes.k_in[idx_a])
+				continue;
 
-			//(C) Otherwise find the past neighbor closest to the destination
-			if (manifold == DE_SITTER || manifold == FLRW) {
-				if (compact)
-					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
-				else {
-					//DEBUG
-					//printf_cyan();
-					//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(idx_a), nodes.crd->x(idx_a), nodes.crd->y(idx_a), nodes.crd->z(idx_a));
-					//printf_std();
-
-					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10.0, 10.0, 0.1, manifold);
-					//printf("CHECKPOINT\n");
-					//exit(0);
-
-					dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
-
-					/*if (dist + 1 > INF) {
-						printf_red();
-						printf("\t\tInfinite distance detected.\n");
-						printf_std();
-					}*/
-				}
-			} else if (manifold == HYPERBOLIC)
+			//Otherwise find the minimal element closest to the destination
+			if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW)
+				nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, idx_a, idx_b, &dist);
+			else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
-
-			if (dist == -1)
+			else
 				return false;
 
 			//Save the minimum distance
@@ -685,156 +652,43 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 			}
 		}
 
-		//(2) Check future relations
-		//OpenMP is implemented here for the early nodes which have lots of out-degrees
-		//However, it does not appear to provide a speedup...
-		#ifdef _OPENMP
-		float priv_min_dist = min_dist;
-		int priv_next = next;
-		//bool make_parallel = nodes.k_out[loc] > 10000;
-		//bool make_parallel = false;
-		#pragma omp parallel shared (next, min_dist) \
-				     firstprivate (idx_a, priv_min_dist, priv_next) \
-				     if (false)
-		{
-		#pragma omp for schedule (dynamic, 1)
-		#endif
-		for (int m = 0; m < nodes.k_out[loc]; m++) {
-			#ifdef _OPENMP
-			if (priv_next == idx_b || priv_next == -1)
-				continue;
-			#else
-			if (next == idx_b || next == -1)
-				continue;
-			#endif
-
+		//(3) Check maximal future relations
+		for (m = 0; m < nodes.k_out[loc]; m++) {
 			idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
-			if (TRAV_DEBUG) {
+			/*if (TRAV_DEBUG) {
 				printf_cyan();
 				printf("\tConsidering future neighbor %d.\n", idx_a);
 				printf_std();
-			}
+				fflush(stdout);
+			}*/
 
-			//(D) If the current location's future neighbor is the destination then return true
-			if (idx_a == idx_b) {
-				if (TRAV_DEBUG) {
-					printf_cyan();
-					printf("Moving to %d.\n", idx_a);
-					printf_red();
-					printf("SUCCESS\n");
-					printf_std();
-					fflush(stdout);
-				}
-				#ifdef _OPENMP
-				priv_min_dist = 0.0f;
-				priv_next = idx_b;
+			//Continue if not a maximal element
+			if (!!nodes.k_out[idx_a])
 				continue;
-				#else
-				success = true;
-				return true;
-				#endif
-			}
 
-			//(E) If the current location's future neighbor is directly connected to the destination then return true
-			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
-				if (TRAV_DEBUG) {
-					printf_cyan();
-					printf("Moving to %d.\n", idx_a);
-					printf("Moving to %d.\n", idx_b);
-					printf_red();
-					printf("SUCCESS\n");
-					printf_std();
-					fflush(stdout);
-				}
-				#ifdef _OPENMP
-				priv_min_dist = 0.0f;
-				priv_next = idx_b;
-				continue;
-				#else
-				success = true;
-				return true;
-				#endif
-			}
-
-			//(F) Otherwise find the future neighbor closest to the destination
-			if (manifold == DE_SITTER || manifold == FLRW) {
-				if (compact)
-					dist = distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, compact);
-				else {
-					//DEBUG
-					//printf_cyan();
-					//printf("Coordinates: (%f, %f, %f, %f)\n", nodes.crd->w(idx_a), nodes.crd->x(idx_a), nodes.crd->y(idx_a), nodes.crd->z(idx_a));
-					//printf_std();
-
-					//testOmega12(nodes.id.tau[idx_a], nodes.id.tau[idx_b], (alpha / a) * SQRT(flatProduct_v2(nodes.crd->getFloat4(idx_a), nodes.crd->getFloat4(idx_b)), STL), -10, 10, 0.01, manifold);
-					//printf("CHECKPOINT\n");
-					//exit(0);
-
-					dist = distance_v1(table, nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], dim, manifold, a, alpha, size, compact);
-
-					/*if (dist + 1 > INF) {
-						printf_red();
-						printf("\t\tInfinite distance detected.\n");
-						printf_std();
-					}*/
-				}
-			} else if (manifold == HYPERBOLIC)
+			//Otherwise find the minimal element closest to the destination
+			if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW)
+				nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, idx_a, idx_b, &dist);
+			else if (manifold == HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+			else
+				return false;
 
-			if (dist == -1)
-				idx_a = -1;
-
-			#ifdef _OPENMP
-			if (dist <= priv_min_dist) {
-				priv_min_dist = dist;
-				priv_next = idx_a;
-			}
-			#else
+			//Save the minimum distance
 			if (dist <= min_dist) {
 				min_dist = dist;
 				next = idx_a;
 			}
-			#endif
 		}
 
-		#ifdef _OPENMP
-		if (next != idx_b) {
-			#pragma omp flush (min_dist)
-			if (priv_min_dist <= min_dist) {
-				#pragma omp critical
-				{
-					if (priv_min_dist <= min_dist) {
-						min_dist = priv_min_dist;
-						next = priv_next;
-					}
-				}
-			}
-		}
-		}
-		#endif
-
-		if (TRAV_DEBUG) {
+		if (TRAV_DEBUG && min_dist + 1.0 < INF) {
 			printf_cyan();
 			printf("Moving to %d.\n", next);
 			printf_std();
 			fflush(stdout);
 		}
 
-		if (next == idx_b) {
-			if (TRAV_DEBUG) {
-				printf_red();
-				printf("SUCCESS\n");
-				printf_std();
-				fflush(stdout);
-			}
-			success = true;
-			return true;
-		} else if (next == -1) {
-			success = false;
-			return false;
-		}
-
-		if (!used[next+offset])
+		if (!used[next] && min_dist + 1.0 < INF)
 			loc = next;
 		else {
 			if (TRAV_DEBUG) {
@@ -1197,7 +1051,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 		goto ActionExit;
 
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 1)
+	#pragma omp parallel for schedule (dynamic, 1) reduction (+ : num)
 	#endif
 	for (uint64_t v = start; v < finish; v++) {
 		//Choose a pair
@@ -1213,7 +1067,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 		if (i == j)
 			continue;
 		num++;
-		printf("i: %d\tj: %d\n", i, j);
+		//printf("i: %d\tj: %d\n", i, j);
 
 		int elements = 0;
 		bool too_many = false;
@@ -1240,7 +1094,9 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 				if (elements >= max_cardinality - 1)
 					too_many = true;
 			} else {
+				//Index of first past neighbor of the 'future element j'
 				int pstart = edges.past_edge_row_start[j];
+				//Index of first future neighbor of the 'past element i'
 				int fstart = edges.future_edge_row_start[i];
 
 				//Intersection of edge lists
@@ -1285,21 +1141,21 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 		goto ActionExit;
 
 	if (max_cardinality == N_tar - 1) {
-		float lk = 3.0f;
+		float lk = 2.0f;
 		float epsilon = 1.0f / POW2(POW2(lk, EXACT), EXACT);
 		float eps1 = epsilon / (1.0f - epsilon);
 		float ni, f;
 		int i;
 
-		for (i = 1; i <= max_cardinality; i++) {
-			ni = static_cast<float>(cardinalities[i]);
-			f = 1.0f - 9.0f * eps1 * ni + 8.0f * POW2(eps1, EXACT) * ni * (ni - 1.0f) - (4.0f / 3.0f) * POW3(eps1, EXACT) * ni * (ni - 1.0f) * (ni - 2.0f);
-			f *= POW(1.0 - epsilon, ni, STL);
+		for (i = 0; i < N_tar - 3; i++) {
+			ni = static_cast<float>(cardinalities[i+1]);
+			f = 1.0f - 9.0f * eps1 * i + 8.0f * POW2(eps1, EXACT) * i * (i - 1.0f) - (4.0f / 3.0f) * POW3(eps1, EXACT) * i * (i - 1.0f) * (i - 2.0f);
+			f *= POW(1.0 - epsilon, i, STL);
 			action += ni * f;
 		}
 
 		action *= POW(epsilon, 1.5, STL);
-		action = epsilon * N_tar - action;
+		action = sqrt(epsilon) * N_tar - action;
 	} else
 		//Calculate the Local Action
 		action = static_cast<float>(cardinalities[0] - cardinalities[1] + 9 * cardinalities[2] - 16 * cardinalities[3] + 8 * cardinalities[4]);

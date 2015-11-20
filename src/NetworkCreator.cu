@@ -97,35 +97,56 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				#if DEBUG
 				assert (network_properties->flags.compact);
 				#endif
-				network_properties->k_tar = network_properties->N_tar * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL) - 1.0) / (TAN(eta0, STL) * HALF_PI);
-				if (!!network_properties->delta)
-					network_properties->a = SQRT(network_properties->N_tar / (TWO_PI * network_properties->delta * TAN(eta0, STL)), STL);
-				else
-					network_properties->delta = network_properties->N_tar / (TWO_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
+
+				if (network_properties->flags.symmetric) {
+					network_properties->k_tar = network_properties->N_tar * (eta0 / (sin(eta0) * cos(eta0)) - 1.0) / (HALF_PI * tan(eta0));
+					if (!!network_properties->delta)
+						network_properties->a = SQRT(network_properties->N_tar / (4.0 * M_PI * network_properties->delta * TAN(eta0, STL)), STL);
+					else
+						network_properties->delta = network_properties->N_tar / (4.0 * M_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
+				} else {
+					network_properties->k_tar = network_properties->N_tar * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL) - 1.0) / (TAN(eta0, STL) * HALF_PI);
+					if (!!network_properties->delta)
+						network_properties->a = SQRT(network_properties->N_tar / (TWO_PI * network_properties->delta * TAN(eta0, STL)), STL);
+					else
+						network_properties->delta = network_properties->N_tar / (TWO_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
+				}
 			} else if (network_properties->dim == 3) {
 				if (network_properties->flags.compact) {
-					network_properties->k_tar = network_properties->N_tar * (12.0 * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL)) - (6.0 * LOG(COS(eta0, STL), STL) + 5.0) / POW2(COS(eta0, STL), EXACT) - 7.0) / (POW2(2.0 + 1.0 / POW2(COS(eta0, STL), EXACT), EXACT) * TAN(eta0, STL) * 3.0 * HALF_PI);
-					if (!!network_properties->delta)
-						network_properties->a = POW(network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI, EXACT) * network_properties->delta * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL)), 0.25, STL);
-					else
-						network_properties->delta = network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI * POW2(network_properties->a, EXACT), EXACT) * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL));
+					if (network_properties->flags.symmetric) {
+						IntData idata;
+						idata.limit = 50;
+						idata.tol = 1e-5;
+						idata.lower = -eta0;
+						idata.upper = eta0;
+						double t1 = (sin(eta0) + sin(5.0 * eta0)) / (3.0 * POW3(cos(eta0), EXACT));
+						double t2 = 2.0 * integrate1D(&averageDegreeSym, NULL, &idata, QNG);
+						double t3 = (2.0 * eta0 * eta0 - 1.0) * (3.0 * sin(eta0) + sin(3.0 * eta0)) / (3.0 * POW3(cos(eta0), EXACT));
+
+						//DEBUG
+						//double kappa = TWO_PI * (t1 + t2 + t3) / (tan(eta0) * (2.0 + 1.0 / POW2(cos(eta0), EXACT)));
+						//printf("kappa: %f\n", kappa);
+
+						network_properties->k_tar = 3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) * (t1 + t2 + t3) / (M_PI * tan(eta0) * (2.0 + 1.0 / POW2(cos(eta0), EXACT)) * (3.0 * sin(eta0) + sin(3.0 * eta0)));
+						if (!!network_properties->delta)
+							network_properties->a = POW(3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) / (TWO_PI * M_PI * network_properties->delta * (3.0 * sin(eta0) + sin(3.0 * eta0))), 0.25, STL);
+						else
+							network_properties->delta = 3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) / (TWO_PI * M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * (3.0 * sin(eta0) + sin(3.0 * eta0)));
+					} else {
+						network_properties->k_tar = network_properties->N_tar * (12.0 * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL)) - (6.0 * LOG(COS(eta0, STL), STL) + 5.0) / POW2(COS(eta0, STL), EXACT) - 7.0) / (POW2(2.0 + 1.0 / POW2(COS(eta0, STL), EXACT), EXACT) * TAN(eta0, STL) * 3.0 * HALF_PI);
+						if (!!network_properties->delta)
+							network_properties->a = POW(network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI, EXACT) * network_properties->delta * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL)), 0.25, STL);
+						else
+							network_properties->delta = network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI * POW2(network_properties->a, EXACT), EXACT) * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL));
+					}
 				} else {
 					int seed = static_cast<int>(4000000000 * network_properties->mrng.rng());
-
-
-					//DEBUG
-					//double kappa = 4.0 * M_PI * POW3(eta0 * eta1, EXACT) * integrate2D(&rescaledDegreeDeSitterFlat, eta0, eta0, eta1, eta1, NULL, seed, 0) / (POW3(eta1, EXACT) - POW3(eta0, EXACT));
-
 
 					network_properties->k_tar = 9.0 * network_properties->N_tar * POW2(POW3(eta0 * eta1, EXACT), EXACT) * integrate2D(&rescaledDegreeDeSitterFlat, eta0, eta0, eta1, eta1, NULL, seed, 0) / (POW3(network_properties->r_max, EXACT) * POW2(POW3(eta1, EXACT) - POW3(eta0, EXACT), EXACT));
 					if (!!network_properties->delta)
 						network_properties->a = POW(9.0 * network_properties->N_tar * POW3(eta0 * eta1, EXACT) / (4.0 * M_PI * network_properties->delta * POW3(network_properties->r_max, EXACT) * (POW3(eta1, EXACT) - POW3(eta0, EXACT))), 0.25, STL);
 					else
 						network_properties->delta = 9.0 * network_properties->N_tar * POW3(eta0 * eta1, EXACT) / (4.0 * M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * POW3(network_properties->r_max, EXACT) * (POW3(eta1, EXACT) - POW3(eta0, EXACT)));
-
-					//For use in tests
-					//double kappa = network_properties->k_tar / (network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT));
-					//printf("kappa: %.6e\n", kappa);
 				}
 			}
 
@@ -755,7 +776,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &compact, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//Values are in correct ranges
@@ -829,6 +850,12 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			assert (nodes.crd->x(i) < static_cast<float>(HALF_PI - zeta));
 			#endif
 
+			// Use the symmetric interval between (-eta0, eta0)
+			if (symmetric) {
+				if (!!(i % 2))
+					nodes.crd->x(i) *= -1.0;
+			}
+
 			nodes.id.tau[i] = static_cast<float>(etaToTauCompact(static_cast<double>(nodes.crd->x(i))));
 		} else if (dim == 3) {
 			nodes.crd->z(i) = static_cast<float>(x);
@@ -864,6 +891,11 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 						p1[0] = zeta;
 						if (!newton(&solveTau, &x, 1000, TOL, p1, NULL, NULL))
 							return false;
+
+						if (symmetric) {
+							if (!!(i % 2))
+								x *= -1.0;
+						}
 					} else {
 						//In this case the eta distribution is used
 						double eta0 = HALF_PI - zeta;
@@ -877,7 +909,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			} while (nodes.id.tau[i] >= static_cast<float>(tau0));
 
 			#if DEBUG
-			assert (nodes.id.tau[i] >= 0.0f);
+			//assert (nodes.id.tau[i] >= 0.0f);
 			assert (nodes.id.tau[i] < static_cast<float>(tau0));
 			#endif
 
@@ -897,14 +929,14 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			} else if (manifold == DE_SITTER && compact) {
 				nodes.crd->w(i) = static_cast<float>(tauToEtaCompact(static_cast<double>(nodes.id.tau[i])));
 				#if DEBUG
-				assert (nodes.crd->w(i) < tauToEtaCompact(tau0));
+				assert (fabs(nodes.crd->w(i)) < tauToEtaCompact(tau0));
 				#endif
 			}
 			#if DEBUG
 			if (manifold == DE_SITTER && !compact)
 				assert (nodes.crd->w(i) < 0.0);
-			else
-				assert (nodes.crd->w(i) > 0.0);
+			//else
+			//	assert (nodes.crd->w(i) > 0.0);
 			#endif
 				
 			///////////////////////////////////////////////////////

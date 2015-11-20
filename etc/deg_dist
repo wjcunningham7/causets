@@ -54,12 +54,14 @@ for file in odd_files:
 
 h = open(basedir + 'dat/ref/in_degrees.cset.dst.ref','w')
 for i in range(0,N):
-	h.write(str(i) + ' ' + str(k_in[i]) + '\n')
+	if (k_in[i] > 0):
+		h.write(str(i) + ' ' + str(k_in[i]) + '\n')
 h.close()
 
 h = open(basedir + 'dat/ref/out_degrees.cset.dst.ref','w')
 for i in range(0,N):
-	h.write(str(i) + ' ' + str(k_out[i]) + '\n')
+	if (k_out[i] > 0):
+		h.write(str(i) + ' ' + str(k_out[i]) + '\n')
 h.close()
 
 sys.stdout.write('Completed DST.\n')

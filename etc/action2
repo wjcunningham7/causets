@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2015 #
+# Krioukov Research Group #
+# Northeastern University #
+###########################
+
+# Calculates the average and standard error of the action over several lk
+# Note this script should only be used for the smeared action
+
+import glob
+import math
+import numpy as np
+import sys
+
+# Range of job numbers (inclusive)
+jobStart = 481
+jobEnd = 505
+njobs = jobEnd - jobStart + 1
+
+# Range of lk to use (inclusive)
+lkmin = 2
+lkmax = 10
+lkstep = 1
+nlk = (lkmax - lkmin + 1) / lkstep
+
+basedir = '/scratch/cunningham/'
+action = np.zeros((nlk, njobs))
+err = np.zeros((nlk, njobs))
+
+for lk in range(lkmin, lkmax + lkstep, lkstep):	
+	epsilon = 1.0 / math.pow(lk, 4.0)
+	eps1 = epsilon / (1.0 - epsilon)
+
+	for job in range(jobStart, jobEnd + 1):
+		files = glob.glob(basedir + 'causet' + str(job) + '/dat/act/*.cset.act.dat')
+		a = np.zeros(len(files))
+		c = []
+		n = 0
+		a_idx = 0
+
+		for file in files:
+			f = open(file)
+			lines = f.readlines()
+			c_idx = 0
+
+			for line in lines:
+				c.append(int(line))
+				c_idx += 1
+
+			f.close()
+			n = c_idx + 1
+
+			for i in range(0, n - 2):
+				ni = float(c[i+1])
+				f = 1.0 - 9.0 * eps1 * i + 8.0 * eps1 * eps1 * i * (i - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * i * (i - 1.0) * (i - 2.0)
+				f *= math.pow(1.0 - epsilon, i)
+				a[a_idx] += ni * f
+
+			a[a_idx] *= math.pow(epsilon, 1.5)
+			a[a_idx] = math.sqrt(epsilon) * n - a[a_idx]
+			a[a_idx] *= 4.0 / math.sqrt(6.0)
+
+			a_idx += 1
+			c = []
+
+		if n == 0:
+			sys.stdout.write('Error: n = 0!.\n')
+			sys.exit(1)
+
+		action[int((lk-lkmin)/lkstep)][int(job-jobStart)] = np.mean(a)
+		err[int((lk-lkmin)/lkstep)][int(job-jobStart)] = np.std(a) / math.sqrt(len(files))
+
+basedir = '/home/cunningham.wi/projects/causets/dat/ref/'
+f = open(basedir + 'action_lk.cset.act.ref', 'w')
+g = open(basedir + 'stderr_lk.cset.act.ref', 'w')
+for i in range(nlk):
+	for j in range(njobs):
+		f.write(str(action[i][j]) + ' ')
+		g.write(str(err[i][j]) + ' ')
+	f.write('\n')
+	g.write('\n')
+f.close()
+g.close()
+
+sys.stdout.write('Completed ACT2.\n')

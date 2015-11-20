@@ -486,9 +486,12 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 	//Make sure past_idx < future_idx
 	if (past_idx > future_idx) {
-		int temp = past_idx;
-		past_idx = future_idx;
-		future_idx = temp;
+		//int temp = past_idx;
+		//past_idx = future_idx;
+		//future_idx = temp;
+		past_idx ^= future_idx;
+		future_idx ^= past_idx;
+		past_idx ^= future_idx;
 	}
 
 	//Check if the adjacency matrix can be used
@@ -565,8 +568,8 @@ void causet_intersection_v2(int &elements, const int * const past_edges, const i
 	//if (larger + smaller > smaller * LOG(larger, APPROX ? FAST : STL)) {
 		//Binary search
 	//} else {
-		int idx0 = pstart;
-		int idx1 = fstart;
+		int idx0 = pstart;	//Index of past neighbors of 'future element j'
+		int idx1 = fstart;	//Index of future neighbors of 'past element i'
 		int max0 = idx0 + k_i;
 		int max1 = idx1 + k_o;
 
@@ -580,6 +583,7 @@ void causet_intersection_v2(int &elements, const int * const past_edges, const i
 
 				if (elements >= max_cardinality - 1) {
 					too_many = true;
+					printChk();
 					break;
 				}
 

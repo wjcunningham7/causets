@@ -141,6 +141,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "seed",	required_argument,	NULL, 's' },
 		{ "slice",	required_argument,	NULL,  0  },
 		{ "success",	required_argument,	NULL, 'S' },
+		{ "symmetric",	no_argument,		NULL,  0  },
 		{ "test",	no_argument,		NULL,  0  },
 		{ "verbose", 	no_argument, 		NULL, 'v' },
 		{ "zeta",	required_argument,	NULL, 'z' },
@@ -307,6 +308,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				else if (!strcmp("slice", longOpts[longIndex].name))
 					//Size of spatial slice
 					network_properties.r_max = atof(optarg);
+				else if (!strcmp("symmetric", longOpts[longIndex].name))
+					//Symmetric spatial region in closed de Sitter
+					network_properties.flags.symmetric = true;
 				else if (!strcmp("test", longOpts[longIndex].name))
 					//Test parameters
 					network_properties.flags.test = true;
@@ -365,6 +369,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.01, 10000\n");
 				printf_mpi(rank, "  -s, --seed\t\tRandom Seed\t\t\t18100\n");
 				printf_mpi(rank, "      --slice\t\tSize of Spatial Slice\t\t1.0\n");
+				printf_mpi(rank, "      --symmetric\tSymmetric de Sitter Slice\n");
 				printf_mpi(rank, "      --test\t\tTest Parameters Only\n");
 				printf_mpi(rank, "  -v, --verbose\t\tVerbose Output\n");
 				printf_mpi(rank, "  -y\t\t\tSuppress User Queries\n");
@@ -475,7 +480,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	int high = network->network_properties.N_tar - 1;
 
 	for (i = 0; i <= nb; i++) {
-		if (!generateNodes(network->nodes, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.mrng, cp->sGenerateNodes, network->network_properties.flags.use_gpu, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+		if (!generateNodes(network->nodes, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.mrng, cp->sGenerateNodes, network->network_properties.flags.use_gpu, network->network_properties.flags.symmetric, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 			network->network_properties.cmpi.fail = 1;
 			goto InitExit;
 		}
@@ -488,9 +493,11 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 
 	if (!nb) {
 		printf("\tQuick Sort Successfully Performed.\n");
-		printf_cyan();
-		printf("\t\tMinimum Rescaled Time:  %f\n", network->nodes.id.tau[0]);
-		printf_std();
+		if (!network->network_properties.flags.symmetric) {
+			printf_cyan();
+			printf("\t\tMinimum Rescaled Time:  %f\n", network->nodes.id.tau[0]);
+			printf_std();
+		}
 	} else {
 		bm->bGenerateNodes = cp->sGenerateNodes.elapsedTime / NBENCH;
 		bm->bQuicksort = cp->sQuicksort.elapsedTime / NBENCH;
@@ -833,6 +840,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 
 		if (!initVars(&network->network_properties, ca, cp, bm))
 			return false;
+		network->network_properties.k_tar = 2.0 * N_edg / network->network_properties.N_tar;
 
 		printf_mpi(rank, "\nFinished Gathering Peripheral Network Data.\n");
 		fflush(stdout);

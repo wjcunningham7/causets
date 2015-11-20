@@ -7,14 +7,14 @@
 ###########################
 
 # Concatenates cardinalities, and then calculates average action and std. dev.
-# Note this script only works for the local action, not the smeared action
 
 import glob
 import math
 import numpy as np
 import sys
 
-smeared = False
+smeared = True
+symmetric = True
 
 if len(sys.argv) == 2:
 	if sys.argv[1] == 'smeared':
@@ -44,18 +44,19 @@ for file in act_files:
 		c.append(int(line))
 		c_idx += 1
 	h.close()
+	n = c_idx + 1
 	
 	if smeared:
-		lk = 3.0
+		lk = 2.0
 		epsilon = 1.0 / math.pow(lk, 4.0)
 		eps1 = epsilon / (1.0 - epsilon)
-		for i in range(1, c_idx):
-			ni = float(c[i])
-			f = 1.0 - 9.0 * eps1 * ni + 8.0 * eps1 * eps1 * ni * (ni - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * ni * (ni - 1.0) *  (ni - 2.0)
-			f *= math.pow(1.0 - epsilon, ni)
+		for i in range(0, n - 2):
+			ni = float(c[i+1])
+			f = 1.0 - 9.0 * eps1 * i + 8.0 * eps1 * eps1 * i * (i - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * i * (i - 1.0) *  (i - 2.0)
+			f *= math.pow(1.0 - epsilon, i)
 			a[a_idx] += ni * f
 		a[a_idx] *= math.pow(epsilon, 1.5)
-		a[a_idx] = epsilon * (c_idx + 1.0) - a[a_idx]
+		a[a_idx] = math.sqrt(epsilon) * n - a[a_idx]
 	else:
 		a[a_idx] = float(c[0] - c[1] + 9 * c[2] - 16 * c[3] + 8 * c[4])
 	a[a_idx] *= 4.0 / math.sqrt(6.0)
@@ -71,7 +72,17 @@ for i in range(0,len(act_files)):
 	h.write(str(a[i]) + '\n')
 h.close()
 
+eta0 = 0.5
+v = (2.0 / 3.0) * math.pow(math.pi, 2.0) * (2.0 + 1.0 / math.pow(math.cos(eta0), 2.0)) * math.tan(eta0)
+if symmetric:
+	v *= 2.0
+th_action = 6.0 * math.sqrt(n * v)
+
+plt_val = avg_action / (6.0 * math.sqrt(v))
+
+#sys.stdout.write('Plot Value:     %f\n' % plt_val)
 sys.stdout.write('Average Action: %f\n' % avg_action)
-sys.stdout.write('Std. Deviation: %f\n' % std_action)
+#sys.stdout.write('Std. Deviation: %f\n' % std_action)
 sys.stdout.write('Std. Error:     %f\n' % (std_action / math.sqrt(len(act_files))))
+sys.stdout.write('Theor. Action:  %f\n' % th_action)
 sys.stdout.write('Completed ACT.\n')

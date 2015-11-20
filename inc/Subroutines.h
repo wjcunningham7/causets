@@ -2,6 +2,7 @@
 #define SUBROUTINES_H_
 
 #include "Causet.h"
+#include "CuResources.h"
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //

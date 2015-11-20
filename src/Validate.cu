@@ -2233,6 +2233,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
+//Uses geodesic distances
 bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &compact, int source, int dest, bool &success, bool &past_horizon)
 {
 	#if DEBUG

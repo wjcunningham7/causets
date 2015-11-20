@@ -498,7 +498,11 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 	if (!compact && manifold == DE_SITTER)
 		assert (dt <= zeta - zeta1);
 	else
+		#if SYMMETRIC
+		assert (dt <= 2.0f * static_cast<float>(HALF_PI - zeta));
+		#else
 		assert (dt <= static_cast<float>(HALF_PI - zeta));
+		#endif
 	#endif
 
 	//Spatial Interval
@@ -548,10 +552,10 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 inline double etaToTauCompact(const double eta)
 {
 	#if DEBUG
-	assert (eta >= 0.0 && eta < HALF_PI);
+	assert (fabs(eta) < HALF_PI);
 	#endif
 
-	return ACOSH(1.0 / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	return SGN(eta, DEF) * ACOSH(1.0 / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 }
 
 //Conformal to Rescaled Time (de Sitter flat)
@@ -567,11 +571,7 @@ inline double etaToTauFlat(const double eta)
 //Rescaled to Conformal Time (de Sitter compact)
 inline double tauToEtaCompact(const double tau)
 {
-	#if DEBUG
-	assert (tau > 0.0);
-	#endif
-
-	return ACOS(1.0 / COSH(tau, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	return SGN(tau, DEF) * ACOS(1.0 / COSH(tau, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 }
 
 //Rescaled to Conformal Time (de Sitter flat)
@@ -707,7 +707,23 @@ inline double rescaledDegreeDeSitterFlat(int dim, double x[], double *params)
 	return ABS(POW3(x[0] - x[1], EXACT), STL) / t;
 }
 
+//Average Degree in Closed (K = 1) Symmetric de Sitter Causet
+
+//This kernel is used in numerical integration
+//This gives T2/2 - only part of the expression - see notes
+inline double averageDegreeSym(double eta, void *params)
+{
+	#if DEBUG
+	assert (cos(eta) >= 0.0);
+	#endif
+
+	double t = 1.0 / cos(eta);
+	return eta * eta * t * t * t * t;
+}
+
 //Rescaled Average Degree in Dusty Causet
+
+//This kernel is used in numerical integration
 //This result should be multiplied by (108pi / tau0^3)
 inline double rescaledDegreeDust(int dim, double x[], double *params)
 {
