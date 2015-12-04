@@ -583,7 +583,7 @@ void causet_intersection_v2(int &elements, const int * const past_edges, const i
 
 				if (elements >= max_cardinality - 1) {
 					too_many = true;
-					printChk();
+					//printChk();
 					break;
 				}
 

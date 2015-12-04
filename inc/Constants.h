@@ -62,10 +62,6 @@
 			//This value is dependent on the GPU architecture
 			//DO NOT EDIT THIS VALUE
 
-//#define GROUP_SIZE 128	//Number of block groups per grid dimension
-			//Increase this by a power of 2 if too much GPU memory is
-			//requested in the generateLists() algorithm
-
 #define THREAD_SIZE 4	//Number of element operations per thread
 			//This value is dependent on the GPU shared memory cache size
 			//DO NOT EDIT THIS VALUE
@@ -79,8 +75,6 @@
 #define LINK_NODES_GPU_V2 true
 
 #define GEN_ADJ_LISTS_GPU_V2 true
-
-//#define DECODE_CPU true
 
 #define DECODE_LISTS_GPU_V2 true
 

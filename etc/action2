@@ -14,6 +14,12 @@ import math
 import numpy as np
 import sys
 
+dim = 3
+
+if not (dim == 1 or dim == 3):
+	sys.stdout.write('Invalid parameter: [dim]');
+	sys.exit(1)
+
 # Range of job numbers (inclusive)
 jobStart = 481
 jobEnd = 505
@@ -30,7 +36,7 @@ action = np.zeros((nlk, njobs))
 err = np.zeros((nlk, njobs))
 
 for lk in range(lkmin, lkmax + lkstep, lkstep):	
-	epsilon = 1.0 / math.pow(lk, 4.0)
+	epsilon = math.pow(lk, -(dim + 1.0))
 	eps1 = epsilon / (1.0 - epsilon)
 
 	for job in range(jobStart, jobEnd + 1):
@@ -50,17 +56,19 @@ for lk in range(lkmin, lkmax + lkstep, lkstep):
 				c_idx += 1
 
 			f.close()
-			n = c_idx + 1
+#			n = c_idx + 1
 
-			for i in range(0, n - 2):
+			for i in range(0, c[0] - 2):
 				ni = float(c[i+1])
-				f = 1.0 - 9.0 * eps1 * i + 8.0 * eps1 * eps1 * i * (i - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * i * (i - 1.0) * (i - 2.0)
-				f *= math.pow(1.0 - epsilon, i)
-				a[a_idx] += ni * f
+				if dim == 1:
+					a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 2.0 * eps1 * i + 0.5 * eps1 * eps1 * i * (i - 1.0))
+				elif dim == 3:
+					a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 9.0 * eps1 * i + 8.0 * eps1 * eps1 * i * (i - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * i * (i - 1.0) * (i - 2.0))
 
-			a[a_idx] *= math.pow(epsilon, 1.5)
-			a[a_idx] = math.sqrt(epsilon) * n - a[a_idx]
-			a[a_idx] *= 4.0 / math.sqrt(6.0)
+			if dim == 1:
+				a[a_idx] = 2.0 * epsilon * (c[0] - 2.0 * epsilon * a[a_idx])
+			elif dim == 3:
+				a[a_idx] = (4.0 / math.sqrt(6.0)) * (math.sqrt(epsilon) * c[0] - math.pow(epsilon, 1.5) * a[a_idx])
 
 			a_idx += 1
 			c = []
@@ -73,8 +81,15 @@ for lk in range(lkmin, lkmax + lkstep, lkstep):
 		err[int((lk-lkmin)/lkstep)][int(job-jobStart)] = np.std(a) / math.sqrt(len(files))
 
 basedir = '/home/cunningham.wi/projects/causets/dat/ref/'
-f = open(basedir + 'action_lk.cset.act.ref', 'w')
-g = open(basedir + 'stderr_lk.cset.act.ref', 'w')
+
+if dim == 1:
+	filename = 'd1_'
+elif dim == 3:
+	filename = 'd3_'
+filename += 'smeared'
+
+f = open(basedir + 'action_' + filename + '.cset.act.ref', 'w')
+g = open(basedir + 'stderr_' + filename + '.cset.act.ref', 'w')
 for i in range(nlk):
 	for j in range(njobs):
 		f.write(str(action[i][j]) + ' ')

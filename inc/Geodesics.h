@@ -1125,7 +1125,7 @@ inline double flrwLookupApprox(double x, void *params)
 //Returns the distance between two nodes in the non-compact K = 0 FLRW manifold
 //Version 2 does not use the lookup table for lambda = f(omega12, tau1, tau2)
 //O(xxx) Efficiency (revise this)
-inline double distanceFLRW(const double * const table, Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const long &size, const bool &compact, int past_idx, int future_idx)
+inline double distanceFLRW(const double * const table, Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const long &size, const bool &symmetric, const bool &compact, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (table != NULL);
@@ -1168,7 +1168,7 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	double omega12;
 	double lambda;
 
-	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, past_idx, future_idx, &omega12);
 	//printf("dt: %.16e\tdx: %f\n", c->w(future_idx) - c->w(past_idx), omega12);
 	omega12 *= alpha / a;
 
@@ -1310,7 +1310,7 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 }
 
 //Returns the geodesic distance for two points on a K = 0 dust manifold
-inline double distanceDust(Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &compact, int past_idx, int future_idx)
+inline double distanceDust(Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &symmetric, const bool &compact, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (c != NULL);
@@ -1350,7 +1350,7 @@ inline double distanceDust(Coordinates *c, const float * const tau, const int &N
 	double omega12;
 	double lambda;
 
-	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, past_idx, future_idx, &omega12);
 	//printf("dt: %.8f\tdx: %.8f\n", c->w(future_idx) - c->w(past_idx), omega12);
 	omega12 *= alpha / a;
 
@@ -1498,7 +1498,7 @@ inline double distanceDust(Coordinates *c, const float * const tau, const int &N
 }
 
 //Returns the geodesic distance for two points on a K = 1 de Sitter manifold
-inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &compact, int past_idx, int future_idx)
+inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &symmetric, const bool &compact, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (c != NULL);
@@ -1533,7 +1533,7 @@ inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const
 	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 	double omega12, lambda;
-	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, past_idx, future_idx, &omega12);
 	//printf("\ndt: %f\tdx: %f\n", c->w(future_idx) - c->w(past_idx), omega12);
 
 	//Bisection Method
@@ -1644,7 +1644,7 @@ inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const
 }
 
 //Returns the geodesic distance for two points on a K = 0 de Sitter manifold
-inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &compact, int past_idx, int future_idx)
+inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &symmetric, const bool &compact, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (c != NULL);
@@ -1677,7 +1677,7 @@ inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, cons
 	double omega12, lambda;
 	double x1 = tauToEtaFlat(tau[past_idx]);
 	double x2 = tauToEtaFlat(tau[future_idx]);
-	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, past_idx, future_idx, &omega12);
 
 	//Bisection Method
 	double res = 1.0, tol = 1.0e-5;

@@ -13,18 +13,13 @@ import math
 import numpy as np
 import sys
 
+dim = 1
 smeared = True
-symmetric = True
+symmetric = False
 
-if len(sys.argv) == 2:
-	if sys.argv[1] == 'smeared':
-		smeared = True
-	else:
-		sys.stdout.write('Invalid argument.\n')
-		sys.exit(1)
-elif len(sys.argv) > 2:
-	sys.stdout.write('Too many parameters specified.\n')
-	sys.exit(2)
+if not (dim == 1 or dim == 3):
+	sys.stdout.write('Invalid parameter: [dim]');
+	sys.exit(1)
 
 basedir = ''
 act_files = glob.glob(basedir + 'dat/act/*.cset.act.dat')
@@ -44,22 +39,28 @@ for file in act_files:
 		c.append(int(line))
 		c_idx += 1
 	h.close()
-	n = c_idx + 1
+#	n = c_idx + 1
 	
 	if smeared:
 		lk = 2.0
-		epsilon = 1.0 / math.pow(lk, 4.0)
+		epsilon = math.pow(lk, -(dim + 1.0))
 		eps1 = epsilon / (1.0 - epsilon)
-		for i in range(0, n - 2):
+		for i in range(0, c[0] - 2):
 			ni = float(c[i+1])
-			f = 1.0 - 9.0 * eps1 * i + 8.0 * eps1 * eps1 * i * (i - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * i * (i - 1.0) *  (i - 2.0)
-			f *= math.pow(1.0 - epsilon, i)
-			a[a_idx] += ni * f
-		a[a_idx] *= math.pow(epsilon, 1.5)
-		a[a_idx] = math.sqrt(epsilon) * n - a[a_idx]
+			if dim == 1:
+				a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 2.0 * eps1 * i + 0.5 * eps1 * eps1 * i * (i - 1.0))
+			elif dim == 3:
+				a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 9.0 * eps1 * i + 8.0 * eps1 * eps1 * i * (i - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * i * (i - 1.0) *  (i - 2.0))
+
+		if dim == 1:
+			a[a_idx] = 2.0 * epsilon * (c[0] - 2.0 * epsilon * a[a_idx])
+		elif dim == 3:
+			a[a_idx] = (4.0 / math.sqrt(6.0)) * (math.sqrt(epsilon) * c[0] - math.pow(epsilon, 1.5) * a[a_idx])
 	else:
-		a[a_idx] = float(c[0] - c[1] + 9 * c[2] - 16 * c[3] + 8 * c[4])
-	a[a_idx] *= 4.0 / math.sqrt(6.0)
+		if dim == 1:
+			a[a_idx] = 2.0 * (c[0] - 2.0 * (c[1] - 2.0 * c[2] + c[3]))
+		elif dim == 3:
+			a[a_idx] = (4.0 / math.sqrt(6.0)) * (c[0] - c[1] + 9.0 * c[2] - 16.0 * c[3] + 8.0 * c[4])
 
 	a_idx += 1
 	c = []
@@ -67,18 +68,41 @@ for file in act_files:
 avg_action = np.mean(a)
 std_action = np.std(a)
 
-h = open(basedir + 'dat/ref/act_dist.cset.act.ref','w')
+basedir = './dat/ref/'
+
+if dim == 1:
+	filename = 'd1_'
+elif dim == 3:
+	filename = 'd3_'
+
+if smeared:
+	filename += 'smeared'
+else:
+	filename += 'local'
+
+h = open(basedir + 'actdist_' + filename + '.cset.act.ref','w')
 for i in range(0,len(act_files)):
 	h.write(str(a[i]) + '\n')
 h.close()
 
 eta0 = 0.5
-v = (2.0 / 3.0) * math.pow(math.pi, 2.0) * (2.0 + 1.0 / math.pow(math.cos(eta0), 2.0)) * math.tan(eta0)
+if dim == 1:
+	v = 2.0 * math.pi * math.tan(eta0)
+elif dim == 3:
+	v = (2.0 / 3.0) * math.pow(math.pi, 2.0) * (2.0 + 1.0 / math.pow(math.cos(eta0), 2.0)) * math.tan(eta0)
+
 if symmetric:
 	v *= 2.0
-th_action = 6.0 * math.sqrt(n * v)
 
-plt_val = avg_action / (6.0 * math.sqrt(v))
+if dim == 1:
+	th_action = v
+elif dim == 3:
+	th_action = 6.0 * math.sqrt(n * v)
+
+if dim == 1:
+	plt_val = th_action
+elif dim == 3:
+	plt_val = avg_action / (6.0 * math.sqrt(v))
 
 #sys.stdout.write('Plot Value:     %f\n' % plt_val)
 sys.stdout.write('Average Action: %f\n' % avg_action)

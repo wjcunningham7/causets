@@ -163,14 +163,19 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			if (!rank) printf_cyan();
 			printf_mpi(rank, "\t > Number of Nodes:\t\t%d\n", network_properties->N_tar);
 			printf_mpi(rank, "\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
-			if (network_properties->flags.compact)
+			if (network_properties->flags.compact) {
+				if (network_properties->flags.symmetric)
+					printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", -eta0);
+				else
+					printf_mpi(rank, "\t > Min. Conformal Time:\t\t0.0\n");
 				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
-			else {
+			} else {
 				printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", eta0);
 				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta1);
-				printf_mpi(rank, "\t > Max. Rescaled  Time:\t\t%.6f\n", network_properties->tau0);
-				printf_mpi(rank, "\t > Spatial Cutoff:\t\t%.6f\n", network_properties->r_max);
 			}
+			printf_mpi(rank, "\t > Max. Rescaled  Time:\t\t%.6f\n", network_properties->tau0);
+			if (!network_properties->flags.compact)
+				printf_mpi(rank, "\t > Spatial Cutoff:\t\t%.6f\n", network_properties->r_max);
 			printf_mpi(rank, "\t > Node Density: \t\t%.6f\n", network_properties->delta);
 			printf_mpi(rank, "\t > Pseudoradius:\t\t%.6f\n", network_properties->a);
 			printf_mpi(rank, "\t > Random Seed:\t\t\t%Ld\n", network_properties->seed);
@@ -1001,7 +1006,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 	printf("Check coordinate distributions now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(0);*/
+	printChk();*/
 
 	stopwatchStop(&sGenerateNodes);
 
@@ -1023,7 +1028,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//No null pointers
@@ -1084,7 +1089,7 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 		for (j = i + 1; j < N_tar; j++) {
 			//Apply Causal Condition (Light Cone)
 			//Assume nodes are already temporally ordered
-			related = nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, i, j, NULL);
+			related = nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, i, j, NULL);
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {
@@ -1185,14 +1190,14 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	//	return false;
 
 	//Print Results
-	/*if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
-	if (!printEdgeLists(edges, past_idx, "past-edges_CPU.cset.dbg.dat", "future-edges_CPU.cset.dbg.dat")) return false;
+	if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
+	/*if (!printEdgeLists(edges, past_idx, "past-edges_CPU.cset.dbg.dat", "future-edges_CPU.cset.dbg.dat")) return false;
 	if (!printEdgeListPointers(edges, N_tar, "past-edge-pointers_CPU.cset.dbg.dat", "future-edge-pointers_CPU.cset.dbg.dat")) return false;
 	printf_red();
 	printf("Check files now.\n");
 	printf_std();
-	fflush(stdout);
-	exit(0);*/
+	fflush(stdout);*/
+	printChk();
 
 	stopwatchStop(&sLinkNodes);
 

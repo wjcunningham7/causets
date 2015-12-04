@@ -224,12 +224,12 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		return false;
 	}
 
-	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
+	if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
 	printf_red();
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(0);*/
+	printChk();
 
 	//Decode Adjacency Lists
 	stopwatchStart(&sDecodeLists);
@@ -474,11 +474,6 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 				checkCudaErrors(cuMemcpyDtoHAsync(h_k_in[m], d_k_in[m], sizeof(int) * size1, stream[m]));
 				checkCudaErrors(cuMemcpyDtoHAsync(h_k_out[m], d_k_out[m], sizeof(int) * size0, stream[m]));
 				checkCudaErrors(cuMemcpyDtoHAsync(h_edges[m], d_edges[m], sizeof(bool) * m_edges_size, stream[m]));
-			//}
-
-			//for (m = 0; m < NBUFFERS; m++) {
-			//	if (i > j * NBUFFERS + m)
-			//		continue;
 
 				//Synchronize
 				checkCudaErrors(cuStreamSynchronize(stream[m]));

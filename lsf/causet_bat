@@ -102,7 +102,7 @@ while true ; do
       echo "  -j, --njobs      number of jobs to run in parallel on separate nodes"
       echo "  -m, --mpi        number of nodes allocated to MPI"
       echo "  -q, --queue      LSF queue"
-      echo "  -R, --readjob    job ID specified when reading a graph from another job"
+      echo "  -R, --readjob    job ID specified when reading graph(s) from another job"
       echo "  -s, --nsamples   number of samples to run serially on a single node"
       echo ""
       echo "Report causet_bat bugs to w.cunningham@neu.edu"
@@ -126,25 +126,24 @@ fi
 
 # Check if MPI is being used
 totalcores=$ncores
-totalcoresmpi=0
 usempi=0
 if [ ${mpinodes} -ne 0 ] ; then
   let totalcores=$ncores*$mpinodes
-  totalcoresmpi=$totalcores
-  if [ "$queue" == "ser-par-10g" ] ; then
-    let "totalcoresmpi*=2"
-  fi
   usempi=1
 fi
 
 # Send jobs to LSF via bsub
 jobid=$jobstart
-for (( i=${istart}; i<=${njobs}+${istart}-1; i++ )) ; do
+for (( i=${istart}; i<${njobs}+${istart}; i++ )) ; do
   if [ ${notnumber} -eq 0 ] ; then
     jobid=$i
   fi
-  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%totalcores%:$totalcores:g;s:%totalcoresmpi%:$totalcoresmpi:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%usempi%:$usempi:g" < lsf/causet_lsf | bsub
+  if [[ ${readjobid} -ne 0 && ${readjobid} -eq ${jobid} ]] ; then
+    echo "Invalid option: jobid equals readjobid!"
+    exit 3;
+  fi
+  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%totalcores%:$totalcores:g;s:%mpinodes%:$mpinodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%usempi%:$usempi:g" < lsf/causet_lsf | bsub
   sleep 1
 done
 
-echo "Submitted ${njobs} Job(s) Successfully."
+#echo "Submitted ${njobs} Job(s) Successfully."

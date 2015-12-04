@@ -444,7 +444,7 @@ inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 //=========================//
 
 //Assumes coordinates have been temporally ordered
-inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &compact, int past_idx, int future_idx, double *omega12)
+inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &symmetric, const bool &compact, int past_idx, int future_idx, double *omega12)
 {
 	#if DEBUG
 	assert (!c->isNull());
@@ -498,11 +498,10 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 	if (!compact && manifold == DE_SITTER)
 		assert (dt <= zeta - zeta1);
 	else
-		#if SYMMETRIC
-		assert (dt <= 2.0f * static_cast<float>(HALF_PI - zeta));
-		#else
-		assert (dt <= static_cast<float>(HALF_PI - zeta));
-		#endif
+		if (symmetric)
+			assert (dt <= 2.0f * static_cast<float>(HALF_PI - zeta));
+		else
+			assert (dt <= static_cast<float>(HALF_PI - zeta));
 	#endif
 
 	//Spatial Interval
@@ -934,6 +933,56 @@ inline double degreeFieldTheory(double eta, void *params)
 	//Identify params[4] with table
 	
 	return POW3(ABS(((double*)params)[0] - eta, STL), EXACT) * POW2(POW2(rescaledScaleFactor(&((double*)params)[4], ((double*)params)[3], eta, ((double*)params)[1], ((double*)params)[2]), EXACT), EXACT);
+}
+
+//================//
+// Action Formula //
+//================//
+
+//Calculate the action from the abundancy intervals
+//The parameter 'lk' is taken to be expressed in units of the graph discreteness length 'l'
+inline double calcAction(const int * const cardinalities, const int &dim, const double &lk, const bool &smeared)
+{
+	#if DEBUG
+	assert (cardinalities != NULL);
+	assert (dim == 1 || dim == 3);
+	assert (lk > 0.0);
+	#endif
+
+	double action = 0.0;
+
+	if (smeared) {
+		double epsilon = POW(lk, -(dim + 1.0), STL);
+		double eps1 = epsilon / (1.0 - epsilon);
+		double ni;
+		int i;
+
+		for (i = 0; i < cardinalities[0] - 3; i++) {
+			ni = static_cast<double>(cardinalities[i+1]);
+			if (dim == 1)
+				action += ni * POW(1.0 - epsilon, i, STL) * (1.0 - 2.0 * eps1 * i + 0.5 * POW2(eps1, EXACT) * i * (i - 1.0));
+			else if (dim == 3)
+				action += ni * POW(1.0 - epsilon, i, STL) * (1.0 - 9.0 * eps1 * i + 8.0 * POW2(eps1, EXACT) * i * (i - 1.0) - (4.0 / 3.0) * POW3(eps1, EXACT) * i * (i - 1.0) * (i - 2.0));
+			else
+				action = NAN;
+		}
+
+		if (dim == 1)
+			action = 2.0 * epsilon * (cardinalities[0] - 2.0 * epsilon * action);
+		else if (dim == 3)
+			action = (4.0 / sqrt(6.0)) * (sqrt(epsilon) * cardinalities[0] - POW(epsilon, 1.5, STL) * action);
+		else
+			action = NAN;
+	} else {
+		if (dim == 1)
+			action = 2.0 * (cardinalities[0] - 2.0 * (cardinalities[1] - 2.0 * cardinalities[2] + cardinalities[3]));
+		else if (dim == 3)
+			action = (4.0 / sqrt(6.0)) * (cardinalities[0] - cardinalities[1] + 9.0 * cardinalities[2] - 16.0 * cardinalities[3] + 8.0 * cardinalities[4]);
+		else
+			action = NAN;
+	}
+
+	return action;
 }
 
 #endif

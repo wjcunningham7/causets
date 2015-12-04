@@ -20,6 +20,11 @@
 homedir=/home/cunningham.wi/projects/causets
 work=/scratch/cunningham/causet%jobID%
 usempi=%usempi%
+if [[ %readjobid% -ne 0 && %readgraphid% -eq 0 ]] ; then
+  usegraphlist=1
+else
+  usegraphlist=0
+fi
 
 # Setup peripheral directories and copy necessary files, as well as the binary
 sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphid%:g" < $homedir/lsf/causet_setup | source /dev/stdin
@@ -41,16 +46,36 @@ done
 
 # Do not edit above this
 
+# Set OpenMP environment variables
+setenv OMP_NUM_THREADS %ncores%
+setenv OMP_SCHEDULE "dynamic"
+setenv OMP_NESTED FALSE
+setenv OMP_STACKSIZE "20M"
+
 # Run nsamples jobs serially
-for (( i=1; i<=%nsamples%; i++ )); do
-  echo "Starting Trial ${i} of %nsamples%"
-  if [ ${usempi} -eq 0 ] ; then # Do not use MPI
-    ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
-  else # Do use MPI
-    mpirun -np %totalcoresmpi% -machinefile hostlist-tcp ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
-  fi
-  sleep 1
-done
+if [ "$usegraphlist" -eq 1 ] ; then # Use a list of graph ids
+  graphfile=graphlist
+  readarray -t graphs < ${graphfile}
+  for (( i=1; i<=${#graphs[@]}; i++ )) ; do
+    echo "Reading Graph ${graphs[$i-1]}."
+    if [ ${usempi} -eq 0 ] ; then # Do not use MPI
+      ./CausalSet %flags% --graph ${graphs[$i-1]} > CausalSet_Job-%jobID%_Sample-$i.log
+    else # Do use MPI
+      mpirun -np %mpinodes% -hostfile hostlist-tcp ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+    fi
+    sleep 1
+  done
+else # Use a single graph id or create new graphs
+  for (( i=1; i<=%nsamples%; i++ )); do
+    echo "Starting Trial ${i} of %nsamples%"
+    if [ ${usempi} -eq 0 ] ; then # Do not use MPI
+      ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+    else # Do use MPI
+      mpirun -np %mpinodes% -hostfile hostlist-tcp ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+    fi
+    sleep 1
+  done
+fi
 
 wait
 
@@ -60,3 +85,7 @@ rm $work/$tempfile1
 rm $work/$tempfile2
 
 # Do not edit above this
+
+if [ ${usegraphlist} -eq 1 ] ; then
+  rm $work/$graphfile
+fi
