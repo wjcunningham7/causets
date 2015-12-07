@@ -69,7 +69,7 @@ CUDA_LIBS	 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PAT
 ##################
 
 CXXFLAGS	:= -O3 -g -Wall -x c++
-NVCCFLAGS 	:= -O3 -G -g --use_fast_math -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED #--keep --keep-dir $(ASMDIR)
+NVCCFLAGS 	:= -O3 -G -g -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED #--use-fast-math #--keep --keep-dir $(ASMDIR)
 ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
 NVCCFLAGS += -arch=sm_35
 else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
@@ -218,7 +218,7 @@ bindir :
 # Cleaning Sequences #
 ######################
 
-cleanall : clean cleanscratch cleandata
+cleanall : clean cleanscratch cleandata cleandbg
 
 clean : cleanbin cleanasm cleanobj cleanlog
 
@@ -239,3 +239,6 @@ cleanscratch :
 
 cleandata :
 	@ rm -f $(DATDIR)/*.cset.out $(DATDIR)/pos/*.cset.pos.dat $(DATDIR)/edg/*.cset.edg.dat $(DATDIR)/dst/*.cset.dst.dat $(DATDIR)/idd/*.cset.idd.dat $(DATDIR)/odd/*.cset.odd.dat $(DATDIR)/cls/*.cset.cls.dat $(DATDIR)/cdk/*.cset.cdk.dat $(DATDIR)/emb/*.cset.emb.dat $(DATDIR)/emb/tn/*.cset.emb_fn.dat $(DATDIR)/emb/fp/*.cset.emb_fp.dat $(ETCDIR)/data_keys.cset.key $(DATDIR)/ref/*.ref $(DATDIR)/idf/*.cset.idf.dat $(DATDIR)/odf/*.cset.odf.dat $(DATDIR)/act/*.cset.act.dat
+
+cleandbg :
+	@ rm -f *.dbg.dat

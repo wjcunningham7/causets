@@ -42,14 +42,14 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 	//If the GPU is requested, optimize parameters
 	#ifdef CUDA_ENABLED
-	if (network_properties->flags.use_gpu && network_properties->N_tar % (BLOCK_SIZE << 1)) {
+	/*if (network_properties->flags.use_gpu && network_properties->N_tar % (BLOCK_SIZE << 1)) {
 		printf_mpi(rank, "If you are using the GPU, set the target number of nodes (--nodes) to be a multiple of %d!\n", BLOCK_SIZE << 1);
 		fflush(stdout);
 		network_properties->cmpi.fail = 1;
 	}
 
 	if (checkMpiErrors(network_properties->cmpi))
-		return false;
+		return false;*/
 
 	//Adjacency matrix not implemented in certain GPU algorithms
 	if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2)
@@ -1190,14 +1190,14 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	//	return false;
 
 	//Print Results
-	if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
-	/*if (!printEdgeLists(edges, past_idx, "past-edges_CPU.cset.dbg.dat", "future-edges_CPU.cset.dbg.dat")) return false;
+	/*if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
+	if (!printEdgeLists(edges, past_idx, "past-edges_CPU.cset.dbg.dat", "future-edges_CPU.cset.dbg.dat")) return false;
 	if (!printEdgeListPointers(edges, N_tar, "past-edge-pointers_CPU.cset.dbg.dat", "future-edge-pointers_CPU.cset.dbg.dat")) return false;
 	printf_red();
 	printf("Check files now.\n");
 	printf_std();
-	fflush(stdout);*/
-	printChk();
+	fflush(stdout);
+	printChk();*/
 
 	stopwatchStop(&sLinkNodes);
 

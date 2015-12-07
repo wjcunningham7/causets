@@ -208,7 +208,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, compact, verbose))
 		return false;
 	#else
-	if (!generateLists_v1(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, ca, compact, verbose))
+	if (!generateLists_v1(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, compact, verbose))
 		return false;
 	#endif
 	stopwatchStop(&sGenAdjList);
@@ -224,12 +224,12 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		return false;
 	}
 
-	if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
+	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
 	printf_red();
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);
-	printChk();
+	printChk();*/
 
 	//Decode Adjacency Lists
 	stopwatchStart(&sDecodeLists);
@@ -309,7 +309,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(0);*/
+	printChk();*/
 
 	//Free Host Memory
 	free(g_idx);
@@ -373,10 +373,8 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	bool diag;
 
 	//Thread blocks are grouped into "mega" blocks
-	//size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * group_size)));
 	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
-	//size_t mthread_size = mblock_size * BLOCK_SIZE;
-	size_t mthread_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / group_size));
+	size_t mthread_size = mblock_size * BLOCK_SIZE;
 	size_t m_edges_size = mthread_size * mthread_size;
 
 	//Create Streams
@@ -426,15 +424,11 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	dim3 threads_per_block(1, BLOCK_SIZE, 1);
 	dim3 blocks_per_grid(gridx, gridy, 1);
 
-	//size_t final_size = N_tar - mthread_size * (2 * group_size - 1);
 	size_t final_size = N_tar - mthread_size * (group_size - 1);
 	size_t size0, size1;
 
-	//printf("group_size: %d\n", group_size);
 	//Index 'i' marks the row and 'j' marks the column
-	//for (i = 0; i < 2 * group_size; i++) {
 	for (i = 0; i < group_size; i++) {
-		//for (j = 0; j < 2 * group_size / NBUFFERS; j++) {
 		for (j = 0; j < group_size / NBUFFERS; j++) {
 			for (m = 0; m < NBUFFERS; m++) {
 				if (i > j * NBUFFERS + m)
@@ -442,13 +436,8 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 
 				diag = (i == j * NBUFFERS + m);
 
-				//size0 = (i < 2 * group_size - 1) ? mthread_size : final_size;
 				size0 = (i < group_size - 1) ? mthread_size : final_size;
-				//size1 = (j * NBUFFERS + m < 2 * group_size - 1) ? mthread_size : final_size;
 				size1 = (j * NBUFFERS + m < group_size - 1) ? mthread_size : final_size;
-
-				//printf("\nsize0: %zd\n", size0);
-				//printf("size1: %zd\n", size1);
 
 				//Clear Device Buffers
 				checkCudaErrors(cuMemsetD32Async(d_k_in[m], 0, mthread_size, stream[m]));

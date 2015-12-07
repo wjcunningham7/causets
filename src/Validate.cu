@@ -636,7 +636,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	printf("Check files now.\n");
 	printf_std();
 	fflush(stdout);
-	exit(0);*/
+	printChk();*/
 
 	//Free Host Memory
 	free(g_idx);

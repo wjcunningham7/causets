@@ -47,7 +47,8 @@
 #####################################
 
 #for (( i=0; i<10; i++ )) ; do
-./bin/CausalSet --nodes 16384 --age 0.5 --dim 3 --manifold s --compact --link
+./bin/CausalSet --nodes 16300 --age 0.5 --dim 3 --manifold s --compact --link --seed 57385
+./bin/CausalSet --nodes 16300 --age 0.5 --dim 3 --manifold s --compact --link --seed 57385 --gpu
 #done
 
 # Study Dust Manifold
