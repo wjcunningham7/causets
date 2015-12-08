@@ -18,11 +18,11 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 double lookupValue4D(const double *table, const long &size, const double &omega12, double t1, double t2);
 
 //Quicksort Algorithm
-void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, int high);
+void quicksort(Node &nodes, const int &stdim, const Manifold &manifold, int low, int high);
 
 void quicksort(uint64_t *edges, int low, int high);
 
-void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, const int j);
+void swap(Node &nodes, const int &stdim, const Manifold &manifold, const int i, const int j);
 
 void swap(uint64_t *edges, const int i, const int j);
 

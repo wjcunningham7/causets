@@ -14,10 +14,10 @@ import math
 import numpy as np
 import sys
 
-dim = 1
+stdim = 2
 
-if not (dim == 1 or dim == 3):
-	sys.stdout.write('Invalid parameter: [dim]');
+if not (stdim == 2 or stdim == 4):
+	sys.stdout.write('Invalid parameter: [stdim]');
 	sys.exit(1)
 
 # Range of job numbers (inclusive)
@@ -36,7 +36,7 @@ action = np.zeros((nlk, njobs))
 err = np.zeros((nlk, njobs))
 
 for lk in range(lkmin, lkmax + lkstep, lkstep):	
-	epsilon = math.pow(lk, -(dim + 1.0))
+	epsilon = math.pow(lk, -stdim)
 	eps1 = epsilon / (1.0 - epsilon)
 
 	for job in range(jobStart, jobEnd + 1):
@@ -61,14 +61,14 @@ for lk in range(lkmin, lkmax + lkstep, lkstep):
 
 			for i in range(0, c[0] - 2):
 				ni = float(c[i+1])
-				if dim == 1:
+				if stdim == 2:
 					a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 2.0 * eps1 * i + 0.5 * eps1 * eps1 * i * (i - 1.0))
-				elif dim == 3:
+				elif stdim == 4:
 					a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 9.0 * eps1 * i + 8.0 * eps1 * eps1 * i * (i - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * i * (i - 1.0) * (i - 2.0))
 
-			if dim == 1:
+			if stdim == 2:
 				a[a_idx] = 2.0 * epsilon * (c[0] - 2.0 * epsilon * a[a_idx])
-			elif dim == 3:
+			elif stdim == 4:
 				a[a_idx] = (4.0 / math.sqrt(6.0)) * (math.sqrt(epsilon) * c[0] - math.pow(epsilon, 1.5) * a[a_idx])
 
 			a_idx += 1
@@ -82,10 +82,10 @@ for lk in range(lkmin, lkmax + lkstep, lkstep):
 
 basedir = '/home/cunningham.wi/projects/causets/dat/ref/'
 
-if dim == 1:
-	filename = 'd1_'
-elif dim == 3:
-	filename = 'd3_'
+if stdim == 2:
+	filename = 'd2_'
+elif stdim == 4:
+	filename = 'd4_'
 filename += 'smeared'
 
 f = open(basedir + 'action_' + filename + '.cset.act.ref', 'w')

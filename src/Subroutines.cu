@@ -205,14 +205,14 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 
 //Sort nodes temporally
 //O(N*log(N)) Efficiency
-void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, int high)
+void quicksort(Node &nodes, const int &stdim, const Manifold &manifold, int low, int high)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (dim == 1 || dim == 3);
+	assert (stdim == 2 || stdim == 4);
 	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW || manifold == HYPERBOLIC);
 	if (manifold == HYPERBOLIC)
-		assert (dim == 1);
+		assert (stdim == 2);
 	#endif
 
 	int i, j, k;
@@ -220,26 +220,26 @@ void quicksort(Node &nodes, const int &dim, const Manifold &manifold, int low, i
 
 	if (low < high) {
 		k = (low + high) >> 1;
-		swap(nodes, dim, manifold, low, k);
-		if (dim == 1)
+		swap(nodes, stdim, manifold, low, k);
+		if (stdim == 2)
 			key = nodes.crd->x(low);
-		else if (dim == 3)
+		else if (stdim == 4)
 			key = nodes.crd->w(low);
 		i = low + 1;
 		j = high;
 
 		while (i <= j) {
-			while ((i <= high) && ((dim == 3 ? nodes.crd->w(i) : nodes.crd->x(i)) <= key))
+			while ((i <= high) && ((stdim == 4 ? nodes.crd->w(i) : nodes.crd->x(i)) <= key))
 				i++;
-			while ((j >= low) && ((dim == 3 ? nodes.crd->w(j) : nodes.crd->x(j)) > key))
+			while ((j >= low) && ((stdim == 4 ? nodes.crd->w(j) : nodes.crd->x(j)) > key))
 				j--;
 			if (i < j)
-				swap(nodes, dim, manifold, i, j);
+				swap(nodes, stdim, manifold, i, j);
 		}
 
-		swap(nodes, dim, manifold, low, j);
-		quicksort(nodes, dim, manifold, low, j - 1);
-		quicksort(nodes, dim, manifold, j + 1, high);
+		swap(nodes, stdim, manifold, low, j);
+		quicksort(nodes, stdim, manifold, low, j - 1);
+		quicksort(nodes, stdim, manifold, j + 1, high);
 	}
 }
 
@@ -276,21 +276,21 @@ void quicksort(uint64_t *edges, int low, int high)
 }
 
 //Exchange two nodes
-void swap(Node &nodes, const int &dim, const Manifold &manifold, const int i, const int j)
+void swap(Node &nodes, const int &stdim, const Manifold &manifold, const int i, const int j)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (dim == 1 || dim == 3);
+	assert (stdim == 2 || stdim == 4);
 	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW || manifold == HYPERBOLIC);
 	if (manifold == HYPERBOLIC)
-		assert (dim == 1);
+		assert (stdim == 2);
 	#endif
 
-	if (dim == 1) {
+	if (stdim == 2) {
 		float2 hc = nodes.crd->getFloat2(i);
 		nodes.crd->setFloat2(nodes.crd->getFloat2(j), i);
 		nodes.crd->setFloat2(hc, j);
-	} else if (dim == 3) {
+	} else if (stdim == 4) {
 		float4 sc = nodes.crd->getFloat4(i);
 		nodes.crd->setFloat4(nodes.crd->getFloat4(j), i);
 		nodes.crd->setFloat4(sc, j);

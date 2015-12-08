@@ -238,20 +238,20 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (dim == 1 || dim == 3);
+	assert (stdim == 2 || stdim == 4);
 	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW || manifold == HYPERBOLIC);
 
 	if (manifold == HYPERBOLIC)
-		assert (dim == 1);
+		assert (stdim == 2);
 
-	if (dim == 1) {
+	if (stdim == 2) {
 		assert (nodes.crd->getDim() == 2);
 		assert (false);	//No distance algorithms written for 1+1
-	} else if (dim == 3) {
+	} else if (stdim == 4) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
@@ -338,7 +338,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		return false;
 	ca->hostMemUsed += size;
 
-	//validateDistApprox(nodes, edges, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact);
+	//validateDistApprox(nodes, edges, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, compact);
 	//printChk();
 
 	/*int idx0 = 0, idx1 = 0;
@@ -349,10 +349,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 			idx1 = i;
 	}
 	double omega12;
-	nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, compact, idx0, idx1, &omega12);
+	nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, compact, idx0, idx1, &omega12);
 	printf("omega12: %f\n", omega12);
 	bool s = false, p = false;
-	if (!traversePath_v1(nodes, edges, core_edge_exists, &used[0], table, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, size, compact, idx0, idx1, s, p))
+	if (!traversePath_v1(nodes, edges, core_edge_exists, &used[0], table, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, size, compact, idx0, idx1, s, p))
 		return false;
 	printf("success: %d\n", (int)s);
 	printf("past hz: %d\n", (int)p);
@@ -362,7 +362,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-	if (dim == 3) {
+	if (stdim == 4) {
 		MPI_Bcast(nodes.crd->w(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(nodes.crd->z(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	}
@@ -435,10 +435,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 		bool success = false;
 		bool past_horizon = false;
 		#if TRAVERSE_V2
-		if (!traversePath_v2(nodes, edges, core_edge_exists, &used[offset], table, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, size, symmetric, compact, i, j, success))
+		if (!traversePath_v2(nodes, edges, core_edge_exists, &used[offset], table, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, size, symmetric, compact, i, j, success))
 			fail = true;
 		#else
-		if (!traversePath_v1(nodes, edges, core_edge_exists, &used[offset], table, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, size, symmetric, compact, i, j, success, past_horizon))
+		if (!traversePath_v1(nodes, edges, core_edge_exists, &used[offset], table, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, size, symmetric, compact, i, j, success, past_horizon))
 			fail = true;
 		#endif
 
@@ -519,20 +519,20 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //Uses version 2 of the algorithm - spatial distances instead of geodesics
-bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &symmetric, const bool &compact, int source, int dest, bool &success)
+bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &symmetric, const bool &compact, int source, int dest, bool &success)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (dim == 1 || dim == 3);
+	assert (stdim == 2 || stdim == 4);
 	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW || manifold == HYPERBOLIC);
 
 	if (manifold == HYPERBOLIC)
-		assert (dim == 1);
+		assert (stdim == 2);
 
-	if (dim == 1) {
+	if (stdim == 2) {
 		assert (nodes.crd->getDim() == 2);
 		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
-	} else if (dim == 3) {
+	} else if (stdim == 4) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
@@ -640,9 +640,9 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 
 			//Otherwise find the minimal element closest to the destination
 			if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW)
-				nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, idx_a, idx_b, &dist);
+				nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, idx_a, idx_b, &dist);
 			else if (manifold == HYPERBOLIC)
-				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), stdim, manifold, zeta);
 			else
 				return false;
 
@@ -669,9 +669,9 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 
 			//Otherwise find the minimal element closest to the destination
 			if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW)
-				nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, idx_a, idx_b, &dist);
+				nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, idx_a, idx_b, &dist);
 			else if (manifold == HYPERBOLIC)
-				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), dim, manifold, zeta);
+				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), stdim, manifold, zeta);
 			else
 				return false;
 
@@ -708,7 +708,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m
 //O(xxx) Efficiency (revise this)
-bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const int &N_tar, int &N_df, const double &tau_m, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &alpha, const double &delta, CaResources * const ca, Stopwatch &sMeasureDegreeField, const bool &compact, const bool &verbose, const bool &bench)
+bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const int &N_tar, int &N_df, const double &tau_m, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &alpha, const double &delta, CaResources * const ca, Stopwatch &sMeasureDegreeField, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (c->getDim() == 4);
@@ -722,7 +722,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 	assert (N_tar > 0);
 	assert (N_df > 0);
 	assert (tau_m > 0.0);
-	assert (dim == 3);
+	assert (stdim == 4);
 	assert (manifold == DE_SITTER || manifold == FLRW);
 	assert (a > 0.0);
 	if (manifold == DE_SITTER) {
@@ -935,16 +935,16 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 //Measure Causal Set Action
 //Algorithm has been parallelized on the CPU
-bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const int &max_cardinality, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
+bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const int &max_cardinality, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (dim == 1 || dim == 3);
+	assert (stdim == 2 || stdim == 4);
 	assert (manifold == DE_SITTER);
 
-	if (dim == 1)
+	if (stdim == 2)
 		assert (nodes.crd->getDim() == 2);
-	else if (dim == 3) {
+	else if (stdim == 4) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
@@ -1037,7 +1037,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	} else {
 		MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-		if (dim == 3) {
+		if (stdim == 4) {
 			MPI_Bcast(nodes.crd->w(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 			MPI_Bcast(nodes.crd->z(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 		}
@@ -1107,11 +1107,11 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 			}
 		} else {
 			//If nodes have not been linked, do each comparison
-			if (!nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, i, j, NULL))
+			if (!nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, i, j, NULL))
 				continue;
 
 			for (int k = i + 1; k < j; k++) {
-				if (nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, i, k, NULL) && nodesAreRelated(nodes.crd, N_tar, dim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, k, j, NULL))
+				if (nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, i, k, NULL) && nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, k, j, NULL))
 					elements++;
 
 				if (elements >= max_cardinality - 1) {
@@ -1141,7 +1141,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	if (max_cardinality < 5)
 		goto ActionExit;
 
-	action = calcAction(cardinalities, dim, lk, smeared);
+	action = calcAction(cardinalities, stdim, lk, smeared);
 	assert (action == action);
 
 	/*if (max_cardinality == N_tar - 1) {

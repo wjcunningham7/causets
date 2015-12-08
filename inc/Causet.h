@@ -408,7 +408,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), dim(3), manifold(DE_SITTER), a(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1) {}
+	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), stdim(4), manifold(DE_SITTER), a(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1) {}
 
 	CausetFlags flags;
 
@@ -422,7 +422,7 @@ struct NetworkProperties {
 	double N_dst;			//Number of Pairs Used in Distance Validation
 	int max_cardinality;		//Elements used in Action Calculation
 
-	int dim;			//Spacetime Dimension (2 or 4)
+	int stdim;			//Spacetime Dimension (2 or 4 right now)
 	Manifold manifold;		//Manifold of the Network
 
 	double a;			//Hyperboloid Pseudoradius

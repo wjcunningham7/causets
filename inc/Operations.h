@@ -110,7 +110,7 @@ inline double solveZeta(const double &x, const double * const p1, const float * 
 	assert (p3 != NULL);
 	assert (p2[0] > 0.0f);			//k_tar
 	assert (p3[0] > 0);			//N_tar
-	assert (p3[1] == 1 || p3[1] == 3);	//dim
+	assert (p3[1] == 2 || p3[1] == 4);	//stdim
 	#endif
 
 	return ((p3[1] == 1) ?
@@ -127,7 +127,7 @@ inline double solveZetaBisec(const double &x, const double * const p1, const flo
 	assert (p3 != NULL);
 	assert (p2[0] > 0.0f);			//k_tar
 	assert (p3[0] > 0);			//N_tar
-	assert (p3[1] == 1 || p3[1] == 3);	//dim
+	assert (p3[1] == 2 || p3[1] == 4);	//stdim
 	#endif
 
 	return ((p3[1] == 1) ?
@@ -444,16 +444,16 @@ inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 //=========================//
 
 //Assumes coordinates have been temporally ordered
-inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &symmetric, const bool &compact, int past_idx, int future_idx, double *omega12)
+inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &symmetric, const bool &compact, int past_idx, int future_idx, double *omega12)
 {
 	#if DEBUG
 	assert (!c->isNull());
-	assert (dim == 1 || dim == 3);
+	assert (stdim == 2 || stdim == 4);
 	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW);
 
-	if (dim == 1)
+	if (stdim == 2)
 		assert (c->getDim() == 2);
-	else if (dim == 3) {
+	else if (stdim == 4) {
 		assert (c->getDim() == 4);
 		assert (c->w() != NULL);
 		assert (c->z() != NULL);
@@ -496,26 +496,27 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 	}
 
 	//Temporal Interval
-	if (dim == 1)
+	if (stdim == 2)
 		dt = c->x(future_idx) - c->x(past_idx);
-	else if (dim == 3)
+	else if (stdim == 4)
 		dt = c->w(future_idx) - c->w(past_idx);
 
 	#if DEBUG
 	assert (dt >= 0.0f);
 	if (!compact && manifold == DE_SITTER)
 		assert (dt <= zeta - zeta1);
-	else
+	else {
 		if (symmetric)
 			assert (dt <= 2.0f * static_cast<float>(HALF_PI - zeta));
 		else
 			assert (dt <= static_cast<float>(HALF_PI - zeta));
+	}
 	#endif
 
 	//Spatial Interval
-	if (dim == 1)
+	if (stdim == 2)
 		dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(c->y(future_idx) - c->y(past_idx)), STL), STL));
-	else if (dim == 3) {
+	else if (stdim == 4) {
 		if (compact) {
 			//Spherical Law of Cosines
 			#if DIST_V2
@@ -949,42 +950,42 @@ inline double degreeFieldTheory(double eta, void *params)
 
 //Calculate the action from the abundancy intervals
 //The parameter 'lk' is taken to be expressed in units of the graph discreteness length 'l'
-inline double calcAction(const int * const cardinalities, const int &dim, const double &lk, const bool &smeared)
+inline double calcAction(const int * const cardinalities, const int &stdim, const double &lk, const bool &smeared)
 {
 	#if DEBUG
 	assert (cardinalities != NULL);
-	assert (dim == 1 || dim == 3);
+	assert (stdim == 2 || stdim == 4);
 	assert (lk > 0.0);
 	#endif
 
 	double action = 0.0;
 
 	if (smeared) {
-		double epsilon = POW(lk, -(dim + 1.0), STL);
+		double epsilon = POW(lk, -stdim, STL);
 		double eps1 = epsilon / (1.0 - epsilon);
 		double ni;
 		int i;
 
 		for (i = 0; i < cardinalities[0] - 3; i++) {
 			ni = static_cast<double>(cardinalities[i+1]);
-			if (dim == 1)
+			if (stdim == 2)
 				action += ni * POW(1.0 - epsilon, i, STL) * (1.0 - 2.0 * eps1 * i + 0.5 * POW2(eps1, EXACT) * i * (i - 1.0));
-			else if (dim == 3)
+			else if (stdim == 4)
 				action += ni * POW(1.0 - epsilon, i, STL) * (1.0 - 9.0 * eps1 * i + 8.0 * POW2(eps1, EXACT) * i * (i - 1.0) - (4.0 / 3.0) * POW3(eps1, EXACT) * i * (i - 1.0) * (i - 2.0));
 			else
 				action = NAN;
 		}
 
-		if (dim == 1)
+		if (stdim == 2)
 			action = 2.0 * epsilon * (cardinalities[0] - 2.0 * epsilon * action);
-		else if (dim == 3)
+		else if (stdim == 4)
 			action = (4.0 / sqrt(6.0)) * (sqrt(epsilon) * cardinalities[0] - POW(epsilon, 1.5, STL) * action);
 		else
 			action = NAN;
 	} else {
-		if (dim == 1)
+		if (stdim == 2)
 			action = 2.0 * (cardinalities[0] - 2.0 * (cardinalities[1] - 2.0 * cardinalities[2] + cardinalities[3]));
-		else if (dim == 3)
+		else if (stdim == 4)
 			action = (4.0 / sqrt(6.0)) * (cardinalities[0] - cardinalities[1] + 9.0 * cardinalities[2] - 16.0 * cardinalities[3] + 8.0 * cardinalities[4]);
 		else
 			action = NAN;

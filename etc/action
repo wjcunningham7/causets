@@ -13,12 +13,12 @@ import math
 import numpy as np
 import sys
 
-dim = 1
+stdim = 2
 smeared = True
 symmetric = True
 
-if not (dim == 1 or dim == 3):
-	sys.stdout.write('Invalid parameter: [dim]');
+if not (stdim == 2 or stdim == 4):
+	sys.stdout.write('Invalid parameter: [stdim]');
 	sys.exit(1)
 
 basedir = ''
@@ -43,23 +43,23 @@ for file in act_files:
 	
 	if smeared:
 		lk = 2.0
-		epsilon = math.pow(lk, -(dim + 1.0))
+		epsilon = math.pow(lk, -stdim)
 		eps1 = epsilon / (1.0 - epsilon)
 		for i in range(0, c[0] - 2):
 			ni = float(c[i+1])
-			if dim == 1:
+			if stdim == 2:
 				a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 2.0 * eps1 * i + 0.5 * eps1 * eps1 * i * (i - 1.0))
-			elif dim == 3:
+			elif stdim == 4:
 				a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 9.0 * eps1 * i + 8.0 * eps1 * eps1 * i * (i - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * i * (i - 1.0) *  (i - 2.0))
 
-		if dim == 1:
+		if stdim == 2:
 			a[a_idx] = 2.0 * epsilon * (c[0] - 2.0 * epsilon * a[a_idx])
-		elif dim == 3:
+		elif stdim == 4:
 			a[a_idx] = (4.0 / math.sqrt(6.0)) * (math.sqrt(epsilon) * c[0] - math.pow(epsilon, 1.5) * a[a_idx])
 	else:
-		if dim == 1:
+		if stdim == 2:
 			a[a_idx] = 2.0 * (c[0] - 2.0 * (c[1] - 2.0 * c[2] + c[3]))
-		elif dim == 3:
+		elif stdim == 4:
 			a[a_idx] = (4.0 / math.sqrt(6.0)) * (c[0] - c[1] + 9.0 * c[2] - 16.0 * c[3] + 8.0 * c[4])
 
 	a_idx += 1
@@ -70,10 +70,10 @@ std_action = np.std(a)
 
 basedir = './dat/ref/'
 
-if dim == 1:
-	filename = 'd1_'
-elif dim == 3:
-	filename = 'd3_'
+if stdim == 2:
+	filename = 'd2_'
+elif stdim == 4:
+	filename = 'd4_'
 
 if smeared:
 	filename += 'smeared'
@@ -86,22 +86,22 @@ for i in range(0,len(act_files)):
 h.close()
 
 eta0 = 0.5
-if dim == 1:
+if stdim == 2:
 	v = 2.0 * math.pi * math.tan(eta0)
-elif dim == 3:
+elif stdim == 4:
 	v = (2.0 / 3.0) * math.pow(math.pi, 2.0) * (2.0 + 1.0 / math.pow(math.cos(eta0), 2.0)) * math.tan(eta0)
 
 if symmetric:
 	v *= 2.0
 
-if dim == 1:
+if stdim == 2:
 	th_action = v
-elif dim == 3:
+elif stdim == 4:
 	th_action = 6.0 * math.sqrt(n * v)
 
-if dim == 1:
+if stdim == 2:
 	plt_val = th_action
-elif dim == 3:
+elif stdim == 4:
 	plt_val = avg_action / (6.0 * math.sqrt(v))
 
 #sys.stdout.write('Plot Value:     %f\n' % plt_val)

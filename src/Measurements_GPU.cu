@@ -49,16 +49,16 @@ __global__ void MeasureAction(bool *edges0, bool *edges1, unsigned int *N_ij)
 //This algorithm has been parallelized on the GPU
 //It is assumed the edge list has already been generated
 //Here we calculate the smeared action
-bool measureActionGPU(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &dim, const Manifold &manifold, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
+bool measureActionGPU(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &stdim, const Manifold &manifold, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (dim == 1 || dim == 3);
+	assert (stdim == 2 || stdim == 4);
 	assert (manifold == DE_SITTER);
 
-	if (dim == 1)
+	if (stdim == 2)
 		assert (nodes.crd->getDim() == 2);
-	else if (dim == 3) {
+	else if (stdim == 4) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
