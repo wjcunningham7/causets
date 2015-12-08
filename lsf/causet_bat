@@ -33,8 +33,11 @@ ncores=1
 # Use multiple nodes with MPI communication
 mpinodes=0
 
+# Wait for a job to finish first
+waitid=0
+
 # Parse command line parameters
-OPTIONS=`getopt -o c:f:G:hJ:j:m:q:R:s: -l ncores:,flags:,graph:,'help',mpi:,start:,njobs:,queue:,readjob:,nsamples: -n 'causet_bat' -- "$@"`
+OPTIONS=`getopt -o c:f:G:hJ:j:m:q:R:s:w: -l ncores:,flags:,graph:,'help',mpi:,start:,njobs:,queue:,readjob:,nsamples:,waitfor: -n 'causet_bat' -- "$@"`
 
 if [ $? -ne 0 ] ; then
   echo "Unrecognized option. Try running with --help flag." >&2
@@ -90,6 +93,11 @@ while true ; do
         "") shift 2 ;;
         *) nsamples=$2 ; shift 2 ;;
       esac ;;
+    -w|--waitfor)
+      case "$2" in
+        "") shift 2 ;;
+        *) waitid=$2 ; shift 2 ;;
+      esac ;;
     -h|--help)
       echo "Usage: causet_bat [OPTION]..."
       echo "Send CausalSet jobs to LSF queue on Discovery cluster."
@@ -104,6 +112,7 @@ while true ; do
       echo "  -q, --queue      LSF queue"
       echo "  -R, --readjob    job ID specified when reading graph(s) from another job"
       echo "  -s, --nsamples   number of samples to run serially on a single node"
+      echo "  -w, --waitfor    job which must complete before this one starts"
       echo ""
       echo "Report causet_bat bugs to w.cunningham@neu.edu"
       echo "GitHub repository home page: <https://github.com/wjcunningham7/causets>"
@@ -132,6 +141,13 @@ if [ ${mpinodes} -ne 0 ] ; then
   usempi=1
 fi
 
+# Format wait statement
+if [ ${waitid} -ne 0 ] ; then
+  waitfor="BSUB -w done(CSET-${waitid})"
+else
+  waitfor=""
+fi
+
 # Send jobs to LSF via bsub
 jobid=$jobstart
 for (( i=${istart}; i<${njobs}+${istart}; i++ )) ; do
@@ -142,7 +158,7 @@ for (( i=${istart}; i<${njobs}+${istart}; i++ )) ; do
     echo "Invalid option: jobid equals readjobid!"
     exit 3;
   fi
-  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%totalcores%:$totalcores:g;s:%mpinodes%:$mpinodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%usempi%:$usempi:g" < lsf/causet_lsf | bsub
+  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%totalcores%:$totalcores:g;s:%mpinodes%:$mpinodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%usempi%:$usempi:g;s:%waitfor%:$waitfor:g" < lsf/causet_lsf | bsub
   sleep 1
 done
 

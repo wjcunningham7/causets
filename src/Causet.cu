@@ -386,7 +386,10 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				#endif
 			case ':':
 				//Single-character flag needs an argument
-				fprintf(stderr, "%s: option '-%c' requires an argument\n", argv[0], optopt);
+				if (!!optopt)
+					fprintf(stderr, "%s : option '-%c' requires an argument\n", argv[0], optopt);
+				else
+					fprintf(stderr, "%s : option '%s' requires an argument\n", argv[0], argv[optind-1]);
 				#ifdef MPI_ENABLED
 				MPI_Abort(MPI_COMM_WORLD, 6);
 				#else
@@ -394,7 +397,10 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				#endif
 			case '?':	//Unrecognized flag
 			default:	//Default case
-				fprintf(stderr, "%s:option -%c' is not recognized.\n", argv[0], optopt);
+				if (!!optopt)
+					fprintf(stderr, "%s : option '-%c' is not recognized.\n", argv[0], optopt);
+				else
+					fprintf(stderr, "%s : option '%s' is not recognized.\n", argv[0], argv[optind-1]);
 				#ifdef MPI_ENABLED
 				MPI_Abort(MPI_COMM_WORLD, 7);
 				#else
@@ -466,7 +472,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	for (i = 0; i <= nb; i++) {
 		if (!createNetwork(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.dim, network->network_properties.manifold, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sCreateNetwork, network->network_properties.flags.use_gpu, network->network_properties.flags.decode_cpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 			return false;
-		if (!!nb)
+		if (!!(i-nb))
 			destroyNetwork(network, ca->hostMemUsed, ca->devMemUsed);
 	}
 

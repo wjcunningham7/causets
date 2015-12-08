@@ -574,9 +574,10 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 	//assert (size > 0);
 	assert (source >= 0 && source < N_tar);
 	assert (dest >= 0 && dest < N_tar);
+	assert (source != dest);
 	#endif
 
-	bool TRAV_DEBUG = false;
+	bool TRAV_DEBUG = true;
 
 	double min_dist = 0.0;
 	int loc = source;
@@ -610,7 +611,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 		#endif
 
 		//(1) Check if destination is a neigbhor
-		if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
+		if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, loc, idx_b)) {
 			if (TRAV_DEBUG) {
 				printf_cyan();
 				printf("Moving to %d.\n", idx_a);

@@ -15,7 +15,7 @@ import sys
 
 dim = 1
 smeared = True
-symmetric = False
+symmetric = True
 
 if not (dim == 1 or dim == 3):
 	sys.stdout.write('Invalid parameter: [dim]');

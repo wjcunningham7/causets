@@ -99,7 +99,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				#endif
 
 				if (network_properties->flags.symmetric) {
-					network_properties->k_tar = network_properties->N_tar * (eta0 / (sin(eta0) * cos(eta0)) - 1.0) / (HALF_PI * tan(eta0));
+					network_properties->k_tar = (network_properties->N_tar / M_PI) * ((eta0 / TAN(eta0, STL) - 1.0) / TAN(eta0, STL) + eta0);
 					if (!!network_properties->delta)
 						network_properties->a = SQRT(network_properties->N_tar / (4.0 * M_PI * network_properties->delta * TAN(eta0, STL)), STL);
 					else
@@ -268,8 +268,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 					network_properties->r_max = 1.0;
 
 				//Non-Compact FLRW Constraints
-				int method = 0;
-				//int method = 1;
+				//int method = 0;
+				int method = 1;
 				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->dim, network_properties->manifold, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
 					network_properties->cmpi.fail = 1;
 

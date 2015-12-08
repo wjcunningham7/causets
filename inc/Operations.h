@@ -482,10 +482,18 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &dim, co
 		
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
-	assert (past_idx < future_idx);
+	//assert (past_idx < future_idx);
+	assert (past_idx != future_idx);
 	#endif
 
 	float dt = 0.0f, dx = 0.0f;
+
+	if (future_idx < past_idx) {
+		//Bitwise swap
+		past_idx ^= future_idx;
+		future_idx ^= past_idx;
+		past_idx ^= future_idx;
+	}
 
 	//Temporal Interval
 	if (dim == 1)

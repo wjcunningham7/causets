@@ -7,6 +7,7 @@
 #BSUB -n %totalcores%
 #BSUB -R span[ptile=%ncores%]
 #BSUB -cwd /scratch/cunningham/causet%jobID%
+#%waitfor%
 
 ###########################
 #(C) Will Cunningham 2014 #
@@ -47,10 +48,10 @@ done
 # Do not edit above this
 
 # Set OpenMP environment variables
-setenv OMP_NUM_THREADS %ncores%
-setenv OMP_SCHEDULE "dynamic"
-setenv OMP_NESTED FALSE
-setenv OMP_STACKSIZE "20M"
+export OMP_NUM_THREADS=%ncores%
+export OMP_SCHEDULE="dynamic"
+export OMP_NESTED=FALSE
+export OMP_STACKSIZE="20M"
 
 # Run nsamples jobs serially
 if [ "$usegraphlist" -eq 1 ] ; then # Use a list of graph ids

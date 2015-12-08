@@ -14,15 +14,15 @@ import math
 import numpy as np
 import sys
 
-dim = 3
+dim = 1
 
 if not (dim == 1 or dim == 3):
 	sys.stdout.write('Invalid parameter: [dim]');
 	sys.exit(1)
 
 # Range of job numbers (inclusive)
-jobStart = 481
-jobEnd = 505
+jobStart = 506
+jobEnd = 519
 njobs = jobEnd - jobStart + 1
 
 # Range of lk to use (inclusive)
@@ -49,6 +49,7 @@ for lk in range(lkmin, lkmax + lkstep, lkstep):
 		for file in files:
 			f = open(file)
 			lines = f.readlines()
+			c = []
 			c_idx = 0
 
 			for line in lines:
@@ -71,9 +72,8 @@ for lk in range(lkmin, lkmax + lkstep, lkstep):
 				a[a_idx] = (4.0 / math.sqrt(6.0)) * (math.sqrt(epsilon) * c[0] - math.pow(epsilon, 1.5) * a[a_idx])
 
 			a_idx += 1
-			c = []
 
-		if n == 0:
+		if c[0] == 0:
 			sys.stdout.write('Error: n = 0!.\n')
 			sys.exit(1)
 

@@ -22,6 +22,8 @@
 
 #define USE_GSL true	//Use GNU Scientific Library for numerical integration
 
+#define EMBED_NODES true	//Embed spatial coordinates in a higher dimension
+
 #define DIST_V2 true	//Use factored (v2) or expanded (v1) distance formulae
 
 #define VE_RANDOM true	//Pick random pairs when performing embedding validation test
