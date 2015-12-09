@@ -46,7 +46,7 @@
 # These are experimental parameters #
 #####################################
 
-./bin/CausalSet --nodes 32768 --energy 0.73 --alpha 6 --manifold f --verbose -y
+./bin/CausalSet --nodes 131072 --energy 0.73 --alpha 6 --manifold f --gpu --link
 
 # Study Dust Manifold
 #./bin/CausalSet --nodes 26624 --age 0.2154 --alpha 2.9941 --manifold d --link --gpu

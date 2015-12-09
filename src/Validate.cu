@@ -1097,13 +1097,13 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	#pragma omp parallel reduction (+ : c0, c1, c2, c3)
 	{
 	Engine eng;
-	Distribution dst(0.0, 1.0);
-	Generator rng(eng, dst);
+	UDistribution dst(0.0, 1.0);
+	UGenerator rng(eng, dst);
 	rng.engine().seed(seed ^ omp_get_thread_num());
 	rng.distribution().reset();
 	#pragma omp for schedule (dynamic, 1)
 	#else
-	Generator &rng = mrng.rng;
+	UGenerator &rng = mrng.rng;
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		//Choose a pair
@@ -1255,13 +1255,13 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 	#pragma omp parallel reduction(+ : c0, c1)
 	{
 	Engine eng;
-	Distribution dst(0.0, 1.0);
-	Generator rng(eng, dst);
+	UDistribution dst(0.0, 1.0);
+	UGenerator rng(eng, dst);
 	rng.engine().seed(seed ^ omp_get_thread_num());
 	rng.distribution().reset();
 	#pragma omp for schedule (dynamic, 1)
 	#else
-	Generator &rng = mrng.rng;
+	UGenerator &rng = mrng.rng;
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		//Choose a pair

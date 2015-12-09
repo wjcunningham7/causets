@@ -413,7 +413,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 		checkCudaErrors(cuMemAlloc(&d_edges[i], sizeof(bool) * m_edges_size));
 		ca->devMemUsed += sizeof(bool) * m_edges_size;
 	}
-	
+
 	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
 		printMemUsed("for Generating Lists on GPU", ca->hostMemUsed, ca->devMemUsed, 0);

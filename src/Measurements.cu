@@ -386,13 +386,13 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	#pragma omp parallel reduction (+ : n_trav, n_succ)
 	{
 	Engine eng;
-	Distribution dst(0.0, 1.0);
-	Generator rng(eng, dst);
+	UDistribution dst(0.0, 1.0);
+	UGenerator rng(eng, dst);
 	rng.engine().seed(seed ^ omp_get_thread_num());
 	rng.distribution().reset();
 	#pragma omp for schedule (dynamic, 1)
 	#else
-	Generator &rng = mrng.rng;
+	UGenerator &rng = mrng.rng;
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		//Pick Pair

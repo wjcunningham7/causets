@@ -6,7 +6,7 @@
 #include <exception>
 #include <fstream>
 #include <getopt.h>
-#define __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS	//Required to print uint64_t variables
 #include <inttypes.h>
 #include <iomanip>
 #include <iostream>
@@ -14,20 +14,18 @@
 #include <math.h>
 #include <sstream>
 #include <stdarg.h>
-
 #include <stddef.h>
-
 #include <stdint.h>
 #include <stdio.h>
 #include <string>
 
 //System Files for Parallel Acceleration
 #ifdef CUDA_ENABLED
-#include <cuda.h>
+  #include <cuda.h>
 #endif
 
 #ifdef MPI_ENABLED
-#include <mpi.h>
+  #include <mpi.h>
 #endif
 
 #ifdef _OPENMP
@@ -40,6 +38,7 @@
 //Other System Files
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_real.hpp>
+#include <boost/random/normal_distribution.hpp>
 #include <boost/random/variate_generator.hpp>
 #include <boost/unordered_map.hpp>
 #include <sys/io.h>
@@ -47,7 +46,6 @@
 //Custom System Files
 #include <fastmath/FastMath.h>
 #include <fastmath/FastNumInt.h>
-//#include <fastmath/ran2.h>
 #include <fastmath/stopwatch.h>
 #include <printcolor/printcolor.h>
 
@@ -112,15 +110,17 @@ typedef int CUcontext;
 
 //Boost RNG
 typedef boost::mt19937 Engine;
-typedef boost::uniform_real<double> Distribution;
-typedef boost::variate_generator<Engine, Distribution> Generator;
+typedef boost::uniform_real<double> UDistribution;
+typedef boost::normal_distribution<double> NDistribution;
+typedef boost::variate_generator<Engine, UDistribution> UGenerator;
+typedef boost::variate_generator<Engine, NDistribution> NGenerator;
 
 struct MersenneRNG {
-	MersenneRNG() : dist(0.0, 1.0), rng(eng, dist) {}
+	MersenneRNG() : dist(0.0, 1.0), rng(eng, dist)  {}
 
 	Engine eng;
-	Distribution dist;
-	Generator rng;
+	UDistribution dist;
+	UGenerator rng;
 };
 
 //Causal Set Resources
