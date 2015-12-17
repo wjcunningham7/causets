@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string>
+#include <vector>
 
 //System Files for Parallel Acceleration
 #ifdef CUDA_ENABLED
@@ -136,10 +137,10 @@ struct CaResources {
 
 //Manifold Types
 enum Manifold {
-	DE_SITTER,
-	DUST,
-	FLRW,
-	HYPERBOLIC
+	DE_SITTER	= 1 << 3,
+	DUST		= 1 << 4,
+	FLRW		= 1 << 5,
+	HYPERBOLIC	= 1 << 6
 };
 
 //These coordinate data structures are important because they allow
@@ -374,7 +375,7 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), /*calc_geodesics(false),*/ validate_embedding(false), validate_distances(false), symmetric(false), compact(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), /*calc_geodesics(false),*/ validate_embedding(false), validate_distances(false), symmetric(false), compact(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
 	bool decode_cpu;		//Decode edge list using serial sort
@@ -384,6 +385,8 @@ struct CausetFlags {
 
 	bool read_old_format;		//Read Node Positions in the Format (theta3, theta2, theta1)
 	bool quiet_read;		//Ignore Warnings when Reading Graph
+	bool no_pos;			//No positions in graph (edge list only)
+	bool use_bit;			//Use bit array instead of sparse edge lists
 	bool gen_ds_table;		//Generate de Sitter geodesic lookup table
 	bool gen_flrw_table;		//Generate FLRW geodesic lookup table
 	
@@ -483,15 +486,15 @@ struct NetworkObservables {
 
 //Network object containing minimal unique information
 struct Network {
-	Network() : network_properties(NetworkProperties()), network_observables(NetworkObservables()), nodes(Node()), edges(Edge()), core_edge_exists(NULL) {}
-	Network(NetworkProperties _network_properties) : network_properties(_network_properties), network_observables(NetworkObservables()), nodes(Node()), edges(Edge()), core_edge_exists(NULL) {}
+	Network() : network_properties(NetworkProperties()), network_observables(NetworkObservables()), nodes(Node()), edges(Edge()) {}
+	Network(NetworkProperties _network_properties) : network_properties(_network_properties), network_observables(NetworkObservables()), nodes(Node()), edges(Edge()) {}
 
 	NetworkProperties network_properties;
 	NetworkObservables network_observables;
 
 	Node nodes;
 	Edge edges;
-	bool *core_edge_exists;		//Adjacency matrix
+	std::vector<bool> core_edge_exists;	//Adjacency matrix
 };
 
 //Algorithmic Performance

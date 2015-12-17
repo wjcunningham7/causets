@@ -15,7 +15,7 @@ import sys
 
 stdim = 2
 smeared = True
-symmetric = True
+symmetric = False
 
 if not (stdim == 2 or stdim == 4):
 	sys.stdout.write('Invalid parameter: [stdim]');

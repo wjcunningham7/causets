@@ -151,7 +151,7 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -160,11 +160,13 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	assert (nodes.crd->x() != NULL);
 	assert (nodes.crd->y() != NULL);
 	assert (nodes.crd->z() != NULL);
-	assert (edges.past_edges != NULL);
-	assert (edges.future_edges != NULL);
-	assert (edges.past_edge_row_start != NULL);
-	assert (edges.future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
+	if (!use_bit) {
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
+	} else
+		assert (core_edge_fraction == 1.0f);
 	assert (ca != NULL);
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
@@ -181,7 +183,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	uint64_t *h_edges;
 	int *g_idx;
 
-	size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
+	size_t d_edges_size = use_bit ? 1 : pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
 
 	stopwatchStart(&sLinkNodesGPU);
 
@@ -205,7 +207,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 
 	stopwatchStart(&sGenAdjList);
 	#if GEN_ADJ_LISTS_GPU_V2
-	if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, compact, verbose))
+	if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, use_bit, compact, verbose))
 		return false;
 	#else
 	if (!generateLists_v1(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, compact, verbose))
@@ -213,39 +215,41 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	#endif
 	stopwatchStop(&sGenAdjList);
 
-	try {
-		if (*g_idx + 1 >= static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
-			throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
-	} catch (CausetException c) {
-		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		return false;
-	} catch (std::exception e) {
-		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-		return false;
-	}
+	if (!use_bit) {
+		try {
+			if (*g_idx + 1 >= static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
+				throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
+		} catch (CausetException c) {
+			fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+			return false;
+		} catch (std::exception e) {
+			fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+			return false;
+		}
 
-	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
-	printf_red();
-	printf("Check files now.\n");
-	printf_std();
-	fflush(stdout);
-	printChk();*/
+		/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
+		printf_red();
+		printf("Check files now.\n");
+		printf_std();
+		fflush(stdout);
+		printChk();*/
 
-	//Decode Adjacency Lists
-	stopwatchStart(&sDecodeLists);
-	if (decode_cpu) {
-		if (!decodeListsCPU(edges, h_edges, g_idx))
-			return false;
-	} else {
-		#if DECODE_LISTS_GPU_V2
-		if (!decodeLists_v2(edges, h_edges, g_idx, d_edges_size, group_size, ca, verbose))
-			return false;
-		#else
-		if (!decodeLists_v1(edges, h_edges, g_idx, d_edges_size, ca, verbose))
-			return false;
-		#endif
+		//Decode Adjacency Lists
+		stopwatchStart(&sDecodeLists);
+		if (decode_cpu) {
+			if (!decodeListsCPU(edges, h_edges, g_idx))
+				return false;
+		} else {
+			#if DECODE_LISTS_GPU_V2
+			if (!decodeLists_v2(edges, h_edges, g_idx, d_edges_size, group_size, ca, verbose))
+				return false;
+			#else
+			if (!decodeLists_v1(edges, h_edges, g_idx, d_edges_size, ca, verbose))
+				return false;
+			#endif
+		}
+		stopwatchStop(&sDecodeLists);
 	}
-	stopwatchStop(&sDecodeLists);
 
 	//Free Host Memory
 	free(h_edges);
@@ -269,10 +273,12 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 		return false;
 	stopwatchStop(&sProps);	
 
-	//Prefix Scan of Degrees
-	stopwatchStart(&sScanLists);
-	scan(nodes.k_in, nodes.k_out, edges.past_edge_row_start, edges.future_edge_row_start, N_tar);
-	stopwatchStop(&sScanLists);
+	if (!use_bit) {
+		//Prefix Scan of Degrees
+		stopwatchStart(&sScanLists);
+		scan(nodes.k_in, nodes.k_out, edges.past_edge_row_start, edges.future_edge_row_start, N_tar);
+		stopwatchStop(&sScanLists);
+	}
 
 	//Free Device Memory
 	cuMemFree(d_k_in);
@@ -328,7 +334,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &compact, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, std::vector<bool> &core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &compact, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -339,11 +345,12 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	assert (nodes.crd->z() != NULL);
 	assert (nodes.k_in != NULL);
 	assert (nodes.k_out != NULL);
-	assert (core_edge_exists != NULL);
 	assert (g_idx != NULL);
 	assert (ca != NULL);
 	assert (N_tar > 0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	if (use_bit)
+		assert (core_edge_fraction == 1.0f);
 	#endif
 
 	//CUDA Streams
@@ -470,7 +477,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, bool * const core_ed
 				//Read Data from Buffers
 				readDegrees(nodes.k_in, h_k_in[m], (j * NBUFFERS + m) * mthread_size, size1);
 				readDegrees(nodes.k_out, h_k_out[m], i * mthread_size, size0);
-				readEdges(edges, h_edges[m], core_edge_exists, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j*NBUFFERS+m);
+				readEdges(edges, h_edges[m], core_edge_exists, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j*NBUFFERS+m, use_bit);
 			}				
 		}
 	}
@@ -718,6 +725,7 @@ bool decodeListsCPU(const Edge &edges, uint64_t *h_edges, const int * const g_id
 }
 
 //Parallel Prefix Sum of 'k_in' and 'k_out' and Write to Edge Pointers
+//This function works, but has been deprecated since it doesn't provide much speedup
 bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d_k_out, const int &N_tar, CaResources * const ca, const bool &verbose)
 {
 	#if DEBUG

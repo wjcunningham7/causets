@@ -16,22 +16,22 @@
 # No Acceleration #
 #=================#
 
-#./lsf/causet_bat --start 506 --ncores 20 --flags '--nodes 1000 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 507 --ncores 20 --flags '--nodes 1298 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 508 --ncores 20 --flags '--nodes 1684 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 509 --ncores 20 --flags '--nodes 2186 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 510 --ncores 20 --flags '--nodes 2838 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 511 --ncores 20 --flags '--nodes 3684 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 512 --ncores 20 --flags '--nodes 4782 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 513 --ncores 20 --flags '--nodes 6206 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 514 --ncores 20 --flags '--nodes 8056 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 515 --ncores 20 --flags '--nodes 10456 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 516 --ncores 20 --flags '--nodes 13572 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 517 --ncores 20 --flags '--nodes 17616 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 518 --ncores 20 --flags '--nodes 22866 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-#./lsf/causet_bat --start 519 --ncores 20 --flags '--nodes 29678 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-./lsf/causet_bat --start 520 --ncores 20 --flags '--nodes 38522 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
-./lsf/causet_bat --start 521 --ncores 20 --flags '--nodes 50000 --age 0.5 --dim 1 --manifold s --link --compact --symmetric --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
+./lsf/causet_bat --start 522 --ncores 20 --flags '--nodes 1000 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
+./lsf/causet_bat --start 523 --ncores 20 --flags '--nodes 1298 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
+./lsf/causet_bat --start 524 --ncores 20 --flags '--nodes 1684 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10
+./lsf/causet_bat --start 525 --ncores 20 --flags '--nodes 2186 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 522
+./lsf/causet_bat --start 526 --ncores 20 --flags '--nodes 2838 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 523
+./lsf/causet_bat --start 527 --ncores 20 --flags '--nodes 3684 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 524
+./lsf/causet_bat --start 528 --ncores 20 --flags '--nodes 4782 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 525
+./lsf/causet_bat --start 529 --ncores 20 --flags '--nodes 6206 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 526
+./lsf/causet_bat --start 530 --ncores 20 --flags '--nodes 8056 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 527
+./lsf/causet_bat --start 531 --ncores 20 --flags '--nodes 10456 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 528
+./lsf/causet_bat --start 532 --ncores 20 --flags '--nodes 13572 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 529
+./lsf/causet_bat --start 533 --ncores 20 --flags '--nodes 17616 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 530
+./lsf/causet_bat --start 534 --ncores 20 --flags '--nodes 22866 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 531
+./lsf/causet_bat --start 535 --ncores 20 --flags '--nodes 29678 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 532
+./lsf/causet_bat --start 536 --ncores 20 --flags '--nodes 38522 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 533
+./lsf/causet_bat --start 537 --ncores 20 --flags '--nodes 50000 --age 0.5 --stdim 2 --manifold s --link --compact --verbose -y --print --action smeared' --queue 'krioukov' --nsamples 10 --waitfor 534
 
 #./lsf/causet_bat --ncores 1 --flags '--nodes 1024 --age 1.5 --verbose -y --gen-ds-table --test' --start 59 --queue 'krioukov' --nsamples 1
 

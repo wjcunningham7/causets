@@ -8,14 +8,13 @@
 
 //Calculates clustering coefficient for each node in network
 //O(N*k^3) Efficiency
-bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &calc_autocorr, const bool &verbose, const bool &bench)
+bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &calc_autocorr, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (edges.past_edges != NULL);
 	assert (edges.future_edges != NULL);
 	assert (edges.past_edge_row_start != NULL);
 	assert (edges.future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
 	assert (ca != NULL);
 	assert (N_tar > 0);
 	assert (N_deg2 > 0);
@@ -238,7 +237,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, float &success_ratio, const int &N_tar, const float &k_tar, const double &N_sr, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -264,7 +263,6 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 	assert (edges.future_edges != NULL);
 	assert (edges.past_edge_row_start != NULL);
 	assert (edges.future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
 	assert (ca != NULL);
 
 	assert (N_tar > 0);
@@ -519,7 +517,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, bool * const core
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //Uses version 2 of the algorithm - spatial distances instead of geodesics
-bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &symmetric, const bool &compact, int source, int dest, bool &success)
+bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &symmetric, const bool &compact, int source, int dest, bool &success)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -547,7 +545,6 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const bool * const co
 	assert (edges.future_edges != NULL);
 	assert (edges.past_edge_row_start != NULL);
 	assert (edges.future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
 	assert (used != NULL);
 	//assert (table != NULL);
 		
@@ -935,31 +932,34 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 //Measure Causal Set Action
 //Algorithm has been parallelized on the CPU
-bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const int &max_cardinality, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
+bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const int &N_tar, const float &k_tar, const int &max_cardinality, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	assert (!nodes.crd->isNull());
+	if (!no_pos)
+		assert (!nodes.crd->isNull());
 	assert (stdim == 2 || stdim == 4);
 	assert (manifold == DE_SITTER);
 
-	if (stdim == 2)
-		assert (nodes.crd->getDim() == 2);
-	else if (stdim == 4) {
-		assert (nodes.crd->getDim() == 4);
-		assert (nodes.crd->w() != NULL);
-		assert (nodes.crd->z() != NULL);
+	if (!no_pos) {
+		if (stdim == 2)
+			assert (nodes.crd->getDim() == 2);
+		else if (stdim == 4) {
+			assert (nodes.crd->getDim() == 4);
+			assert (nodes.crd->w() != NULL);
+			assert (nodes.crd->z() != NULL);
+		}
+
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
 	}
 
-	assert (nodes.crd->x() != NULL);
-	assert (nodes.crd->y() != NULL);
-	if (link || relink) {
+	if (!use_bit && (link || relink)) {
 		assert (nodes.k_in != NULL);
 		assert (nodes.k_out != NULL);
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
 	}
 	assert (ca != NULL);
 
@@ -1026,7 +1026,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
-	if (link || relink) {
+	if (!use_bit && (link || relink)) {
 		MPI_Bcast(nodes.k_in, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(edges.past_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
@@ -1048,13 +1048,11 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	finish = start + mpi_chunk;
 	#endif
 
-	int num = 0;
-
 	if (max_cardinality == 1)
 		goto ActionExit;
 
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 1) reduction (+ : num)
+	#pragma omp parallel for schedule (dynamic, 1)
 	#endif
 	for (uint64_t v = start; v < finish; v++) {
 		//Choose a pair
@@ -1069,13 +1067,12 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 
 		if (i == j)
 			continue;
-		num++;
 		//printf("i: %d\tj: %d\n", i, j);
 
 		int elements = 0;
 		bool too_many = false;
 
-		if (link || relink) {
+		if (!use_bit && (link || relink)) {
 			//If the nodes have been linked, use edge lists / adjacency matrix
 			if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, i, j))
 				continue;
@@ -1143,27 +1140,6 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 
 	action = calcAction(cardinalities, stdim, lk, smeared);
 	assert (action == action);
-
-	/*if (max_cardinality == N_tar - 1) {
-		float lk = 2.0f;
-		float epsilon = 1.0f / POW2(POW2(lk, EXACT), EXACT);
-		float eps1 = epsilon / (1.0f - epsilon);
-		float ni, f;
-		int i;
-
-		for (i = 0; i < N_tar - 3; i++) {
-			ni = static_cast<float>(cardinalities[i+1]);
-			f = 1.0f - 9.0f * eps1 * i + 8.0f * POW2(eps1, EXACT) * i * (i - 1.0f) - (4.0f / 3.0f) * POW3(eps1, EXACT) * i * (i - 1.0f) * (i - 2.0f);
-			f *= POW(1.0 - epsilon, i, STL);
-			action += ni * f;
-		}
-
-		action *= POW(epsilon, 1.5, STL);
-		action = sqrt(epsilon) * N_tar - action;
-	} else
-		//Calculate the Local Action
-		action = static_cast<float>(cardinalities[0] - cardinalities[1] + 9 * cardinalities[2] - 16 * cardinalities[3] + 8 * cardinalities[4]);
-	action *= 4.0f / sqrtf(6.0f);*/
 
 	ActionExit:
 	stopwatchStop(&sMeasureAction);

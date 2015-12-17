@@ -46,8 +46,8 @@
 # These are experimental parameters #
 #####################################
 
-for (( i=0; i<10; i++ )) ; do
-./bin/CausalSet --nodes 131072 --age 1.2 --buffer 0.3 --compact --gpu --link --print
+for (( i=0; i<1; i++ )) ; do
+./bin/CausalSet --nodes 8192 --age 0.5 --manifold f --alpha 5 --buffer 0.3 --verbose -y --test
 done
 
 # Study Dust Manifold

@@ -103,13 +103,12 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 	}
 }
 
-bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction)
+bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int * const future_edge_row_start, const std::vector<bool> core_edge_exists, const int &N_tar, const float &core_edge_fraction)
 {
 	#if DEBUG
 	assert (k_out != NULL);
 	assert (future_edges != NULL);
 	assert (future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
 	assert (N_tar > 0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	#endif
@@ -139,7 +138,7 @@ bool compareCoreEdgeExists(const int * const k_out, const int * const future_edg
 
 				//printf("idx12: %" PRIu64 "\tidx21: %" PRIu64 "\n", idx12, idx21);
 
-				if (core_edge_exists[idx12] == false || core_edge_exists[idx21] == false)
+				if (!core_edge_exists[idx12] || !core_edge_exists[idx21])
 					throw CausetException("Adjacency matrix does not match sparse list!\n");
 			}
 		}
@@ -286,7 +285,7 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 }
 
 //Note that core_edge_exists has not been implemented in this version of the linkNodesGPU subroutine.
-bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v1(Node &nodes, const Edge &edges, std::vector<bool> &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -299,7 +298,6 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	assert (edges.future_edges != NULL);
 	assert (edges.past_edge_row_start != NULL);
 	assert (edges.future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
 	assert (ca != NULL);
 
 	assert (N_tar > 0);
@@ -657,7 +655,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, bool * const &core_edge_exi
 	return true;
 }
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &compact, const bool &verbose)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, std::vector<bool> &core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &compact, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -669,11 +667,12 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	assert (nodes.k_in != NULL);
 	assert (nodes.k_out != NULL);
 	assert (edges != NULL);
-	assert (core_edge_exists != NULL);
 	assert (g_idx != NULL);
 	assert (ca != NULL);
 	assert (N_tar > 0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	if (use_bit)
+		assert (core_edge_fraction == 1.0f);
 	#endif
 
 	//Temporary Buffers
@@ -691,7 +690,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	bool diag;
 
 	//Thread blocks are grouped into "mega" blocks
-	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (2 * BLOCK_SIZE * group_size)));
+	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
 	size_t mthread_size = mblock_size * BLOCK_SIZE;
 	size_t m_edges_size = mthread_size * mthread_size;
 
@@ -776,19 +775,19 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 	printf_std();
 	fflush(stdout);*/
 
-	size_t final_size = N_tar - mthread_size * (2 * group_size - 1);
+	size_t final_size = N_tar - mthread_size * (group_size - 1);
 	size_t size0, size1;
 
 	//Index 'i' marks the row and 'j' marks the column
-	for (i = 0; i < 2 * group_size; i++) {
-		for (j = 0; j < 2 * group_size; j++) {
+	for (i = 0; i < group_size; i++) {
+		for (j = 0; j < group_size; j++) {
 			if (i > j)
 				continue;
 
 			diag = (i == j);
 
-			size0 = (i < 2 * group_size - 1) ? mthread_size : final_size;
-			size1 = (j < 2 * group_size - 1) ? mthread_size : final_size;
+			size0 = (i < group_size - 1) ? mthread_size : final_size;
+			size1 = (j < group_size - 1) ? mthread_size : final_size;
 
 			//Copy node values to device buffers
 			checkCudaErrors(cuMemcpyHtoD(d_w0, nodes.crd->w() + i * mthread_size, sizeof(float) * size0));
@@ -824,7 +823,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, bool * const core_ed
 			//Transfer data from buffers
 			readDegrees(nodes.k_in, h_k_in, j * mthread_size, size1);
 			readDegrees(nodes.k_out, h_k_out, i * mthread_size, size0);
-			readEdges(edges, h_edges, core_edge_exists, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j);
+			readEdges(edges, h_edges, core_edge_exists, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j, use_bit);
 
 			//Clear Device Memory
 			checkCudaErrors(cuMemsetD32(d_k_in, 0, mthread_size));
@@ -1002,7 +1001,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 //Generate confusion matrix for geodesic distances
 //Compares timelike/spacelike in 4D/5D
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &stdim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &compact, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &stdim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &compact, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -1013,7 +1012,6 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, bool * const
 	assert (nodes.crd->z() != NULL);
 	assert (edges.future_edges != NULL);
 	assert (edges.future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
 	assert (ca != NULL);
 
 	assert (N_tar > 0);
@@ -2234,7 +2232,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
 //Uses geodesic distances
-bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &symmetric, const bool &compact, int source, int dest, bool &success, bool &past_horizon)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &symmetric, const bool &compact, int source, int dest, bool &success, bool &past_horizon)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -2262,7 +2260,6 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 	assert (edges.future_edges != NULL);
 	assert (edges.past_edge_row_start != NULL);
 	assert (edges.future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
 	assert (used != NULL);
 	//assert (table != NULL);
 
@@ -2501,31 +2498,34 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const bool * const co
 //Measure Causal Set Action
 //O(N*k^2*ln(k)) Efficiency (Linked)
 //O(N^2*k) Efficiency (No Links)
-bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const bool * const core_edge_exists, const int &N_tar, const int &max_cardinality, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
+bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const int &N_tar, const int &max_cardinality, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	assert (!nodes.crd->isNull());
+	if (!no_pos)
+		assert (!nodes.crd->isNull());
 	assert (stdim == 4);
 	assert (manifold == DE_SITTER);
 
-	if (stdim == 2)
-		assert (nodes.crd->getDim() == 2);
-	else if (stdim == 4) {
-		assert (nodes.crd->getDim() == 4);
-		assert (nodes.crd->w() != NULL);
-		assert (nodes.crd->z() != NULL);
+	if (!no_pos) {
+		if (stdim == 2)
+			assert (nodes.crd->getDim() == 2);
+		else if (stdim == 4) {
+			assert (nodes.crd->getDim() == 4);
+			assert (nodes.crd->w() != NULL);
+			assert (nodes.crd->z() != NULL);
+		}
+
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
 	}
 
-	assert (nodes.crd->x() != NULL);
-	assert (nodes.crd->y() != NULL);
-	if (link || relink) {
+	if (!use_bit && (link || relink)) {
 		assert (nodes.k_in != NULL);
 		assert (nodes.k_out != NULL);
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
-		assert (core_edge_exists != NULL);
 	}
 	assert (ca != NULL);
 		
@@ -2576,7 +2576,7 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 	for (i = 0; i < N_tar - 1; i++) {
 		for (j = i + 1; j < N_tar; j++) {
 			elements = 0;
-			if (link || relink) {
+			if (!use_bit && (link || relink)) {
 				if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, i, j))
 					continue;
 

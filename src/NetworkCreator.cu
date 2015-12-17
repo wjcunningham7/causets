@@ -40,37 +40,64 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			return false;
 	}
 
+	//If no node positions used, require an edge list is being read
+	if (!network_properties->graphID && network_properties->flags.no_pos) {
+		printf_mpi(rank, "Flag 'nopos' cannot be used if a graph is not being read.\n");
+		fflush(stdout);
+		network_properties->cmpi.fail = 1;
+	}
+
+	if (network_properties->flags.relink && network_properties->flags.no_pos) {
+		printf_mpi(rank, "Flag 'nopos' cannot be used together with 'relink'.\n");
+		fflush(stdout);
+		network_properties->cmpi.fail = 1;
+	}
+
+	if (network_properties->k_tar >= network_properties->N_tar / 32 - 1) {
+		//This is when a bit array is smaller than the adjacency lists
+		network_properties->flags.use_bit = true;
+		network_properties->core_edge_fraction = 1.0;
+	}
+
 	//If the GPU is requested, optimize parameters
 	#ifdef CUDA_ENABLED
 	/*if (network_properties->flags.use_gpu && network_properties->N_tar % (BLOCK_SIZE << 1)) {
 		printf_mpi(rank, "If you are using the GPU, set the target number of nodes (--nodes) to be a multiple of %d!\n", BLOCK_SIZE << 1);
 		fflush(stdout);
 		network_properties->cmpi.fail = 1;
+	}*/
+
+	if (network_properties->flags.use_gpu && network_properties->flags.no_pos) {
+		printf_mpi(rank, "Conflicting parameters: no_pos and use_gpu.  GPU linking requires the use of node positions.\n");
+		fflush(stdout);
+		network_properties->cmpi.fail = 1;
 	}
 
-	if (checkMpiErrors(network_properties->cmpi))
-		return false;*/
-
 	//Adjacency matrix not implemented in certain GPU algorithms
-	if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2)
+	if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2) {
+		network_properties->flags.use_bit = false;
 		network_properties->core_edge_fraction = 0.0;
+	}
 	#endif
+
+	if (checkMpiErrors(network_properties->cmpi))
+		return false;
 
 	//Disable the default GSL Error Handler
 	disableGSLErrHandler();
 
 	try {
-		if (network_properties->manifold == DE_SITTER || network_properties->manifold == DUST || network_properties->manifold == FLRW) {
+		if (network_properties->manifold & (DE_SITTER | DUST | FLRW)) {
 			//Check for under-constrained system
-			if (network_properties->N_tar == 0)
+			if (!network_properties->N_tar)
 				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
-			if (network_properties->tau0 == 0.0)
+			if (!network_properties->tau0)
 				throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
-			if (network_properties->manifold == DE_SITTER && !network_properties->flags.compact && !network_properties->r_max)
+			if (network_properties->manifold & DE_SITTER && !network_properties->flags.compact && !network_properties->r_max)
 				throw CausetException("Flag '--slice', spatial scaling, must be specified!\n");
 		}
 
-		if (network_properties->manifold == DE_SITTER) {
+		if (network_properties->manifold & DE_SITTER) {
 			//Constrain the de Sitter system
 			if (!network_properties->delta)
 				network_properties->a = 1.0;
@@ -188,7 +215,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
-		} else if (network_properties->manifold == DUST) {
+		} else if (network_properties->manifold & DUST) {
 			//Check for under-constrained system
 			if (!network_properties->alpha)
 				throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
@@ -239,7 +266,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			printf_mpi(rank, "\t > Random Seed:\t\t\t%Ld\n", network_properties->seed);
 			if (!rank) printf_std();
 			fflush(stdout);
-		} else if (network_properties->manifold == FLRW) {
+		} else if (network_properties->manifold & FLRW) {
 			//Check for under-constrained system
 			if (!network_properties->alpha)
 				throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
@@ -322,7 +349,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		}
 
 		//Miscellaneous Tasks
-		if (network_properties->edge_buffer == 0.0)
+		if (!network_properties->edge_buffer)
 			network_properties->edge_buffer = 0.2;
 
 		#ifdef CUDA_ENABLED
@@ -413,7 +440,7 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const M
 	assert (alpha > 0.0);
 	assert (delta > 0.0);
 	assert (method == 0 || method == 1 || method == 2);
-	if (manifold == DUST) {
+	if (manifold & DUST) {
 		assert (!compact);
 		assert (method == 0);
 	}
@@ -450,12 +477,12 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const M
 				else
 					k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeFLRW, 0.0, 0.0, r0, r0, NULL, seed, 0) * 8.0 * M_PI / (SINH(3.0 * tau0, STL) - 3.0 * tau0);
 			} else {
-				if (manifold == DUST) {
+				if (manifold & DUST) {
 					double kappa = integrate2D(&rescaledDegreeDust, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
 					kappa *= 108 * M_PI / POW3(tau0, EXACT);
 					printf("kappa: %.8e\n", kappa);
 					k_tar = (N_tar * kappa) / (M_PI * POW3(alpha * r_max * tau0, EXACT));
-				} else if (manifold == FLRW) {
+				} else if (manifold & FLRW) {
 					double kappa = integrate2D(&rescaledDegreeFLRW_NC, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
 					kappa *= 8.0 * M_PI;
 					kappa /= SINH(3.0 * tau0, STL) - 3.0 * tau0;
@@ -573,7 +600,7 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const M
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int &N_tar, const float &k_tar, const int &stdim, const Manifold &manifold, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, const int &N_tar, const float &k_tar, const int &stdim, const Manifold &manifold, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench, const bool &yes)
 {
 	#if DEBUG
 	assert (ca != NULL);
@@ -593,19 +620,23 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 	if (verbose && !yes) {
 		//Estimate memory usage before allocating
 		size_t mem = 0;
-		if (stdim == 4)
-			mem += sizeof(float) * N_tar << 2;	//For Coordinate4D
-		else if (stdim == 2)
-			mem += sizeof(float) * N_tar << 1;	//For Coordinate2D
-		if (manifold == HYPERBOLIC)
-			mem += sizeof(int) * N_tar;		//For AS
-		else if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW)
-			mem += sizeof(float) * N_tar;		//For tau
+		if (!no_pos) {
+			if (stdim == 4)
+				mem += sizeof(float) * N_tar << 2;	//For Coordinate4D
+			else if (stdim == 2)
+				mem += sizeof(float) * N_tar << 1;	//For Coordinate2D
+			if (manifold == HYPERBOLIC)
+				mem += sizeof(int) * N_tar;		//For AS
+			else if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW)
+				mem += sizeof(float) * N_tar;		//For tau
+		}
 		if (links_exist) {
 			mem += sizeof(int) * (N_tar << 1);	//For k_in and k_out
-			mem += sizeof(int) * static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer));	//For edge lists
-			mem += sizeof(int) * (N_tar << 1);	//For edge list pointers
-			mem += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT);	//For adjacency list
+			if (!use_bit) {
+				mem += sizeof(int) * static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer));	//For edge lists
+				mem += sizeof(int) * (N_tar << 1);	//For edge list pointers
+			}
+			mem += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT) / 8;	//For adjacency list
 		}
 
 		size_t dmem = 0;
@@ -653,50 +684,52 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 	stopwatchStart(&sCreateNetwork);
 
 	try {
-		if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW) {
-			nodes.id.tau = (float*)malloc(sizeof(float) * N_tar);
-			if (nodes.id.tau == NULL)
-				throw std::bad_alloc();
-			memset(nodes.id.tau, 0, sizeof(float) * N_tar);
-			ca->hostMemUsed += sizeof(float) * N_tar;
-		} else if (manifold == HYPERBOLIC) {
-			nodes.id.AS = (int*)malloc(sizeof(int) * N_tar);
-			if (nodes.id.AS == NULL)
-				throw std::bad_alloc();
-			memset(nodes.id.AS, 0, sizeof(int) * N_tar);
-			ca->hostMemUsed += sizeof(int) * N_tar;
-		}
+		if (!no_pos) {
+			if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW) {
+				nodes.id.tau = (float*)malloc(sizeof(float) * N_tar);
+				if (nodes.id.tau == NULL)
+					throw std::bad_alloc();
+				memset(nodes.id.tau, 0, sizeof(float) * N_tar);
+				ca->hostMemUsed += sizeof(float) * N_tar;
+			} else if (manifold == HYPERBOLIC) {
+				nodes.id.AS = (int*)malloc(sizeof(int) * N_tar);
+				if (nodes.id.AS == NULL)
+					throw std::bad_alloc();
+				memset(nodes.id.AS, 0, sizeof(int) * N_tar);
+				ca->hostMemUsed += sizeof(int) * N_tar;
+			}
 
-		if (stdim == 4) {
-			nodes.crd = new Coordinates4D();
+			if (stdim == 4) {
+				nodes.crd = new Coordinates4D();
+	
+				nodes.crd->w() = (float*)malloc(sizeof(float) * N_tar);
+				nodes.crd->x() = (float*)malloc(sizeof(float) * N_tar);
+				nodes.crd->y() = (float*)malloc(sizeof(float) * N_tar);
+				nodes.crd->z() = (float*)malloc(sizeof(float) * N_tar);
 
-			nodes.crd->w() = (float*)malloc(sizeof(float) * N_tar);
-			nodes.crd->x() = (float*)malloc(sizeof(float) * N_tar);
-			nodes.crd->y() = (float*)malloc(sizeof(float) * N_tar);
-			nodes.crd->z() = (float*)malloc(sizeof(float) * N_tar);
+				if (nodes.crd->w() == NULL || nodes.crd->x() == NULL || nodes.crd->y() == NULL || nodes.crd->z() == NULL)
+					throw std::bad_alloc();
 
-			if (nodes.crd->w() == NULL || nodes.crd->x() == NULL || nodes.crd->y() == NULL || nodes.crd->z() == NULL)
-				throw std::bad_alloc();
+				memset(nodes.crd->w(), 0, sizeof(float) * N_tar);
+				memset(nodes.crd->x(), 0, sizeof(float) * N_tar);
+				memset(nodes.crd->y(), 0, sizeof(float) * N_tar);
+				memset(nodes.crd->z(), 0, sizeof(float) * N_tar);
 
-			memset(nodes.crd->w(), 0, sizeof(float) * N_tar);
-			memset(nodes.crd->x(), 0, sizeof(float) * N_tar);
-			memset(nodes.crd->y(), 0, sizeof(float) * N_tar);
-			memset(nodes.crd->z(), 0, sizeof(float) * N_tar);
+				ca->hostMemUsed += sizeof(float) * N_tar * 4;
+			} else if (stdim == 2) {
+				nodes.crd = new Coordinates2D();
 
-			ca->hostMemUsed += sizeof(float) * N_tar * 4;
-		} else if (stdim == 2) {
-			nodes.crd = new Coordinates2D();
+				nodes.crd->x() = (float*)malloc(sizeof(float) * N_tar);
+				nodes.crd->y() = (float*)malloc(sizeof(float) * N_tar);
 
-			nodes.crd->x() = (float*)malloc(sizeof(float) * N_tar);
-			nodes.crd->y() = (float*)malloc(sizeof(float) * N_tar);
+				if (nodes.crd->x() == NULL || nodes.crd->y() == NULL)
+					throw std::bad_alloc();
 
-			if (nodes.crd->x() == NULL || nodes.crd->y() == NULL)
-				throw std::bad_alloc();
+				memset(nodes.crd->x(), 0, sizeof(float) * N_tar);
+				memset(nodes.crd->y(), 0, sizeof(float) * N_tar);
 
-			memset(nodes.crd->x(), 0, sizeof(float) * N_tar);
-			memset(nodes.crd->y(), 0, sizeof(float) * N_tar);
-
-			ca->hostMemUsed += sizeof(float) * N_tar * 2;
+				ca->hostMemUsed += sizeof(float) * N_tar * 2;
+			}
 		}
 
 		if (links_exist) {
@@ -717,35 +750,34 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 			printMemUsed("for Nodes", ca->hostMemUsed, ca->devMemUsed, rank);
 
 		if (links_exist) {
-			edges.past_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
-			if (edges.past_edges == NULL)
-				throw std::bad_alloc();
-			memset(edges.past_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
-			ca->hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
+			if (!use_bit) {
+				edges.past_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
+				if (edges.past_edges == NULL)
+					throw std::bad_alloc();
+				memset(edges.past_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
+				ca->hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
 
-			edges.future_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
-			if (edges.future_edges == NULL)
-				throw std::bad_alloc();
-			memset(edges.future_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
-			ca->hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
+				edges.future_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
+				if (edges.future_edges == NULL)
+					throw std::bad_alloc();
+				memset(edges.future_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
+				ca->hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
 
-			edges.past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
-			if (edges.past_edge_row_start == NULL)
-				throw std::bad_alloc();
-			memset(edges.past_edge_row_start, 0, sizeof(int) * N_tar);
-			ca->hostMemUsed += sizeof(int) * N_tar;
+				edges.past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
+				if (edges.past_edge_row_start == NULL)
+					throw std::bad_alloc();
+				memset(edges.past_edge_row_start, 0, sizeof(int) * N_tar);
+				ca->hostMemUsed += sizeof(int) * N_tar;
 	
-			edges.future_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
-			if (edges.future_edge_row_start == NULL)
-				throw std::bad_alloc();
-			memset(edges.future_edge_row_start, 0, sizeof(int) * N_tar);
-			ca->hostMemUsed += sizeof(int) * N_tar;
+				edges.future_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
+				if (edges.future_edge_row_start == NULL)
+					throw std::bad_alloc();
+				memset(edges.future_edge_row_start, 0, sizeof(int) * N_tar);
+				ca->hostMemUsed += sizeof(int) * N_tar;
+			}
 
-			core_edge_exists = (bool*)malloc(sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)));
-			if (core_edge_exists == NULL)
-				throw std::bad_alloc();
-			memset(core_edge_exists, 0, sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)));
-			ca->hostMemUsed += sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
+			core_edge_exists.resize(POW2(core_edge_fraction * N_tar, EXACT));
+			ca->hostMemUsed += sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)) / 8;
 		}
 
 		memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
@@ -756,7 +788,7 @@ bool createNetwork(Node &nodes, Edge &edges, bool *& core_edge_exists, const int
 		cmpi.fail = 1;
 	}
 
-	if (nodes.crd->isNull()) {
+	if (!no_pos && nodes.crd->isNull()) {
 		printf("Null in thread %d\n", rank);
 		cmpi.fail = 1;
 	}
@@ -1028,16 +1060,18 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//No null pointers
 	assert (!nodes.crd->isNull());
-	assert (edges.past_edges != NULL);
-	assert (edges.future_edges != NULL);
-	assert (edges.past_edge_row_start != NULL);
-	assert (edges.future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
+	if (!use_bit) {
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
+	} else
+		assert (core_edge_fraction == 1.0f);
 
 	//Variables in correct ranges
 	assert (N_tar > 0);
@@ -1084,7 +1118,8 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 	for (i = 0; i < N_tar - 1; i++) {
 		if (i < core_limit)
 			core_edge_exists[(i*core_limit)+i] = false;
-		edges.future_edge_row_start[i] = future_idx;
+		if (!use_bit)
+			edges.future_edge_row_start[i] = future_idx;
 
 		for (j = i + 1; j < N_tar; j++) {
 			//Apply Causal Condition (Light Cone)
@@ -1108,11 +1143,13 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 			//Link timelike relations
 			try {
 				if (related) {
-					//if (i % NPRINT == 0) printf("%d %d\n", i, j); fflush(stdout);
-					edges.future_edges[future_idx++] = j;
+					if (!use_bit) {
+						//if (i % NPRINT == 0) printf("%d %d\n", i, j); fflush(stdout);
+						edges.future_edges[future_idx++] = j;
 	
-					if (future_idx >= static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
-						throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
+						if (future_idx >= static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
+							throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
+					}
 	
 					//Record number of degrees for each node
 					nodes.k_in[j]++;
@@ -1127,41 +1164,43 @@ bool linkNodes(Node &nodes, Edge &edges, bool * const &core_edge_exists, const i
 			}
 		}
 
-		//If there are no forward connections from node i, mark with -1
-		if (edges.future_edge_row_start[i] == future_idx)
-			edges.future_edge_row_start[i] = -1;
+		if (!use_bit) {
+			//If there are no forward connections from node i, mark with -1
+			if (edges.future_edge_row_start[i] == future_idx)
+				edges.future_edge_row_start[i] = -1;
+		}
 	}
 
-	edges.future_edge_row_start[N_tar-1] = -1;
+	if (!use_bit) {
+		edges.future_edge_row_start[N_tar-1] = -1;
 
-	//if (!printSpatialDistances(nodes, manifold, N_tar, stdim)) return false;
+		//Identify past connections
+		edges.past_edge_row_start[0] = -1;
+		for (i = 1; i < N_tar; i++) {
+			edges.past_edge_row_start[i] = past_idx;
+			for (j = 0; j < i; j++) {
+				if (edges.future_edge_row_start[j] == -1)
+					continue;
 
-	//Identify past connections
-	edges.past_edge_row_start[0] = -1;
-	for (i = 1; i < N_tar; i++) {
-		edges.past_edge_row_start[i] = past_idx;
-		for (j = 0; j < i; j++) {
-			if (edges.future_edge_row_start[j] == -1)
-				continue;
-
-			for (k = 0; k < nodes.k_out[j]; k++) {
-				if (i == edges.future_edges[edges.future_edge_row_start[j]+k]) {
-					edges.past_edges[past_idx++] = j;
+				for (k = 0; k < nodes.k_out[j]; k++) {
+					if (i == edges.future_edges[edges.future_edge_row_start[j]+k]) {
+						edges.past_edges[past_idx++] = j;
+					}
 				}
 			}
+
+			//If there are no backward connections from node i, mark with -1
+			if (edges.past_edge_row_start[i] == past_idx)
+				edges.past_edge_row_start[i] = -1;
 		}
 
-		//If there are no backward connections from node i, mark with -1
-		if (edges.past_edge_row_start[i] == past_idx)
-			edges.past_edge_row_start[i] = -1;
+		//The quantities future_idx and past_idx should be equal
+		#if DEBUG
+		assert (future_idx == past_idx);
+		#endif
+		//printf("\t\tEdges (backward): %d\n", past_idx);
+		//fflush(stdout);
 	}
-
-	//The quantities future_idx and past_idx should be equal
-	#if DEBUG
-	assert (future_idx == past_idx);
-	#endif
-	//printf("\t\tEdges (backward): %d\n", past_idx);
-	//fflush(stdout);
 
 	//Identify Resulting Network
 	for (i = 0; i < N_tar; i++) {

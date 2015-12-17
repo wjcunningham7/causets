@@ -22,7 +22,7 @@ if not (stdim == 2 or stdim == 4):
 
 # Range of job numbers (inclusive)
 jobStart = 506
-jobEnd = 519
+jobEnd = 521
 njobs = jobEnd - jobStart + 1
 
 # Range of lk to use (inclusive)
@@ -31,7 +31,8 @@ lkmax = 10
 lkstep = 1
 nlk = (lkmax - lkmin + 1) / lkstep
 
-basedir = '/scratch/cunningham/'
+#basedir = '/scratch/cunningham/'
+basedir = '/krioukov/will/'
 action = np.zeros((nlk, njobs))
 err = np.zeros((nlk, njobs))
 

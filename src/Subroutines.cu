@@ -463,13 +463,12 @@ bool newton(double (*solve)(const double &x, const double * const p1, const floa
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
 //O(k) Efficiency for Adjacency List
-bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const bool * const core_edge_exists, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
+bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const std::vector<bool> core_edge_exists, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
 {
 	#if DEBUG
 	//No null pointers
 	assert (future_edges != NULL);
 	assert (future_edge_row_start != NULL);
-	assert (core_edge_exists != NULL);
 
 	//Parameters in correct ranges
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
@@ -698,12 +697,12 @@ void readDegrees(int * const &degrees, const int * const h_k, const size_t &offs
 
 //Data formatting used when reading output of
 //the adjacency list created by the GPU
-void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const core_edge_exists, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y)
+void readEdges(uint64_t * const &edges, const bool * const h_edges, std::vector<bool> &core_edge_exists, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit)
 {
 	#if DEBUG
-	assert (edges != NULL);
+	if (!use_bit)
+		assert (edges != NULL);
 	assert (h_edges != NULL);
-	assert (core_edge_exists != NULL);
 	assert (g_idx != NULL);
 	assert (*g_idx >= 0);
 	assert (x >= 0);
@@ -716,8 +715,11 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, bool * const
 
 	for (i = 0; i < size0; i++) {
 		for (j = 0; j < size1; j++) {
-			if (h_edges[i*mthread_size+j] && g_idx[0] < (int)d_edges_size) {
-				edges[g_idx[0]++] = (static_cast<uint64_t>(x*mthread_size+i)) << 32 | (static_cast<uint64_t>(y*mthread_size+j));
+			if (h_edges[i*mthread_size+j] && (use_bit || g_idx[0] < (int)d_edges_size)) {
+				if (!use_bit)
+					edges[g_idx[0]++] = (static_cast<uint64_t>(x*mthread_size+i)) << 32 | (static_cast<uint64_t>(y*mthread_size+j));
+				else
+					g_idx[0]++;
 				if (x*mthread_size+i < core_limit && y*mthread_size+j < core_limit) {
 					idx1 = static_cast<uint64_t>(x * mthread_size + i) * core_limit + y * mthread_size + j;
 					idx2 = static_cast<uint64_t>(y * mthread_size + j) * core_limit + x * mthread_size + i;

@@ -20,6 +20,7 @@ mkdir -p $basedir/dat/act
 mkdir -p $basedir/dat/cdk
 mkdir -p $basedir/dat/cls
 mkdir -p $basedir/dat/dst
+mkdir -p $basedir/dat/dot
 mkdir -p $basedir/dat/edg
 mkdir -p $basedir/dat/emb
 mkdir -p $basedir/dat/emb/fp
