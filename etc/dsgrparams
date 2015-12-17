@@ -4,6 +4,12 @@ import math
 import numpy as np
 import sys
 
+###########################
+#(C) Will Cunningham 2015 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
 q = 90
 r = 5
 

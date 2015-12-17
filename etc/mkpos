@@ -1,5 +1,11 @@
 #!/bin/bash
 
+###########################
+#(C) Will Cunningham 2015 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
 n=$1
 gid=$2
 

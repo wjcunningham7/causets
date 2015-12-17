@@ -3,7 +3,7 @@
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
-// Krioukov Research Group //
+//         DK Lab          //
 // Northeastern University //
 /////////////////////////////
 
@@ -494,7 +494,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	int high = network->network_properties.N_tar - 1;
 
 	for (i = 0; i <= nb; i++) {
-		if (!generateNodes(network->nodes, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.stdim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.mrng, cp->sGenerateNodes, network->network_properties.flags.use_gpu, network->network_properties.flags.symmetric, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+		if (!generateNodes(network->nodes, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.stdim, network->network_properties.manifold, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.mrng, cp->sGenerateNodes, network->network_properties.flags.symmetric, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 			network->network_properties.cmpi.fail = 1;
 			goto InitExit;
 		}

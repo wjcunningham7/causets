@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+###########################
+#(C) Will Cunningham 2015 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
 import math
 import sys
 

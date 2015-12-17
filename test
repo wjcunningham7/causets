@@ -2,7 +2,7 @@
 
 ###########################
 #(C) Will Cunningham 2014 #
-# Krioukov Research Group #
+#         DK Lab          #
 # Northeastern University #
 ###########################
 
@@ -47,7 +47,7 @@
 #####################################
 
 for (( i=0; i<1; i++ )) ; do
-./bin/CausalSet --nodes 8192 --age 0.5 --manifold f --alpha 5 --buffer 0.3 --verbose -y --test
+./bin/CausalSet --nodes 8192 --age 0.5 --manifold s --stdim 2 --compact --buffer 0.3 --verbose -y
 done
 
 # Study Dust Manifold

@@ -1,7 +1,7 @@
 (* ::Package:: *)
 
 (*(C) Will Cunningham 2015 *)
-(* Krioukov Research Group *)
+(*         DK Lab          *)
 (* Northeastern University *)
 
 (* This package generates the coefficients used for partial fractions

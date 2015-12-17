@@ -56,7 +56,7 @@
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
-// Krioukov Research Group //
+//         DK Lab          //
 // Northeastern University //
 /////////////////////////////
 

@@ -2,7 +2,7 @@
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
-// Krioukov Research Group //
+//         DK Lab          //
 // Northeastern University //
 /////////////////////////////
 
@@ -97,7 +97,10 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				throw CausetException("Flag '--slice', spatial scaling, must be specified!\n");
 		}
 
-		if (network_properties->manifold & DE_SITTER) {
+		//if (network_properties->manifold & DE_SITTER) {
+		switch (network_properties->manifold) {
+		case DE_SITTER:
+		{
 			//Constrain the de Sitter system
 			if (!network_properties->delta)
 				network_properties->a = 1.0;
@@ -215,11 +218,13 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
-		} else if (network_properties->manifold & DUST) {
+			break;
+		}
+		case DUST:
+		{
 			//Check for under-constrained system
 			if (!network_properties->alpha)
 				throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
-
 			if (network_properties->stdim != 4)
 				throw CausetException("Flag '--dim', spacetime dimension, must be (4) in Dust spacetime!\n");
 
@@ -266,7 +271,10 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			printf_mpi(rank, "\t > Random Seed:\t\t\t%Ld\n", network_properties->seed);
 			if (!rank) printf_std();
 			fflush(stdout);
-		} else if (network_properties->manifold & FLRW) {
+			break;
+		}
+		case FLRW:
+		{
 			//Check for under-constrained system
 			if (!network_properties->alpha)
 				throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
@@ -341,11 +349,16 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
-		} else if (network_properties->manifold == HYPERBOLIC) {
+			break;
+		}
+		case HYPERBOLIC:
 			if (network_properties->stdim != 2)
 				throw CausetException("You must use --stdim 2 for a hyperbolic manifold!\n");
 			if (network_properties->zeta == 0.0)
 				network_properties->zeta = 1.0;
+			break;
+		default:
+			throw CausetException("Undefined manifold type.\n");
 		}
 
 		//Miscellaneous Tasks
@@ -461,7 +474,9 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const M
 	long size = 0L;
 	int seed = static_cast<int>(4000000000 * mrng.rng());
 
-	if (method == 0) {
+	switch (method) {
+	case 0:
+	{
 		//Method 1 of 3: Use Monte Carlo integration
 		double r0;
 		if (tau0 > LOG(MTAU, STL) / 3.0)
@@ -491,8 +506,11 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const M
 				}
 			}
 			stopwatchStop(&sCalcDegrees);
-		}	
-	} else if (method == 1) {
+		}
+		break;
+	}
+	case 1:
+	{
 		//Method 2 of 3: Lookup table to approximate method 1
 		if (compact) {
 			if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
@@ -519,7 +537,10 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const M
 		free(table);
 		table = NULL;
 		ca->hostMemUsed -= size;
-	} else if (method == 2) {
+		break;
+	}
+	case 2:
+	{
 		//Method 3 of 3: Explicit Solution
 		if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
 			return false;
@@ -579,6 +600,10 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const M
 		free(table);
 		table = NULL;
 		ca->hostMemUsed -= size;
+		break;
+	}
+	default:
+		return false;
 	}
 
 	if (nb)
@@ -607,8 +632,8 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
 	assert (stdim == 2 || stdim == 4);
-	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW || manifold == HYPERBOLIC);
-	if (manifold == HYPERBOLIC)
+	assert (manifold & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
+	if (manifold & HYPERBOLIC)
 		assert (stdim == 2);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
@@ -625,9 +650,9 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 				mem += sizeof(float) * N_tar << 2;	//For Coordinate4D
 			else if (stdim == 2)
 				mem += sizeof(float) * N_tar << 1;	//For Coordinate2D
-			if (manifold == HYPERBOLIC)
+			if (manifold & HYPERBOLIC)
 				mem += sizeof(int) * N_tar;		//For AS
-			else if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW)
+			else if (manifold & (DE_SITTER | DUST | FLRW))
 				mem += sizeof(float) * N_tar;		//For tau
 		}
 		if (links_exist) {
@@ -685,13 +710,13 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 
 	try {
 		if (!no_pos) {
-			if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW) {
+			if (manifold & (DE_SITTER | DUST | FLRW)) {
 				nodes.id.tau = (float*)malloc(sizeof(float) * N_tar);
 				if (nodes.id.tau == NULL)
 					throw std::bad_alloc();
 				memset(nodes.id.tau, 0, sizeof(float) * N_tar);
 				ca->hostMemUsed += sizeof(float) * N_tar;
-			} else if (manifold == HYPERBOLIC) {
+			} else if (manifold & HYPERBOLIC) {
 				nodes.id.AS = (int*)malloc(sizeof(int) * N_tar);
 				if (nodes.id.AS == NULL)
 					throw std::bad_alloc();
@@ -813,7 +838,7 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &use_gpu, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//Values are in correct ranges
@@ -821,10 +846,10 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
 	assert (stdim == 2 || stdim == 4);
-	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW);
+	assert (manifold & (DE_SITTER | DUST | FLRW));
 	assert (a >= 0.0);
 	assert (tau0 > 0.0);
-	if (manifold == DUST || manifold == FLRW) {
+	if (manifold & (DUST | FLRW)) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->x() != NULL);
@@ -832,7 +857,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 		assert (nodes.crd->z() != NULL);
 		assert (stdim == 4);
 		assert (zeta < HALF_PI);
-	} else if (manifold == DE_SITTER) {
+	} else if (manifold & DE_SITTER) {
 		if (compact) {
 			assert (zeta > 0.0);
 			assert (zeta < HALF_PI);
@@ -851,7 +876,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 	idata.limit = 50;
 	idata.tol = 1e-4;
 
-	if (USE_GSL && manifold == FLRW)
+	if (USE_GSL && manifold & FLRW)
 		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 	stopwatchStart(&sGenerateNodes);
@@ -909,7 +934,8 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 				double p1[2];
 				p1[1] = rval;
 
-				if (manifold == FLRW) {
+				switch (manifold) {
+				case FLRW:
 					x = 0.5;
 					p1[0] = tau0;
 					if (tau0 > 1.8) {	//Cutoff of 1.8 determined by trial and error
@@ -919,10 +945,12 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 						if (!newton(&solveTauUniverse, &x, 1000, TOL, p1, NULL, NULL))
 							return false;
 					}
-				} else if (manifold == DUST) {
+					break;
+				case DUST:
 					x = tau0 * POW(rval, 1.0 / 3.0, STL);
 					nodes.crd->w(i) = tauToEtaDust(x, a, alpha);
-				} else if (manifold == DE_SITTER) {
+					break;
+				case DE_SITTER:
 					if (compact) {
 						x = 3.5;
 						p1[0] = zeta;
@@ -940,6 +968,9 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 						nodes.crd->w(i) = eta0 * POW(1.0 - rval * (1.0 - POW3(eta0 / eta1, EXACT)), -1.0 / 3.0, STL);
 						x = etaToTauFlat(nodes.crd->w(i));
 					}
+					break;
+				default:
+					return false;
 				}
 
 				nodes.id.tau[i] = static_cast<float>(x);
@@ -951,7 +982,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 			#endif
 
 			//Save eta values as well
-			if (manifold == FLRW) {
+			if (manifold & FLRW) {
 				if (USE_GSL) {
 					//Numerical Integration
 					idata.upper = static_cast<double>(nodes.id.tau[i]);
@@ -963,14 +994,14 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 				//#if DEBUG 
 				//assert (nodes.crd->w(i) < tauToEtaFLRWExact(tau0, a, alpha));
 				//#endif
-			} else if (manifold == DE_SITTER && compact) {
+			} else if (manifold & DE_SITTER && compact) {
 				nodes.crd->w(i) = static_cast<float>(tauToEtaCompact(static_cast<double>(nodes.id.tau[i])));
 				#if DEBUG
 				assert (fabs(nodes.crd->w(i)) < tauToEtaCompact(tau0));
 				#endif
 			}
 			#if DEBUG
-			if (manifold == DE_SITTER && !compact)
+			if (manifold & DE_SITTER && !compact)
 				assert (nodes.crd->w(i) < 0.0);
 			//else
 			//	assert (nodes.crd->w(i) > 0.0);
@@ -1042,7 +1073,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 	stopwatchStop(&sGenerateNodes);
 
-	if (USE_GSL && manifold == FLRW)
+	if (USE_GSL && manifold & FLRW)
 		gsl_integration_workspace_free(idata.workspace);
 
 	if (!bench) {
@@ -1077,10 +1108,10 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
 	assert (stdim == 2 || stdim == 4);
-	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW);
+	assert (manifold & (DE_SITTER | DUST | FLRW));
 	assert (a > 0.0);
 	assert (tau0 > 0.0);
-	if (manifold == DE_SITTER) {
+	if (manifold & DE_SITTER) {
 		if (compact) {
 			assert (zeta > 0.0);
 			assert (zeta < HALF_PI);
@@ -1089,7 +1120,7 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 			assert (zeta1 > HALF_PI);
 			assert (zeta > zeta1);
 		}
-	} else if (manifold == DUST || manifold == FLRW) {
+	} else if (manifold & (DUST | FLRW)) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->x() != NULL);
