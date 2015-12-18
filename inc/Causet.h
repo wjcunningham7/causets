@@ -38,8 +38,9 @@
 
 //Other System Files
 #include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_real.hpp>
 #include <boost/random/normal_distribution.hpp>
+#include <boost/random/poisson_distribution.hpp>
+#include <boost/random/uniform_real.hpp>
 #include <boost/random/variate_generator.hpp>
 #include <boost/unordered_map.hpp>
 #include <sys/io.h>
@@ -113,8 +114,10 @@ typedef int CUcontext;
 typedef boost::mt19937 Engine;
 typedef boost::uniform_real<double> UDistribution;
 typedef boost::normal_distribution<double> NDistribution;
+typedef boost::poisson_distribution<> PDistribution;
 typedef boost::variate_generator<Engine, UDistribution> UGenerator;
 typedef boost::variate_generator<Engine, NDistribution> NGenerator;
+typedef boost::variate_generator<Engine, PDistribution> PGenerator;
 
 struct MersenneRNG {
 	MersenneRNG() : dist(0.0, 1.0), rng(eng, dist)  {}
@@ -135,12 +138,48 @@ struct CaResources {
 	size_t maxDevMemUsed;
 };
 
+//A brief explanation of the Manifold, Region, Curvature,
+//and Symmetry enums: These values are chosen and chained
+//together so in the code you can create a unique integer
+//which defines a spacetime by writing
+// > int spacetime = dim | manifold | region | curvature | symmetry
+//NOTE: This assumes dim = {2, 3, 4} only
+//Make sure if you add to these you make sure the 'spacetime'
+//value still fits inside a 32-bit integer.  Otherwise
+//use a uint64_t variable.
+
 //Manifold Types
 enum Manifold {
-	DE_SITTER	= 1 << 3,
-	DUST		= 1 << 4,
-	FLRW		= 1 << 5,
-	HYPERBOLIC	= 1 << 6
+	ManifoldFirst	= 1 << 3,
+	DE_SITTER	= ManifoldFirst,
+	DUST		= DE_SITTER << 1
+	FLRW		= DUST << 1,
+	HYPERBOLIC	= FLRW << 1,
+	ManifoldLast	= HYPERBOLIC
+};
+
+//Region Types
+enum Region {
+	RegionFirst	= ManifoldLast << 1,
+	SLAB		= RegionFirst,
+	DIAMOND		= SLAB << 1,
+	RegionLast	= DIAMOND
+};
+
+//Spatial Curvature
+enum Curvature {
+	CurvatureFirst	= RegionLast << 1,
+	FLAT		= CurvatureFirst,
+	POSITIVE	= FLAT << 1
+	CurvatureLast	= POSITIVE
+};
+
+//Temporal Symmetry
+enum Symmetry {
+	SymmetryFirst	= CurvatureLast << 1,
+	ASYMMETRIC	= SymmetryFirst,
+	SYMMETRIC	= ASYMMETRIC << 1
+	SymmetryLast	= SYMMETRIC
 };
 
 //These coordinate data structures are important because they allow
@@ -375,7 +414,7 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), /*calc_geodesics(false),*/ validate_embedding(false), validate_distances(false), symmetric(false), compact(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), link(false), relink(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), /*calc_geodesics(false),*/ validate_embedding(false), validate_distances(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
 	bool decode_cpu;		//Decode edge list using serial sort
@@ -401,8 +440,6 @@ struct CausetFlags {
 	bool validate_embedding;	//Find Embedding Statistics
 	bool validate_distances;	//Compare Distance Methods
 	
-	bool symmetric;			//Symmetric temporal patch in closed de Sitter
-	bool compact;			//Use Compactification of theta1 Coordinate
 	bool verbose;			//Verbose Output
 	bool bench;			//Benchmark Algorithms
 	bool yes;			//Suppresses User Input
@@ -411,9 +448,11 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), stdim(4), manifold(DE_SITTER), a(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1) {}
+	NetworkProperties() : flags(CausetFlags()), spacetime(0), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), a(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1) {}
 
 	CausetFlags flags;
+	unsigned int spacetime;		//Spacetime Definition
+					//Encodes dimension, manifold, region, curvature, and symmetry
 
 	int N_tar;			//Target Number of Nodes
 	float k_tar;			//Target Average Degree
@@ -424,9 +463,6 @@ struct NetworkProperties {
 	double tau_m;			//Rescaled Time of Nodes used for Measuring Degree Field
 	double N_dst;			//Number of Pairs Used in Distance Validation
 	int max_cardinality;		//Elements used in Action Calculation
-
-	int stdim;			//Spacetime Dimension (2 or 4 right now)
-	Manifold manifold;		//Manifold of the Network
 
 	double a;			//Hyperboloid Pseudoradius
 	double zeta;			//Pi/2 - Eta_0
@@ -563,5 +599,12 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID);
 bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link, const bool &relink);
 
 void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed);
+
+//Useful utility functions
+inline unsigned int get_stdim(const unsigned int &spacetime)  { return spacetime & (ManifoldFirst - 1);                     }
+inline Manifold get_manifold(const unsigned int &spacetime)   { return spacetime & ((ManifoldLast << 1) - ManifoldFirst);   }
+inline Region get_region(const unsigned int &spacetime)       { return spacetime & ((RegionLast << 1) - RegionFirst);       }
+inline Curvature get_curvature(const unsigned int &spacetime) { return spacetime & ((CurvatureLast << 1) - CurvatureFirst); }
+inline Symmetry get_symmetry(const unsigned int &spacetime)   { return spacetime & ((SymmetryLast << 1) - SymmetryFirst);   }
 
 #endif

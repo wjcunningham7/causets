@@ -15,14 +15,21 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	assert (bm != NULL);
 	#endif
 
+	int rank = network_properties->cmpi.rank;
+
+	//Make sure the spacetime is fully defined
+	if (!rank) printf_red();
+	if (!get_stdim(network_properties->spacetime)) {
+		printf_mpi("The spacetime dimension has not been defined!  Use flag '--stdim' to continue.\n");
+		network_properties->cmpi.fail = 1;
+	}
+
 	//Benchmarking
 	if (network_properties->flags.bench) {
 		network_properties->graphID = 0;
 		network_properties->flags.verbose = false;
 		network_properties->flags.print_network = false;
 	}
-
-	int rank = network_properties->cmpi.rank;
 
 	//Suppress queries if MPI is enabled
 	#ifdef MPI_ENABLED

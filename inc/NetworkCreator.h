@@ -3,7 +3,7 @@
 
 #include <fastmath/FastNumInt.h>
 
-#include "Operations.h"
+//#include "Operations.h"
 #include "Coordinates.h"
 #ifdef CUDA_ENABLED
 #include "NetworkCreator_GPU.h"

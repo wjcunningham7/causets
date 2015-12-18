@@ -107,7 +107,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":A:a:b:Cc:k:d:e:F:Gg:hm:n:s:S:vyz:";
+	static const char *optString = ":A:a:b:Cc:k:d:e:F:Gg:hm:n:r:s:S:vyz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
 		{ "action",	required_argument,	NULL, 'A' },
@@ -117,9 +117,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "benchmark",	no_argument,		NULL,  0  },
 		{ "buffer",	required_argument,	NULL, 'b' },
 		{ "clustering",	no_argument,		NULL, 'C' },
-		{ "compact",	no_argument,		NULL,  0  },
 		{ "components", no_argument,		NULL,  0  },
 		{ "core",	required_argument,	NULL, 'c' },
+		{ "curvature",	required_argument,	NULL,  0  },
 		{ "delta",	required_argument,	NULL, 'd' },
 		{ "distances",	required_argument,	NULL,  0  },
 		{ "embedding",  required_argument,	NULL,  0  },
@@ -138,12 +138,13 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "nodes", 	required_argument,	NULL, 'n' },
 		{ "nopos",	no_argument,		NULL,  0  },
 		{ "read-old-format", no_argument,	NULL,  0  },
+		{ "region",	required_argument,	NULL, 'r' },
 		{ "relink",	no_argument,		NULL,  0  },
 		{ "seed",	required_argument,	NULL, 's' },
 		{ "slice",	required_argument,	NULL,  0  },
 		{ "stdim",	required_argument,	NULL,  0  },
 		{ "success",	required_argument,	NULL, 'S' },
-		{ "symmetric",	no_argument,		NULL,  0  },
+		{ "symmetry",	required_argument,	NULL,  0  },
 		{ "test",	no_argument,		NULL,  0  },
 		{ "verbose", 	no_argument, 		NULL, 'v' },
 		{ "zeta",	required_argument,	NULL, 'z' },
@@ -213,13 +214,13 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 			//case 'h' is located at the end
 			case 'm':	//Manifold
 				if (!strcmp(optarg, "s"))
-					network_properties.manifold = DE_SITTER;
+					network_properties.spacetime |= DE_SITTER;
 				else if (!strcmp(optarg, "d"))
-					network_properties.manifold = DUST;
+					network_properties.spacetime |= DUST;
 				else if (!strcmp(optarg, "f"))
-					network_properties.manifold = FLRW;
+					network_properties.spacetime |= FLRW;
 				else if (!strcmp(optarg, "h"))
-					network_properties.manifold = HYPERBOLIC;
+					network_properties.spacetime |= HYPERBOLIC;
 				else
 					throw CausetException("Invalid argument for 'manifold' parameter!\n");
 				break;
@@ -227,6 +228,14 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				network_properties.N_tar = atoi(optarg);
 				if (network_properties.N_tar <= 0)
 					throw CausetException("Invalid argument for 'nodes' parameter!\n");
+				break;
+			case 'r':	//Region
+				if (!strcmp(optarg, "s"))
+					network_properties.spacetime |= SLAB;
+				else if (!strcmp(optarg, "d"))
+					network_properties.spacetime |= DIAMOND;
+				else
+					throw CausetException("Invalid argument for 'region' parameter!\n");
 				break;
 			case 'S':	//Flag for calculating success ratio
 				network_properties.flags.calc_success_ratio = true;
@@ -262,13 +271,18 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				else if (!strcmp("benchmark", longOpts[longIndex].name))
 					//Flag to benchmark selected routines
 					network_properties.flags.bench = true;
-				else if (!strcmp("compact", longOpts[longIndex].name))
-					//Flag to use compactification of radial coordinate
-					network_properties.flags.compact = true;
 				else if (!strcmp("components", longOpts[longIndex].name))
 					//Flag for Finding Connected Components
 					network_properties.flags.calc_components = true;
-				else if (!strcmp("distances", longOpts[longIndex].name)) {
+				else if (!strcmp("curvature", longOpts[longIndex].name)) {
+					//Flag for setting spatial curvature
+					if (!strcmp(optarg, "f"))
+						network_properties.spacetime |= FLAT;
+					else if (!strcmp(optarg, "p"))
+						network_properties.spacetime |= POSITIVE;
+					else
+						throw CausetException("Invalid argument for 'curvature' parameter!\n");
+				} else if (!strcmp("distances", longOpts[longIndex].name)) {
 					//Flag for comparing distance methods
 					network_properties.flags.validate_distances = true;
 					network_properties.N_dst = atof(optarg);
@@ -312,13 +326,19 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					network_properties.r_max = atof(optarg);
 				else if (!strcmp("stdim", longOpts[longIndex].name)) {
 					//Spacetime dimensions (2 or 4 right now)
-					network_properties.stdim = atoi(optarg);
-					if (!(atoi(optarg) == 2 || atoi(optarg) == 4))
-						throw CausetException("Invalid argument for 'dimension' parameter!\n");
-				} else if (!strcmp("symmetric", longOpts[longIndex].name))
-					//Symmetric spatial region in closed de Sitter
-					network_properties.flags.symmetric = true;
-				else if (!strcmp("test", longOpts[longIndex].name))
+					if (atoi(optarg) == 2 || atoi(optarg) == 4)
+						network_properties.spacetime |= atoi(optarg);
+					else
+						throw CausetException("Invalid argument for 'stdim' parameter!\n");
+				} else if (!strcmp("symmetry", longOpts[longIndex].name)) {
+					//Symmetric about temporal axis
+					if (!strcmp(optarg, "s"))
+						network_properties.spacetime |= SYMMETRIC;
+					else if (!strcmp(optarg, "a"))
+						network_properties.spacetime |= ASYMMETRIC;
+					else
+						throw CausetException("Invalid argument for 'symmetry' parameter!\n");
+				} else if (!strcmp("test", longOpts[longIndex].name))
 					//Test parameters
 					network_properties.flags.test = true;
 				else {
@@ -345,12 +365,11 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --benchmark\tBenchmark Algorithms\n");
 				printf_mpi(rank, "  -b, --buffer\t\tEdge Buffer\t\t\t0.3\n");
 				printf_mpi(rank, "  -C, --clustering\tMeasure Clustering\n");
-				printf_mpi(rank, "      --compact\t\tUse Compactification\n");
 				printf_mpi(rank, "\t\t\tor Spherical Foliation\n");
 				printf_mpi(rank, "      --components\tMeasure Graph Components\n");
 				printf_mpi(rank, "  -c, --core\t\tCore Edge Fraction\t\t0.01\n");
+				printf_mpi(rank, "      --curvature\tSpatial Curvature\t\t[f]lat, [p]ositive\n");
 				printf_mpi(rank, "  -d, --delta\t\tNode Density\t\t\t10000\n");
-				printf_mpi(rank, "      --stdim\t\tSpacetime Dimensions\t\t2 or 4\n");
 				printf_mpi(rank, "      --distances\tValidate Distance Methods\t0.01, 10000\n");
 				printf_mpi(rank, "      --embedding\tValidate Embedding\t\t0.01, 10000\n");
 				printf_mpi(rank, "  -e, --energy\t\tDark Energy Density\t\t0.73\n");
@@ -373,11 +392,13 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --quiet-read\tIgnore any warnings when\n");
 				printf_mpi(rank, "\t\t\treading graph\n");
 				printf_mpi(rank, "      --read-old-format\tRead Positions in Old Format\n");
+				printf_mpi(rank, "  -r, --region\t\tSpacetime Region\t\t[s]lab, [d]iamond\n");
 				printf_mpi(rank, "      --relink\t\tIgnore Pre-Existing Links\n");
 				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.01, 10000\n");
 				printf_mpi(rank, "  -s, --seed\t\tRandom Seed\t\t\t18100\n");
 				printf_mpi(rank, "      --slice\t\tSize of Spatial Slice\t\t1.0\n");
-				printf_mpi(rank, "      --symmetric\tSymmetric de Sitter Slice\n");
+				printf_mpi(rank, "      --stdim\t\tSpacetime Dimensions\t\t2 or 4\n");
+				printf_mpi(rank, "      --symmetry\tTemporal Symmetry\t\t[s]ymmetric, [a]symmetric\n");
 				printf_mpi(rank, "      --test\t\tTest Parameters Only\n");
 				printf_mpi(rank, "  -v, --verbose\t\tVerbose Output\n");
 				printf_mpi(rank, "  -y\t\t\tSuppress User Queries\n");
