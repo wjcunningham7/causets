@@ -15,14 +15,33 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	assert (bm != NULL);
 	#endif
 
+	unsigned int spacetime = network_properties->spacetime;
 	int rank = network_properties->cmpi.rank;
 
 	//Make sure the spacetime is fully defined
 	if (!rank) printf_red();
-	if (!get_stdim(network_properties->spacetime)) {
+	if (!get_stdim(spacetime)) {
 		printf_mpi("The spacetime dimension has not been defined!  Use flag '--stdim' to continue.\n");
 		network_properties->cmpi.fail = 1;
 	}
+	if (!get_manifold(spacetime)) {
+		printf_mpi("The manifold has not been defined!  Use flag '--manifold' to continue.\n");
+		network_properties->cmpi.fail = 1;
+	}
+	if (!get_region(spacetime)) {
+		printf_mpi("The region has not been defined!  Use flag '--region' to continue.\n");
+		network_properties->cmpi.fail = 1;
+	}
+	if (!get_curvature(spacetime)) {
+		printf_mpi("The curvature has not been defined!  Use flag '--curvature' to continue.\n");
+		network_properties->cmpi.fail = 1;
+	}
+	if (!get_symmetry(spacetime)) {
+		printf_mpi("The symmetry has not been defined!  Use flag '--symmetry' to continue.\n");
+		network_properties->cmpi.fail = 1;
+	}
+	if (!rank) printf_std();
+	fflush(stdout);
 
 	//Benchmarking
 	if (network_properties->flags.bench) {
@@ -66,8 +85,9 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		network_properties->core_edge_fraction = 1.0;
 	}
 
-	//If the GPU is requested, optimize parameters
 	#ifdef CUDA_ENABLED
+	//If the GPU is requested, optimize parameters
+	//Still not entirely sure if removing this is OK.....
 	/*if (network_properties->flags.use_gpu && network_properties->N_tar % (BLOCK_SIZE << 1)) {
 		printf_mpi(rank, "If you are using the GPU, set the target number of nodes (--nodes) to be a multiple of %d!\n", BLOCK_SIZE << 1);
 		fflush(stdout);
@@ -94,278 +114,244 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	disableGSLErrHandler();
 
 	try {
-		if (network_properties->manifold & (DE_SITTER | DUST | FLRW)) {
-			//Check for under-constrained system
+		double eta0 = 0.0, eta1 = 0.0;
+		double q;
+		int method;
+
+		//Check for an under-constrained system
+		if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
 			if (!network_properties->N_tar)
 				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
 			if (!network_properties->tau0)
 				throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
-			if (network_properties->manifold & DE_SITTER && !network_properties->flags.compact && !network_properties->r_max)
+			if ((get_manifold(spacetime) | get_symmetry(spacetime)) & (DE_SITTER | ASYMMETRIC) && !network_properties->r_max)
 				throw CausetException("Flag '--slice', spatial scaling, must be specified!\n");
+			else if (get_manifold(spacetime) & (DUST | FLRW)) {
+				if (!network_properties->alpha)
+					throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
+			}
 		}
 
-		//if (network_properties->manifold & DE_SITTER) {
-		switch (network_properties->manifold) {
-		case DE_SITTER:
-		{
-			//Constrain the de Sitter system
+		//Default constraints
+		if (get_manifold(spacetime) & DE_SITTER) {
+			//The pseudoradius takes a default value of 1
 			if (!network_properties->delta)
 				network_properties->a = 1.0;
 
-			if (network_properties->flags.compact) {
+			if (get_curvature(spacetime) & FLAT) {
+				//We take eta_min = -1 so that rescaled time
+				//will begin at tau = 0
+				//In this case, the '--age' flag reads tau0
+				network_properties->zeta = HALF_PI + 1.0;
+				network_properties->zeta1 = HALF_PI - tauToEtaFlat(network_properties->tau0;
+
+				#if DEBUG
+				assert (network_properties->zeta > HALF_PI);
+				#endif
+			} else if (get_curvature(spacetime) & POSITIVE) {
+				//Re-write variables to their correct locations
+				//This is because the '--age' flag has read eta0
+				//into the tau0 variable
 				network_properties->zeta = HALF_PI - network_properties->tau0;
 				network_properties->tau0 = etaToTauCompact(HALF_PI - network_properties->zeta);
-			} else {
-				network_properties->zeta = HALF_PI + 1.0;
-				network_properties->zeta1 = HALF_PI - tauToEtaFlat(network_properties->tau0);
-			}
 
-			#if DEBUG
-			if (network_properties->flags.compact)
-				assert (network_properties->zeta > 0.0 && network_properties->zeta < HALF_PI);
-			else
-				assert (network_properties->zeta > HALF_PI);
-			assert (network_properties->tau0 > 0.0);
-			#endif
-
-			double eta0 = HALF_PI - network_properties->zeta;
-			double eta1 = HALF_PI - network_properties->zeta1;
-			if (network_properties->stdim == 2) {
 				#if DEBUG
-				assert (network_properties->flags.compact);
+				assert (network_properties->zeta > 0.0 && network_properties->zeta < HALF_PI);
 				#endif
-
-				if (network_properties->flags.symmetric) {
-					network_properties->k_tar = (network_properties->N_tar / M_PI) * ((eta0 / TAN(eta0, STL) - 1.0) / TAN(eta0, STL) + eta0);
-					if (!!network_properties->delta)
-						network_properties->a = SQRT(network_properties->N_tar / (4.0 * M_PI * network_properties->delta * TAN(eta0, STL)), STL);
-					else
-						network_properties->delta = network_properties->N_tar / (4.0 * M_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
-				} else {
-					network_properties->k_tar = network_properties->N_tar * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL) - 1.0) / (TAN(eta0, STL) * HALF_PI);
-					if (!!network_properties->delta)
-						network_properties->a = SQRT(network_properties->N_tar / (TWO_PI * network_properties->delta * TAN(eta0, STL)), STL);
-					else
-						network_properties->delta = network_properties->N_tar / (TWO_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
-				}
-			} else if (network_properties->stdim == 4) {
-				if (network_properties->flags.compact) {
-					if (network_properties->flags.symmetric) {
-						IntData idata;
-						idata.limit = 50;
-						idata.tol = 1e-5;
-						idata.lower = -eta0;
-						idata.upper = eta0;
-						double t1 = (sin(eta0) + sin(5.0 * eta0)) / (3.0 * POW3(cos(eta0), EXACT));
-						double t2 = 2.0 * integrate1D(&averageDegreeSym, NULL, &idata, QNG);
-						double t3 = (2.0 * eta0 * eta0 - 1.0) * (3.0 * sin(eta0) + sin(3.0 * eta0)) / (3.0 * POW3(cos(eta0), EXACT));
-
-						//DEBUG
-						//double kappa = TWO_PI * (t1 + t2 + t3) / (tan(eta0) * (2.0 + 1.0 / POW2(cos(eta0), EXACT)));
-						//printf("kappa: %f\n", kappa);
-
-						network_properties->k_tar = 3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) * (t1 + t2 + t3) / (M_PI * tan(eta0) * (2.0 + 1.0 / POW2(cos(eta0), EXACT)) * (3.0 * sin(eta0) + sin(3.0 * eta0)));
-						if (!!network_properties->delta)
-							network_properties->a = POW(3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) / (TWO_PI * M_PI * network_properties->delta * (3.0 * sin(eta0) + sin(3.0 * eta0))), 0.25, STL);
-						else
-							network_properties->delta = 3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) / (TWO_PI * M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * (3.0 * sin(eta0) + sin(3.0 * eta0)));
-					} else {
-						network_properties->k_tar = network_properties->N_tar * (12.0 * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL)) - (6.0 * LOG(COS(eta0, STL), STL) + 5.0) / POW2(COS(eta0, STL), EXACT) - 7.0) / (POW2(2.0 + 1.0 / POW2(COS(eta0, STL), EXACT), EXACT) * TAN(eta0, STL) * 3.0 * HALF_PI);
-						if (!!network_properties->delta)
-							network_properties->a = POW(network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI, EXACT) * network_properties->delta * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL)), 0.25, STL);
-						else
-							network_properties->delta = network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI * POW2(network_properties->a, EXACT), EXACT) * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL));
-					}
-				} else {
-					int seed = static_cast<int>(4000000000 * network_properties->mrng.rng());
-
-					network_properties->k_tar = 9.0 * network_properties->N_tar * POW2(POW3(eta0 * eta1, EXACT), EXACT) * integrate2D(&rescaledDegreeDeSitterFlat, eta0, eta0, eta1, eta1, NULL, seed, 0) / (POW3(network_properties->r_max, EXACT) * POW2(POW3(eta1, EXACT) - POW3(eta0, EXACT), EXACT));
-					if (!!network_properties->delta)
-						network_properties->a = POW(9.0 * network_properties->N_tar * POW3(eta0 * eta1, EXACT) / (4.0 * M_PI * network_properties->delta * POW3(network_properties->r_max, EXACT) * (POW3(eta1, EXACT) - POW3(eta0, EXACT))), 0.25, STL);
-					else
-						network_properties->delta = 9.0 * network_properties->N_tar * POW3(eta0 * eta1, EXACT) / (4.0 * M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * POW3(network_properties->r_max, EXACT) * (POW3(eta1, EXACT) - POW3(eta0, EXACT)));
-				}
 			}
 
-			#if DEBUG
-			assert (network_properties->k_tar > 0.0);
-			assert (network_properties->a > 0.0);
-			assert (network_properties->delta > 0.0);
-			#endif
-
-			//Display Constraints
-			printf_mpi(rank, "\n");
-			printf_mpi(rank, "\tParameters Constraining %d+1 de Sitter Causal Set:\n", network_properties->stdim-1);
-			printf_mpi(rank, "\t--------------------------------------------------\n");
-			if (!rank) printf_cyan();
-			printf_mpi(rank, "\t > Number of Nodes:\t\t%d\n", network_properties->N_tar);
-			printf_mpi(rank, "\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
-			if (network_properties->flags.compact) {
-				if (network_properties->flags.symmetric)
-					printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", -eta0);
-				else
-					printf_mpi(rank, "\t > Min. Conformal Time:\t\t0.0\n");
-				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
-			} else {
-				printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", eta0);
-				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta1);
-			}
-			printf_mpi(rank, "\t > Max. Rescaled  Time:\t\t%.6f\n", network_properties->tau0);
-			if (!network_properties->flags.compact)
-				printf_mpi(rank, "\t > Spatial Cutoff:\t\t%.6f\n", network_properties->r_max);
-			printf_mpi(rank, "\t > Node Density: \t\t%.6f\n", network_properties->delta);
-			printf_mpi(rank, "\t > Pseudoradius:\t\t%.6f\n", network_properties->a);
-			printf_mpi(rank, "\t > Random Seed:\t\t\t%Ld\n", network_properties->seed);
-			if (!rank) printf_std();
-			fflush(stdout);
-
-			//Miscellaneous Tasks
-			if (!network_properties->cmpi.rank && network_properties->flags.gen_ds_table && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 5.0, -5.0, 5.0, 0.01, 0.01, network_properties->manifold, network_properties->flags.verbose))
-				network_properties->cmpi.fail = 1;
-
-			if (checkMpiErrors(network_properties->cmpi))
-				return false;
-			break;
-		}
-		case DUST:
-		{
-			//Check for under-constrained system
-			if (!network_properties->alpha)
-				throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
-			if (network_properties->stdim != 4)
-				throw CausetException("Flag '--dim', spacetime dimension, must be (4) in Dust spacetime!\n");
-
-			//Constrain the dust system
+			eta0 = HALF_PI - network_properties->zeta;
+			eta1 = HALF_PI - network_properties->zeta1;
+		} else if (get_manifold(spacetime) & (DUST | FLRW)) {
+			//The density takes a default value of 1000
 			if (!network_properties->delta)
 				network_properties->delta = 1000;
 
-			//Let alpha characterize the boundary effects
+			//The maximum radius takes a default value of 1
+			//This allows alpha to characterize the spatial cutoff
 			if (!network_properties->r_max)
 				network_properties->r_max = 1.0;
+		} else if (get_manifold(spacetime) & HYPERBOLIC) {
+			//The hyperbolic curvature takes a default value of 1
+			if (!network_properties->zeta)
+				network_properties->zeta = 1.0;
+		}
 
-			//Dust Constraints
-			int method = 0;
+		//Solve for the remaining constraints
+		switch (spacetime) {
+		case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
+			network_properties->k_tar = network_properties->N_tar * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL) - 1.0) / (TAN(eta0, STL) * HALF_PI);
+			if (!!network_properties->delta)
+				network_properties->a = SQRT(network_properties->N_tar / (TWO_PI * network_properties->delta * TAN(eta0, STL)), STL);
+			else
+				network_properties->delta = network_properties->N_tar / (TWO_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
+			break;
+		case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
+			network_properties->k_tar = (network_properties->N_tar / M_PI) * ((eta0 / TAN(eta0, STL) - 1.0) / TAN(eta0, STL) + eta0);
+			if (!!network_properties->delta)
+				network_properties->a = SQRT(network_properties->N_tar / (4.0 * M_PI * network_properties->delta * TAN(eta0, STL)), STL);
+			else
+				network_properties->delta = network_properties->N_tar / (4.0 * M_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
+			break;
+		case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
+			//Add this
+			break;
+		case (2 | HYPERBOLIC | SLAB | FLAT | ASYMMETRIC):
+			//Nothing else needs to be done
+			//but we don't want to trigger 'default'
+			break;
+		case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
+		{
+			int seed = static_cast<int>(4000000000 * network_properties->mrng.rng());
+
+			network_properties->k_tar = 9.0 * network_properties->N_tar * POW2(POW3(eta0 * eta1, EXACT), EXACT) * integrate2D(&rescaledDegreeDeSitterFlat, eta0, eta0, eta1, eta1, NULL, seed, 0) / (POW3(network_properties->r_max, EXACT) * POW2(POW3(eta1, EXACT) - POW3(eta0, EXACT), EXACT));
+			if (!!network_properties->delta)
+				network_properties->a = POW(9.0 * network_properties->N_tar * POW3(eta0 * eta1, EXACT) / (4.0 * M_PI * network_properties->delta * POW3(network_properties->r_max, EXACT) * (POW3(eta1, EXACT) - POW3(eta0, EXACT))), 0.25, STL);
+			else
+				network_properties->delta = 9.0 * network_properties->N_tar * POW3(eta0 * eta1, EXACT) / (4.0 * M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * POW3(network_properties->r_max, EXACT) * (POW3(eta1, EXACT) - POW3(eta0, EXACT)));
+			break;
+		}
+		case (4 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
+			network_properties->k_tar = network_properties->N_tar * (12.0 * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL)) - (6.0 * LOG(COS(eta0, STL), STL) + 5.0) / POW2(COS(eta0, STL), EXACT) - 7.0) / (POW2(2.0 + 1.0 / POW2(COS(eta0, STL), EXACT), EXACT) * TAN(eta0, STL) * 3.0 * HALF_PI);
+			if (!!network_properties->delta)
+				network_properties->a = POW(network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI, EXACT) * network_properties->delta * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL)), 0.25, STL);
+			else
+				network_properties->delta = network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI * POW2(network_properties->a, EXACT), EXACT) * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL));
+			break;
+		case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
+		{
+			IntData idata;
+			idata.limit = 50;
+			idata.tol = 1e-5;
+			idata.lower = -eta0;
+			idata.upper = eta0;
+			double t1 = (sin(eta0) + sin(5.0 * eta0)) / (3.0 * POW3(cos(eta0), EXACT));
+			double t2 = 2.0 * integrate1D(&averageDegreeSym, NULL, &idata, QNG);
+			double t3 = (2.0 * eta0 * eta0 - 1.0) * (3.0 * sin(eta0) + sin(3.0 * eta0)) / (3.0 * POW3(cos(eta0), EXACT));
+
+			network_properties->k_tar = 3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) * (t1 + t2 + t3) / (M_PI * tan(eta0) * (2.0 + 1.0 / POW2(cos(eta0), EXACT)) * (3.0 * sin(eta0) + sin(3.0 * eta0)));
+			if (!!network_properties->delta)
+				network_properties->a = POW(3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) / (TWO_PI * M_PI * network_properties->delta * (3.0 * sin(eta0) + sin(3.0 * eta0))), 0.25, STL);
+			else
+				network_properties->delta = 3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) / (TWO_PI * M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * (3.0 * sin(eta0) + sin(3.0 * eta0)));
+			break;
+		}
+		case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
+			//Add this
+			break;
+		case (4 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
+			//Add this
+			break;
+		case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
+			method = 0;
 			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->stdim, network_properties->manifold, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
 				network_properties->cmpi.fail = 1;
 
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
 
-			double q = network_properties->N_tar / (M_PI * POW3(network_properties->alpha * network_properties->r_max * network_properties->tau0, EXACT));
+			q = network_properties->N_tar / (M_PI * POW3(network_properties->alpha * network_properties->r_max * network_properties->tau0, EXACT));
 			network_properties->a = POW(q / network_properties->delta, 0.25, STL);
 			network_properties->alpha *= network_properties->a;
 
 			network_properties->zeta = HALF_PI - tauToEtaDust(network_properties->tau0, network_properties->a, network_properties->alpha);
-
-			#if DEBUG
-			assert (network_properties->a > 0.0);
-			assert (network_properties->k_tar > 0.0);
-			assert (network_properties->zeta < HALF_PI);
-			#endif
-
-			//Display Constraints
-			printf_mpi(rank, "\n");
-			printf_mpi(rank, "\tParameters Constraining the Dusty Causal Set:\n");
-			printf_mpi(rank, "\t---------------------------------------------\n");
-			if (!rank) printf_cyan();
-			printf_mpi(rank, "\t > Number of Expected Nodes:\t%d\n", network_properties->N_tar);
-			printf_mpi(rank, "\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
-			printf_mpi(rank, "\t > Max. Rescaled Time:\t\t%.6f\n", network_properties->tau0);
-			printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", HALF_PI - network_properties->zeta);
-			printf_mpi(rank, "\t > Spatial Scaling:\t\t%.6f\n", network_properties->alpha);
-			printf_mpi(rank, "\t > Temporal Scaling:\t\t%.6f\n", network_properties->a);
-			printf_mpi(rank, "\t > Node Density:\t\t%.6f\n", network_properties->delta);
-			printf_mpi(rank, "\t > Random Seed:\t\t\t%Ld\n", network_properties->seed);
-			if (!rank) printf_std();
-			fflush(stdout);
 			break;
-		}
-		case FLRW:
-		{
-			//Check for under-constrained system
-			if (!network_properties->alpha)
-				throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
-			if (network_properties->stdim != 4)
-				throw CausetException("Flag '--stdim', spacetime dimension, must be (4) in FLRW spacetime!\n");
+		case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
+			//Add this
+			break;
+		case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
+			method = 1;
+			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->stdim, network_properties->manifold, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
+				network_properties->cmpi.fail = 1;
 
-			//Constrain the FLRW system
-			if (!network_properties->delta)
-				network_properties->delta = 1000;
-
-			if (network_properties->flags.compact) {
-				double q = 3.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * POW3(network_properties->alpha, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
-				network_properties->a = POW(q / network_properties->delta, 1.0 / 4.0, STL);
-				//\tilde{\alpha} -> \alpha
-				network_properties->alpha *= network_properties->a;
-				//Use lookup table to solve for k_tar
-				int method = 1;
-				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->stdim, network_properties->manifold, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
-					network_properties->cmpi.fail = 1;
-
-				if (checkMpiErrors(network_properties->cmpi))
-					return false;
-			} else {
-				//This makes alpha characterize the boundary effects
-				if (!network_properties->r_max)
-					network_properties->r_max = 1.0;
-
-				//Non-Compact FLRW Constraints
-				//int method = 0;
-				int method = 1;
-				if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->stdim, network_properties->manifold, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
-					network_properties->cmpi.fail = 1;
-
-				if (checkMpiErrors(network_properties->cmpi))
-					return false;
+			if (checkMpiErrors(network_properties->cmpi))
+				return false;
 				
-				double q = 9.0 * network_properties->N_tar / (TWO_PI * POW3(network_properties->alpha * network_properties->r_max, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
-				network_properties->a = POW(q / network_properties->delta, 0.25, STL);
-				network_properties->alpha *= network_properties->a;
-			}
-
+			q = 9.0 * network_properties->N_tar / (TWO_PI * POW3(network_properties->alpha * network_properties->r_max, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
+			network_properties->a = POW(q / network_properties->delta, 0.25, STL);
+			network_properties->alpha *= network_properties->a;
+			network_properties->zeta = HALF_PI - tauToEtaFLRWExact(network_properties->tau0, network_properties->a, network_properties->alpha);
+			break;
+		case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
+			q = 3.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * POW3(network_properties->alpha, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
+			network_properties->a = POW(q / network_properties->delta, 1.0 / 4.0, STL);
+			network_properties->alpha *= network_properties->a;
 			network_properties->zeta = HALF_PI - tauToEtaFLRWExact(network_properties->tau0, network_properties->a, network_properties->alpha);
 
-			#if DEBUG
-			assert (network_properties->a > 0.0);
-			assert (network_properties->k_tar > 0.0);
-			assert (network_properties->zeta < HALF_PI);
-			#endif
-
-			//Display Constraints
-			printf_mpi(rank, "\n");
-			printf_mpi(rank, "\tParameters Constraining the FLRW Causal Set:\n");
-			printf_mpi(rank, "\t--------------------------------------------\n");
-			if (!rank) printf_cyan();
-			printf_mpi(rank, "\t > Number of Nodes:\t\t%d\n", network_properties->N_tar);
-			printf_mpi(rank, "\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
-			if (!rank) printf_red();
-			printf_mpi(rank, "\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
-			if (!rank) printf_cyan();
-			printf_mpi(rank, "\t > Max. Rescaled Time:\t\t%.6f\n", network_properties->tau0);
-			printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", HALF_PI - network_properties->zeta);
-			printf_mpi(rank, "\t > Spatial Scaling:\t\t%.6f\n", network_properties->alpha);
-			printf_mpi(rank, "\t > Temporal Scaling:\t\t%.6f\n", network_properties->a);
-			printf_mpi(rank, "\t > Node Density:\t\t%.6f\n", network_properties->delta);
-			printf_mpi(rank, "\t > Random Seed:\t\t\t%Ld\n", network_properties->seed);
-			if (!rank) printf_std();
-			fflush(stdout);
-
-			//Miscellaneous Tasks
-			if (!network_properties->cmpi.rank && network_properties->flags.gen_flrw_table && !generateGeodesicLookupTable("geodesics_flrw_table.cset.bin", 2.0, -5.0, 5.0, 0.01, 0.01, network_properties->manifold, network_properties->flags.verbose))
+			method = 1;
+			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->stdim, network_properties->manifold, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
 				network_properties->cmpi.fail = 1;
 
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
 			break;
-		}
-		case HYPERBOLIC:
-			if (network_properties->stdim != 2)
-				throw CausetException("You must use --stdim 2 for a hyperbolic manifold!\n");
-			if (network_properties->zeta == 0.0)
-				network_properties->zeta = 1.0;
+		case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
+			//Add this
 			break;
 		default:
-			throw CausetException("Undefined manifold type.\n");
+			throw CausetException("Spacetime parameters not supported!\n");
+		}
+
+		if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
+			#if DEBUG
+			assert (network_properties->k_tar > 0.0);
+			assert (network_properties->a > 0.0);
+			assert (network_properties->delta > 0.0);
+			if (!((get_manifold(spacetime) | get_curvature(spacetime)) & (DE_SITTER | FLAT)))
+				assert (network_properties->zeta < HALF_PI);
+			#endif
+
+			//Display Constraints
+			printf_mpi(rank, "\n");
+			printf_mpi(rank, "\tParameters Constraining the %d+1 %s Causal Set:\n", get_stdim(spacetime) - 1, manifoldNames[log2(get_manifold(spacetime) / ManifoldFirst)]);
+			printf_mpi(rank, "\t--------------------------------------------\n");
+			if (!rank) printf_cyan();
+			printf_mpi(rank, "\t > Manifold: %s\n", manifoldNames[log2(get_manifold(spacetime) / ManifoldFirst)]);
+			printf_mpi(rank, "\t > Spacetime Dimension: %d+1\n", get_stdim(spacetime) - 1);
+			printf_mpi(rank, "\t > Region: %s\n", regionNames[log2(get_region(spacetime) / RegionFirst)]);
+			printf_mpi(rank, "\t > Curvature: %s\n", curvatureNames[log2(get_curvature(spacetime) / CurvatureFirst)]);
+			printf_mpi(rank, "\t > Temporal Symmetry: %s\n", symmetryNames[log2(get_symmetry(spacetime) / SymmetryFirst)]);
+			printf_mpi("\n");
+			printf_mpi(rank, "\t > Number of Nodes:\t\t%d\n", network_properties->N_tar);
+			printf_mpi(rank, "\t > Node Density:\t\t%.6f\n", network_properties->delta);
+			printf_mpi(rank, "\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
+			if (get_symmetry(spacetime) & SYMMETRIC) {
+				printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", -eta0);
+				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
+			} else if ((get_manifold(spacetime) | get_curvature(spacetime)) & (DE_SITTER | FLAT)) {
+				printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", eta0);
+				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta1);
+			} else {
+				printf_mpi(rank, "\t > Min. Conformal Time:\t\t0.0\n");
+				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
+			}
+			printf_mpi(rank, "\t > Max. Rescaled Time:\t\t%.6f\n", network_properties->tau0);
+			if (get_manifold(spacetime) & (DE_SITTER | FLRW))
+				printf_mpi(rank, "\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
+			if (get_manifold(spacetime) & (DUST | FLRW))
+				printf_mpi(rank, "\t > Spatial Scaling:\t\t%.6f\n", network_properties->alpha);
+			else if (get_curvature(spacetime) & FLAT)
+				printf_mpi(rank, "\t > Spatial Cutoff:\t\t%.6f\n", network_properties->r_max);
+			printf_mpi(rank, "\t > Temporal Scaling:\t\t%.6f\n", network_properties->a);
+			printf_mpi(rank, "\t > Ransom Seed:\t\t\t%Ld\n", network_properties->seed);
+			if (!rank) printf_std();
+			fflush(stdout);
+
+			//Miscellaneous Tasks
+			if (get_manifold(spacetime) & DE_SITTER) {
+				if (!network_properties->cmpi.rank && network_properties->flags.gen_ds_table && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 5.0, -5.0, 5.0, 0.01, 0.01, network_properties->manifold, network_properties->flags.verbose))
+					network_properties->cmpi.fail = 1;
+
+				if (checkMpiErrors(network_properties->cmpi))
+					return false;
+			} else if (get_manifold(spacetime) & FLRW) {
+				if (!network_properties->cmpi.rank && network_properties->flags.gen_flrw_table && !generateGeodesicLookupTable("geodesics_flrw_table.cset.bin", 2.0, -5.0, 5.0, 0.01, 0.01, network_properties->manifold, network_properties->flags.verbose))
+					network_properties->cmpi.fail = 1;
+
+				if (checkMpiErrors(network_properties->cmpi))
+					return false;
+			}
+			
 		}
 
 		//Miscellaneous Tasks
@@ -449,22 +435,20 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 //Calculate Expected Average Degree in the Dust or FLRW Spacetime
 //See Causal Set Notes for detailed explanation of methods
-bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const Manifold &manifold, double &a, const double &r_max, double &tau0, const double &alpha, const double &delta, const int &rank, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &compact, const bool &verbose, const bool &bench, const int method)
+bool solveExpAvgDegree(float &k_tar, const unsigned int &spacetime, const int &N_tar, double &a, const double &r_max, double &tau0, const double &alpha, const double &delta, const int &rank, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &verbose, const bool &bench, const int method)
 {
 	#if DEBUG
 	assert (ca != NULL);
+	assert (get_stdim(spacetime) & 4);
+	assert (get_manifold(spacetime) & (DUST | FLRW));
 	assert (N_tar > 0);
-	assert (stdim == 4);
-	assert (manifold == DUST || manifold == FLRW);
 	assert (tau0 > 0.0);
 	assert (alpha > 0.0);
 	assert (delta > 0.0);
 	assert (method == 0 || method == 1 || method == 2);
-	if (manifold & DUST) {
-		assert (!compact);
+	if (get_manifold(spacetime) & DUST)
 		assert (method == 0);
-	}
-	if (!compact) {
+	if (get_curvature(spacetime) & FLAT) {
 		assert (method == 0 || method == 1);
 		assert (r_max > 0.0);
 	} else
@@ -478,6 +462,7 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const M
 	int i;
 
 	double *table;
+	double kappa;
 	long size = 0L;
 	int seed = static_cast<int>(4000000000 * mrng.rng());
 
@@ -493,24 +478,26 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const M
 
 		for (i = 0; i <= nb; i++) {
 			stopwatchStart(&sCalcDegrees);
-			if (compact) {
+			switch (spacetime) {
+			case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
+				kappa = integrate2D(&rescaledDegreeDust, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
+				kappa *= 108 * M_PI / POW3(tau0, EXACT);
+				k_tar = (N_tar * kappa) / (M_PI * POW3(alpha * r_max * tau0, EXACT));
+			case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
+				kappa = integrate2D(&rescaledDegreeFLRW_NC, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
+				kappa *= 8.0 * M_PI;
+				kappa /= SINH(3.0 * tau0, STL) - 3.0 * tau0;
+				k_tar = (9.0 * kappa * N_tar) / (TWO_PI * POW3(alpha * r_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
+				break;
+			case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
 				if (tau0 > LOG(MTAU, STL) / 3.0)
 					k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeFLRW, 0.0, 0.0, r0, r0, NULL, seed, 0) * 16.0 * M_PI * exp(-3.0 * tau0);
 				else
 					k_tar = delta * POW2(POW2(a, EXACT), EXACT) * integrate2D(&rescaledDegreeFLRW, 0.0, 0.0, r0, r0, NULL, seed, 0) * 8.0 * M_PI / (SINH(3.0 * tau0, STL) - 3.0 * tau0);
-			} else {
-				if (manifold & DUST) {
-					double kappa = integrate2D(&rescaledDegreeDust, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
-					kappa *= 108 * M_PI / POW3(tau0, EXACT);
-					printf("kappa: %.8e\n", kappa);
-					k_tar = (N_tar * kappa) / (M_PI * POW3(alpha * r_max * tau0, EXACT));
-				} else if (manifold & FLRW) {
-					double kappa = integrate2D(&rescaledDegreeFLRW_NC, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
-					kappa *= 8.0 * M_PI;
-					kappa /= SINH(3.0 * tau0, STL) - 3.0 * tau0;
-					//printf("kappa: %.8e\n", kappa);
-					k_tar = (9.0 * kappa * N_tar) / (TWO_PI * POW3(alpha * r_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
-				}
+				break;
+			default:
+				fprintf(stderr, "Spacetime parameters not supported!\n");
+				return false;
 			}
 			stopwatchStop(&sCalcDegrees);
 		}
@@ -519,21 +506,25 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const M
 	case 1:
 	{
 		//Method 2 of 3: Lookup table to approximate method 1
-		if (compact) {
+		if (get_curvature(spacetime) & POSITIVE) {
 			if (!getLookupTable("./etc/raduc_table.cset.bin", &table, &size))
 				return false;
-		} else {
+		} else if (get_curvature(spacetime) & FLAT) {
 			if (!getLookupTable("./etc/raducNC_table.cset.bin", &table, &size))
 				return false;
-		}
+		} else
+			return false;
+		
 		ca->hostMemUsed += size;
 
 		for (i = 0; i <= nb; i++) {
 			stopwatchStart(&sCalcDegrees);
-			if (compact)
+			if (get_curvature(spacetime) & POSITIVE)
 				k_tar = lookupValue(table, size, &tau0, NULL, true) * delta * POW2(POW2(a, EXACT), EXACT);
-			else
+			else if (get_curvature(spacetime) & FLAT)
 				k_tar = lookupValue(table, size, &tau0, NULL, true) * 9.0 * N_tar / (TWO_PI * POW3(alpha * r_max, EXACT) * (SINH(3.0 * tau0, STL) - 3.0 * tau0));
+			else
+				return false;
 			stopwatchStop(&sCalcDegrees);
 		}	
 
@@ -632,16 +623,16 @@ bool solveExpAvgDegree(float &k_tar, const int &N_tar, const int &stdim, const M
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, const int &N_tar, const float &k_tar, const int &stdim, const Manifold &manifold, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench, const bool &yes)
 {
 	#if DEBUG
 	assert (ca != NULL);
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
-	assert (stdim == 2 || stdim == 4);
-	assert (manifold & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
-	if (manifold & HYPERBOLIC)
-		assert (stdim == 2);
+	assert (get_stdim(spacetime) & (2 | 4));
+	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
+	if (get_manifold(spacetime) & HYPERBOLIC)
+		assert (get_stdim(spacetime) == 2);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	#endif
@@ -653,13 +644,20 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 		//Estimate memory usage before allocating
 		size_t mem = 0;
 		if (!no_pos) {
-			if (stdim == 4)
+			#if EMBED_NODES
+			if (get_stdim(spacetime) == 4)
+				mem += sizeof(float) * N_tar * 5;	//For Coordinate5D
+			else if (get_stdim(spacetime) == 2)
+				mem += sizeof(float) * N_tar * 3;	//For Coordinate3D
+			#else
+			if (get_stdim(spacetime) == 4)
 				mem += sizeof(float) * N_tar << 2;	//For Coordinate4D
-			else if (stdim == 2)
+			else if (get_stdim(spacetime) == 2)
 				mem += sizeof(float) * N_tar << 1;	//For Coordinate2D
-			if (manifold & HYPERBOLIC)
+			#endif
+			if (get_manifold(spacetime) & HYPERBOLIC)
 				mem += sizeof(int) * N_tar;		//For AS
-			else if (manifold & (DE_SITTER | DUST | FLRW))
+			else if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW))
 				mem += sizeof(float) * N_tar;		//For tau
 		}
 		if (links_exist) {
@@ -684,8 +682,12 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 			size_t m_edges_size = mthread_size * mthread_size;
 			size_t nbuf = GEN_ADJ_LISTS_GPU_V2 ? NBUFFERS : 1;
 			mem += sizeof(int) * mthread_size * nbuf << 1;		//For k_in and k_out buffers (host)
-			mem += sizeof(bool) * m_edges_size * nbuf;			//For adjacency matrix buffers (host)
+			mem += sizeof(bool) * m_edges_size * nbuf;		//For adjacency matrix buffers (host)
+			#if EMBED_NODES
+			return false;
+			#else
 			dmem1 += sizeof(float) * mthread_size * 4 * nbuf << 1;	//For 4-D coordinate buffers
+			#endif
 			dmem1 += sizeof(int) * mthread_size * nbuf << 1;		//For k_in and k_out buffers (device)
 			dmem1 += sizeof(bool) * m_edges_size * nbuf;			//For adjacency matrix buffers (device)
 
@@ -717,13 +719,13 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 
 	try {
 		if (!no_pos) {
-			if (manifold & (DE_SITTER | DUST | FLRW)) {
+			if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
 				nodes.id.tau = (float*)malloc(sizeof(float) * N_tar);
 				if (nodes.id.tau == NULL)
 					throw std::bad_alloc();
 				memset(nodes.id.tau, 0, sizeof(float) * N_tar);
 				ca->hostMemUsed += sizeof(float) * N_tar;
-			} else if (manifold & HYPERBOLIC) {
+			} else if (get_manifold(spacetime) & HYPERBOLIC) {
 				nodes.id.AS = (int*)malloc(sizeof(int) * N_tar);
 				if (nodes.id.AS == NULL)
 					throw std::bad_alloc();
@@ -731,7 +733,44 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 				ca->hostMemUsed += sizeof(int) * N_tar;
 			}
 
-			if (stdim == 4) {
+			#if EMBED_NODES
+			if (get_stdim(spacetime) == 4) {
+				nodes.crd = new Coordinates5D();
+
+				nodes.crd->v() = (float*)malloc(sizeof(float) * N_tar);
+				nodes.crd->w() = (float*)malloc(sizeof(float) * N_tar);
+				nodes.crd->x() = (float*)malloc(sizeof(float) * N_tar);
+				nodes.crd->y() = (float*)malloc(sizeof(float) * N_tar);
+				nodes.crd->z() = (float*)malloc(sizeof(float) * N_tar);
+
+				if (nodes.crd->v() == NULL || nodes.crd->w() == NULL || nodes.crd->x() == NULL || nodes.crd->y() == NULL || nodes.crd->z() == NULL)
+					throw std::bad_alloc();
+
+				memset(nodes.crd->v(), 0, sizeof(float) * N_tar);
+				memset(nodes.crd->w(), 0, sizeof(float) * N_tar);
+				memset(nodes.crd->x(), 0, sizeof(float) * N_tar);
+				memset(nodes.crd->y(), 0, sizeof(float) * N_tar);
+				memset(nodes.crd->z(), 0, sizeof(float) * N_tar);
+
+				ca->hostMemUsed += sizeof(float) * N_tar * 5;
+			} else if (get_stdim(spacetime) == 2) {
+				nodes.crd = new Coordinates3D();
+
+				nodes.crd->x() = (float*)malloc(sizeof(float) * N_tar);
+				nodes.crd->y() = (float*)malloc(sizeof(float) * N_tar);
+				nodes.crd->z() = (float*)malloc(sizeof(float) * N_tar);
+
+				if (nodes.crd->x() == NULL || nodes.crd->y() == NULL || nodes.crd->z() == NULL)
+					throw std::bad_alloc();
+
+				memset(nodes.crd->x(), 0, sizeof(float) * N_tar);
+				memset(nodes.crd->y(), 0, sizeof(float) * N_tar);
+				memset(nodes.crd->z(), 0, sizeof(float) * N_tar);
+
+				ca->hostMemUsed += sizeof(float) * 3;
+			}
+			#else
+			if (get_stdim(spacetime) == 4) {
 				nodes.crd = new Coordinates4D();
 	
 				nodes.crd->w() = (float*)malloc(sizeof(float) * N_tar);
@@ -748,7 +787,7 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 				memset(nodes.crd->z(), 0, sizeof(float) * N_tar);
 
 				ca->hostMemUsed += sizeof(float) * N_tar * 4;
-			} else if (stdim == 2) {
+			} else if (get_stdim(spacetime) == 2) {
 				nodes.crd = new Coordinates2D();
 
 				nodes.crd->x() = (float*)malloc(sizeof(float) * N_tar);
@@ -762,6 +801,7 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 
 				ca->hostMemUsed += sizeof(float) * N_tar * 2;
 			}
+			#endif
 		}
 
 		if (links_exist) {
@@ -845,18 +885,18 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//Values are in correct ranges
 	assert (!nodes.crd->isNull());
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
-	assert (stdim == 2 || stdim == 4);
-	assert (manifold & (DE_SITTER | DUST | FLRW));
+	assert (get_stdim(spacetime) & (2 | 4));
+	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
 	assert (a >= 0.0);
 	assert (tau0 > 0.0);
-	if (manifold & (DUST | FLRW)) {
+	if (get_manifold(spacetime) & (DUST | FLRW)) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->x() != NULL);
@@ -864,17 +904,17 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 		assert (nodes.crd->z() != NULL);
 		assert (stdim == 4);
 		assert (zeta < HALF_PI);
-	} else if (manifold & DE_SITTER) {
-		if (compact) {
+	} else if (get_manifold(spacetime) & DE_SITTER) {
+		if (get_curvature(spacetime) & POSITIVE) {
 			assert (zeta > 0.0);
 			assert (zeta < HALF_PI);
-		} else {
+		} else if (get_curvature(spacetime) & FLAT) {
 			assert (zeta > HALF_PI);
 			assert (zeta1 > HALF_PI);
 			assert (zeta > zeta1);
 		}
 	}
-	if (!compact)
+	if (get_curvature(spacetime) & FLAT)
 		assert (r_max > 0.0);
 	#endif
 
@@ -883,10 +923,12 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 	idata.limit = 50;
 	idata.tol = 1e-4;
 
-	if (USE_GSL && manifold & FLRW)
+	if (USE_GSL && get_manifold(spacetime) & FLRW)
 		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 	stopwatchStart(&sGenerateNodes);
+
+	//BEGIN CODE TRANSPLANT
 
 	//Generate coordinates for each of N nodes
 	double x, rval;
@@ -1049,6 +1091,8 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 		//if (i % NPRINT == 0) printf("tau: %E\n", nodes.id.tau[i]);
 	}
 
+	//END CODE TRANSPLANT
+
 	//Manually alter points
 	/*nodes.id.tau[0] = tau0 * 0.95;
 	nodes.crd->w(0) = tauToEtaFlat(nodes.id.tau[0]);
@@ -1080,7 +1124,7 @@ bool generateNodes(Node &nodes, const int &N_tar, const float &k_tar, const int 
 
 	stopwatchStop(&sGenerateNodes);
 
-	if (USE_GSL && manifold & FLRW)
+	if (USE_GSL && get_manifold(spacetime) & FLRW)
 		gsl_integration_workspace_free(idata.workspace);
 
 	if (!bench) {

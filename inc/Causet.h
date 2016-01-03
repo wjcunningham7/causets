@@ -92,6 +92,19 @@ extern inline float2 make_float2(float x, float y)
 	return f;
 }
 
+struct float3 {
+	float x, y, z;
+};
+
+extern inline float3 make_float3(float x, float y, float z)
+{
+	float3 f;
+	f.x = x;
+	f.y = y;
+	f.z = z;
+	return f;
+}
+
 struct __attribute__ ((aligned(16))) float4 {
 	float w, x, y, z;
 };
@@ -106,18 +119,39 @@ extern inline float4 make_float4(float w, float x, float y, float z)
 	return f;
 }
 
+struct float5 {
+	float v, w, x, y, z;
+};
+
 typedef int CUcontext;
 
+#else
+
+struct __device_builtin__ float5 {
+	float v, w, x, y, z;
+};
+
 #endif
+
+extern inline float5 make_float5(float v, float w, float x, float y, float z)
+{
+	float5 f;
+	f.v = v;
+	f.w = w;
+	f.x = x;
+	f.y = y;
+	f.z = z;
+	return f;
+}
 
 //Boost RNG
 typedef boost::mt19937 Engine;
 typedef boost::uniform_real<double> UDistribution;
 typedef boost::normal_distribution<double> NDistribution;
 typedef boost::poisson_distribution<> PDistribution;
-typedef boost::variate_generator<Engine, UDistribution> UGenerator;
-typedef boost::variate_generator<Engine, NDistribution> NGenerator;
-typedef boost::variate_generator<Engine, PDistribution> PGenerator;
+typedef boost::variate_generator< Engine &, UDistribution > UGenerator;
+typedef boost::variate_generator< Engine &, NDistribution > NGenerator;
+typedef boost::variate_generator< Engine &, PDistribution > PGenerator;
 
 struct MersenneRNG {
 	MersenneRNG() : dist(0.0, 1.0), rng(eng, dist)  {}
@@ -182,6 +216,17 @@ enum Symmetry {
 	SymmetryLast	= SYMMETRIC
 };
 
+static const std::string manifoldNames[] = { "De Sitter", "Dust", "FLRW", "Hyperbolic" };
+static const std::string regionNames[] = { "Slab", "Diamond" };
+static const std::string curvatureNames[] = { "Flat", "Positive" };
+static const std::string symmetryNames[] = { "Asymmetric", "Symmetric" };
+
+static const unsigned int stdim_mask = ManifoldFirst - 1;
+static const unsigned int manifold_mask = (ManifoldLast << 1) - ManifoldFirst;
+static const unsigned int region_mask = (RegionLast << 1) - RegionFirst;
+static const unsigned int curvature_mask = (CurvatureLast << 1) - CurvatureFirst;
+static const unsigned int symmetry_mask = (SymmetryLast << 1) - SymmetryFirst;
+
 //These coordinate data structures are important because they allow
 //the data to be coalesced (physically adjacent), and this can improve the
 //speed of global memory reads on the GPU by a factor of 8 or 16.  Further,
@@ -218,8 +263,12 @@ struct Coordinates {
 
 	virtual float2 getFloat2(unsigned int idx) { return make_float2(0.0f, 0.0f); }
 	virtual void setFloat2(float2 val, unsigned int idx) {}
+	virtual float3 getFloat3(unsigned int idx) { return make_float3(0.0f, 0.0f, 0.0f); }
+	virtual void setFloat3(float3 val, unsigned int idx) {}
 	virtual float4 getFloat4(unsigned int idx) { return make_float4(0.0f, 0.0f, 0.0f, 0.0f); }
 	virtual void setFloat4(float4 val, unsigned int idx) {}
+	virtual float5 getFloat5(unsigned int idx) { return make_float5(0.0f, 0.0f, 0.0f, 0.0f, 0.0f); }
+	virtual void setFloat5(float5 val, unsigned int idx) {}
 
 protected:
 	float **points;
@@ -238,8 +287,8 @@ struct Coordinates2D : Coordinates {
 	}
 
 	Coordinates2D(float *_x, float *_y) : Coordinates(2) {
-		this->points[0] = _x;	//Eta (Conformal Time)
-		this->points[1] = _y;	//Theta3
+		this->points[0] = _x;
+		this->points[1] = _y;
 	}
 
 	//Access and mutate element as c.x(index)
@@ -269,6 +318,37 @@ struct Coordinates2D : Coordinates {
 	//float *& operator [] (unsigned int i) { return this->points[i]; }
 };
 
+//3-Dimensional Vertex Coordinate
+struct Coordinates3D : Coordinates {
+	Coordinates3D() : Coordinates(3) {
+		this->points[0] = NULL;
+		this->points[1] = NULL;
+		this->points[2] = NULL;
+	}
+
+	float & x(unsigned int idx) { return this->points[0][idx]; }
+	float & y(unsigned int idx) { return this->points[1][idx]; }
+	float & z(unsigned int idx) { return this->points[2][idx]; }
+
+	float *& x() { return this->points[0]; }
+	float *& y() { return this->points[1]; }
+	float *& z() { return this->points[2]; }
+
+	float3 getFloat3(unsigned int idx) {
+		float3 f;
+		f.x = this->points[0][idx];
+		f.y = this->points[1][idx];
+		f.z = this->points[2][idx];
+		return f;
+	}
+
+	void setFloat3(float3 val, unsigned int idx) {
+		this->points[0][idx] = val.x;
+		this->points[1][idx] = val.y;
+		this->points[2][idx] = val.z;
+	}
+};
+
 //4-Dimensional Vertex Coordinate
 struct Coordinates4D : Coordinates {
 	Coordinates4D() : Coordinates(4) {
@@ -279,10 +359,10 @@ struct Coordinates4D : Coordinates {
 	}
 
 	Coordinates4D(float *& _w, float *& _x, float *& _y, float *& _z) : Coordinates(4) {
-		this->points[0] = _w;	//Eta (Conformal Time)
-		this->points[1] = _x;	//Theta1
-		this->points[2] = _y;	//Theta2
-		this->points[3] = _z;	//Theta3
+		this->points[0] = _w;
+		this->points[1] = _x;
+		this->points[2] = _y;
+		this->points[3] = _z;
 	}
 
 	float & w(unsigned int idx) { return this->points[0][idx]; }
@@ -342,6 +422,24 @@ struct Coordinates5D : Coordinates {
 	float *& x() { return this->points[2]; }
 	float *& y() { return this->points[3]; }
 	float *& z() { return this->points[4]; }
+
+	float5 getFloat5(unsigned int idx) {
+		float5 f;
+		f.v = this->points[0][idx];
+		f.w = this->points[1][idx];
+		f.x = this->points[2][idx];
+		f.y = this->points[3][idx];
+		f.z = this->points[4][idx];
+		return f;
+	}
+
+	void setFloat5(float5 val, unsigned int idx) {
+		this->points[0][idx] = val.v;
+		this->points[1][idx] = val.w;
+		this->points[2][idx] = val.x;
+		this->points[3][idx] = val.y;
+		this->points[4][idx] = val.z;
+	}
 };
 
 //Node ID
@@ -601,10 +699,10 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link
 void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed);
 
 //Useful utility functions
-inline unsigned int get_stdim(const unsigned int &spacetime)  { return spacetime & (ManifoldFirst - 1);                     }
-inline Manifold get_manifold(const unsigned int &spacetime)   { return spacetime & ((ManifoldLast << 1) - ManifoldFirst);   }
-inline Region get_region(const unsigned int &spacetime)       { return spacetime & ((RegionLast << 1) - RegionFirst);       }
-inline Curvature get_curvature(const unsigned int &spacetime) { return spacetime & ((CurvatureLast << 1) - CurvatureFirst); }
-inline Symmetry get_symmetry(const unsigned int &spacetime)   { return spacetime & ((SymmetryLast << 1) - SymmetryFirst);   }
+inline unsigned int get_stdim(const unsigned int &spacetime)  { return spacetime & stdim_mask;     }
+inline Manifold get_manifold(const unsigned int &spacetime)   { return spacetime & manifold_mask;  }
+inline Region get_region(const unsigned int &spacetime)       { return spacetime & region_mask;	   }
+inline Curvature get_curvature(const unsigned int &spacetime) { return spacetime & curvature_mask; }
+inline Symmetry get_symmetry(const unsigned int &spacetime)   { return spacetime & symmetry_mask;  }
 
 #endif

@@ -55,7 +55,7 @@ inline float2 get_sph_d2(UGenerator &rng)
 
 //Returns (x,y,z) uniformly distributed
 //on the surface of a sphere
-inline float4 get_sph_d3(PGenerator &rng)
+inline float4 get_sph_d3(NGenerator &rng)
 {
 	float4 f;
 	f.x = rng();
@@ -72,7 +72,7 @@ inline float4 get_sph_d3(PGenerator &rng)
 
 //Returns (w,x,y,z) uniformly distributed
 //on the surface of a hypersphere
-inline float4 get_sph_d4(PGenerator &rng)
+inline float4 get_sph_d4(NGenerator &rng)
 {
 	float4 f;
 	f.w = rng();
@@ -91,10 +91,10 @@ inline float4 get_sph_d4(PGenerator &rng)
 
 //Returns (x,y,z) for a point uniformly
 //distributed inside a sphere of radius r_max
-inline float4 get_flat_d3(UGenerator &urng, PGenerator &prng, const float &r_max)
+inline float4 get_flat_d3(UGenerator &urng, NGenerator &nrng, const float &r_max)
 {
 	float r = get_radius(urng, r_max, 4);
-	float4 f = get_sph_d3(prng);
+	float4 f = get_sph_d3(nrng);
 	f.x *= r;
 	f.y *= r;
 	f.z *= r;
@@ -115,11 +115,11 @@ inline float get_2d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &ze
 
 //Returns a value for theta
 #define get_2d_asym_sph_deSitter_slab_theta \
-	get_uniform_azimuthal_angle
+	get_azimuthal_angle
 
 //Returns embedded spatial coordinates
 #define get_2d_asym_sph_deSitter_slab_emb \
-	get_azimuthal_emb
+	get_sph_d2
 
 /////////////////////////
 // 2-D De Sitter Slab  //
@@ -251,10 +251,10 @@ inline float get_4d_asym_sph_deSitter_diamond_theta1(UGenerator &rng)
 	get_azimuthal_angle
 
 //Returns the embedded spatial coordinates
-inline float4 get_4d_asym_sph_deSitter_diamond_emb(UGenerator &urng, PGenerator &prng)
+inline float4 get_4d_asym_sph_deSitter_diamond_emb(UGenerator &urng, NGenerator &nrng)
 {
 	float theta1 = get_4d_asym_sph_deSitter_diamond_theta1(urng);
-	float4 f = get_sph_d3(prng);
+	float4 f = get_sph_d3(nrng);
 	f.w = cosf(theta1);
 	f.x *= sinf(theta1);
 	f.y *= sinf(theta1);
@@ -317,10 +317,10 @@ inline float get_4d_asym_flat_deSitter_diamond_radius(UGenerator &rng)
 	get_azimuthal_angle
 
 //Returns the Cartesian coordinates
-inline float4 get_4d_asym_flat_deSitter_diamond_cartesian(UGenerator &urng, PGenerator &prng)
+inline float4 get_4d_asym_flat_deSitter_diamond_cartesian(UGenerator &urng, NGenerator &nrng)
 {
 	float r = get_4d_asym_flat_deSitter_diamond_radius(urng);
-	float4 f = get_sph_d3(prng);
+	float4 f = get_sph_d3(nrng);
 	f.x *= r;
 	f.y *= r;
 	f.z *= r;

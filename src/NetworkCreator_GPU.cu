@@ -174,6 +174,10 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	#endif
 
+	#if EMBED_NODES
+	return false;
+	#endif
+
 	Stopwatch sGenAdjList = Stopwatch();
 	Stopwatch sDecodeLists = Stopwatch();
 	Stopwatch sScanLists = Stopwatch();
