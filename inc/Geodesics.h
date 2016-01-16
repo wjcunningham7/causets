@@ -850,18 +850,18 @@ inline double omegaRegionXY(const double * const table, const double &x1, const 
 
 //Maximum Time in Geodesic (non-embedded)
 //Returns tau_max=f(lambda) with lambda < 0
-inline double geodesicMaxTau(const Manifold &manifold, const double &lambda)
+inline double geodesicMaxTau(const Manifold manifold, const double &lambda)
 {
 	#if DEBUG
-	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW);
+	assert (manifold & (DE_SITTER | DUST | FLRW));
 	assert (lambda < 0.0);
 	#endif
 
-	if (manifold == FLRW)
+	if (manifold & FLRW)
 		return (2.0 / 3.0) * ASINH(POW(-lambda, -0.75, STL), STL, VERY_HIGH_PRECISION);
-	else if (manifold == DUST)
+	else if (manifold & DUST)
 		return (2.0 / 3.0) * POW(-lambda, -0.75, STL);
-	else if (manifold == DE_SITTER) {
+	else if (manifold & DE_SITTER) {
 		double g = POW(-lambda, -0.5, STL);
 		return g >= 1.0 ? ACOSH(g, STL, VERY_HIGH_PRECISION) : 0.0;
 	}
@@ -1125,7 +1125,7 @@ inline double flrwLookupApprox(double x, void *params)
 //Returns the distance between two nodes in the non-compact K = 0 FLRW manifold
 //Version 2 does not use the lookup table for lambda = f(omega12, tau1, tau2)
 //O(xxx) Efficiency (revise this)
-inline double distanceFLRW(const double * const table, Coordinates *c, const float * const tau, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const long &size, const bool &symmetric, const bool &compact, int past_idx, int future_idx)
+inline double distanceFLRW(const double * const table, Coordinates *c, const float * const tau, const int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const long &size, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (table != NULL);
@@ -1138,14 +1138,14 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	assert (c->z() != NULL);
 	assert (tau != NULL);
 	assert (N_tar > 0);
-	assert (stdim == 4);
-	assert (manifold == FLRW);
+	assert (get_stdim(spacetime) == 4);
+	assert (get_manifold(spacetime) & FLRW);
 	assert (a > 0.0);
 	assert (zeta < HALF_PI);
 	assert (r_max > 0.0);
 	assert (alpha > 0.0);
 	assert (size > 0L);
-	assert (!compact);
+	assert (get_curvature(spacetime) & FLAT);
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
 	//assert (past_idx < future_idx);
@@ -1168,7 +1168,7 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	double omega12;
 	double lambda;
 
-	bool timelike = nodesAreRelated(c, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
 	//printf("dt: %.16e\tdx: %f\n", c->w(future_idx) - c->w(past_idx), omega12);
 	omega12 *= alpha / a;
 
@@ -1310,7 +1310,7 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 }
 
 //Returns the geodesic distance for two points on a K = 0 dust manifold
-inline double distanceDust(Coordinates *c, const float * const tau, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &symmetric, const bool &compact, int past_idx, int future_idx)
+inline double distanceDust(Coordinates *c, const float * const tau, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (c != NULL);
@@ -1322,13 +1322,13 @@ inline double distanceDust(Coordinates *c, const float * const tau, const int &N
 	assert (c->z() != NULL);
 	assert (tau != NULL);
 	assert (N_tar > 0);
-	assert (stdim == 4);
-	assert (manifold == DUST);
+	assert (get_stdim(spacetime) == 4);
+	assert (get_manifold(spacetime) & DUST);
 	assert (a > 0.0);
 	assert (zeta < HALF_PI);
 	assert (r_max > 0.0);
 	assert (alpha > 0.0);
-	assert (!compact);
+	assert (get_curvature(spacetime) & FLAT);
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
 	#endif
@@ -1350,7 +1350,7 @@ inline double distanceDust(Coordinates *c, const float * const tau, const int &N
 	double omega12;
 	double lambda;
 
-	bool timelike = nodesAreRelated(c, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
 	//printf("dt: %.8f\tdx: %.8f\n", c->w(future_idx) - c->w(past_idx), omega12);
 	omega12 *= alpha / a;
 
@@ -1498,7 +1498,7 @@ inline double distanceDust(Coordinates *c, const float * const tau, const int &N
 }
 
 //Returns the geodesic distance for two points on a K = 1 de Sitter manifold
-inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &symmetric, const bool &compact, int past_idx, int future_idx)
+inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (c != NULL);
@@ -1510,12 +1510,12 @@ inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const
 	assert (c->z() != NULL);
 	assert (tau != NULL);
 	assert (N_tar > 0);
-	assert (stdim == 4);
-	assert (manifold == DE_SITTER);
+	assert (get_stdim(spacetime) == 4);
+	assert (get_manifold(spacetime) & DE_SITTER);
 	assert (a > 0.0);
 	assert (zeta > 0.0);
 	assert (zeta < HALF_PI);
-	assert (compact);
+	assert (get_curvature(spacetime) & POSITIVE);
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
 	#endif
@@ -1533,7 +1533,7 @@ inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const
 	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 	double omega12, lambda;
-	bool timelike = nodesAreRelated(c, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
 	//printf("\ndt: %f\tdx: %f\n", c->w(future_idx) - c->w(past_idx), omega12);
 
 	//Bisection Method
@@ -1644,7 +1644,7 @@ inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const
 }
 
 //Returns the geodesic distance for two points on a K = 0 de Sitter manifold
-inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &symmetric, const bool &compact, int past_idx, int future_idx)
+inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (c != NULL);
@@ -1656,13 +1656,13 @@ inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, cons
 	assert (c->z() != NULL);
 	assert (tau != NULL);
 	assert (N_tar > 0);
-	assert (stdim == 4);
-	assert (manifold == DE_SITTER);
+	assert (get_stdim(spacetime) == 4);
+	assert (get_manifold(spacetime) & DE_SITTER);
 	assert (a > 0.0);
 	assert (zeta > HALF_PI);
 	assert (zeta1 > HALF_PI);
 	assert (zeta > zeta1);
-	assert (!compact);
+	assert (get_curvature(spacetime) & FLAT);
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
 	#endif
@@ -1677,7 +1677,7 @@ inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, cons
 	double omega12, lambda;
 	double x1 = tauToEtaFlat(tau[past_idx]);
 	double x2 = tauToEtaFlat(tau[future_idx]);
-	bool timelike = nodesAreRelated(c, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
 
 	//Bisection Method
 	double res = 1.0, tol = 1.0e-5;
@@ -1742,17 +1742,17 @@ inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, cons
 //Returns the exact distance between two nodes in 4D
 //Uses a pre-generated lookup table
 //O(xxx) Efficiency (revise this)
-inline double distance_v1(const double * const table, const float4 &node_a, const float tau_a, const float4 &node_b, const float tau_b, const int &stdim, const Manifold &manifold, const double &a, const double &alpha, const long &size, const bool &compact)
+inline double distance_v1(const double * const table, const float4 &node_a, const float tau_a, const float4 &node_b, const float tau_b, const unsigned int &spacetime, const double &a, const double &alpha, const long &size)
 {
 	#if DEBUG
-	assert (manifold == DE_SITTER || manifold == FLRW);
-	if (manifold == FLRW) {
+	assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
+	if (get_manifold(spacetime) & FLRW) {
 		assert (table != NULL);
 		assert (alpha > 0.0);
 		assert (size > 0);
-		assert (!compact);
+		assert (get_curvature(spacetime) & FLAT);
 	}
-	assert (stdim == 4);
+	assert (get_stdim(spacetime) == 4);
 	assert (a > 0.0);
 	#endif
 
@@ -1773,12 +1773,12 @@ inline double distance_v1(const double * const table, const float4 &node_a, cons
 	double lambda;
 	double tau_max;
 
-	if (manifold == FLRW) {
+	if (get_manifold(spacetime) & FLRW) {
 		lambda = lookupValue4D(table, size, (alpha / a) * SQRT(flatProduct_v2(node_a, node_b), STL), tau_a, tau_b);
 		kernel = &flrwDistKernel;
 		method = QAG;
 		idata.key = GSL_INTEG_GAUSS61;
-	} else if (manifold == DE_SITTER) {
+	} else if (get_manifold(spacetime) & DE_SITTER) {
 		lambda = lookupValue4D(table, size, ACOS(sphProduct_v2(node_a, node_b), STL, VERY_HIGH_PRECISION), tau_a, tau_b);
 		kernel = &deSitterDistKernel;
 		method = QAG;
@@ -1830,12 +1830,12 @@ inline double distance_v1(const double * const table, const float4 &node_a, cons
 
 //Returns the embedded distance between two nodes in a 5D embedding
 //O(xxx) Efficiency (revise this)
-inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const int &stdim, const Manifold &manifold, const double &a, const double &alpha, const bool &compact)
+inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4 &node_b, const float &tau_b, const unsigned int &spacetime, const double &a, const double &alpha)
 {
 	#if DEBUG
-	assert (stdim == 4);
-	assert (manifold == DE_SITTER || manifold == FLRW);
-	//assert (compact);
+	assert (get_stdim(spacetime) == 4);
+	assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
+	//assert (get_curvature(spacetime) & POSITIVE);
 	#endif
 
 	//Check if they are the same node
@@ -1849,7 +1849,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 	double z0_a = 0.0, z0_b = 0.0;
 	double z1_a = 0.0, z1_b = 0.0;
 
-	if (manifold == FLRW) {
+	if (get_manifold(spacetime) & FLRW) {
 		IntData idata = IntData();
 		idata.tol = 1e-5;
 
@@ -1863,7 +1863,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		z0_a = integrate1D(&embeddedZ1, (void*)&alpha_tilde, &idata, QNG);
 		idata.upper = z1_b;
 		z1_b = integrate1D(&embeddedZ1, (void*)&alpha_tilde, &idata, QNG);
-	} else if (manifold == DE_SITTER && compact) {
+	} else if ((get_manifold(spacetime) | get_curvature(spacetime)) & (DE_SITTER | POSITIVE)) {
 		z0_a = SINH(tau_a, APPROX ? FAST : STL);
 		z0_b = SINH(tau_b, APPROX ? FAST : STL);
 
@@ -1871,7 +1871,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		z1_b = COSH(tau_b, APPROX ? FAST : STL);
 	}
 
-	if (manifold == DE_SITTER && !compact) {
+	if ((get_manifold(spacetime) | get_curvature(spacetime)) & (DE_SITTER | FLAT)) {
 		inner_product_ab = POW2(node_a.w, EXACT) + POW2(node_b.w, EXACT);
 		#if DIST_V2
 		inner_product_ab -= flatProduct_v2(node_a, node_b);
@@ -1887,7 +1887,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		#endif
 	}
 
-	if (manifold == FLRW)
+	if (get_manifold(spacetime) & FLRW)
 		inner_product_ab /= POW2(alpha_tilde, EXACT);
 
 	if (inner_product_ab > 1.0)
@@ -1907,11 +1907,11 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 
 //Returns the hyperbolic distance between two nodes in 2D
 //O(xxx) Efficiency (revise this)
-inline double distanceH(const float2 &hc_a, const float2 &hc_b, const int &stdim, const Manifold &manifold, const double &zeta)
+inline double distanceH(const float2 &hc_a, const float2 &hc_b, const unsigned int &spacetime, const double &zeta)
 {
 	#if DEBUG
-	assert (stdim == 2);
-	assert (manifold == HYPERBOLIC);
+	assert (get_stdim(spacetime) == 2);
+	assert (get_manifold(spacetime) & HYPERBOLIC);
 	assert (zeta != 0.0);
 	#endif
 

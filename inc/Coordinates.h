@@ -22,14 +22,14 @@
 //on a hypersphere in the range [0, pi)
 inline float get_hyperzenith_angle(UGenerator &rng)
 {
-	return 0.0;
+	return (M_PI * rng() + acos(rng())) / 2.0;
 }
 
 //Returns a zenith angle
 //distributed in the range [0, pi)
 inline float get_zenith_angle(UGenerator &rng)
 {
-	return acosf(1.0 - 2.0 * rng());
+	return acos(1.0 - 2.0 * rng());
 }
 
 //Returns an azimuthal uniformly
@@ -58,6 +58,7 @@ inline float2 get_sph_d2(UGenerator &rng)
 inline float4 get_sph_d3(NGenerator &rng)
 {
 	float4 f;
+	f.w = 0.0;
 	f.x = rng();
 	f.y = rng();
 	f.z = rng();
@@ -110,16 +111,16 @@ inline float4 get_flat_d3(UGenerator &urng, NGenerator &nrng, const float &r_max
 //Returns a value for eta
 inline float get_2d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &zeta)
 {
-	return static_cast<float>(atan(rng() / tan(zeta)));
+	return atan(rng() / tan(zeta));
 }
 
 //Returns a value for theta
-#define get_2d_asym_sph_deSitter_slab_theta \
-	get_azimuthal_angle
+#define get_2d_asym_sph_deSitter_slab_theta(rng) \
+	get_azimuthal_angle(rng)
 
 //Returns embedded spatial coordinates
-#define get_2d_asym_sph_deSitter_slab_emb \
-	get_sph_d2
+#define get_2d_asym_sph_deSitter_slab_emb(rng) \
+	get_sph_d2(rng)
 
 /////////////////////////
 // 2-D De Sitter Slab  //
@@ -135,12 +136,12 @@ inline float get_2d_sym_sph_deSitter_slab_eta(UGenerator &rng, const double &zet
 }
 
 //Returns a value for theta
-#define get_2d_sym_sph_deSitter_slab_theta \
-	get_azimuthal_angle
+#define get_2d_sym_sph_deSitter_slab_theta(rng) \
+	get_azimuthal_angle(rng)
 
 //Returns embedded spatial coordinates
-#define get_2d_sym_sph_deSitter_slab_emb \
-	get_sph_d2
+#define get_2d_sym_sph_deSitter_slab_emb(rng) \
+	get_sph_d2(rng)
 
 ///////////////////////////
 // 2-D De Sitter Diamond //
@@ -174,26 +175,31 @@ inline float2 get_2d_asym_sph_deSitter_diamond_emb(UGenerator &rng, const float 
 //////////////////////////
 
 //Returns a value for eta
-inline float get_4d_asym_sph_deSitter_slab_eta(UGenerator &rng)
+inline float get_4d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &zeta)
 {
-	return 0.0f;
+	double x = 0.2;
+	double a = rng() * (2.0 + POW2(1.0 / sin(zeta), EXACT)) / tan(zeta)
+	if (!newton(&solveEtaFunc, &x, 1000, TOL, &a, NULL, NULL))
+		return NAN;
+
+	return 2.0 * atan(x);
 }
 
 //Returns a value for theta1
-#define get_4d_asym_sph_deSitter_slab_theta1 \
-	get_hyperzenith_angle
+#define get_4d_asym_sph_deSitter_slab_theta1(rng) \
+	get_hyperzenith_angle(rng)
 
 //Returns a value for theta2
-#define get_4d_asym_sph_deSitter_slab_theta2 \
-	get_zenith_angle
+#define get_4d_asym_sph_deSitter_slab_theta2(rng) \
+	get_zenith_angle(rng)
 
 //Returns a value for theta3
-#define get_4d_asym_sph_deSitter_slab_theta3 \
-	get_azimuthal_angle
+#define get_4d_asym_sph_deSitter_slab_theta3(rng) \
+	get_azimuthal_angle(rng)
 
 //Returns the embedded spatial coordinates
-#define get_4d_asym_sph_deSitter_slab_emb \
-	get_sph_d4
+#define get_4d_asym_sph_deSitter_slab_emb(nrng) \
+	get_sph_d4(nrng)
 
 /////////////////////////
 // 4-D De Sitter Slab  //
@@ -209,20 +215,20 @@ inline float get_4d_sym_sph_deSitter_slab_eta(UGenerator &rng)
 }
 
 //Returns a value for theta1
-#define get_4d_sym_sph_deSitter_slab_theta1 \
-	get_hyperzenith_angle
+#define get_4d_sym_sph_deSitter_slab_theta1(rng) \
+	get_hyperzenith_angle(rng)
 
 //Returns a value for theta2
-#define get_4d_sym_sph_deSitter_slab_theta2 \
-	get_zenith_angle
+#define get_4d_sym_sph_deSitter_slab_theta2(rng) \
+	get_zenith_angle(rng)
 
 //Returns a value for theta3
-#define get_4d_sym_sph_deSitter_slab_theta3 \
-	get_azimuthal_angle
+#define get_4d_sym_sph_deSitter_slab_theta3(rng) \
+	get_azimuthal_angle(rng)
 
 //Returns the embedded spatial coordinates
-#define get_4d_sym_sph_deSitter_slab_emb \
-	get_sph_d4
+#define get_4d_sym_sph_deSitter_slab_emb(nrng) \
+	get_sph_d4(nrng)
 
 ///////////////////////////
 // 4-D De Sitter Diamond //
@@ -243,12 +249,12 @@ inline float get_4d_asym_sph_deSitter_diamond_theta1(UGenerator &rng)
 }
 
 //Returns a value for theta2
-#define get_4d_asym_sph_deSitter_diamond_theta2 \
-	get_zenith_angle
+#define get_4d_asym_sph_deSitter_diamond_theta2(rng) \
+	get_zenith_angle(rng)
 
 //Returns a value for theta3
-#define get_4d_asym_sph_deSitter_diamond_theta3 \
-	get_azimuthal_angle
+#define get_4d_asym_sph_deSitter_diamond_theta3(rng) \
+	get_azimuthal_angle(rng)
 
 //Returns the embedded spatial coordinates
 inline float4 get_4d_asym_sph_deSitter_diamond_emb(UGenerator &urng, NGenerator &nrng)
@@ -271,7 +277,7 @@ inline float4 get_4d_asym_sph_deSitter_diamond_emb(UGenerator &urng, NGenerator 
 //Returns a value for eta
 inline float get_4d_asym_flat_deSitter_slab_eta(UGenerator &rng, const double &eta_min, const double &eta_max)
 {
-	return static_cast<float>(eta_min * pow(1.0 - rng() * (1.0 - POW3(eta_min / eta_max, EXACT)), -1.0 / 3.0));
+	return eta_min * pow(1.0 - rng() * (1.0 - POW3(eta_min / eta_max, EXACT)), -1.0 / 3.0);
 }
 
 //Returns a value for radius
@@ -279,16 +285,16 @@ inline float get_4d_asym_flat_deSitter_slab_eta(UGenerator &rng, const double &e
 	get_radius(rng, r_max, 4)
 
 //Returns a value for theta2
-#define get_4d_asym_flat_deSitter_slab_theta2 \
-	get_zenith_angle
+#define get_4d_asym_flat_deSitter_slab_theta2(rng) \
+	get_zenith_angle(rng)
 
 //Returns a value for theta3
-#define get_4d_asym_flat_deSitter_slab_theta3 \
-	get_azimuthal_angle
+#define get_4d_asym_flat_deSitter_slab_theta3(rng) \
+	get_azimuthal_angle(rng)
 
 //Returns the Cartesian coordinates
-#define get_4d_asym_flat_deSitter_slab_cartesian \
-	get_flat_d3
+#define get_4d_asym_flat_deSitter_slab_cartesian(urng, nrng, r_max) \
+	get_flat_d3(urng, nrng, r_max)
 
 ///////////////////////////
 // 4-D De Sitter Diamond //
@@ -309,12 +315,12 @@ inline float get_4d_asym_flat_deSitter_diamond_radius(UGenerator &rng)
 }
 
 //Returns a value for theta2
-#define get_4d_asym_flat_deSitter_diamond_theta2 \
-	get_zenith_angle
+#define get_4d_asym_flat_deSitter_diamond_theta2(rng) \
+	get_zenith_angle(rng)
 
 //Returns a value for theta3
-#define get_4d_asym_flat_deSitter_diamond_theta3 \
-	get_azimuthal_angle
+#define get_4d_asym_flat_deSitter_diamond_theta3(rng) \
+	get_azimuthal_angle(rng)
 
 //Returns the Cartesian coordinates
 inline float4 get_4d_asym_flat_deSitter_diamond_cartesian(UGenerator &urng, NGenerator &nrng)
@@ -334,9 +340,9 @@ inline float4 get_4d_asym_flat_deSitter_diamond_cartesian(UGenerator &urng, NGen
 //////////////////////////
 
 //Returns a value for eta
-inline float get_4d_asym_flat_dust_slab_eta(UGenerator &rng)
+inline float get_4d_asym_flat_dust_slab_tau(UGenerator &rng, const double &tau0)
 {
-	return 0.0f;
+	return tau0 * pow(rng(), 1.0 / 3.0); 
 }
 
 //Returns a value for radius
@@ -344,16 +350,16 @@ inline float get_4d_asym_flat_dust_slab_eta(UGenerator &rng)
 	get_radius(rng, r_max, 4)
 
 //Returns a value for theta2
-#define get_4d_asym_flat_dust_slab_theta2 \
-	get_zenith_angle
+#define get_4d_asym_flat_dust_slab_theta2(rng) \
+	get_zenith_angle(rng)
 
 //Returns a value for theta3
-#define get_4d_asym_flat_dust_slab_theta3 \
-	get_azimuthal_angle
+#define get_4d_asym_flat_dust_slab_theta3(rng) \
+	get_azimuthal_angle(rng)
 
 //Returns the Cartesian coordinates
-#define get_4d_asym_flat_dust_slab_cartesian \
-	get_flat_d3
+#define get_4d_asym_flat_dust_slab_cartesian(urng, nrng, r_max) \
+	get_flat_d3(urng, nrng, r_max)
 
 //////////////////////////
 // 4-D FLRW Slab        //
@@ -362,26 +368,39 @@ inline float get_4d_asym_flat_dust_slab_eta(UGenerator &rng)
 //////////////////////////
 
 //Returns a value for tau
-inline float get_4d_asym_sph_flrw_slab_tau(UGenerator &rng)
+inline float get_4d_asym_sph_flrw_slab_tau(UGenerator &rng, const double &tau0)
 {
-	return 0.0f;
+	double tau = 0.5;
+	double p[2];
+	p[0] = tau0;
+	p[1] = rng();
+
+	if (tau0 > 1.8) {	//The value 1.8 is from trial/error
+		if (!bisection(&solveTauUnivBisec, &tau, 2000, 0.0, tau0, TOL, true, p, NULL, NULL))
+			return NAN;
+	} else {
+		if (!newton(&solveTauUniverse, &tau, 1000, TOL, p1, NULL, NULL))
+			return NAN;
+	}
+
+	return tau;
 }
 
 //Returns a value for theta1
-#define get_4d_asym_sph_flrw_slab_theta1 \
-	get_hyperzenith_angle
+#define get_4d_asym_sph_flrw_slab_theta1(rng) \
+	get_hyperzenith_angle(rng)
 
 //Returns a value for theta2
-#define get_4d_asym_sph_flrw_slab_theta2 \
-	get_zenith_angle
+#define get_4d_asym_sph_flrw_slab_theta2(rng) \
+	get_zenith_angle(rng)
 
 //Returns a value for theta3
-#define get_4d_asym_sph_flrw_slab_theta3 \
-	get_azimuthal_angle
+#define get_4d_asym_sph_flrw_slab_theta3(rng) \
+	get_azimuthal_angle(rng)
 
 //Returns the Cartesian coordinates
-#define get_4d_asym_sph_flrw_slab_cartesian \
-	get_sph_d4
+#define get_4d_asym_sph_flrw_slab_cartesian(nrng) \
+	get_sph_d4(nrng)
 
 //////////////////////////
 // 4-D FLRW Slab        //
@@ -390,23 +409,23 @@ inline float get_4d_asym_sph_flrw_slab_tau(UGenerator &rng)
 //////////////////////////
 
 //Returns a value for tau
-#define get_4d_asym_flat_flrw_slab_tau \
-	get_4d_asym_sph_flrw_slab_tau
+#define get_4d_asym_flat_flrw_slab_tau(rng, tau0) \
+	get_4d_asym_sph_flrw_slab_tau(rng, tau0)
 
 //Returns a value for radius
 #define get_4d_asym_flat_flrw_slab_radius(rng, r_max) \
 	get_radius(rng, r_max, 4)
 
 //Returns a value for theta2
-#define get_4d_asym_flat_flrw_slab_theta2 \
-	get_zenith_angle
+#define get_4d_asym_flat_flrw_slab_theta2(rng) \
+	get_zenith_angle(rng)
 
 //Returns a value for theta3
-#define get_4d_asym_flat_flrw_slab_theta3 \
-	get_azimuthal_angle
+#define get_4d_asym_flat_flrw_slab_theta3(rng) \
+	get_azimuthal_angle(rng)
 
 //Returns the Cartesian coordinates
-#define get_4d_asym_flat_flrw_slab_cartesian \
-	get_flat_d3
+#define get_4d_asym_flat_flrw_slab_cartesian(urng, nrng, r_max) \
+	get_flat_d3(urng, nrng, r_max)
 
 #endif

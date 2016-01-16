@@ -87,12 +87,12 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 	#ifdef CUDA_ENABLED
 	//If the GPU is requested, optimize parameters
-	//Still not entirely sure if removing this is OK.....
-	/*if (network_properties->flags.use_gpu && network_properties->N_tar % (BLOCK_SIZE << 1)) {
+	if (!LINK_NODES_GPU_V2 && network_properties->flags.use_gpu && network_properties->N_tar % (BLOCK_SIZE << 1)) {
 		printf_mpi(rank, "If you are using the GPU, set the target number of nodes (--nodes) to be a multiple of %d!\n", BLOCK_SIZE << 1);
+		printf_mpi(rank, "Alternatively, set LINK_NODES_GPU_V2=true in inc/Constants.h and recompile.\n");
 		fflush(stdout);
 		network_properties->cmpi.fail = 1;
-	}*/
+	}
 
 	if (network_properties->flags.use_gpu && network_properties->flags.no_pos) {
 		printf_mpi(rank, "Conflicting parameters: no_pos and use_gpu.  GPU linking requires the use of node positions.\n");
@@ -918,197 +918,235 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		assert (r_max > 0.0);
 	#endif
 
-	IntData idata = IntData();
-	//Modify these two parameters to trade off between speed and accuracy
-	idata.limit = 50;
-	idata.tol = 1e-4;
-
-	if (USE_GSL && get_manifold(spacetime) & FLRW)
-		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-
 	stopwatchStart(&sGenerateNodes);
 
-	//BEGIN CODE TRANSPLANT
-
 	//Generate coordinates for each of N nodes
-	double x, rval;
-	int i;
-	for (i = 0; i < N_tar; i++) {
-		////////////////////////////////////////////////////////////
-		//~~~~~~~~~~~~~~~~~~~~~~~~~Theta3~~~~~~~~~~~~~~~~~~~~~~~~~//
-		//Sample Theta3 from (0, 2pi), as described on p. 2 of [1]//
-		////////////////////////////////////////////////////////////
+	#ifdef _OPENMP
+	unsigned int seed = static_cast<unsigned int>(mrng.rng() * 400000000);
+	#pragma omp parallel
+	{
+	Engine eng(seed ^ omp_get_thread_num());
+	UDistribution udist(0.0, 1.0);
+	UGenerator urng(eng, udist);
+	NDistribution ndist(0.0, 1.0);
+	NGenerator nrng(eng, ndist);
+	#pragma omp for schedule (dynamic, 1)
+	#else
+	UGenerator &urng = mrng.rng;
+	NDistribution ndist(0.0, 1.0);
+	NGenerator nrng(mrng.eng, ndist);
+	#endif
+	for (int i = 0; i < N_tar; i++) {
+		IntData idata = IntData();
+		//Modify these two parameters to trade off between speed and accuracy
+		idata.limit = 50;
+		idata.tol = 1e-4;
+		if (USE_GSL && get_manifold(spacetime) & FLRW)
+			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
-		x = TWO_PI * mrng.rng();
-		#if DEBUG
-		assert (x > 0.0 && x < TWO_PI);
-		#endif
-		//if (i % NPRINT == 0) printf("Theta3: %5.5f\n", x); fflush(stdout);
-
-		if (stdim == 2) {
-			nodes.crd->y(i) = static_cast<float>(x);
-
-			/////////////////////////////////////////////////
-			//~~~~~~~~~~~~~~~~~~~~Eta~~~~~~~~~~~~~~~~~~~~~~//
-			//CDF derived from PDF identified in (2) of [2]//
-			/////////////////////////////////////////////////
-
-			do nodes.crd->x(i) = static_cast<float>(ATAN(mrng.rng() / TAN(zeta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-			while (nodes.crd->x(i) >= static_cast<float>(HALF_PI - zeta));
-
-			#if DEBUG
-			assert (nodes.crd->x(i) > 0.0f);
-			assert (nodes.crd->x(i) < static_cast<float>(HALF_PI - zeta));
+		double eta;
+		float4 emb4;
+		float2 emb2;
+		switch (spacetime) {
+		case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
+			nodes.crd->x(i) = get_2d_asym_sph_deSitter_slab_eta(mrng.rng, zeta);
+			nodes.id.tau[i] = tauToEtaSph(nodes.crd-x(i));
+			#if EMBED_NODES
+			emb2 = get_2d_asym_sph_deSitter_slab_emb(mrng.rng);
+			nodes.crd->y(i) = emb.x;
+			nodes.crd->z(i) = emb.y;
+			#else
+			nodes.crd->y(i) = get_2d_asym_sph_deSitter_slab_theta(mrng.rng);
 			#endif
-
-			// Use the symmetric interval between (-eta0, eta0)
-			if (symmetric) {
-				if (!!(i % 2))
-					nodes.crd->x(i) *= -1.0;
-			}
-
-			nodes.id.tau[i] = static_cast<float>(etaToTauCompact(static_cast<double>(nodes.crd->x(i))));
-		} else if (stdim == 4) {
-			nodes.crd->z(i) = static_cast<float>(x);
-
-			/////////////////////////////////////////////////////////
-			//~~~~~~~~~~~~~~~~~~~~~~~~~~~~T~~~~~~~~~~~~~~~~~~~~~~~~//
-			//CDF derived from PDF identified in (6) of [2] for 3+1//
-			//and from PDF identified in (12) of [2] for FLRW      //
-			/////////////////////////////////////////////////////////
-
-			do {
-				rval = mrng.rng();
-
-				double p1[2];
-				p1[1] = rval;
-
-				switch (manifold) {
-				case FLRW:
-					x = 0.5;
-					p1[0] = tau0;
-					if (tau0 > 1.8) {	//Cutoff of 1.8 determined by trial and error
-						if (!bisection(&solveTauUnivBisec, &x, 2000, 0.0, tau0, TOL, true, p1, NULL, NULL))
-							return false;
-					} else {
-						if (!newton(&solveTauUniverse, &x, 1000, TOL, p1, NULL, NULL))
-							return false;
-					}
-					break;
-				case DUST:
-					x = tau0 * POW(rval, 1.0 / 3.0, STL);
-					nodes.crd->w(i) = tauToEtaDust(x, a, alpha);
-					break;
-				case DE_SITTER:
-					if (compact) {
-						x = 3.5;
-						p1[0] = zeta;
-						if (!newton(&solveTau, &x, 1000, TOL, p1, NULL, NULL))
-							return false;
-
-						if (symmetric) {
-							if (!!(i % 2))
-								x *= -1.0;
-						}
-					} else {
-						//In this case the eta distribution is used
-						double eta0 = HALF_PI - zeta;
-						double eta1 = HALF_PI - zeta1;
-						nodes.crd->w(i) = eta0 * POW(1.0 - rval * (1.0 - POW3(eta0 / eta1, EXACT)), -1.0 / 3.0, STL);
-						x = etaToTauFlat(nodes.crd->w(i));
-					}
-					break;
-				default:
-					return false;
-				}
-
-				nodes.id.tau[i] = static_cast<float>(x);
-			} while (nodes.id.tau[i] >= static_cast<float>(tau0));
-
-			#if DEBUG
-			//assert (nodes.id.tau[i] >= 0.0f);
-			assert (nodes.id.tau[i] < static_cast<float>(tau0));
+			break;
+		case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
+			nodes.crd->x(i) = get_2d_sym_sph_deSitter_slab_eta(mrng.rng, zeta);
+			nodes.id.tau[i] = tauToEtaSph(nodes.crd->x(i));
+			#if EMBED_NODES
+			emb2 = get_2d_sym_sph_deSitter_slab_emb(mrng.rng);
+			nodes.crd->y(i) = emb.x;
+			nodes.crd->z(i) = emb.y;
+			#else
+			nodes.crd->y(i) = get_2d_sym_sph_deSitter_slab_theta(mrng.rng);
 			#endif
-
-			//Save eta values as well
-			if (manifold & FLRW) {
-				if (USE_GSL) {
-					//Numerical Integration
-					idata.upper = static_cast<double>(nodes.id.tau[i]);
-					nodes.crd->w(i) = static_cast<float>(integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * a / alpha);
-				} else
-					//Exact Solution
-					nodes.crd->w(i) = static_cast<float>(tauToEtaFLRWExact(nodes.id.tau[i], a, alpha));
-
-				//#if DEBUG 
-				//assert (nodes.crd->w(i) < tauToEtaFLRWExact(tau0, a, alpha));
-				//#endif
-			} else if (manifold & DE_SITTER && compact) {
-				nodes.crd->w(i) = static_cast<float>(tauToEtaCompact(static_cast<double>(nodes.id.tau[i])));
-				#if DEBUG
-				assert (fabs(nodes.crd->w(i)) < tauToEtaCompact(tau0));
-				#endif
-			}
-			#if DEBUG
-			if (manifold & DE_SITTER && !compact)
-				assert (nodes.crd->w(i) < 0.0);
-			//else
-			//	assert (nodes.crd->w(i) > 0.0);
+			break;
+		case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
+			nodes.crd->x(i) = get_2d_asym_sph_deSitter_diamond_eta(mrng.rng);
+			nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
+			#if EMBED_NODES
+			emb2 = get_2d_asym_sph_deSitter_diamond_emb(mrng.rng, nodes.crd->x(i));
+			nodes.crd->y(i) = emb.x;
+			nodes.crd->z(i) = emb.y;
+			#else
+			nodes.crd->y(i) = get_2d_asym_sph_deSitter_diamond_theta(mrng.rng, nodes.crd->x(i));
 			#endif
-				
-			///////////////////////////////////////////////////////
-			//~~~~~~~~~~~~~~~~Theta1 and Theta2~~~~~~~~~~~~~~~~~~//	
-			//CDFs derived from PDFs identified on p. 3 of [2]   //
-			//Phi given by [3]				     //
-			///////////////////////////////////////////////////////
-
-			if (compact) {
-				//Sample Theta1 from (0, pi)
-				x = HALF_PI;
-				rval = mrng.rng();
-				if (!newton(&solveTheta1, &x, 250, TOL, &rval, NULL, NULL))
-					return false;
-				nodes.crd->x(i) = static_cast<float>(x);
-				#if DEBUG
-				assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < static_cast<float>(M_PI));
-				#endif
-			} else {
-				nodes.crd->x(i) = static_cast<float>(POW(mrng.rng(), 1.0 / 3.0, APPROX ? FAST : STL) * r_max);
-				#if DEBUG
-				assert (nodes.crd->x(i) >= 0.0f && nodes.crd->x(i) <= static_cast<float>(r_max));
-				#endif
-			}
-			//if (i % NPRINT == 0) printf("Theta1: %5.5f\n", nodes.crd->x(i)); fflush(stdout);
-
-			//Sample Theta2 from (0, pi)
-			nodes.crd->y(i) = static_cast<float>(ACOS(1.0 - 2.0 * mrng.rng(), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-			#if DEBUG
-			assert (nodes.crd->y(i) >= 0.0f && nodes.crd->y(i) < static_cast<float>(M_PI));
+			break;
+		case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
+			#if EMBED_NODES
+			nodes.crd->v(i) = get_4d_asym_flat_deSitter_slab_eta(mrng.rng, zeta, zeta1);
+			nodes.id.tau[i] = etaToTauFlat(nodes.crd->v(i));
+			emb4 = get_4d_asym_flat_deSitter_slab_cartesian(mrng.rng, nrng, r_max);
+			nodes.crd->w(i) = emb.w;
+			nodes.crd->x(i) = emb.x;
+			nodes.crd->y(i) = emb.y;
+			nodes.crd->z(i) = emb.z;
+			#else
+			nodes.crd->w(i) = get_4d_asym_flat_deSitter_slab_eta(mrng.rng, zeta, zeta1);
+			nodes.id.tau[i] = etaToTauFlat(nodes.crd->w(i));
+			nodes.crd->x(i) = get_4d_asym_flat_deSitter_slab_radius(mrng.rng, r_max);
+			nodes.crd->y(i) = get_4d_asym_flat_deSitter_slab_theta2(mrng.rng);
+			nodes.crd->z(i) = get_4d_asym_flat_deSitter_slab_theta3(mrng.rng);
 			#endif
-			//if (i % NPRINT == 0) printf("Theta2: %5.5f\n", nodes.crd->y(i)); fflush(stdout);
+			break;
+		case (4 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
+			#if EMBED_NODES
+			nodes.crd->v(i) = get_4d_asym_sph_deSitter_slab_eta(mrng.rng, zeta);
+			nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
+			emb4 = get_4d_asym_sph_deSitter_slab_emb(nrng);
+			nodes.crd->w(i) = emb.w;
+			nodes.crd->x(i) = emb.x;
+			nodes.crd->y(i) = emb.y;
+			nodes.crd->z(i) = emb.z;
+			#else
+			nodes.crd->w(i) = get_4d_asym_sph_deSitter_slab_eta(mrng.rng, zeta);
+			nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
+			nodes.crd->x(i) = get_4d_asym_sph_deSitter_slab_theta1(mrng.rng);
+			nodes.crd->y(i) = get_4d_asym_sph_deSitter_slab_theta2(mrng.rng);
+			nodes.crd->z(i) = get_4d_asym_sph_deSitter_slab_theta3(mrng.rng);
+			#endif
+			break;
+		case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
+			#if EMBED_NODES
+			nodes.crd->v(i) = get_4d_sym_sph_deSitter_slab_eta(mrng.rng, zeta);
+			nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
+			emb4 = get_4d_sym_sph_deSitter_slab_emb(nrng);
+			nodes.crd->w(i) = emb.w;
+			nodes.crd->x(i) = emb.x;
+			nodes.crd->y(i) = emb.y;
+			nodes.crd->z(i) = emb.z;
+			#else
+			nodes.crd->w(i) = get_4d_sym_sph_deSitter_slab_eta(mrng.rng, zeta);
+			nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
+			nodes.crd->x(i) = get_4d_sym_sph_deSitter_slab_theta1(mrng.rng);
+			nodes.crd->y(i) = get_4d_sym_sph_deSitter_slab_theta2(mrng.rng);
+			nodes.crd->z(i) = get_4d_sym_sph_deSitter_slab_theta3(mrng.rng);
+			#endif
+			break;
+		case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
+			#if EMBED_NODES
+			nodes.crd->v(i) = get_4d_asym_flat_deSitter_diamond_eta(mrng.rng);
+			nodes.id.tau[i] = etaToTauFlat(nodes.crd->v(i));
+			emb4 = get_4d_asym_flat_deSitter_diamond_cartesian(mrng.rng, nrng);
+			nodes.crd->w(i) = emb.w;
+			nodes.crd->x(i) = emb.x;
+			nodes.crd->y(i) = emb.y;
+			nodes.crd->z(i) = emb.z;
+			#else
+			nodes.crd->w(i) = get_4d_asym_flat_deSitter_diamond_eta(mrng.rng);
+			nodes.id.tau[i] = etaToTauFlat(nodes.crd->w(i));
+			nodes.crd->x(i) = get_4d_asym_flat_deSitter_diamond_radius(mrng.rng);
+			nodes.crd->y(i) = get_4d_asym_flat_deSitter_diamond_theta2(mrng.rng);
+			nodes.crd->z(i) = get_4d_asym_flat_deSitter_diamond_theta3(mrng.rng);
+			#endif
+			break;
+		case (4 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
+			#if EMBED_NODES
+			nodes.crd-v(i) = get_4d_asym_sph_deSitter_diamond_eta(mrng.rng);
+			nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
+			emb4 = get_4d_asym_sph_deSitter_diamond_emb(mrng.rng, nrng);
+			nodes.crd->w(i) = emb.w;
+			nodes.crd->x(i) = emb.x;
+			nodes.crd->y(i) = emb.y;
+			nodes.crd->z(i) = emb.z;
+			#else
+			nodes.crd->w(i) = get_4d_asym_sph_deSitter_diamond_eta(mrng.rng);
+			nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
+			nodes.crd->x(i) = get_4d_asym_sph_deSitter_diamond_theta1(mrng.rng);
+			nodes.crd->y(i) = get_4d_asym_sph_deSitter_diamond_theta2(mrng.rng);
+			nodes.crd->z(i) = get_4d_asym_sph_deSitter_diamond_theta3(mrng.rng);
+			#endif
+			break;
+		case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
+			#if EMBED_NODES
+			nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(mrng.rng, tau0);
+			nodes.crd->v(i) = tauToEtaDust(nodes.id.tau[i]);
+			emb4 = get_4d_asym_flat_dust_slab_cartesian(mrng.rng, nrng, r_max);
+			nodes.crd->w(i) = emb.w;
+			nodes.crd->x(i) = emb.x;
+			nodes.crd->y(i) = emb.y;
+			nodes.crd->z(i) = emb.z;
+			#else
+			nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(mrng.rng, tau0);
+			nodes.crd->w(i) = tauToEtaDust(nodes.id.tau[i]);
+			nodes.crd->x(i) = get_4d_asym_flat_dust_slab_radius(mrng.rng, r_max);
+			nodes.crd->y(i) = get_4d_asym_flat_dust_slab_theta2(mrng.rng);
+			nodes.crd->z(i) = get_4d_asym_flat_dust_slab_theta3(mrng.rng);
+			#endif
+			break;
+		case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
+			//Add this
+			goto default;
+			break;
+		case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
+			nodes.id.tau[i] = get_4d_asym_flat_flrw_slab_tau(mrng.rng, tau0);
+			if (USE_GSL) {
+				idata.upper = nodes.id.tau[i];
+				eta = integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * a / alpha;
+			} else
+				eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
+			#if EMBED_NODES
+			nodes.crd->v(i) = eta;
+			emb4 = get_4d_asym_flat_flrw_slab_cartesian(mrng.rng, nrng, r_max);
+			nodes.crd->w(i) = emb.w;
+			nodes.crd->x(i) = emb.x;
+			nodes.crd->y(i) = emb.y;
+			nodes.crd->z(i) = emb.z;
+			#else
+			nodes.crd->w(i) = eta;
+			nodes.crd->x(i) = get_4d_asym_flat_flrw_slab_radius(mrng.rng, r_max);
+			nodes.crd->y(i) = get_4d_asym_flat_flrw_slab_theta2(mrng.rng);
+			nodes.crd->z(i) = get_4d_asym_flat_flrw_slab_theta3(mrng.rng);
+			#endif
+			break;
+		case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
+			nodes.id.tau[i] = get_4d_asym_sph_flrw_slab_tau(mrng.rng, tau0);
+			if (USE_GSL) {
+				idata.upper = nodes.id.tau[i];
+				eta = integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * a / alpha;
+			} else
+				eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
+			#if EMBED_NODES
+			nodes.crd->v(i) = eta;
+			emb4 = get_4d_asym_sph_flrw_slab_cartesian(nrng);
+			nodes.crd->w(i) = emb.w;
+			nodes.crd->x(i) = emb.x;
+			nodes.crd->y(i) = emb.y;
+			nodes.crd->z(i) = emb.z;
+			#else
+			nodes.crd->w(i) = eta;
+			nodes.crd->x(i) = get_4d_asym_sph_flrw_slab_theta1(mrng.rng);
+			nodes.crd->y(i) = get_4d_asym_sph_flrw_slab_theta2(mrng.rng);
+			nodes.crd->z(i) = get_4d_asym_sph_flrw_slab_theta3(mrng.rng);
+			#endif
+			break;
+		case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
+			//Add this
+			goto default;
+			break;
+		default:
+			throw CausetException("Spacetime parameters not supported!\n");
 		}
-		//if (i % NPRINT == 0) printf("eta: %5.5f\n", nodes.crd->w(i));
-		//if (i % NPRINT == 0) printf("tau: %E\n", nodes.id.tau[i]);
+
+		if (USE_GSL && get_manifold(spacetime) & FLRW)
+			gsl_integration_workspace_free(idata.workspace);
+
+		#if DEBUG
+		validateCoordinates(nodes, spacetime, zeta, zeta1, r_max, tau0, i);
+		#endif
 	}
-
-	//END CODE TRANSPLANT
-
-	//Manually alter points
-	/*nodes.id.tau[0] = tau0 * 0.95;
-	nodes.crd->w(0) = tauToEtaFlat(nodes.id.tau[0]);
-	nodes.crd->x(0) = r_max * 0.95;
-	nodes.crd->y(0) = 0.01;
-	nodes.crd->z(0) = 0.01;
-
-	nodes.id.tau[1] = tau0 * 0.96;
-	nodes.crd->w(1) = tauToEtaFlat(nodes.id.tau[1]);
-	nodes.crd->x(1) = r_max * 0.95;
-	nodes.crd->y(1) = HALF_PI / 12.0;
-	nodes.crd->z(1) = 0.01;
-
-	double omega12;
-	nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, compact, 0, 1, &omega12);
-	printf("omega12: %f\n", omega12);*/
+	#ifdef _OPENMP
+	}
+	#endif
 
 	//Debugging statements used to check coordinate distributions
 	/*if (!printValues(nodes, N_tar, "tau_dist.cset.dbg.dat", "tau")) return false;
@@ -1123,9 +1161,6 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	printChk();*/
 
 	stopwatchStop(&sGenerateNodes);
-
-	if (USE_GSL && get_manifold(spacetime) & FLRW)
-		gsl_integration_workspace_free(idata.workspace);
 
 	if (!bench) {
 		printf("\tNodes Successfully Generated.\n");
@@ -1142,7 +1177,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//No null pointers
@@ -1158,30 +1193,30 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 	//Variables in correct ranges
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
-	assert (stdim == 2 || stdim == 4);
-	assert (manifold & (DE_SITTER | DUST | FLRW));
+	assert (get_stdim(spacetime) & (2 | 4));
+	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
 	assert (a > 0.0);
 	assert (tau0 > 0.0);
-	if (manifold & DE_SITTER) {
-		if (compact) {
+	if (get_manifold(spacetime) & DE_SITTER) {
+		if (get_curvature(spacetime) & POSITIVE) {
 			assert (zeta > 0.0);
 			assert (zeta < HALF_PI);
-		} else {
+		} else if (get_curvature(spacetime) & FLAT) {
 			assert (zeta > HALF_PI);
 			assert (zeta1 > HALF_PI);
 			assert (zeta > zeta1);
 		}
-	} else if (manifold & (DUST | FLRW)) {
+	} else if (get_manifold(spacetime) & (DUST | FLRW)) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->x() != NULL);
 		assert (nodes.crd->y() != NULL);
 		assert (nodes.crd->z() != NULL);
-		assert (stdim == 4);
+		assert (get_stdim(spacetime) == 4);
 		assert (zeta < HALF_PI);
 		assert (alpha > 0.0);
 	}
-	if (!compact)
+	if (get_curvature(spacetime) & FLAT)
 		assert (r_max > 0.0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
@@ -1206,7 +1241,7 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 		for (j = i + 1; j < N_tar; j++) {
 			//Apply Causal Condition (Light Cone)
 			//Assume nodes are already temporally ordered
-			related = nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, i, j, NULL);
+			related = nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, NULL);
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {

@@ -285,7 +285,7 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 }
 
 //Note that core_edge_exists has not been implemented in this version of the linkNodesGPU subroutine.
-bool linkNodesGPU_v1(Node &nodes, const Edge &edges, std::vector<bool> &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v1(Node &nodes, const Edge &edges, std::vector<bool> &core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -326,6 +326,8 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 
 	int *g_idx;
 	int j, k;
+	
+	bool compact = get_curvature(spacetime) & POSITIVE;
 
 	stopwatchStart(&sLinkNodesGPU);
 	stopwatchStart(&sGPUOverhead);
@@ -655,7 +657,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 	return true;
 }
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, std::vector<bool> &core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &compact, const bool &verbose)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, std::vector<bool> &core_edge_exists, int * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -688,6 +690,8 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, std::vector<bool> &c
 	unsigned int core_limit = static_cast<unsigned int>(core_edge_fraction * N_tar);
 	unsigned int i, j;
 	bool diag;
+
+	bool compact = get_curvature(spacetime) & POSITIVE;
 
 	//Thread blocks are grouped into "mega" blocks
 	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
@@ -1001,7 +1005,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 //Generate confusion matrix for geodesic distances
 //Compares timelike/spacelike in 4D/5D
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const int &stdim, const Manifold &manifold, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &compact, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -1016,10 +1020,10 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const std::v
 
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
-	assert (stdim == 4);
-	assert (manifold == DE_SITTER || manifold == FLRW);
+	assert (get_stdim(spacetime) == 4);
+	assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
 	assert (a > 0.0);
-	if (manifold == FLRW)
+	if (get_manifold(spacetime) & FLRW)
 		assert (alpha > 0.0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
@@ -1094,11 +1098,9 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const std::v
 	unsigned int seed = static_cast<unsigned int>(mrng.rng() * 4000000000);
 	#pragma omp parallel reduction (+ : c0, c1, c2, c3)
 	{
-	Engine eng;
+	Engine eng(seed ^ omp_get_thread_num());
 	UDistribution dst(0.0, 1.0);
 	UGenerator rng(eng, dst);
-	rng.engine().seed(seed ^ omp_get_thread_num());
-	rng.distribution().reset();
 	#pragma omp for schedule (dynamic, 1)
 	#else
 	UGenerator &rng = mrng.rng;
@@ -1195,7 +1197,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const std::v
 //distances calculated with exact formula
 //NOTE: This only works with de Sitter since there is not a known
 //formula for the embedded FLRW distance.
-bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double &N_dst, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateDistances, const bool &symmetric, const bool &compact, const bool &verbose)
+bool validateDistances(DVData &dvd, Node &nodes, const unsigned int &spacetime, const int &N_tar, const double &N_dst, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateDistances, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -1206,8 +1208,8 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 	assert (nodes.crd->z() != NULL);
 	assert (ca != NULL);
 	assert (N_tar > 0);
-	assert (stdim == 4);
-	assert (manifold == DE_SITTER);
+	assert (get_stdim(spacetime) == 4);
+	assert (get_manifold(spacetime) & DE_SITTER);
 	assert (a > 0.0);
 	#endif
 
@@ -1252,11 +1254,9 @@ bool validateDistances(DVData &dvd, Node &nodes, const int &N_tar, const double 
 	unsigned int seed = static_cast<unsigned int>(mrng.rng() * 4000000000);
 	#pragma omp parallel reduction(+ : c0, c1)
 	{
-	Engine eng;
+	Engine eng(seed ^ omp_get_thread_num());
 	UDistribution dst(0.0, 1.0);
 	UGenerator rng(eng, dst);
-	rng.engine().seed(seed ^ omp_get_thread_num());
-	rng.distribution().reset();
 	#pragma omp for schedule (dynamic, 1)
 	#else
 	UGenerator &rng = mrng.rng;
@@ -1540,7 +1540,7 @@ bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *fi
 }
 
 //Searches a range of lambdas for a match to omega12
-bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const Manifold &manifold)
+bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const unsigned int &spacetime)
 {
 	#if DEBUG
 	assert (tau1 > 0.0f);
@@ -1548,13 +1548,13 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 	assert (omega12 > 0.0);
 	assert (min_lambda < max_lambda);
 	assert (lambda_step > 0.0);
-	assert (manifold == DE_SITTER || manifold == FLRW);
+	assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
 	#endif
 
 	printf("\tTesting Geodesic Lookup Algorithm...\n");
 	fflush(stdout);
 
-	if (!(manifold == DE_SITTER || manifold == FLRW))
+	if (!(get_manifold(spacetime) & (DE_SITTER | FLRW)))
 		return false;
 
 	if (tau1 > tau2) {
@@ -1565,7 +1565,7 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 
 	bool DS_EXACT = false;
 
-	double (*kernel)(double x, void *params) = (manifold == FLRW) ? &flrwLookupKernel : &deSitterLookupKernel;
+	double (*kernel)(double x, void *params) = (get_manifold(spacetime) & FLRW) ? &flrwLookupKernel : &deSitterLookupKernel;
 
 	IntData idata = IntData();
 	idata.limit = 50;
@@ -1643,7 +1643,7 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 }
 
 //Generates the lookup tables
-bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const Manifold &manifold, const bool &verbose)
+bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const unsigned int &spacetime, const bool &verbose)
 {
 	#if DEBUG
 	assert (filename != NULL);
@@ -1651,12 +1651,12 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 	assert (min_lambda < max_lambda);
 	assert (tau_step > 0.0);
 	assert (lambda_step > 0.0);
-	assert (manifold == DE_SITTER || manifold == FLRW);
+	assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
 	#endif
 
-	if (manifold == FLRW)
+	if (get_manifold(spacetime) & FLRW)
 		printf("\tGenerating FLRW geodesic lookup table...\n");
-	else if (manifold == DE_SITTER)
+	else if (get_manifold(spacetiem) & DE_SITTER)
 		printf("\tGenerating de Sitter geodesic lookup table...\n");
 	else
 		return false;
@@ -1776,7 +1776,7 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 }
 
 //Debug and validate distance approximation algorithm
-bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &symmetric, const bool &compact)
+bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha)
 {
 	//This line is VERY important if this code should be portable
 	assert (sizeof(long double) == 16);
@@ -1795,7 +1795,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 
 	double omega12;
 	double dt = nodes.crd->w(future_idx) - nodes.crd->w(past_idx);
-	nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, past_idx, future_idx, &omega12);
+	nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
 	printf("dt: %f\tdx: %f\n", dt, omega12);
 
 	double x1 = POW(SINH(1.5 * nodes.id.tau[past_idx], STL), 1.0 / 3.0, STL);
@@ -1936,7 +1936,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 	printf("\nStudying spacelike relation [%d - %d]\n", past_idx, future_idx);
 	printf_std();
 	dt = nodes.crd->w(future_idx) - nodes.crd->w(past_idx);
-	nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, past_idx, future_idx, &omega12);
+	nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
 	printf("dt: %f\tdx: %f\n", dt, omega12);
 
 	x1 = POW(SINH(1.50 * nodes.id.tau[past_idx], STL), 1.0 / 3.0, STL);
@@ -2064,7 +2064,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 	printf_std();
 
 	dt = nodes.crd->w(future_idx) - nodes.crd->w(past_idx);
-	nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, past_idx, future_idx, &omega12);
+	nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
 	printf("dt: %f\tdx: %f\n", dt, omega12);
 
 	x1 = POW(SINH(1.5 * nodes.id.tau[past_idx], STL), 1.0 / 3.0, STL);
@@ -2232,24 +2232,24 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const int &N_tar, 
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
 //Uses geodesic distances
-bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const double * const table, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, const bool &symmetric, const bool &compact, int source, int dest, bool &success, bool &past_horizon)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const double * const table, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, int source, int dest, bool &success, bool &past_horizon)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (stdim == 2 || stdim == 4);
-	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW || manifold == HYPERBOLIC);
+	assert (get_stdim(spacetime) & (2 | 4));
+	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
 
-	if (manifold == HYPERBOLIC)
-		assert (stdim == 2);
+	if (get_manifold(spacetime) & HYPERBOLIC)
+		assert (get_stdim(spacetime) == 2);
 
-	if (stdim == 2) {
+	if (get_stdim(spacetime) == 2) {
 		assert (nodes.crd->getDim() == 2);
-		assert (manifold == DE_SITTER || manifold == HYPERBOLIC);
-	} else if (stdim == 4) {
+		assert (get_manifold(spacetime) & (DE_SITTER | HYPERBOLIC));
+	} else if (get_stdim(spacetime) == 4) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
-		assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW);
+		assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
 	}
 
 	assert (nodes.crd->x() != NULL);
@@ -2264,23 +2264,23 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<boo
 	//assert (table != NULL);
 
 	assert (N_tar > 0);
-	if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW) {
+	if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
 		assert (a > 0.0);
-		if (manifold == DUST || manifold == FLRW) {
+		if (get_manifold(spacetime) & (DUST | FLRW)) {
 			assert (zeta < HALF_PI);
 			assert (alpha > 0.0);
 		} else {
-			if (compact) {
+			if (get_curvature(spacetime) & POSITIVE) {
 				assert (zeta > 0.0);
 				assert (zeta < HALF_PI);
-			} else {
+			} else if (get_curvature(spacetime) & FLAT) {
 				assert (zeta > HALF_PI);
 				assert (zeta1 > HALF_PI);
 				assert (zeta > zeta1);
 			}
 		}
 	}
-	if (!compact)
+	if (get_curvature(spacetime) & FLAT)
 		assert (r_max > 0.0);
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	//assert (size > 0);
@@ -2300,14 +2300,14 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<boo
 	int m;
 
 	//Check if source and destination can be connected by any geodesic
-	if (manifold == DE_SITTER || manifold == FLRW) {
-		if (compact || manifold == DE_SITTER)
+	if (get_manifold(spacetime) & (DE_SITTER | FLRW)) {
+		if ((get_manifold(spacetime) | get_curvature(spacetime)) & (DE_SITTER | POSITIVE))
 			dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], stdim, manifold, a, alpha, compact));
 		else
 			dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, size, symmetric, compact, idx_a, idx_b);
-	} else if (manifold == DUST)
+	} else if (get_manifold(spacetime) & DUST)
 		dist = distanceDust(nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, idx_a, idx_b);
-	else if (manifold == HYPERBOLIC)
+	else if (get_manifold(spacetime) & HYPERBOLIC)
 		dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), stdim, manifold, zeta);
 	else
 		return false;
@@ -2382,14 +2382,14 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<boo
 			}
 
 			//(C) Otherwise find the past neighbor closest to the destination
-			if (manifold == DE_SITTER || manifold == FLRW) {
-				if (compact || manifold == DE_SITTER)
+			if (get_manifold(spacetime) & (DE_SITTER | FLRW)) {
+				if ((get_curvature(spacetime) | get_manifold(spacetime)) & (POSITIVE | DE_SITTER))
 					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], stdim, manifold, a, alpha, compact));
 				else
 					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, size, symmetric, compact, idx_a, idx_b);
-			} else if (manifold == DUST)
+			} else if (get_manifold(spacetime) & DUST)
 				dist = distanceDust(nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, idx_a, idx_b);
-			else if (manifold == HYPERBOLIC)
+			else if (get_manifold(spacetime) & HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), stdim, manifold, zeta);
 			else
 				return false;
@@ -2445,14 +2445,14 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<boo
 			}
 
 			//(F) Otherwise find the future neighbor closest to the destination
-			if (manifold == DE_SITTER || manifold == FLRW) {
-				if (compact || manifold == DE_SITTER)
+			if (get_manifold(spacetime) & (DE_SITTER | FLRW)) {
+				if ((get_curvature(spacetime) | get_manifold(spacetime)) & (POSITIVE | DE_SITTER))
 					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], stdim, manifold, a, alpha, compact));
 				else
 					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, size, symmetric, compact, idx_a, idx_b);
-			} else if (manifold == DUST)
+			} else if (get_manifold(spacetime) & DUST)
 				dist = distanceDust(nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, idx_a, idx_b);
-			else if (manifold == HYPERBOLIC)
+			else if (get_manifold(spacetime) & HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), stdim, manifold, zeta);
 			else
 				return false;
@@ -2498,18 +2498,18 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<boo
 //Measure Causal Set Action
 //O(N*k^2*ln(k)) Efficiency (Linked)
 //O(N^2*k) Efficiency (No Links)
-bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const int &N_tar, const int &max_cardinality, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench)
+bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
 		assert (!nodes.crd->isNull());
-	assert (stdim == 4);
-	assert (manifold == DE_SITTER);
+	assert (get_stdim(spacetime) == 4);
+	assert (get_manifold(spacetime) & DE_SITTER);
 
 	if (!no_pos) {
-		if (stdim == 2)
+		if (get_stdim(spacetime) == 2)
 			assert (nodes.crd->getDim() == 2);
-		else if (stdim == 4) {
+		else if (get_stdim(spacetime) == 4) {
 			assert (nodes.crd->getDim() == 4);
 			assert (nodes.crd->w() != NULL);
 			assert (nodes.crd->z() != NULL);
@@ -2532,10 +2532,10 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 	assert (N_tar > 0);
 	assert (max_cardinality > 0);
 	assert (a > 0.0);
-	if (compact) {
+	if (get_curvature(spacetime) & POSITIVE) {
 		assert (zeta > 0.0);
 		assert (zeta < HALF_PI);
-	} else {
+	} else if (get_curvature(spacetime) & FLAT) {
 		assert (zeta > HALF_PI);
 		assert (zeta1 > HALF_PI);
 		assert (zeta > zeta1);
@@ -2602,11 +2602,11 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 					causet_intersection_v2(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], max_cardinality, pstart, fstart, too_many);
 				}
 			} else {
-				if (!nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, i, j, NULL))
+				if (!nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, NULL))
 					continue;
 
 				for (k = i + 1; k < j; k++) {
-					if (nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, alpha, r_max, symmetric, compact, i, k, NULL) && nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, k, j, NULL))
+					if (nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, alpha, r_max, i, k, NULL) && nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, k, j, NULL))
 						elements++;
 					if (elements >= max_cardinality - 1) {
 						too_many = true;
@@ -2649,4 +2649,145 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 	}
 
 	return true;
+}
+
+void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const int &i)
+{
+	float tol = 1.0e-8;
+	switch (spacetime) {
+	case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
+		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < HALF_PI - zeta);
+		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		#if EMBED_NODES
+		assert (fabs(POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0) < tol);
+		#else
+		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI);
+		#endif
+		break;
+	case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
+		assert (fabs(nodes.crd->x(i)) < HALF_PI - zeta);
+		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		#if EMBED_NODES
+		assert (fabs(POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0) < tol);
+		#else
+		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI);
+		#endif
+		break;
+	case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
+		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < HALF_PI - zeta);
+		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		#if EMBED_NODES
+		//y, z
+		#else
+		//y
+		#endif
+		break;
+	case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
+		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		#if EMBED_NODES
+		assert (HALF_PI - nodes.crd->v(i) > zeta && HALF_PI - nodes.crd->v(i) < zeta1);
+		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - r_max) < tol);
+		#else
+		assert (HALF_PI - nodes.crd->w(i) > zeta && HALF_PI - nodes.crd->w(i) < zeta1);
+		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max);
+		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
+		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		#endif
+		break;
+	case (4 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
+		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		#if EMBED_NODES
+		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
+		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0f) < tol);
+		#else
+		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
+		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < M_PI);
+		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
+		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		#endif
+		break;
+	case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
+		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		#if EMBED_NODES
+		assert (fabs(nodes.crd->v(i)) < HALF_PI - zeta);
+		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0f) < tol);
+		#else
+		assert (fabs(nodes.crd->v(i)) < HALF_PI - zeta);
+		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < M_PI);
+		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
+		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		#endif
+		break;
+	case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
+		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		#if EMBED_NODES
+		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
+		//emb
+		#else
+		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
+		//x
+		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
+		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		#endif
+		break;
+	case (4 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
+		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		#if EMBED_NODES
+		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
+		//emb
+		#else
+		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
+		//x
+		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
+		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		#endif
+		break;
+	case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
+		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		#if EMBED_NODES
+		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
+		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - r_max) < tol);
+		#else
+		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
+		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max);
+		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
+		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		#endif
+		break;
+	case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
+		//Add this
+		goto default;
+		break;
+	case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
+		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		#if EMBED_NODES
+		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
+		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - r_max) < tol);
+		#else
+		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
+		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max);
+		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
+		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		#endif
+		break;
+	case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
+		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		#if EMBED_NODES
+		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
+		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0f) < tol);
+		#else
+		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
+		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < M_PI);
+		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
+		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		#endif
+		break;
+	case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
+		//Add this
+		goto default;
+		break;
+	default:
+		fprintf(stderr, "Spacetime parameters not supported!\n");
+		assert (false);
+	}
 }

@@ -205,14 +205,14 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 
 //Sort nodes temporally
 //O(N*log(N)) Efficiency
-void quicksort(Node &nodes, const int &stdim, const Manifold &manifold, int low, int high)
+void quicksort(Node &nodes, const unsigned int &spacetime, int low, int high)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (stdim == 2 || stdim == 4);
-	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW || manifold == HYPERBOLIC);
-	if (manifold == HYPERBOLIC)
-		assert (stdim == 2);
+	assert (get_stdim(spacetime) & (2 | 4));
+	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
+	if (get_manifold(spacetime) & HYPERBOLIC)
+		assert (get_stdim(spacetime) == 2);
 	#endif
 
 	int i, j, k;
@@ -220,26 +220,26 @@ void quicksort(Node &nodes, const int &stdim, const Manifold &manifold, int low,
 
 	if (low < high) {
 		k = (low + high) >> 1;
-		swap(nodes, stdim, manifold, low, k);
-		if (stdim == 2)
+		swap(nodes, spacetime, low, k);
+		if (get_stdim(spacetime) == 2)
 			key = nodes.crd->x(low);
-		else if (stdim == 4)
+		else if (get_stdim(spacetime) == 4)
 			key = nodes.crd->w(low);
 		i = low + 1;
 		j = high;
 
 		while (i <= j) {
-			while ((i <= high) && ((stdim == 4 ? nodes.crd->w(i) : nodes.crd->x(i)) <= key))
+			while ((i <= high) && ((get_stdim(spacetime) == 4 ? nodes.crd->w(i) : nodes.crd->x(i)) <= key))
 				i++;
-			while ((j >= low) && ((stdim == 4 ? nodes.crd->w(j) : nodes.crd->x(j)) > key))
+			while ((j >= low) && ((get_stdim(spacetime) == 4 ? nodes.crd->w(j) : nodes.crd->x(j)) > key))
 				j--;
 			if (i < j)
-				swap(nodes, stdim, manifold, i, j);
+				swap(nodes, spacetime, i, j);
 		}
 
-		swap(nodes, stdim, manifold, low, j);
-		quicksort(nodes, stdim, manifold, low, j - 1);
-		quicksort(nodes, stdim, manifold, j + 1, high);
+		swap(nodes, spacetime, low, j);
+		quicksort(nodes, spacetime, low, j - 1);
+		quicksort(nodes, spacetime, j + 1, high);
 	}
 }
 
@@ -276,31 +276,31 @@ void quicksort(uint64_t *edges, int low, int high)
 }
 
 //Exchange two nodes
-void swap(Node &nodes, const int &stdim, const Manifold &manifold, const int i, const int j)
+void swap(Node &nodes, const unsigned int &spacetime, const int i, const int j)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (stdim == 2 || stdim == 4);
-	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW || manifold == HYPERBOLIC);
-	if (manifold == HYPERBOLIC)
-		assert (stdim == 2);
+	assert (get_stdim(spacetime) & (2 | 4));
+	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
+	if (get_manifold(spacetime) & HYPERBOLIC)
+		assert (get_stdim(spacetime) == 2);
 	#endif
 
-	if (stdim == 2) {
+	if (get_stdim(spacetime) == 2) {
 		float2 hc = nodes.crd->getFloat2(i);
 		nodes.crd->setFloat2(nodes.crd->getFloat2(j), i);
 		nodes.crd->setFloat2(hc, j);
-	} else if (stdim == 4) {
+	} else if (get_stdim(spacetime) == 4) {
 		float4 sc = nodes.crd->getFloat4(i);
 		nodes.crd->setFloat4(nodes.crd->getFloat4(j), i);
 		nodes.crd->setFloat4(sc, j);
 	}
 
-	if (manifold == DE_SITTER || manifold == DUST || manifold == FLRW) {
+	if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
 		float tau = nodes.id.tau[i];
 		nodes.id.tau[i] = nodes.id.tau[j];
 		nodes.id.tau[j] = tau;
-	} else if (manifold == HYPERBOLIC) {
+	} else if (get_manifold(spacetime) & HYPERBOLIC) {
 		int AS = nodes.id.AS[i];
 		nodes.id.AS[i] = nodes.id.AS[j];
 		nodes.id.AS[j] = AS;
@@ -485,9 +485,6 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 	//Make sure past_idx < future_idx
 	if (past_idx > future_idx) {
-		//int temp = past_idx;
-		//past_idx = future_idx;
-		//future_idx = temp;
 		past_idx ^= future_idx;
 		future_idx ^= past_idx;
 		past_idx ^= future_idx;

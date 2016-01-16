@@ -24,6 +24,6 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 
 bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &verbose, const bool &bench);
 
-bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &symmetric, const bool &compact, const bool &verbose, const bool &bench);
+bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &verbose, const bool &bench);
 
 #endif

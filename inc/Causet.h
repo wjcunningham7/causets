@@ -177,10 +177,14 @@ struct CaResources {
 //together so in the code you can create a unique integer
 //which defines a spacetime by writing
 // > int spacetime = dim | manifold | region | curvature | symmetry
+
 //NOTE: This assumes dim = {2, 3, 4} only
 //Make sure if you add to these you make sure the 'spacetime'
 //value still fits inside a 32-bit integer.  Otherwise
 //use a uint64_t variable.
+
+//NOTE: If you modify any of these enums, increment the
+//`VERSION' variable located in Constants.h
 
 //Manifold Types
 enum Manifold {

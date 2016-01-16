@@ -151,7 +151,7 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edge_exists, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &compact, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -211,7 +211,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 
 	stopwatchStart(&sGenAdjList);
 	#if GEN_ADJ_LISTS_GPU_V2
-	if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, use_bit, compact, verbose))
+	if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, spacetime, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, use_bit, verbose))
 		return false;
 	#else
 	if (!generateLists_v1(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, compact, verbose))
@@ -338,7 +338,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(Node &nodes, uint64_t * const &edges, std::vector<bool> &core_edge_exists, int * const &g_idx, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &compact, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, std::vector<bool> &core_edge_exists, int * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -382,6 +382,8 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, std::vector<bool> &c
 	unsigned int core_limit = static_cast<unsigned int>(core_edge_fraction * N_tar);
 	unsigned int i, j, m;
 	bool diag;
+
+	bool compact = get_curvature(spacetime) & POSITIVE;
 
 	//Thread blocks are grouped into "mega" blocks
 	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));

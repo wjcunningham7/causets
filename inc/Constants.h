@@ -7,6 +7,9 @@
 // Northeastern University //
 /////////////////////////////
 
+//Version
+#define VERSION 0
+
 //Numerical Constants
 #define TOL (1e-28)	//Zero
 
@@ -81,6 +84,5 @@
 #define DECODE_LISTS_GPU_V2 true
 
 #endif
-
 
 #endif

@@ -1315,7 +1315,8 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			sstm << "Dev" << gpuID << "_";
 		else
 			sstm << "CPU_";
-		sstm << "ST-" << network.network_properties.spacetime << "_";
+		sstm << "ST" << network.network_properties.spacetime << "_";
+		sstm << "V" << VERSION << "_";
 		sstm << network.network_properties.seed;
 		std::string filename = sstm.str();
 

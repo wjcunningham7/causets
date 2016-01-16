@@ -14,6 +14,16 @@
 // Root-Finding Kernels //
 //======================//
 
+inline double eta4Dfunc(const double &x, const double &a)
+{
+	return -a + x * (6.0 + x * (3.0 * a + x * (-4.0 + x * (-3.0 * a + x * (6.0 + a * x)))));
+}
+
+inline double eta4dfuncPrime(const double &x, const double &a)
+{
+	return 6.0 * (1.0 + x * (a + x * (-2.0 + x * (-2.0 * a + x * (5.0 + a * x)))));
+}
+
 inline double tau4D(const double &x, const double &zeta, const double &rval)
 {
 	double _coshx2 = POW2(COSH(x, APPROX ? FAST : STL), EXACT);
@@ -51,8 +61,20 @@ inline double theta1_Prime4D(const double &x)
 	return POW2(SIN(x, APPROX ? FAST : STL), EXACT) / HALF_PI;
 }
 
+//Returns eta Residual
+//Used in 3+1 Spherical de Sitter Causet
+inline double solveEtaFunc(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0 && p1[0] < 1.0);	//a
+	#endif
+
+	return (-1.0 * eta4Dfunc(x, p1[0]) / eta4Dfunc(x, p1[0]));
+}
+
 //Returns tau Residual
-//Used in 3+1 Causet
+//Used in 3+1 Spherical de Sitter Causet
 inline double solveTau(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
@@ -65,7 +87,7 @@ inline double solveTau(const double &x, const double * const p1, const float * c
 }
 
 //Returns tau Residual
-//Used in Universe Causet
+//Used in FLRW Causet
 inline double solveTauUniverse(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
@@ -78,7 +100,7 @@ inline double solveTauUniverse(const double &x, const double * const p1, const f
 }
 
 //Returns tau Residual in Bisection Algorithm
-//Used in Universe Causet
+//Used in FLRW Causet
 inline double solveTauUnivBisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
@@ -188,16 +210,16 @@ inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 //=========================//
 
 //Assumes coordinates have been temporally ordered
-inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &stdim, const Manifold &manifold, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &symmetric, const bool &compact, int past_idx, int future_idx, double *omega12)
+inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx, double *omega12)
 {
 	#if DEBUG
 	assert (!c->isNull());
-	assert (stdim == 2 || stdim == 4);
-	assert (manifold == DE_SITTER || manifold == DUST || manifold == FLRW);
+	assert (get_stdim(spacetime) & (2 | 4));
+	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
 
-	if (stdim == 2)
+	if (get_stdim(spacetime) == 2)
 		assert (c->getDim() == 2);
-	else if (stdim == 4) {
+	else if (get_stdim(spacetime) == 4) {
 		assert (c->getDim() == 4);
 		assert (c->w() != NULL);
 		assert (c->z() != NULL);
@@ -208,25 +230,24 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &stdim, 
 
 	assert (N_tar > 0);
 	assert (a > 0.0);
-	if (manifold == DE_SITTER) {
-		if (compact) {
+	if (get_manifold(spacetime) & DE_SITTER) {
+		if (get_curvature(spacetime) & POSITIVE) {
 			assert (zeta > 0.0);
 			assert (zeta < HALF_PI);
-		} else {
+		} else if (get_curvature(spacetime) & FLAT) {
 			assert (zeta > HALF_PI);
 			assert (zeta1 > HALF_PI);
 			assert (zeta > zeta1);
 		}
-	} else if (manifold == FLRW) {
+	} else if (get_manifold(spacetime) & FLRW) {
 		assert (zeta < HALF_PI);
 		assert (alpha > 0.0);
 	}
-	if (!compact)
+	if (get_curvature(spacetime) & FLAT)
 		assert (r_max > 0.0);
 		
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
-	//assert (past_idx < future_idx);
 	assert (past_idx != future_idx);
 	#endif
 
@@ -240,17 +261,18 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &stdim, 
 	}
 
 	//Temporal Interval
-	if (stdim == 2)
+	if (get_stdim(spacetime) == 2)
 		dt = c->x(future_idx) - c->x(past_idx);
-	else if (stdim == 4)
+	else if (get_stdim(spacetime) == 4)
 		dt = c->w(future_idx) - c->w(past_idx);
 
 	#if DEBUG
 	assert (dt >= 0.0f);
-	if (!compact && manifold == DE_SITTER)
+	//if (!compact && manifold == DE_SITTER)
+	if ((get_curvature(spacetime) | get_manifold(spacetime)) & (FLAT | DE_SITTER))
 		assert (dt <= zeta - zeta1);
 	else {
-		if (symmetric)
+		if (get_symmetry(spacetime) & SYMMETRIC)
 			assert (dt <= 2.0f * static_cast<float>(HALF_PI - zeta));
 		else
 			assert (dt <= static_cast<float>(HALF_PI - zeta));
@@ -258,18 +280,18 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &stdim, 
 	#endif
 
 	//Spatial Interval
-	if (stdim == 2)
+	if (get_stdim(spacetime) == 2)
 		dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(c->y(future_idx) - c->y(past_idx)), STL), STL));
-	else if (stdim == 4) {
-		if (compact) {
+	else if (get_stdim(spacetime) == 4) {
+		if (get_curvature(spacetime) & POSITIVE) {
 			//Spherical Law of Cosines
 			#if DIST_V2
 				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			#else
 				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			#endif
-		} else {
-			//Law of Cosines
+		} else if (get_curvature(spacetime) & FLAT) {
+			//Euclidean Law of Cosines
 			#if DIST_V2
 				dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? BITWISE : STL));
 			#else
@@ -279,9 +301,9 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &stdim, 
 	}
 
 	#if DEBUG
-	if (compact)
+	if (get_curvature(spacetime) & POSITIVE)
 		assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
-	else
+	else if (get_curvature(spacetime) & FLAT)
 		assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(r_max));
 	#endif
 
@@ -300,8 +322,8 @@ inline bool nodesAreRelated(Coordinates *c, const int &N_tar, const int &stdim, 
 
 //Formulae in de Sitter
 
-//Conformal to Rescaled Time (de Sitter compact)
-inline double etaToTauCompact(const double eta)
+//Conformal to Rescaled Time (de Sitter, spherical foliation)
+inline double etaToTauSph(const double eta)
 {
 	#if DEBUG
 	assert (fabs(eta) < HALF_PI);
@@ -310,7 +332,7 @@ inline double etaToTauCompact(const double eta)
 	return SGN(eta, DEF) * ACOSH(1.0 / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 }
 
-//Conformal to Rescaled Time (de Sitter flat)
+//Conformal to Rescaled Time (de Sitter flat foliation)
 inline double etaToTauFlat(const double eta)
 {
 	#if DEBUG
@@ -320,13 +342,13 @@ inline double etaToTauFlat(const double eta)
 	return -1.0 * LOG(-1.0 * eta, APPROX ? FAST : STL);
 }
 
-//Rescaled to Conformal Time (de Sitter compact)
-inline double tauToEtaCompact(const double tau)
+//Rescaled to Conformal Time (de Sitter spherical foliation)
+inline double tauToEtaSph(const double tau)
 {
 	return SGN(tau, DEF) * ACOS(1.0 / COSH(tau, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
 }
 
-//Rescaled to Conformal Time (de Sitter flat)
+//Rescaled to Conformal Time (de Sitter flat foliation)
 inline double tauToEtaFlat(const double tau)
 {
 	#if DEBUG
@@ -694,7 +716,7 @@ inline double degreeFieldTheory(double eta, void *params)
 
 //Calculate the action from the abundancy intervals
 //The parameter 'lk' is taken to be expressed in units of the graph discreteness length 'l'
-inline double calcAction(const int * const cardinalities, const int &stdim, const double &lk, const bool &smeared)
+inline double calcAction(const int * const cardinalities, const int stdim, const double &lk, const bool &smeared)
 {
 	#if DEBUG
 	assert (cardinalities != NULL);
