@@ -127,7 +127,7 @@ typedef int CUcontext;
 
 #else
 
-struct __device_builtin__ float5 {
+struct float5 {
 	float v, w, x, y, z;
 };
 
@@ -190,7 +190,7 @@ struct CaResources {
 enum Manifold {
 	ManifoldFirst	= 1 << 3,
 	DE_SITTER	= ManifoldFirst,
-	DUST		= DE_SITTER << 1
+	DUST		= DE_SITTER << 1,
 	FLRW		= DUST << 1,
 	HYPERBOLIC	= FLRW << 1,
 	ManifoldLast	= HYPERBOLIC
@@ -208,7 +208,7 @@ enum Region {
 enum Curvature {
 	CurvatureFirst	= RegionLast << 1,
 	FLAT		= CurvatureFirst,
-	POSITIVE	= FLAT << 1
+	POSITIVE	= FLAT << 1,
 	CurvatureLast	= POSITIVE
 };
 
@@ -216,7 +216,7 @@ enum Curvature {
 enum Symmetry {
 	SymmetryFirst	= CurvatureLast << 1,
 	ASYMMETRIC	= SymmetryFirst,
-	SYMMETRIC	= ASYMMETRIC << 1
+	SYMMETRIC	= ASYMMETRIC << 1,
 	SymmetryLast	= SYMMETRIC
 };
 
@@ -703,10 +703,10 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link
 void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed);
 
 //Useful utility functions
-inline unsigned int get_stdim(const unsigned int &spacetime)  { return spacetime & stdim_mask;     }
-inline Manifold get_manifold(const unsigned int &spacetime)   { return spacetime & manifold_mask;  }
-inline Region get_region(const unsigned int &spacetime)       { return spacetime & region_mask;	   }
-inline Curvature get_curvature(const unsigned int &spacetime) { return spacetime & curvature_mask; }
-inline Symmetry get_symmetry(const unsigned int &spacetime)   { return spacetime & symmetry_mask;  }
+inline unsigned int get_stdim(const unsigned int &spacetime)  { return (unsigned int)(spacetime & stdim_mask);  }
+inline Manifold get_manifold(const unsigned int &spacetime)   { return (Manifold)(spacetime & manifold_mask);   }
+inline Region get_region(const unsigned int &spacetime)       { return (Region)(spacetime & region_mask);	}
+inline Curvature get_curvature(const unsigned int &spacetime) { return (Curvature)(spacetime & curvature_mask); }
+inline Symmetry get_symmetry(const unsigned int &spacetime)   { return (Symmetry)(spacetime & symmetry_mask);   }
 
 #endif

@@ -327,7 +327,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 
 	//if (manifold == FLRW && !getLookupTable("./etc/geodesics_flrw_table.cset.bin", &table, &size))
 	//	cmpi.fail = 1;
-	if (manifold == FLRW && !getLookupTable("./etc/partial_fraction_coefficients.cset.bin", &table, &size))
+	if (get_manifold(spacetime) & FLRW && !getLookupTable("./etc/partial_fraction_coefficients.cset.bin", &table, &size))
 		cmpi.fail = 1;
 	//else if (manifold == DE_SITTER && !getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
 	//	cmpi.fail = 1;
@@ -637,7 +637,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<boo
 			if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW))
 				nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b, &dist);
 			else if (get_manifold(spacetime) & HYPERBOLIC)
-				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), stdim, manifold, zeta);
+				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 			else
 				return false;
 
@@ -664,9 +664,9 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<boo
 
 			//Otherwise find the minimal element closest to the destination
 			if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW))
-				nodesAreRelated(nodes.crd, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b, &dist);
+				nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b, &dist);
 			else if (get_manifold(spacetime) & HYPERBOLIC)
-				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), stdim, manifold, zeta);
+				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 			else
 				return false;
 
@@ -739,7 +739,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 	float4 test_node;
 	double eta_m;
 	double d_size/*, x, rval*/;
-	float dt, dx;
+	float dt = 0.0f, dx = 0.0f;
 	long size = 0L;
 	int k_in, k_out;
 	int i, j;
@@ -750,7 +750,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 	//Calculate theoretical values
 	double k_in_theory = 0.0;
 	double k_out_theory = 0.0;
-	bool theoretical = (manifold == FLRW) && verbose;
+	bool theoretical = (get_manifold(spacetime) & FLRW) && verbose;
 
 	//Modify number of samples
 	N_df = 1;
@@ -808,7 +808,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 			eta_m = tauToEtaFLRWExact(tau_m, a, alpha);
 	} else if (get_manifold(spacetime) & DE_SITTER) {
 		if (get_curvature(spacetime) & POSITIVE)
-			eta_m = tauToEtaCompact(tau_m);
+			eta_m = tauToEtaSph(tau_m);
 		else if (get_curvature(spacetime) & FLAT)
 			eta_m = tauToEtaFlat(tau_m);
 	} else
@@ -1136,7 +1136,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	if (max_cardinality < 5)
 		goto ActionExit;
 
-	action = calcAction(cardinalities, stdim, lk, smeared);
+	action = calcAction(cardinalities, get_stdim(spacetime), lk, smeared);
 	assert (action == action);
 
 	ActionExit:

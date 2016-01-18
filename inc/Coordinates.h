@@ -177,12 +177,20 @@ inline float2 get_2d_asym_sph_deSitter_diamond_emb(UGenerator &rng, const float 
 //Returns a value for eta
 inline float get_4d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &zeta)
 {
+	double eta;
 	double x = 0.2;
-	double a = rng() * (2.0 + POW2(1.0 / sin(zeta), EXACT)) / tan(zeta)
+	double r = rng();
+	double a = r * (2.0 + POW2(1.0 / sin(zeta), EXACT)) / tan(zeta);
 	if (!newton(&solveEtaFunc, &x, 1000, TOL, &a, NULL, NULL))
-		return NAN;
+		eta = NAN;
+	else
+		eta = 2.0 * atan(x);
 
-	return 2.0 * atan(x);
+	#if DEBUG
+	assert (eta == eta);
+	#endif
+
+	return eta;
 }
 
 //Returns a value for theta1
@@ -208,10 +216,10 @@ inline float get_4d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &ze
 /////////////////////////
 
 //Returns a value for eta
-inline float get_4d_sym_sph_deSitter_slab_eta(UGenerator &rng)
+inline float get_4d_sym_sph_deSitter_slab_eta(UGenerator &rng, const double &zeta)
 {
 	int flip = rng() < 0.5 ? 1 : -1;
-	return flip * get_4d_asym_sph_deSitter_slab_eta(rng);
+	return flip * get_4d_asym_sph_deSitter_slab_eta(rng, zeta);
 }
 
 //Returns a value for theta1
@@ -377,11 +385,13 @@ inline float get_4d_asym_sph_flrw_slab_tau(UGenerator &rng, const double &tau0)
 
 	if (tau0 > 1.8) {	//The value 1.8 is from trial/error
 		if (!bisection(&solveTauUnivBisec, &tau, 2000, 0.0, tau0, TOL, true, p, NULL, NULL))
-			return NAN;
+			tau = NAN;;
 	} else {
-		if (!newton(&solveTauUniverse, &tau, 1000, TOL, p1, NULL, NULL))
-			return NAN;
+		if (!newton(&solveTauUniverse, &tau, 1000, TOL, p, NULL, NULL))
+			tau = NAN;
 	}
+
+	assert (tau == tau);
 
 	return tau;
 }

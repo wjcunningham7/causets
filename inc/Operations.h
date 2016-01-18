@@ -19,7 +19,7 @@ inline double eta4Dfunc(const double &x, const double &a)
 	return -a + x * (6.0 + x * (3.0 * a + x * (-4.0 + x * (-3.0 * a + x * (6.0 + a * x)))));
 }
 
-inline double eta4dfuncPrime(const double &x, const double &a)
+inline double eta4DfuncPrime(const double &x, const double &a)
 {
 	return 6.0 * (1.0 + x * (a + x * (-2.0 + x * (-2.0 * a + x * (5.0 + a * x)))));
 }
@@ -67,10 +67,10 @@ inline double solveEtaFunc(const double &x, const double * const p1, const float
 {
 	#if DEBUG
 	assert (p1 != NULL);
-	assert (p1[0] > 0.0 && p1[0] < 1.0);	//a
+	assert (p1[0] > 0.0);	//"a" (not same as pseudoradius)
 	#endif
 
-	return (-1.0 * eta4Dfunc(x, p1[0]) / eta4Dfunc(x, p1[0]));
+	return (-1.0 * eta4Dfunc(x, p1[0]) / eta4DfuncPrime(x, p1[0]));
 }
 
 //Returns tau Residual
@@ -239,7 +239,7 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 			assert (zeta1 > HALF_PI);
 			assert (zeta > zeta1);
 		}
-	} else if (get_manifold(spacetime) & FLRW) {
+	} else if (get_manifold(spacetime) & (DUST | FLRW)) {
 		assert (zeta < HALF_PI);
 		assert (alpha > 0.0);
 	}
@@ -268,8 +268,7 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 
 	#if DEBUG
 	assert (dt >= 0.0f);
-	//if (!compact && manifold == DE_SITTER)
-	if ((get_curvature(spacetime) | get_manifold(spacetime)) & (FLAT | DE_SITTER))
+	if ((get_curvature(spacetime) & FLAT) && (get_manifold(spacetime) & DE_SITTER))
 		assert (dt <= zeta - zeta1);
 	else {
 		if (get_symmetry(spacetime) & SYMMETRIC)
@@ -336,7 +335,7 @@ inline double etaToTauSph(const double eta)
 inline double etaToTauFlat(const double eta)
 {
 	#if DEBUG
-	assert (eta < 0.0 && -1.0 * eta < HALF_PI);
+	assert (eta < 0.0 && -eta < HALF_PI);
 	#endif
 
 	return -1.0 * LOG(-1.0 * eta, APPROX ? FAST : STL);

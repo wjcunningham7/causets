@@ -306,6 +306,10 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	#endif
 
+	#if EMBED_NODES
+	fprintf(stderr, "linkNodesGPU_v2 not implemented for EMBED_NODES=true.  Find me on line %d in %s.\n", __LINE__, __FILE__);
+	#endif
+
 	Stopwatch sGPUOverhead = Stopwatch();
 	Stopwatch sGenAdjList = Stopwatch();
 	Stopwatch sBitonic0 = Stopwatch();
@@ -1128,7 +1132,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const std::v
 		}
 
 		//Embedded distance
-		double distance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], stdim, manifold, a, alpha, compact);
+		double distance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], spacetime, a, alpha);
 
 		printf("%f\n", distance);
 
@@ -1283,17 +1287,17 @@ bool validateDistances(DVData &dvd, Node &nodes, const unsigned int &spacetime, 
 		}
 
 		//Distance using embedding
-		double embeddedDistance = ABS(distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], stdim, manifold, a, alpha, compact), STL);
+		double embeddedDistance = ABS(distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], spacetime, a, alpha), STL);
 		if (embeddedDistance + 1.0 < INF)
 			printf("\n\tEmbedded Distance: %f\n", embeddedDistance);
 
 		//Distance using exact formula
 		double exactDistance = 0.0;
 		//double exactDistance = distance_v1(table, nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], stdim, manifold, a, alpha, size, compact);
-		if (compact)
-			exactDistance = distanceDeSitterSph(nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, i, j);
-		else
-			exactDistance = distanceDeSitterFlat(nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, i, j);
+		if (get_curvature(spacetime) & POSITIVE)
+			exactDistance = distanceDeSitterSph(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j);
+		else if (get_curvature(spacetime) & FLAT)
+			exactDistance = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j);
 		if (exactDistance + 1.0 < INF)
 			printf("\tExactDistance:     %f\n", exactDistance);
 
@@ -1583,7 +1587,7 @@ bool testOmega12(float tau1, float tau2, const double &omega12, const double min
 
 	for (i = 0; i < n_lambda; i++) {
 		double lambda = i * lambda_step + min_lambda;
-		double tau_m = geodesicMaxTau(manifold, lambda);
+		double tau_m = geodesicMaxTau(get_manifold(spacetime), lambda);
 		printf("tau_m:   %f\t", tau_m);
 		fflush(stdout);
 
@@ -1656,7 +1660,7 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 
 	if (get_manifold(spacetime) & FLRW)
 		printf("\tGenerating FLRW geodesic lookup table...\n");
-	else if (get_manifold(spacetiem) & DE_SITTER)
+	else if (get_manifold(spacetime) & DE_SITTER)
 		printf("\tGenerating de Sitter geodesic lookup table...\n");
 	else
 		return false;
@@ -1666,7 +1670,7 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 	//and the two methods (integration v. exact) should be compared
 	bool DS_EXACT = false;
 
-	double (*kernel)(double x, void *params) = (manifold == FLRW) ? &flrwLookupKernel : &deSitterLookupKernel;
+	double (*kernel)(double x, void *params) = (get_manifold(spacetime) & FLRW) ? &flrwLookupKernel : &deSitterLookupKernel;
 
 	Stopwatch sLookup = Stopwatch();
 	IntData idata = IntData();
@@ -1703,7 +1707,7 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 
 				for (k = 0; k < n_lambda; k++) {
 					lambda = k * lambda_step + min_lambda;
-					tau_m = geodesicMaxTau(manifold, lambda);
+					tau_m = geodesicMaxTau(get_manifold(spacetime), lambda);
 
 					if (tau1 >= tau2 || lambda == 0.0)
 						omega12 = 0.0;
@@ -1888,7 +1892,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int
 	printf("\nCalculating Distance.\n");
 	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 	idata.limit = 60;
-	double tm = geodesicMaxTau(manifold, lambda);
+	double tm = geodesicMaxTau(get_manifold(spacetime), lambda);
 	idata.lower = nodes.id.tau[past_idx];
 	idata.upper = tm;
 	double distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
@@ -2016,7 +2020,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int
 
 	printf("\nCalculating Distance.\n");
 	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	tm = geodesicMaxTau(manifold, lambda);
+	tm = geodesicMaxTau(get_manifold(spacetime), lambda);
 	idata.lower = nodes.id.tau[past_idx];
 	idata.upper = tm;
 	distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
@@ -2153,7 +2157,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int
 
 	printf("\nCalculating Distance.\n");
 	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	tm = geodesicMaxTau(manifold, lambda);
+	tm = geodesicMaxTau(get_manifold(spacetime), lambda);
 	idata.lower = nodes.id.tau[past_idx];
 	idata.upper = tm;
 	distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
@@ -2301,14 +2305,14 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<boo
 
 	//Check if source and destination can be connected by any geodesic
 	if (get_manifold(spacetime) & (DE_SITTER | FLRW)) {
-		if ((get_manifold(spacetime) | get_curvature(spacetime)) & (DE_SITTER | POSITIVE))
-			dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], stdim, manifold, a, alpha, compact));
+		if ((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & POSITIVE))
+			dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
 		else
-			dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, size, symmetric, compact, idx_a, idx_b);
+			dist = distanceFLRW(table, nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, size, idx_a, idx_b);
 	} else if (get_manifold(spacetime) & DUST)
-		dist = distanceDust(nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, idx_a, idx_b);
+		dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 	else if (get_manifold(spacetime) & HYPERBOLIC)
-		dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), stdim, manifold, zeta);
+		dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 	else
 		return false;
 
@@ -2383,14 +2387,14 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<boo
 
 			//(C) Otherwise find the past neighbor closest to the destination
 			if (get_manifold(spacetime) & (DE_SITTER | FLRW)) {
-				if ((get_curvature(spacetime) | get_manifold(spacetime)) & (POSITIVE | DE_SITTER))
-					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], stdim, manifold, a, alpha, compact));
+				if ((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & POSITIVE))
+					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
 				else
-					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, size, symmetric, compact, idx_a, idx_b);
+					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, size, idx_a, idx_b);
 			} else if (get_manifold(spacetime) & DUST)
-				dist = distanceDust(nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, idx_a, idx_b);
+				dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 			else if (get_manifold(spacetime) & HYPERBOLIC)
-				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), stdim, manifold, zeta);
+				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 			else
 				return false;
 
@@ -2446,14 +2450,14 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<boo
 
 			//(F) Otherwise find the future neighbor closest to the destination
 			if (get_manifold(spacetime) & (DE_SITTER | FLRW)) {
-				if ((get_curvature(spacetime) | get_manifold(spacetime)) & (POSITIVE | DE_SITTER))
-					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], stdim, manifold, a, alpha, compact));
+				if ((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & POSITIVE))
+					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
 				else
-					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, size, symmetric, compact, idx_a, idx_b);
+					dist = distanceFLRW(table, nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, size, idx_a, idx_b);
 			} else if (get_manifold(spacetime) & DUST)
-				dist = distanceDust(nodes.crd, nodes.id.tau, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, symmetric, compact, idx_a, idx_b);
+				dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 			else if (get_manifold(spacetime) & HYPERBOLIC)
-				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), stdim, manifold, zeta);
+				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 			else
 				return false;
 
@@ -2653,7 +2657,9 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 
 void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const int &i)
 {
-	float tol = 1.0e-8;
+	#if EMBED_NODES
+	float tol = 1.0e-4;
+	#endif
 	switch (spacetime) {
 	case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < HALF_PI - zeta);
@@ -2666,7 +2672,7 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		break;
 	case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
 		assert (fabs(nodes.crd->x(i)) < HALF_PI - zeta);
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		assert (nodes.id.tau[i] > -tau0 && nodes.id.tau[i] < tau0);
 		#if EMBED_NODES
 		assert (fabs(POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0) < tol);
 		#else
@@ -2707,7 +2713,7 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		#endif
 		break;
 	case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		assert (nodes.id.tau[i] > -tau0 && nodes.id.tau[i] < tau0);
 		#if EMBED_NODES
 		assert (fabs(nodes.crd->v(i)) < HALF_PI - zeta);
 		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0f) < tol);
@@ -2755,8 +2761,8 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		#endif
 		break;
 	case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
-		//Add this
-		goto default;
+		fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+		assert (false);
 		break;
 	case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
 		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
@@ -2783,8 +2789,8 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		#endif
 		break;
 	case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
-		//Add this
-		goto default;
+		fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+		assert (false);
 		break;
 	default:
 		fprintf(stderr, "Spacetime parameters not supported!\n");

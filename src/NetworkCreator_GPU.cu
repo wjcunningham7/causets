@@ -175,7 +175,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 	#endif
 
 	#if EMBED_NODES
-	return false;
+	fprintf(stderr, "linkNodesGPU_v2 not implemented for EMBED_NODES=true.  Find me on line %d in %s.\n", __LINE__, __FILE__);
 	#endif
 
 	Stopwatch sGenAdjList = Stopwatch();

@@ -21,23 +21,23 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	//Make sure the spacetime is fully defined
 	if (!rank) printf_red();
 	if (!get_stdim(spacetime)) {
-		printf_mpi("The spacetime dimension has not been defined!  Use flag '--stdim' to continue.\n");
+		printf_mpi(rank, "The spacetime dimension has not been defined!  Use flag '--stdim' to continue.\n");
 		network_properties->cmpi.fail = 1;
 	}
 	if (!get_manifold(spacetime)) {
-		printf_mpi("The manifold has not been defined!  Use flag '--manifold' to continue.\n");
+		printf_mpi(rank, "The manifold has not been defined!  Use flag '--manifold' to continue.\n");
 		network_properties->cmpi.fail = 1;
 	}
 	if (!get_region(spacetime)) {
-		printf_mpi("The region has not been defined!  Use flag '--region' to continue.\n");
+		printf_mpi(rank, "The region has not been defined!  Use flag '--region' to continue.\n");
 		network_properties->cmpi.fail = 1;
 	}
 	if (!get_curvature(spacetime)) {
-		printf_mpi("The curvature has not been defined!  Use flag '--curvature' to continue.\n");
+		printf_mpi(rank, "The curvature has not been defined!  Use flag '--curvature' to continue.\n");
 		network_properties->cmpi.fail = 1;
 	}
 	if (!get_symmetry(spacetime)) {
-		printf_mpi("The symmetry has not been defined!  Use flag '--symmetry' to continue.\n");
+		printf_mpi(rank, "The symmetry has not been defined!  Use flag '--symmetry' to continue.\n");
 		network_properties->cmpi.fail = 1;
 	}
 	if (!rank) printf_std();
@@ -124,10 +124,10 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
 			if (!network_properties->tau0)
 				throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
-			if ((get_manifold(spacetime) | get_symmetry(spacetime)) & (DE_SITTER | ASYMMETRIC) && !network_properties->r_max)
-				throw CausetException("Flag '--slice', spatial scaling, must be specified!\n");
-			else if (get_manifold(spacetime) & (DUST | FLRW)) {
-				if (!network_properties->alpha)
+			if (get_curvature(spacetime) & FLAT) {
+				if (get_manifold(spacetime) & DE_SITTER && !network_properties->r_max)
+					throw CausetException("Flag '--slice', spatial scaling, must be specified!\n");
+				else if (get_manifold(spacetime) & (DUST | FLRW) && !network_properties->alpha)
 					throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
 			}
 		}
@@ -143,7 +143,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				//will begin at tau = 0
 				//In this case, the '--age' flag reads tau0
 				network_properties->zeta = HALF_PI + 1.0;
-				network_properties->zeta1 = HALF_PI - tauToEtaFlat(network_properties->tau0;
+				network_properties->zeta1 = HALF_PI - tauToEtaFlat(network_properties->tau0);
 
 				#if DEBUG
 				assert (network_properties->zeta > HALF_PI);
@@ -153,7 +153,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				//This is because the '--age' flag has read eta0
 				//into the tau0 variable
 				network_properties->zeta = HALF_PI - network_properties->tau0;
-				network_properties->tau0 = etaToTauCompact(HALF_PI - network_properties->zeta);
+				network_properties->tau0 = etaToTauSph(HALF_PI - network_properties->zeta);
 
 				#if DEBUG
 				assert (network_properties->zeta > 0.0 && network_properties->zeta < HALF_PI);
@@ -193,8 +193,9 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			else
 				network_properties->delta = network_properties->N_tar / (4.0 * M_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
 			break;
-		case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
-			//Add this
+		case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):	
+			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+			assert (false);
 			break;
 		case (2 | HYPERBOLIC | SLAB | FLAT | ASYMMETRIC):
 			//Nothing else needs to be done
@@ -237,14 +238,16 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			break;
 		}
 		case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
-			//Add this
+			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+			assert (false);
 			break;
 		case (4 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
-			//Add this
+			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+			assert (false);
 			break;
 		case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
 			method = 0;
-			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->stdim, network_properties->manifold, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
+			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->spacetime, network_properties->N_tar, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.verbose, network_properties->flags.bench, method))
 				network_properties->cmpi.fail = 1;
 
 			if (checkMpiErrors(network_properties->cmpi))
@@ -254,14 +257,16 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->a = POW(q / network_properties->delta, 0.25, STL);
 			network_properties->alpha *= network_properties->a;
 
-			network_properties->zeta = HALF_PI - tauToEtaDust(network_properties->tau0, network_properties->a, network_properties->alpha);
+			eta0 = tauToEtaDust(network_properties->tau0, network_properties->a, network_properties->alpha);
+			network_properties->zeta = HALF_PI - eta0;
 			break;
 		case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
-			//Add this
+			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+			assert (false);
 			break;
 		case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
 			method = 1;
-			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->stdim, network_properties->manifold, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
+			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->spacetime, network_properties->N_tar, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.verbose, network_properties->flags.bench, method))
 				network_properties->cmpi.fail = 1;
 
 			if (checkMpiErrors(network_properties->cmpi))
@@ -270,23 +275,26 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			q = 9.0 * network_properties->N_tar / (TWO_PI * POW3(network_properties->alpha * network_properties->r_max, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
 			network_properties->a = POW(q / network_properties->delta, 0.25, STL);
 			network_properties->alpha *= network_properties->a;
-			network_properties->zeta = HALF_PI - tauToEtaFLRWExact(network_properties->tau0, network_properties->a, network_properties->alpha);
+			eta0 = tauToEtaFLRWExact(network_properties->tau0, network_properties->a, network_properties->alpha);
+			network_properties->zeta = HALF_PI - eta0;
 			break;
 		case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
 			q = 3.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * POW3(network_properties->alpha, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
 			network_properties->a = POW(q / network_properties->delta, 1.0 / 4.0, STL);
 			network_properties->alpha *= network_properties->a;
-			network_properties->zeta = HALF_PI - tauToEtaFLRWExact(network_properties->tau0, network_properties->a, network_properties->alpha);
+			eta0 = tauToEtaFLRWExact(network_properties->tau0, network_properties->a, network_properties->alpha);
+			network_properties->zeta = HALF_PI - eta0;
 
 			method = 1;
-			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->N_tar, network_properties->stdim, network_properties->manifold, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.compact, network_properties->flags.verbose, network_properties->flags.bench, method))
+			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->spacetime, network_properties->N_tar, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.verbose, network_properties->flags.bench, method))
 				network_properties->cmpi.fail = 1;
 
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
 			break;
 		case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
-			//Add this
+			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+			assert (false);
 			break;
 		default:
 			throw CausetException("Spacetime parameters not supported!\n");
@@ -297,28 +305,30 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			assert (network_properties->k_tar > 0.0);
 			assert (network_properties->a > 0.0);
 			assert (network_properties->delta > 0.0);
-			if (!((get_manifold(spacetime) | get_curvature(spacetime)) & (DE_SITTER | FLAT)))
+			if (!((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & FLAT)))
 				assert (network_properties->zeta < HALF_PI);
 			#endif
 
 			//Display Constraints
 			printf_mpi(rank, "\n");
-			printf_mpi(rank, "\tParameters Constraining the %d+1 %s Causal Set:\n", get_stdim(spacetime) - 1, manifoldNames[log2(get_manifold(spacetime) / ManifoldFirst)]);
+			printf_mpi(rank, "\tParameters Constraining the %d+1 %s Causal Set:\n", get_stdim(spacetime) - 1, manifoldNames[(unsigned int)(log2((float)get_manifold(spacetime) / ManifoldFirst))].c_str());
 			printf_mpi(rank, "\t--------------------------------------------\n");
 			if (!rank) printf_cyan();
-			printf_mpi(rank, "\t > Manifold: %s\n", manifoldNames[log2(get_manifold(spacetime) / ManifoldFirst)]);
-			printf_mpi(rank, "\t > Spacetime Dimension: %d+1\n", get_stdim(spacetime) - 1);
-			printf_mpi(rank, "\t > Region: %s\n", regionNames[log2(get_region(spacetime) / RegionFirst)]);
-			printf_mpi(rank, "\t > Curvature: %s\n", curvatureNames[log2(get_curvature(spacetime) / CurvatureFirst)]);
-			printf_mpi(rank, "\t > Temporal Symmetry: %s\n", symmetryNames[log2(get_symmetry(spacetime) / SymmetryFirst)]);
-			printf_mpi("\n");
+			printf_mpi(rank, "\t > Manifold:\t\t\t%s\n", manifoldNames[(unsigned int)(log2((float)get_manifold(spacetime) / ManifoldFirst))].c_str());
+			printf_mpi(rank, "\t > Spacetime Dimension:\t\t%d+1\n", get_stdim(spacetime) - 1);
+			printf_mpi(rank, "\t > Region:\t\t\t%s\n", regionNames[(unsigned int)(log2((float)get_region(spacetime) / RegionFirst))].c_str());
+			printf_mpi(rank, "\t > Curvature:\t\t\t%s\n", curvatureNames[(unsigned int)(log2((float)get_curvature(spacetime) / CurvatureFirst))].c_str());
+			printf_mpi(rank, "\t > Temporal Symmetry:\t\t%s\n", symmetryNames[(unsigned int)(log2((float)get_symmetry(spacetime) / SymmetryFirst))].c_str());
+			if (!rank) printf_std();
+			printf_mpi(rank, "\t--------------------------------------------\n");
+			if (!rank) printf_cyan();
 			printf_mpi(rank, "\t > Number of Nodes:\t\t%d\n", network_properties->N_tar);
 			printf_mpi(rank, "\t > Node Density:\t\t%.6f\n", network_properties->delta);
 			printf_mpi(rank, "\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
 			if (get_symmetry(spacetime) & SYMMETRIC) {
 				printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", -eta0);
 				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
-			} else if ((get_manifold(spacetime) | get_curvature(spacetime)) & (DE_SITTER | FLAT)) {
+			} else if ((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & FLAT)) {
 				printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", eta0);
 				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta1);
 			} else {
@@ -330,22 +340,22 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				printf_mpi(rank, "\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
 			if (get_manifold(spacetime) & (DUST | FLRW))
 				printf_mpi(rank, "\t > Spatial Scaling:\t\t%.6f\n", network_properties->alpha);
-			else if (get_curvature(spacetime) & FLAT)
+			if (get_curvature(spacetime) & FLAT)
 				printf_mpi(rank, "\t > Spatial Cutoff:\t\t%.6f\n", network_properties->r_max);
 			printf_mpi(rank, "\t > Temporal Scaling:\t\t%.6f\n", network_properties->a);
 			printf_mpi(rank, "\t > Ransom Seed:\t\t\t%Ld\n", network_properties->seed);
-			if (!rank) printf_std();
+			if (!rank) { printf_std(); printf("\n"); }
 			fflush(stdout);
 
 			//Miscellaneous Tasks
 			if (get_manifold(spacetime) & DE_SITTER) {
-				if (!network_properties->cmpi.rank && network_properties->flags.gen_ds_table && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 5.0, -5.0, 5.0, 0.01, 0.01, network_properties->manifold, network_properties->flags.verbose))
+				if (!network_properties->cmpi.rank && network_properties->flags.gen_ds_table && !generateGeodesicLookupTable("geodesics_ds_table.cset.bin", 5.0, -5.0, 5.0, 0.01, 0.01, network_properties->spacetime, network_properties->flags.verbose))
 					network_properties->cmpi.fail = 1;
 
 				if (checkMpiErrors(network_properties->cmpi))
 					return false;
 			} else if (get_manifold(spacetime) & FLRW) {
-				if (!network_properties->cmpi.rank && network_properties->flags.gen_flrw_table && !generateGeodesicLookupTable("geodesics_flrw_table.cset.bin", 2.0, -5.0, 5.0, 0.01, 0.01, network_properties->manifold, network_properties->flags.verbose))
+				if (!network_properties->cmpi.rank && network_properties->flags.gen_flrw_table && !generateGeodesicLookupTable("geodesics_flrw_table.cset.bin", 2.0, -5.0, 5.0, 0.01, 0.01, network_properties->spacetime, network_properties->flags.verbose))
 					network_properties->cmpi.fail = 1;
 
 				if (checkMpiErrors(network_properties->cmpi))
@@ -684,7 +694,8 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 			mem += sizeof(int) * mthread_size * nbuf << 1;		//For k_in and k_out buffers (host)
 			mem += sizeof(bool) * m_edges_size * nbuf;		//For adjacency matrix buffers (host)
 			#if EMBED_NODES
-			return false;
+			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+			assert (false);
 			#else
 			dmem1 += sizeof(float) * mthread_size * 4 * nbuf << 1;	//For 4-D coordinate buffers
 			#endif
@@ -902,7 +913,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		assert (nodes.crd->x() != NULL);
 		assert (nodes.crd->y() != NULL);
 		assert (nodes.crd->z() != NULL);
-		assert (stdim == 4);
+		assert (get_stdim(spacetime) == 4);
 		assert (zeta < HALF_PI);
 	} else if (get_manifold(spacetime) & DE_SITTER) {
 		if (get_curvature(spacetime) & POSITIVE) {
@@ -945,53 +956,57 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 		double eta;
+		#if EMBED_NODES
 		float4 emb4;
 		float2 emb2;
+		#endif
 		switch (spacetime) {
 		case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
-			nodes.crd->x(i) = get_2d_asym_sph_deSitter_slab_eta(mrng.rng, zeta);
-			nodes.id.tau[i] = tauToEtaSph(nodes.crd-x(i));
+			nodes.crd->x(i) = get_2d_asym_sph_deSitter_slab_eta(urng, zeta);
+			nodes.id.tau[i] = tauToEtaSph(nodes.crd->x(i));
 			#if EMBED_NODES
-			emb2 = get_2d_asym_sph_deSitter_slab_emb(mrng.rng);
-			nodes.crd->y(i) = emb.x;
-			nodes.crd->z(i) = emb.y;
+			emb2 = get_2d_asym_sph_deSitter_slab_emb(urng);
+			nodes.crd->y(i) = emb2.x;
+			nodes.crd->z(i) = emb2.y;
 			#else
-			nodes.crd->y(i) = get_2d_asym_sph_deSitter_slab_theta(mrng.rng);
+			nodes.crd->y(i) = get_2d_asym_sph_deSitter_slab_theta(urng);
 			#endif
 			break;
 		case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
-			nodes.crd->x(i) = get_2d_sym_sph_deSitter_slab_eta(mrng.rng, zeta);
+			nodes.crd->x(i) = get_2d_sym_sph_deSitter_slab_eta(urng, zeta);
 			nodes.id.tau[i] = tauToEtaSph(nodes.crd->x(i));
 			#if EMBED_NODES
-			emb2 = get_2d_sym_sph_deSitter_slab_emb(mrng.rng);
-			nodes.crd->y(i) = emb.x;
-			nodes.crd->z(i) = emb.y;
+			emb2 = get_2d_sym_sph_deSitter_slab_emb(urng);
+			nodes.crd->y(i) = emb2.x;
+			nodes.crd->z(i) = emb2.y;
 			#else
-			nodes.crd->y(i) = get_2d_sym_sph_deSitter_slab_theta(mrng.rng);
+			nodes.crd->y(i) = get_2d_sym_sph_deSitter_slab_theta(urng);
 			#endif
 			break;
 		case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
-			nodes.crd->x(i) = get_2d_asym_sph_deSitter_diamond_eta(mrng.rng);
+			nodes.crd->x(i) = get_2d_asym_sph_deSitter_diamond_eta(urng);
 			nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
 			#if EMBED_NODES
 			emb2 = get_2d_asym_sph_deSitter_diamond_emb(mrng.rng, nodes.crd->x(i));
-			nodes.crd->y(i) = emb.x;
-			nodes.crd->z(i) = emb.y;
+			nodes.crd->y(i) = emb2.x;
+			nodes.crd->z(i) = emb2.y;
 			#else
-			nodes.crd->y(i) = get_2d_asym_sph_deSitter_diamond_theta(mrng.rng, nodes.crd->x(i));
+			nodes.crd->y(i) = get_2d_asym_sph_deSitter_diamond_theta(urng, nodes.crd->x(i));
 			#endif
 			break;
 		case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
 			#if EMBED_NODES
-			nodes.crd->v(i) = get_4d_asym_flat_deSitter_slab_eta(mrng.rng, zeta, zeta1);
+			nodes.crd->v(i) = get_4d_asym_flat_deSitter_slab_eta(urng, zeta, zeta1);
 			nodes.id.tau[i] = etaToTauFlat(nodes.crd->v(i));
-			emb4 = get_4d_asym_flat_deSitter_slab_cartesian(mrng.rng, nrng, r_max);
-			nodes.crd->w(i) = emb.w;
-			nodes.crd->x(i) = emb.x;
-			nodes.crd->y(i) = emb.y;
-			nodes.crd->z(i) = emb.z;
+			emb4 = get_4d_asym_flat_deSitter_slab_cartesian(urng, nrng, r_max);
+			nodes.crd->w(i) = emb4.w;
+			nodes.crd->x(i) = emb4.x;
+			nodes.crd->y(i) = emb4.y;
+			nodes.crd->z(i) = emb4.z;
 			#else
-			nodes.crd->w(i) = get_4d_asym_flat_deSitter_slab_eta(mrng.rng, zeta, zeta1);
+			nodes.crd->w(i) = get_4d_asym_flat_deSitter_slab_eta(urng, zeta, zeta1);
+			printf("eta: %f\n", nodes.crd->w(i));
+			printChk();
 			nodes.id.tau[i] = etaToTauFlat(nodes.crd->w(i));
 			nodes.crd->x(i) = get_4d_asym_flat_deSitter_slab_radius(mrng.rng, r_max);
 			nodes.crd->y(i) = get_4d_asym_flat_deSitter_slab_theta2(mrng.rng);
@@ -1000,95 +1015,95 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			break;
 		case (4 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 			#if EMBED_NODES
-			nodes.crd->v(i) = get_4d_asym_sph_deSitter_slab_eta(mrng.rng, zeta);
+			nodes.crd->v(i) = get_4d_asym_sph_deSitter_slab_eta(urng, zeta);
 			nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
 			emb4 = get_4d_asym_sph_deSitter_slab_emb(nrng);
-			nodes.crd->w(i) = emb.w;
-			nodes.crd->x(i) = emb.x;
-			nodes.crd->y(i) = emb.y;
-			nodes.crd->z(i) = emb.z;
+			nodes.crd->w(i) = emb4.w;
+			nodes.crd->x(i) = emb4.x;
+			nodes.crd->y(i) = emb4.y;
+			nodes.crd->z(i) = emb4.z;
 			#else
-			nodes.crd->w(i) = get_4d_asym_sph_deSitter_slab_eta(mrng.rng, zeta);
+			nodes.crd->w(i) = get_4d_asym_sph_deSitter_slab_eta(urng, zeta);
 			nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
-			nodes.crd->x(i) = get_4d_asym_sph_deSitter_slab_theta1(mrng.rng);
-			nodes.crd->y(i) = get_4d_asym_sph_deSitter_slab_theta2(mrng.rng);
-			nodes.crd->z(i) = get_4d_asym_sph_deSitter_slab_theta3(mrng.rng);
+			nodes.crd->x(i) = get_4d_asym_sph_deSitter_slab_theta1(urng);
+			nodes.crd->y(i) = get_4d_asym_sph_deSitter_slab_theta2(urng);
+			nodes.crd->z(i) = get_4d_asym_sph_deSitter_slab_theta3(urng);
 			#endif
 			break;
 		case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
 			#if EMBED_NODES
-			nodes.crd->v(i) = get_4d_sym_sph_deSitter_slab_eta(mrng.rng, zeta);
+			nodes.crd->v(i) = get_4d_sym_sph_deSitter_slab_eta(urng, zeta);
 			nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
 			emb4 = get_4d_sym_sph_deSitter_slab_emb(nrng);
-			nodes.crd->w(i) = emb.w;
-			nodes.crd->x(i) = emb.x;
-			nodes.crd->y(i) = emb.y;
-			nodes.crd->z(i) = emb.z;
+			nodes.crd->w(i) = emb4.w;
+			nodes.crd->x(i) = emb4.x;
+			nodes.crd->y(i) = emb4.y;
+			nodes.crd->z(i) = emb4.z;
 			#else
-			nodes.crd->w(i) = get_4d_sym_sph_deSitter_slab_eta(mrng.rng, zeta);
+			nodes.crd->w(i) = get_4d_sym_sph_deSitter_slab_eta(urng, zeta);
 			nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
-			nodes.crd->x(i) = get_4d_sym_sph_deSitter_slab_theta1(mrng.rng);
-			nodes.crd->y(i) = get_4d_sym_sph_deSitter_slab_theta2(mrng.rng);
-			nodes.crd->z(i) = get_4d_sym_sph_deSitter_slab_theta3(mrng.rng);
+			nodes.crd->x(i) = get_4d_sym_sph_deSitter_slab_theta1(urng);
+			nodes.crd->y(i) = get_4d_sym_sph_deSitter_slab_theta2(urng);
+			nodes.crd->z(i) = get_4d_sym_sph_deSitter_slab_theta3(urng);
 			#endif
 			break;
 		case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 			#if EMBED_NODES
-			nodes.crd->v(i) = get_4d_asym_flat_deSitter_diamond_eta(mrng.rng);
+			nodes.crd->v(i) = get_4d_asym_flat_deSitter_diamond_eta(urng);
 			nodes.id.tau[i] = etaToTauFlat(nodes.crd->v(i));
-			emb4 = get_4d_asym_flat_deSitter_diamond_cartesian(mrng.rng, nrng);
-			nodes.crd->w(i) = emb.w;
-			nodes.crd->x(i) = emb.x;
-			nodes.crd->y(i) = emb.y;
-			nodes.crd->z(i) = emb.z;
+			emb4 = get_4d_asym_flat_deSitter_diamond_cartesian(urng, nrng);
+			nodes.crd->w(i) = emb4.w;
+			nodes.crd->x(i) = emb4.x;
+			nodes.crd->y(i) = emb4.y;
+			nodes.crd->z(i) = emb4.z;
 			#else
-			nodes.crd->w(i) = get_4d_asym_flat_deSitter_diamond_eta(mrng.rng);
+			nodes.crd->w(i) = get_4d_asym_flat_deSitter_diamond_eta(urng);
 			nodes.id.tau[i] = etaToTauFlat(nodes.crd->w(i));
-			nodes.crd->x(i) = get_4d_asym_flat_deSitter_diamond_radius(mrng.rng);
-			nodes.crd->y(i) = get_4d_asym_flat_deSitter_diamond_theta2(mrng.rng);
-			nodes.crd->z(i) = get_4d_asym_flat_deSitter_diamond_theta3(mrng.rng);
+			nodes.crd->x(i) = get_4d_asym_flat_deSitter_diamond_radius(urng);
+			nodes.crd->y(i) = get_4d_asym_flat_deSitter_diamond_theta2(urng);
+			nodes.crd->z(i) = get_4d_asym_flat_deSitter_diamond_theta3(urng);
 			#endif
 			break;
 		case (4 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
 			#if EMBED_NODES
-			nodes.crd-v(i) = get_4d_asym_sph_deSitter_diamond_eta(mrng.rng);
+			nodes.crd->v(i) = get_4d_asym_sph_deSitter_diamond_eta(urng);
 			nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
-			emb4 = get_4d_asym_sph_deSitter_diamond_emb(mrng.rng, nrng);
-			nodes.crd->w(i) = emb.w;
-			nodes.crd->x(i) = emb.x;
-			nodes.crd->y(i) = emb.y;
-			nodes.crd->z(i) = emb.z;
+			emb4 = get_4d_asym_sph_deSitter_diamond_emb(urng, nrng);
+			nodes.crd->w(i) = emb4.w;
+			nodes.crd->x(i) = emb4.x;
+			nodes.crd->y(i) = emb4.y;
+			nodes.crd->z(i) = emb4.z;
 			#else
-			nodes.crd->w(i) = get_4d_asym_sph_deSitter_diamond_eta(mrng.rng);
+			nodes.crd->w(i) = get_4d_asym_sph_deSitter_diamond_eta(urng);
 			nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
-			nodes.crd->x(i) = get_4d_asym_sph_deSitter_diamond_theta1(mrng.rng);
-			nodes.crd->y(i) = get_4d_asym_sph_deSitter_diamond_theta2(mrng.rng);
-			nodes.crd->z(i) = get_4d_asym_sph_deSitter_diamond_theta3(mrng.rng);
+			nodes.crd->x(i) = get_4d_asym_sph_deSitter_diamond_theta1(urng);
+			nodes.crd->y(i) = get_4d_asym_sph_deSitter_diamond_theta2(urng);
+			nodes.crd->z(i) = get_4d_asym_sph_deSitter_diamond_theta3(urng);
 			#endif
 			break;
 		case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
 			#if EMBED_NODES
-			nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(mrng.rng, tau0);
-			nodes.crd->v(i) = tauToEtaDust(nodes.id.tau[i]);
-			emb4 = get_4d_asym_flat_dust_slab_cartesian(mrng.rng, nrng, r_max);
-			nodes.crd->w(i) = emb.w;
-			nodes.crd->x(i) = emb.x;
-			nodes.crd->y(i) = emb.y;
-			nodes.crd->z(i) = emb.z;
+			nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(urng, tau0);
+			nodes.crd->v(i) = tauToEtaDust(nodes.id.tau[i], a, alpha);
+			emb4 = get_4d_asym_flat_dust_slab_cartesian(urng, nrng, r_max);
+			nodes.crd->w(i) = emb4.w;
+			nodes.crd->x(i) = emb4.x;
+			nodes.crd->y(i) = emb4.y;
+			nodes.crd->z(i) = emb4.z;
 			#else
-			nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(mrng.rng, tau0);
-			nodes.crd->w(i) = tauToEtaDust(nodes.id.tau[i]);
-			nodes.crd->x(i) = get_4d_asym_flat_dust_slab_radius(mrng.rng, r_max);
-			nodes.crd->y(i) = get_4d_asym_flat_dust_slab_theta2(mrng.rng);
-			nodes.crd->z(i) = get_4d_asym_flat_dust_slab_theta3(mrng.rng);
+			nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(urng, tau0);
+			nodes.crd->w(i) = tauToEtaDust(nodes.id.tau[i], a, alpha);
+			nodes.crd->x(i) = get_4d_asym_flat_dust_slab_radius(urng, r_max);
+			nodes.crd->y(i) = get_4d_asym_flat_dust_slab_theta2(urng);
+			nodes.crd->z(i) = get_4d_asym_flat_dust_slab_theta3(urng);
 			#endif
 			break;
 		case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
-			//Add this
-			goto default;
+			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+			assert (false);
 			break;
 		case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
-			nodes.id.tau[i] = get_4d_asym_flat_flrw_slab_tau(mrng.rng, tau0);
+			nodes.id.tau[i] = get_4d_asym_flat_flrw_slab_tau(urng, tau0);
 			if (USE_GSL) {
 				idata.upper = nodes.id.tau[i];
 				eta = integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * a / alpha;
@@ -1096,20 +1111,20 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 				eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
 			#if EMBED_NODES
 			nodes.crd->v(i) = eta;
-			emb4 = get_4d_asym_flat_flrw_slab_cartesian(mrng.rng, nrng, r_max);
-			nodes.crd->w(i) = emb.w;
-			nodes.crd->x(i) = emb.x;
-			nodes.crd->y(i) = emb.y;
-			nodes.crd->z(i) = emb.z;
+			emb4 = get_4d_asym_flat_flrw_slab_cartesian(urng, nrng, r_max);
+			nodes.crd->w(i) = emb4.w;
+			nodes.crd->x(i) = emb4.x;
+			nodes.crd->y(i) = emb4.y;
+			nodes.crd->z(i) = emb4.z;
 			#else
 			nodes.crd->w(i) = eta;
-			nodes.crd->x(i) = get_4d_asym_flat_flrw_slab_radius(mrng.rng, r_max);
-			nodes.crd->y(i) = get_4d_asym_flat_flrw_slab_theta2(mrng.rng);
-			nodes.crd->z(i) = get_4d_asym_flat_flrw_slab_theta3(mrng.rng);
+			nodes.crd->x(i) = get_4d_asym_flat_flrw_slab_radius(urng, r_max);
+			nodes.crd->y(i) = get_4d_asym_flat_flrw_slab_theta2(urng);
+			nodes.crd->z(i) = get_4d_asym_flat_flrw_slab_theta3(urng);
 			#endif
 			break;
 		case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
-			nodes.id.tau[i] = get_4d_asym_sph_flrw_slab_tau(mrng.rng, tau0);
+			nodes.id.tau[i] = get_4d_asym_sph_flrw_slab_tau(urng, tau0);
 			if (USE_GSL) {
 				idata.upper = nodes.id.tau[i];
 				eta = integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * a / alpha;
@@ -1118,20 +1133,20 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			#if EMBED_NODES
 			nodes.crd->v(i) = eta;
 			emb4 = get_4d_asym_sph_flrw_slab_cartesian(nrng);
-			nodes.crd->w(i) = emb.w;
-			nodes.crd->x(i) = emb.x;
-			nodes.crd->y(i) = emb.y;
-			nodes.crd->z(i) = emb.z;
+			nodes.crd->w(i) = emb4.w;
+			nodes.crd->x(i) = emb4.x;
+			nodes.crd->y(i) = emb4.y;
+			nodes.crd->z(i) = emb4.z;
 			#else
 			nodes.crd->w(i) = eta;
-			nodes.crd->x(i) = get_4d_asym_sph_flrw_slab_theta1(mrng.rng);
-			nodes.crd->y(i) = get_4d_asym_sph_flrw_slab_theta2(mrng.rng);
-			nodes.crd->z(i) = get_4d_asym_sph_flrw_slab_theta3(mrng.rng);
+			nodes.crd->x(i) = get_4d_asym_sph_flrw_slab_theta1(urng);
+			nodes.crd->y(i) = get_4d_asym_sph_flrw_slab_theta2(urng);
+			nodes.crd->z(i) = get_4d_asym_sph_flrw_slab_theta3(urng);
 			#endif
 			break;
 		case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
-			//Add this
-			goto default;
+			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+			assert (false);
 			break;
 		default:
 			throw CausetException("Spacetime parameters not supported!\n");

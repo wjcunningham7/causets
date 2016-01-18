@@ -68,8 +68,8 @@ CUDA_LIBS	 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PAT
 # Compiler Flags #
 ##################
 
-CXXFLAGS	:= -O3 -g -Wall -x c++
-NVCCFLAGS 	:= -O3 -G -g -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED #--use-fast-math #--keep --keep-dir $(ASMDIR)
+CXXFLAGS	:= -O3 -g -Wall -x c++ -fmax-errors=5
+NVCCFLAGS 	:= -O3 -G -g -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED --compiler-options -fmax-errors=5 #--use-fast-math #--keep --keep-dir $(ASMDIR)
 ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
 NVCCFLAGS += -arch=sm_35
 else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
@@ -85,7 +85,7 @@ MPIFLAGS2	:=
 # OpenMP or MPI Acceleration #
 ##############################
 
-USE_OMP		:= 1
+USE_OMP		:= 0
 USE_MPI		:= 0
 
 ifneq ($(USE_OMP), 0)

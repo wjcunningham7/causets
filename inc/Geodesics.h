@@ -1272,7 +1272,7 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	double distance;
 	if (!timelike && upper_branch) {
 		idata.lower = tau[past_idx];
-		idata.upper = geodesicMaxTau(manifold, lambda);
+		idata.upper = geodesicMaxTau(get_manifold(spacetime), lambda);
 		distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
 		//assert (distance == distance);
 		if (distance != distance) {
@@ -1465,7 +1465,7 @@ inline double distanceDust(Coordinates *c, const float * const tau, const unsign
 	double distance;
 	if (upper_branch) {
 		idata.lower = tau[past_idx];
-		idata.upper = geodesicMaxTau(manifold, lambda);
+		idata.upper = geodesicMaxTau(get_manifold(spacetime), lambda);
 		distance = integrate1D(&dustDistKernel, (void*)&lambda, &idata, QAGS);
 		//assert (distance == distance);
 		if (distance != distance) {
@@ -1795,7 +1795,7 @@ inline double distance_v1(const double * const table, const float4 &node_a, cons
 		fflush(stdout);
 	}
 
-	tau_max = geodesicMaxTau(manifold, lambda);
+	tau_max = geodesicMaxTau(get_manifold(spacetime), lambda);
 
 	if (lambda == 0.0)
 		distance = INF;
@@ -1863,7 +1863,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		z0_a = integrate1D(&embeddedZ1, (void*)&alpha_tilde, &idata, QNG);
 		idata.upper = z1_b;
 		z1_b = integrate1D(&embeddedZ1, (void*)&alpha_tilde, &idata, QNG);
-	} else if ((get_manifold(spacetime) | get_curvature(spacetime)) & (DE_SITTER | POSITIVE)) {
+	} else if ((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & POSITIVE)) {
 		z0_a = SINH(tau_a, APPROX ? FAST : STL);
 		z0_b = SINH(tau_b, APPROX ? FAST : STL);
 
@@ -1871,7 +1871,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 		z1_b = COSH(tau_b, APPROX ? FAST : STL);
 	}
 
-	if ((get_manifold(spacetime) | get_curvature(spacetime)) & (DE_SITTER | FLAT)) {
+	if ((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & FLAT)) {
 		inner_product_ab = POW2(node_a.w, EXACT) + POW2(node_b.w, EXACT);
 		#if DIST_V2
 		inner_product_ab -= flatProduct_v2(node_a, node_b);
