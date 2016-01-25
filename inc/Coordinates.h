@@ -22,7 +22,19 @@
 //on a hypersphere in the range [0, pi)
 inline float get_hyperzenith_angle(UGenerator &rng)
 {
-	return (M_PI * rng() + acos(rng())) / 2.0;
+	double theta;
+	double x = HALF_PI;
+	double r = rng();
+	if (!newton(&solveTheta1, &x, 1000, TOL, &r, NULL, NULL))
+		theta = NAN;
+	else
+		theta = x;
+
+	#if DEBUG
+	assert (theta == theta);
+	#endif
+
+	return theta;
 }
 
 //Returns a zenith angle

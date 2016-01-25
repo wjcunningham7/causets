@@ -55,15 +55,17 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 			dt[k] = n1.w - n0.w;
 
 			if (compact) {
-				if (DIST_V2)
-					dx[k] = acosf(sphProduct_GPU_v2(n0, n1));
-				else
-					dx[k] = acosf(sphProduct_GPU_v1(n0, n1));
+				#if DIST_V2
+				dx[k] = acosf(sphProduct_GPU_v2(n0, n1));
+				#else
+				dx[k] = acosf(sphProduct_GPU_v1(n0, n1));
+				#endif
 			} else {
-				if (DIST_V2)
-					dx[k] = sqrtf(flatProduct_GPU_v2(n0, n1));
-				else
-					dx[k] = sqrtf(flatProduct_GPU_v1(n0, n1));
+				#if DIST_V2
+				dx[k] = sqrtf(flatProduct_GPU_v2(n0, n1));
+				#else
+				dx[k] = sqrtf(flatProduct_GPU_v1(n0, n1));
+				#endif
 			}
 		}
 	}
@@ -154,7 +156,12 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
+	#if EMBED_NODES
+	assert (nodes.crd->getDim() == 5);
+	assert (nodes.crd->v() != NULL);
+	#else
 	assert (nodes.crd->getDim() == 4);
+	#endif
 	assert (!nodes.crd->isNull());
 	assert (nodes.crd->w() != NULL);
 	assert (nodes.crd->x() != NULL);
@@ -176,6 +183,8 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 
 	#if EMBED_NODES
 	fprintf(stderr, "linkNodesGPU_v2 not implemented for EMBED_NODES=true.  Find me on line %d in %s.\n", __LINE__, __FILE__);
+	if (!!N_tar)
+		return false;
 	#endif
 
 	Stopwatch sGenAdjList = Stopwatch();

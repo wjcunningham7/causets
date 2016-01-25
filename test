@@ -46,7 +46,7 @@
 # These are experimental parameters #
 #####################################
 
-./bin/CausalSet --stdim 4 --manifold desitter --region slab --curvature flat --symmetry asymmetric --nodes 32768 --age 0.7 --slice 3 --link --gpu
+./bin/CausalSet --stdim 4 --manifold flrw --region slab --curvature flat --symmetry asymmetric --nodes 16384 --age 0.5 --alpha 3 --print
 
 # Study Dust Manifold
 #./bin/CausalSet --nodes 26624 --age 0.2154 --alpha 2.9941 --manifold d --link --gpu

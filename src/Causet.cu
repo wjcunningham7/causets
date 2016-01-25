@@ -1315,8 +1315,8 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			sstm << "Dev" << gpuID << "_";
 		else
 			sstm << "CPU_";
-		sstm << "ST" << network.network_properties.spacetime << "_";
-		sstm << "V" << VERSION << "_";
+		sstm << "ST-" << network.network_properties.spacetime << "_";
+		sstm << "VER-" << VERSION << "_";
 		sstm << network.network_properties.seed;
 		std::string filename = sstm.str();
 
@@ -1778,6 +1778,12 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		}
 
 		if (get_stdim(spacetime) == 4) {
+			#if EMBED_NODES
+			free(network->nodes.crd->v());
+			network->nodes.crd->v() = NULL;
+			hostMemUsed -= sizeof(float) * network->network_properties.N_tar;
+			#endif
+
 			free(network->nodes.crd->w());
 			network->nodes.crd->w() = NULL;
 
@@ -1797,6 +1803,12 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 
 			free(network->nodes.crd->y());
 			network->nodes.crd->y() = NULL;
+
+			#if EMBED_NODES
+			free(network->nodes.crd->z());
+			network->nodes.crd->z() = NULL;
+			hostMemUsed -= sizeof(float) * network->network_properties.N_tar;
+			#endif
 
 			hostMemUsed -= sizeof(float) * network->network_properties.N_tar * 2;
 		}

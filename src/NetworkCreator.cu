@@ -319,6 +319,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			printf_mpi(rank, "\t > Region:\t\t\t%s\n", regionNames[(unsigned int)(log2((float)get_region(spacetime) / RegionFirst))].c_str());
 			printf_mpi(rank, "\t > Curvature:\t\t\t%s\n", curvatureNames[(unsigned int)(log2((float)get_curvature(spacetime) / CurvatureFirst))].c_str());
 			printf_mpi(rank, "\t > Temporal Symmetry:\t\t%s\n", symmetryNames[(unsigned int)(log2((float)get_symmetry(spacetime) / SymmetryFirst))].c_str());
+			printf_mpi(rank, "\t > Spacetime ID:\t\t%u\n", network_properties->spacetime);
 			if (!rank) printf_std();
 			printf_mpi(rank, "\t--------------------------------------------\n");
 			if (!rank) printf_cyan();
@@ -493,6 +494,7 @@ bool solveExpAvgDegree(float &k_tar, const unsigned int &spacetime, const int &N
 				kappa = integrate2D(&rescaledDegreeDust, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
 				kappa *= 108 * M_PI / POW3(tau0, EXACT);
 				k_tar = (N_tar * kappa) / (M_PI * POW3(alpha * r_max * tau0, EXACT));
+				break;
 			case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
 				kappa = integrate2D(&rescaledDegreeFLRW_NC, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
 				kappa *= 8.0 * M_PI;
@@ -778,7 +780,7 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 				memset(nodes.crd->y(), 0, sizeof(float) * N_tar);
 				memset(nodes.crd->z(), 0, sizeof(float) * N_tar);
 
-				ca->hostMemUsed += sizeof(float) * 3;
+				ca->hostMemUsed += sizeof(float) * N_tar * 3;
 			}
 			#else
 			if (get_stdim(spacetime) == 4) {
@@ -908,7 +910,12 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	assert (a >= 0.0);
 	assert (tau0 > 0.0);
 	if (get_manifold(spacetime) & (DUST | FLRW)) {
+		#if EMBED_NODES
+		assert (nodes.crd->getDim() == 5);
+		assert (nodes.crd->v() != NULL);
+		#else
 		assert (nodes.crd->getDim() == 4);
+		#endif
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->x() != NULL);
 		assert (nodes.crd->y() != NULL);
@@ -941,7 +948,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	UGenerator urng(eng, udist);
 	NDistribution ndist(0.0, 1.0);
 	NGenerator nrng(eng, ndist);
-	#pragma omp for schedule (dynamic, 1)
+	#pragma omp for schedule (dynamic, 8)
 	#else
 	UGenerator &urng = mrng.rng;
 	NDistribution ndist(0.0, 1.0);
@@ -963,7 +970,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		switch (spacetime) {
 		case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 			nodes.crd->x(i) = get_2d_asym_sph_deSitter_slab_eta(urng, zeta);
-			nodes.id.tau[i] = tauToEtaSph(nodes.crd->x(i));
+			nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
 			#if EMBED_NODES
 			emb2 = get_2d_asym_sph_deSitter_slab_emb(urng);
 			nodes.crd->y(i) = emb2.x;
@@ -974,7 +981,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			break;
 		case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
 			nodes.crd->x(i) = get_2d_sym_sph_deSitter_slab_eta(urng, zeta);
-			nodes.id.tau[i] = tauToEtaSph(nodes.crd->x(i));
+			nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
 			#if EMBED_NODES
 			emb2 = get_2d_sym_sph_deSitter_slab_emb(urng);
 			nodes.crd->y(i) = emb2.x;
@@ -996,17 +1003,14 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			break;
 		case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
 			#if EMBED_NODES
-			nodes.crd->v(i) = get_4d_asym_flat_deSitter_slab_eta(urng, zeta, zeta1);
+			nodes.crd->v(i) = get_4d_asym_flat_deSitter_slab_eta(urng, HALF_PI - zeta, HALF_PI - zeta1);
 			nodes.id.tau[i] = etaToTauFlat(nodes.crd->v(i));
 			emb4 = get_4d_asym_flat_deSitter_slab_cartesian(urng, nrng, r_max);
-			nodes.crd->w(i) = emb4.w;
 			nodes.crd->x(i) = emb4.x;
 			nodes.crd->y(i) = emb4.y;
 			nodes.crd->z(i) = emb4.z;
 			#else
-			nodes.crd->w(i) = get_4d_asym_flat_deSitter_slab_eta(urng, zeta, zeta1);
-			printf("eta: %f\n", nodes.crd->w(i));
-			printChk();
+			nodes.crd->w(i) = get_4d_asym_flat_deSitter_slab_eta(urng, HALF_PI - zeta, HALF_PI - zeta1);
 			nodes.id.tau[i] = etaToTauFlat(nodes.crd->w(i));
 			nodes.crd->x(i) = get_4d_asym_flat_deSitter_slab_radius(mrng.rng, r_max);
 			nodes.crd->y(i) = get_4d_asym_flat_deSitter_slab_theta2(mrng.rng);
@@ -1052,7 +1056,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			nodes.crd->v(i) = get_4d_asym_flat_deSitter_diamond_eta(urng);
 			nodes.id.tau[i] = etaToTauFlat(nodes.crd->v(i));
 			emb4 = get_4d_asym_flat_deSitter_diamond_cartesian(urng, nrng);
-			nodes.crd->w(i) = emb4.w;
+			//nodes.crd->w(i) = emb4.w;
 			nodes.crd->x(i) = emb4.x;
 			nodes.crd->y(i) = emb4.y;
 			nodes.crd->z(i) = emb4.z;
@@ -1086,7 +1090,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(urng, tau0);
 			nodes.crd->v(i) = tauToEtaDust(nodes.id.tau[i], a, alpha);
 			emb4 = get_4d_asym_flat_dust_slab_cartesian(urng, nrng, r_max);
-			nodes.crd->w(i) = emb4.w;
+			//nodes.crd->w(i) = emb4.w;
 			nodes.crd->x(i) = emb4.x;
 			nodes.crd->y(i) = emb4.y;
 			nodes.crd->z(i) = emb4.z;
@@ -1112,7 +1116,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			#if EMBED_NODES
 			nodes.crd->v(i) = eta;
 			emb4 = get_4d_asym_flat_flrw_slab_cartesian(urng, nrng, r_max);
-			nodes.crd->w(i) = emb4.w;
+			//nodes.crd->w(i) = emb4.w;
 			nodes.crd->x(i) = emb4.x;
 			nodes.crd->y(i) = emb4.y;
 			nodes.crd->z(i) = emb4.z;
@@ -1164,11 +1168,11 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	#endif
 
 	//Debugging statements used to check coordinate distributions
-	/*if (!printValues(nodes, N_tar, "tau_dist.cset.dbg.dat", "tau")) return false;
-	if (!printValues(nodes, N_tar, "eta_dist.cset.dbg.dat", "eta")) return false;
-	if (!printValues(nodes, N_tar, "theta1_dist.cset.dbg.dat", "theta1")) return false;
-	if (!printValues(nodes, N_tar, "theta2_dist.cset.dbg.dat", "theta2")) return false;
-	if (!printValues(nodes, N_tar, "theta3_dist.cset.dbg.dat", "theta3")) return false;
+	/*if (!printValues(nodes, spacetime, N_tar, "tau_dist.cset.dbg.dat", "tau")) return false;
+	if (!printValues(nodes, spacetime, N_tar, "eta_dist.cset.dbg.dat", "eta")) return false;
+	if (!printValues(nodes, spacetime, N_tar, "theta1_dist.cset.dbg.dat", "theta1")) return false;
+	if (!printValues(nodes, spacetime, N_tar, "theta2_dist.cset.dbg.dat", "theta2")) return false;
+	if (!printValues(nodes, spacetime, N_tar, "theta3_dist.cset.dbg.dat", "theta3")) return false;
 	printf_red();
 	printf("Check coordinate distributions now.\n");
 	printf_std();
@@ -1222,7 +1226,12 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 			assert (zeta > zeta1);
 		}
 	} else if (get_manifold(spacetime) & (DUST | FLRW)) {
+		#if EMBED_NODES
+		assert (nodes.crd->getDim() == 5);
+		assert (nodes.crd->v() != NULL);
+		#else
 		assert (nodes.crd->getDim() == 4);
+		#endif
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->x() != NULL);
 		assert (nodes.crd->y() != NULL);

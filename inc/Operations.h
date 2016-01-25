@@ -188,6 +188,12 @@ inline float sphProduct_v2(const float4 &sc0, const float4 &sc1)
 	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z));
 }
 
+//Embedded form
+inline float sphEmbProduct(const float5 &sc0, const float5 &sc1)
+{
+	return sc0.w * sc1.w + sc0.x * sc1.x + sc0.y * sc1.y + sc0.z * sc1.z; 
+}
+
 //Flat Inner Product
 //Returns distance ***SQUARED***
 inline float flatProduct_v1(const float4 &sc0, const float4 &sc1)
@@ -205,6 +211,12 @@ inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z));
 }
 
+//Embedded form
+inline float flatEmbProduct(const float5 &sc0, const float5 &sc1)
+{
+	return POW2(sc0.x - sc1.x, EXACT) + POW2(sc0.y - sc1.y, EXACT) + POW2(sc0.z - sc1.z, EXACT);
+}
+
 //=========================//
 // Node Relation Algorithm //
 //=========================//
@@ -217,10 +229,20 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 	assert (get_stdim(spacetime) & (2 | 4));
 	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
 
-	if (get_stdim(spacetime) == 2)
+	if (get_stdim(spacetime) == 2) {
+		#if EMBED_NODES
+		assert (c->getDim() == 3);
+		assert (c->z() != NULL);
+		#else
 		assert (c->getDim() == 2);
-	else if (get_stdim(spacetime) == 4) {
+		#endif
+	} else if (get_stdim(spacetime) == 4) {
+		#if EMBED_NODES
+		assert (c->getDim() == 5);
+		assert (c->v() != NULL);
+		#else
 		assert (c->getDim() == 4);
+		#endif
 		assert (c->w() != NULL);
 		assert (c->z() != NULL);
 	}
@@ -264,7 +286,11 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 	if (get_stdim(spacetime) == 2)
 		dt = c->x(future_idx) - c->x(past_idx);
 	else if (get_stdim(spacetime) == 4)
+		#if EMBED_NODES
+		dt = c->v(future_idx) - c->v(past_idx);
+		#else
 		dt = c->w(future_idx) - c->w(past_idx);
+		#endif
 
 	#if DEBUG
 	assert (dt >= 0.0f);
@@ -279,25 +305,45 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 	#endif
 
 	//Spatial Interval
-	if (get_stdim(spacetime) == 2)
+	if (get_stdim(spacetime) == 2) {
+		#if EMBED_NODES
+		float phi1 = atan2(c->z(future_idx), c->y(future_idx));
+		float phi2 = atan2(c->z(past_idx), c->y(past_idx));
+		dx = M_PI - fabs(M_PI - fabs(phi2 - phi1));
+		#else
 		dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(c->y(future_idx) - c->y(past_idx)), STL), STL));
-	else if (get_stdim(spacetime) == 4) {
+		#endif
+	} else if (get_stdim(spacetime) == 4) {
 		if (get_curvature(spacetime) & POSITIVE) {
 			//Spherical Law of Cosines
-			#if DIST_V2
-				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			#if EMBED_NODES
+			dx = acosf(sphEmbProduct(c->getFloat5(past_idx), c->getFloat5(future_idx)));
 			#else
-				dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			#if DIST_V2
+			dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			#else
+			dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			#endif
 			#endif
 		} else if (get_curvature(spacetime) & FLAT) {
 			//Euclidean Law of Cosines
-			#if DIST_V2
-				dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? BITWISE : STL));
+			#if EMBED_NODES
+			//float fep = flatEmbProduct(c->getFloat5(past_idx), c->getFloat5(future_idx));
+			//printf("embProduct: %f\n", fep);
+			//if (fep < 0.0f)
+			//	printChk();
+			dx = sqrtf(flatEmbProduct(c->getFloat5(past_idx), c->getFloat5(future_idx)));
 			#else
-				dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? BITWISE : STL));
+			#if DIST_V2
+			dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? BITWISE : STL));
+			#else
+			dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? BITWISE : STL));
+			#endif
 			#endif
 		}
 	}
+
+	//printf("dx: %f\n", dx);
 
 	#if DEBUG
 	if (get_curvature(spacetime) & POSITIVE)
@@ -335,10 +381,10 @@ inline double etaToTauSph(const double eta)
 inline double etaToTauFlat(const double eta)
 {
 	#if DEBUG
-	assert (eta < 0.0 && -eta < HALF_PI);
+	assert (eta > -1.0f && eta < 0.0);
 	#endif
 
-	return -1.0 * LOG(-1.0 * eta, APPROX ? FAST : STL);
+	return -LOG(-eta, APPROX ? FAST : STL);
 }
 
 //Rescaled to Conformal Time (de Sitter spherical foliation)

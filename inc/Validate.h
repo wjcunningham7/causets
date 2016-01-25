@@ -35,7 +35,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const std::v
 
 bool validateDistances(DVData &dvd, Node &nodes, const unsigned int &spacetime, const int &N_tar, const double &N_dst, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateDistances, const bool &verbose);
 
-bool printValues(Node &nodes, const int num_vals, const char *filename, const char *coord);
+bool printValues(Node &nodes, const unsigned int &spacetime, const int num_vals, const char *filename, const char *coord);
 
 bool printDegrees(const Node &nodes, const int num_vals, const char *filename_in, const char *filename_out);
 

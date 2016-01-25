@@ -217,21 +217,23 @@ void quicksort(Node &nodes, const unsigned int &spacetime, int low, int high)
 
 	int i, j, k;
 	float key = 0.0;
+	#if EMBED_NODES
+	float *& time = get_stdim(spacetime) == 2 ? nodes.crd->x() : nodes.crd->v();
+	#else
+	float *& time = get_stdim(spacetime) == 2 ? nodes.crd->x() : nodes.crd->w();
+	#endif
 
 	if (low < high) {
 		k = (low + high) >> 1;
 		swap(nodes, spacetime, low, k);
-		if (get_stdim(spacetime) == 2)
-			key = nodes.crd->x(low);
-		else if (get_stdim(spacetime) == 4)
-			key = nodes.crd->w(low);
+		key = time[low];
 		i = low + 1;
 		j = high;
 
 		while (i <= j) {
-			while ((i <= high) && ((get_stdim(spacetime) == 4 ? nodes.crd->w(i) : nodes.crd->x(i)) <= key))
+			while ((i <= high) && (time[i] <= key))
 				i++;
-			while ((j >= low) && ((get_stdim(spacetime) == 4 ? nodes.crd->w(j) : nodes.crd->x(j)) > key))
+			while ((j >= low) && (time[j] > key))
 				j--;
 			if (i < j)
 				swap(nodes, spacetime, i, j);
@@ -286,6 +288,17 @@ void swap(Node &nodes, const unsigned int &spacetime, const int i, const int j)
 		assert (get_stdim(spacetime) == 2);
 	#endif
 
+	#if EMBED_NODES
+	if (get_stdim(spacetime) == 2) {
+		float3 hc = nodes.crd->getFloat3(i);
+		nodes.crd->setFloat3(nodes.crd->getFloat3(j), i);
+		nodes.crd->setFloat3(hc, j);
+	} else if (get_stdim(spacetime) == 4) {
+		float5 sc = nodes.crd->getFloat5(i);
+		nodes.crd->setFloat5(nodes.crd->getFloat5(j), i);
+		nodes.crd->setFloat5(sc, j);
+	}
+	#else
 	if (get_stdim(spacetime) == 2) {
 		float2 hc = nodes.crd->getFloat2(i);
 		nodes.crd->setFloat2(nodes.crd->getFloat2(j), i);
@@ -295,6 +308,7 @@ void swap(Node &nodes, const unsigned int &spacetime, const int i, const int j)
 		nodes.crd->setFloat4(nodes.crd->getFloat4(j), i);
 		nodes.crd->setFloat4(sc, j);
 	}
+	#endif
 
 	if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
 		float tau = nodes.id.tau[i];

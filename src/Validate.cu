@@ -1367,7 +1367,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const unsigned int &spacetime, 
 
 //Write Node Coordinates to File
 //O(num_vals) Efficiency
-bool printValues(Node &nodes, const int num_vals, const char *filename, const char *coord)
+bool printValues(Node &nodes, const unsigned int &spacetime, const int num_vals, const char *filename, const char *coord)
 {
 	#if DEBUG
 	//No null pointers
@@ -1379,23 +1379,35 @@ bool printValues(Node &nodes, const int num_vals, const char *filename, const ch
 	#endif
 
 	try {
+		char full_name[80] = "ST-";
+		snprintf(&full_name[3], 80, "%d", spacetime);
+		strcat(full_name, "_");
+		strcat(full_name, filename);
+
 		std::ofstream outputStream;
-		outputStream.open(filename);
+		outputStream.open(full_name);
 		if (!outputStream.is_open())
 			throw CausetException("Failed to open file in 'printValues' function!\n");
 
 		int i;
+		outputStream << std::setprecision(10);
 		for (i = 0; i < num_vals; i++) {
-			if (strcmp(coord, "tau") == 0)
+			if (!strcmp(coord, "tau"))
 				outputStream << nodes.id.tau[i] << std::endl;
-			else if (strcmp(coord, "eta") == 0)
-				//outputStream << nodes.crd->w(i) << std::endl;	//Use for stdim = 4
-				outputStream << nodes.crd->x(i) << std::endl;	//Use for stdim = 2
-			else if (strcmp(coord, "theta1") == 0)
+			else if (!strcmp(coord, "eta")) {
+				if (get_stdim(spacetime) == 2)
+					outputStream << nodes.crd->x(i) << std::endl;
+				else if (get_stdim(spacetime) == 4)
+					#if EMBED_NODES
+					outputStream << nodes.crd->v(i) << std::endl;
+					#else
+					outputStream << nodes.crd->w(i) << std::endl;
+					#endif
+			} else if (!strcmp(coord, "theta1"))
 				outputStream << nodes.crd->x(i) << std::endl;
-			else if (strcmp(coord, "theta2") == 0)
+			else if (!strcmp(coord, "theta2"))
 				outputStream << nodes.crd->y(i) << std::endl;
-			else if (strcmp(coord, "theta3") == 0)
+			else if (!strcmp(coord, "theta3"))
 				outputStream << nodes.crd->z(i) << std::endl;
 			else
 				throw CausetException("Unrecognized value in 'coord' parameter!\n");
@@ -2691,10 +2703,10 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 	case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
 		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
 		#if EMBED_NODES
-		assert (HALF_PI - nodes.crd->v(i) > zeta && HALF_PI - nodes.crd->v(i) < zeta1);
-		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - r_max) < tol);
+		assert (nodes.crd->v(i) > HALF_PI - zeta && nodes.crd->v(i) < HALF_PI - zeta1);
+		assert (POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) < POW2(r_max, EXACT));
 		#else
-		assert (HALF_PI - nodes.crd->w(i) > zeta && HALF_PI - nodes.crd->w(i) < zeta1);
+		assert (nodes.crd->w(i) > HALF_PI - zeta && nodes.crd->w(i) < HALF_PI - zeta1);
 		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max);
 		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
 		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
@@ -2713,6 +2725,7 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		#endif
 		break;
 	case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
+		//printf("tau: %e\n", nodes.id.tau[i]);
 		assert (nodes.id.tau[i] > -tau0 && nodes.id.tau[i] < tau0);
 		#if EMBED_NODES
 		assert (fabs(nodes.crd->v(i)) < HALF_PI - zeta);
@@ -2752,7 +2765,7 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
 		#if EMBED_NODES
 		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
-		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - r_max) < tol);
+		assert (POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) < r_max);
 		#else
 		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
 		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max);
@@ -2768,8 +2781,9 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
 		#if EMBED_NODES
 		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
-		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - r_max) < tol);
+		assert (POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) < r_max);;
 		#else
+		//printf("w: %.8f\n", nodes.crd->w(i));
 		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
 		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max);
 		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
