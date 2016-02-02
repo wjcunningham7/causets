@@ -9,6 +9,8 @@
 
 int main(int argc, char **argv)
 {
+	int temp = 0;
+
 	//Initialize Data Structures
 	CausetMPI cmpi = CausetMPI();
 	CaResources ca = CaResources();
