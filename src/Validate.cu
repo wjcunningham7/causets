@@ -1243,7 +1243,7 @@ bool validateDistances(DVData &dvd, Node &nodes, const unsigned int &spacetime, 
 		return false;
 	}
 
-	//if (!getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
+	//if (!getLookupTable("./etc/tables/geodesics_ds_table.cset.bin", &table, &size))
 	//	return false;
 	//ca->hostMemUsed += size;
 
@@ -1409,7 +1409,17 @@ bool printValues(Node &nodes, const unsigned int &spacetime, const int num_vals,
 				outputStream << nodes.crd->y(i) << std::endl;
 			else if (!strcmp(coord, "theta3"))
 				outputStream << nodes.crd->z(i) << std::endl;
-			else
+			else if (!strcmp(coord, "u")) {
+				if (get_stdim(spacetime) == 2)
+					outputStream << (nodes.crd->x(i) + nodes.crd->y(i)) / sqrt(2.0) << std::endl;
+				else if (get_stdim(spacetime) == 4)
+					outputStream << (nodes.crd->w(i) + nodes.crd->x(i)) / sqrt(2.0) << std::endl;
+			} else if (!strcmp(coord, "v")) {
+				if (get_stdim(spacetime) == 2)
+					outputStream << (nodes.crd->x(i) - nodes.crd->y(i)) / sqrt(2.0) << std::endl;
+				else if (get_stdim(spacetime) == 4)
+					outputStream << (nodes.crd->w(i) - nodes.crd->x(i)) / sqrt(2.0) << std::endl;
+			} else
 				throw CausetException("Unrecognized value in 'coord' parameter!\n");
 		}
 	
@@ -2671,8 +2681,13 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 {
 	#if EMBED_NODES
 	float tol = 1.0e-4;
+	double r;
 	#endif
 	switch (spacetime) {
+	case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
+		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < HALF_PI - zeta);
+		assert (iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, HALF_PI - zeta));
+		break;
 	case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < HALF_PI - zeta);
 		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
@@ -2691,6 +2706,10 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI);
 		#endif
 		break;
+	case (2 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
+		fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+		assert (false);
+		break;
 	case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
 		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < HALF_PI - zeta);
 		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
@@ -2699,6 +2718,10 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		#else
 		//y
 		#endif
+		break;
+	case (2 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
+		fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+		assert (false);
 		break;
 	case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
 		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
@@ -2725,7 +2748,6 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		#endif
 		break;
 	case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
-		//printf("tau: %e\n", nodes.id.tau[i]);
 		assert (nodes.id.tau[i] > -tau0 && nodes.id.tau[i] < tau0);
 		#if EMBED_NODES
 		assert (fabs(nodes.crd->v(i)) < HALF_PI - zeta);
@@ -2741,10 +2763,11 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
 		#if EMBED_NODES
 		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
-		//emb
+		r = sqrt(POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT));
+		assert (iad(nodes.crd->v(i), r, HALF_PI - zeta, HALF_PI - zeta1));
 		#else
-		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
-		//x
+		assert (nodes.crd->w(i) > HALF_PI - zeta && nodes.crd->w(i) < HALF_PI - zeta1);
+		assert (iad(nodes.crd->w(i), nodes.crd->x(i), HALF_PI - zeta, HALF_PI - zeta1));
 		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
 		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
 		#endif
@@ -2753,13 +2776,18 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
 		#if EMBED_NODES
 		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
-		//emb
+		r = acos(nodes.crd->w(i));
+		assert (iad(nodes.crd->v(i), r, 0.0, HALF_PI - zeta));
 		#else
 		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
-		//x
+		assert (iad(nodes.crd->w(i), nodes.crd->x(i), 0.0, HALF_PI - zeta));
 		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
 		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
 		#endif
+		break;
+	case (4 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
+		fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+		assert (false);
 		break;
 	case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
 		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
@@ -2783,7 +2811,6 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
 		assert (POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) < r_max);;
 		#else
-		//printf("w: %.8f\n", nodes.crd->w(i));
 		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
 		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max);
 		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);

@@ -43,6 +43,7 @@
 #include <boost/random/uniform_real.hpp>
 #include <boost/random/variate_generator.hpp>
 #include <boost/unordered_map.hpp>
+#include <gsl/gsl_sf_lambert.h>
 #include <sys/io.h>
 
 //Custom System Files
@@ -189,7 +190,9 @@ struct CaResources {
 //Manifold Types
 enum Manifold {
 	ManifoldFirst	= 1 << 3,
-	DE_SITTER	= ManifoldFirst,
+	MINKOWSKI	= ManifoldFirst,
+	MILNE		= MINKOWSKI << 1,
+	DE_SITTER	= MILNE << 1,
 	DUST		= DE_SITTER << 1,
 	FLRW		= DUST << 1,
 	HYPERBOLIC	= FLRW << 1,
@@ -220,7 +223,7 @@ enum Symmetry {
 	SymmetryLast	= SYMMETRIC
 };
 
-static const std::string manifoldNames[] = { "De Sitter", "Dust", "FLRW", "Hyperbolic" };
+static const std::string manifoldNames[] = { "Minkowski", "Milne", "De Sitter", "Dust", "FLRW", "Hyperbolic" };
 static const std::string regionNames[] = { "Slab", "Diamond" };
 static const std::string curvatureNames[] = { "Flat", "Positive" };
 static const std::string symmetryNames[] = { "Asymmetric", "Symmetric" };

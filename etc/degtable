@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Takes the output of etc/mkdeg and writes to binary
+# This should only be called from etc/mkdeg and not by itself
+
+import sys
+from array import array
+
+stid = sys.argv[1]
+ver = sys.argv[2]
+
+infile = open('/tmp/adeg.tmp', 'r')
+outfile = open('etc/tables/average_degree_' + stid + '_' + ver + '_table.cset.bin', 'wb')
+data = array('d')
+
+lines = infile.readlines()
+for line in lines:
+	x,y = line.split()
+	data.append(float(y))
+	data.append(float(x))
+
+# outdata = array('d', data)
+data.tofile(outfile)
+outfile.close()

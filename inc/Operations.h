@@ -14,17 +14,17 @@
 // Root-Finding Kernels //
 //======================//
 
-inline double eta4Dfunc(const double &x, const double &a)
+inline double eta_12836_0(const double &x, const double &a)
 {
 	return -a + x * (6.0 + x * (3.0 * a + x * (-4.0 + x * (-3.0 * a + x * (6.0 + a * x)))));
 }
 
-inline double eta4DfuncPrime(const double &x, const double &a)
+inline double eta_prime_12836_0(const double &x, const double &a)
 {
 	return 6.0 * (1.0 + x * (a + x * (-2.0 + x * (-2.0 * a + x * (5.0 + a * x)))));
 }
 
-inline double tau4D(const double &x, const double &zeta, const double &rval)
+inline double tau_12836_0(const double &x, const double &zeta, const double &rval)
 {
 	double _coshx2 = POW2(COSH(x, APPROX ? FAST : STL), EXACT);
 	double _sinz2 = POW2(SIN(zeta, APPROX ? FAST : STL), EXACT);
@@ -32,7 +32,7 @@ inline double tau4D(const double &x, const double &zeta, const double &rval)
 	return (2.0 + _coshx2) * SINH(x, APPROX ? FAST : STL) * TAN(zeta, APPROX ? FAST : STL) * _sinz2 / (2.0 * _sinz2 + 1) - rval;
 }
 
-inline double tauPrime4D(const double &x, const double &zeta)
+inline double tau_prime_12836_0(const double &x, const double &zeta)
 {
 	double _coshx2 = POW2(COSH(x, APPROX ? FAST : STL), EXACT);
 	double _coshx4 = POW2(_coshx2, EXACT);
@@ -41,41 +41,62 @@ inline double tauPrime4D(const double &x, const double &zeta)
 	return 3.0 * _coshx4 * TAN(zeta, APPROX ? FAST : STL) * _sinz2 / (2.0 * _sinz2 + 1);
 }
 
-inline double tauUniverse(const double &x, const double &tau0, const double &rval)
+inline double tau_10884_0(const double &x, const double &tau0, const double &rval)
 {
 	return (SINH(3.0 * x, APPROX ? FAST : STL) - 3.0 * x) / (SINH(3.0 * tau0, APPROX ? FAST : STL) - 3.0 * tau0) - rval;
 }
 
-inline double tauPrimeUniverse(const double &x, const double &tau0)
+inline double tau_prime_10884_0(const double &x, const double &tau0)
 {
 	return 6.0 * POW2(SINH(1.5 * x, APPROX ? FAST : STL), EXACT) / (SINH(3.0 * tau0, APPROX ? FAST : STL) - 3.0 * tau0);
 }
 
-inline double theta1_4D(const double &x, const double &rval)
+inline double hyperzenith(const double &x, const double &rval)
 {
 	return (2.0 * x - SIN(2.0 * x, APPROX ? FAST : STL)) / TWO_PI - rval;
 }
 
-inline double theta1_Prime4D(const double &x)
+inline double hyperzenith_prime(const double &x)
 {
 	return POW2(SIN(x, APPROX ? FAST : STL), EXACT) / HALF_PI;
 }
 
+inline double u_13348_0(const double &x, const double &rmu)
+{
+	return (LOG(0.5 * (1.0 / COS(sqrt(2.0) * x, APPROX ? FAST : STL) + 1.0), STL) - 1.0 / POW2(COS(x / sqrt(2.0), APPROX ? FAST : STL), EXACT) + 1.0) - rmu;
+}
+
+inline double u_prime_13348_0(const double &x)
+{
+	return sqrt(2.0) * POW3(TAN(x / sqrt(2.0), APPROX ? FAST : STL), EXACT) / COS(sqrt(2.0) * x, APPROX ? FAST : STL);
+}
+
+inline double v_13348_0(const double &x, const double &u, const double &rval)
+{
+	return (0.25 * COS(sqrt(2.0) * u, APPROX ? FAST : STL) / SIN(u / sqrt(2.0), APPROX ? FAST : STL)) * (4.0 * (1.0 + 3.0 * COS(sqrt(2.0) * u, APPROX ? FAST : STL) + COS(2.0 * sqrt(2.0) * u, APPROX ? FAST : STL)) / SIN(u / sqrt(2.0), APPROX ? FAST : STL) + (SIN((2.0 * u - 3.0 * x) / sqrt(2.0), APPROX ? FAST : STL) + 3.0 * SIN(x / sqrt(2.0), APPROX ? FAST : STL) + 3.0 * SIN((x - 2.0 * u) / sqrt(2.0), APPROX ? FAST : STL) - SIN(3.0 * (2.0 * u + x) / sqrt(2.0), APPROX ? FAST : STL) - 3.0 * SIN((4.0 * u + x) / sqrt(2.0), APPROX ? FAST : STL) + SIN((2.0 * u + 3.0 * x) / sqrt(2.0), APPROX ? FAST : STL)) / (POW2(TAN(u / sqrt(2.0), APPROX ? FAST : STL), EXACT) * POW3(COS((u + x) / sqrt(2.0), APPROX ? FAST : STL), EXACT))) - rval;
+}
+
+inline double v_prime_13348_0(const double &x, const double &u)
+{
+	return (-3.0 / (4.0 * sqrt(2.0))) * COS(sqrt(2.0) * u, APPROX ? FAST : STL) * (-2.0 * COS(u / sqrt(2.0), APPROX ? FAST : STL) + COS((u - 2.0 * x) / sqrt(2.0), APPROX ? FAST : STL) + COS((3.0 * u - 2.0 * x) / sqrt(2.0), APPROX ? FAST : STL)) / (POW2(TAN(u / sqrt(2.0), APPROX ? FAST : STL), EXACT) * SIN(u / sqrt(2.0), APPROX ? FAST : STL) * POW2(POW2(COS((u + x) / sqrt(2.0), APPROX ? FAST : STL), EXACT), EXACT));
+}
+
 //Returns eta Residual
-//Used in 3+1 Spherical de Sitter Causet
-inline double solveEtaFunc(const double &x, const double * const p1, const float * const p2, const int * const p3)
+//Used in 3+1 K = 1 Asymmetric de Sitter Slab
+inline double solve_eta_12836_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
 	assert (p1[0] > 0.0);	//"a" (not same as pseudoradius)
 	#endif
 
-	return (-1.0 * eta4Dfunc(x, p1[0]) / eta4DfuncPrime(x, p1[0]));
+	return -1.0 * eta_12836_0(x, p1[0]) / eta_prime_12836_0(x, p1[0]);
 }
 
 //Returns tau Residual
-//Used in 3+1 Spherical de Sitter Causet
-inline double solveTau(const double &x, const double * const p1, const float * const p2, const int * const p3)
+//Used in 3+1 K = 1 Asymmetric de Sitter Slab
+//Was implemented before solve_eta_12836_0, but no longer used
+inline double solve_tau_12836_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -83,12 +104,12 @@ inline double solveTau(const double &x, const double * const p1, const float * c
 	assert (p1[1] > 0.0 && p1[1] < 1.0);		//rval
 	#endif
 
-	return (-1.0 * tau4D(x, p1[0], p1[1]) / tauPrime4D(x, p1[0]));
+	return -1.0 * tau_12836_0(x, p1[0], p1[1]) / tau_prime_12836_0(x, p1[0]);
 }
 
 //Returns tau Residual
-//Used in FLRW Causet
-inline double solveTauUniverse(const double &x, const double * const p1, const float * const p2, const int * const p3)
+//Used in 3+1 Flat Asymmetric FLRW Slab
+inline double solve_tau_10884_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -96,12 +117,12 @@ inline double solveTauUniverse(const double &x, const double * const p1, const f
 	assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
 	#endif
 
-	return (-1.0 * tauUniverse(x, p1[0], p1[1]) / tauPrimeUniverse(x, p1[0]));
+	return -1.0 * tau_10884_0(x, p1[0], p1[1]) / tau_prime_10884_0(x, p1[0]);
 }
 
 //Returns tau Residual in Bisection Algorithm
-//Used in FLRW Causet
-inline double solveTauUnivBisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+//Used in 3+1 Flat Asymmetric FLRW Slab
+inline double solve_tau_10884_0_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -109,19 +130,69 @@ inline double solveTauUnivBisec(const double &x, const double * const p1, const 
 	assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
 	#endif
 
-	return tauUniverse(x, p1[0], p1[1]);
+	return tau_10884_0(x, p1[0], p1[1]);
 }
 
 //Returns theta1 Residual
-//Used in 3+1 and Universe Causets
-inline double solveTheta1(const double &x, const double * const p1, const float * const p2, const int * const p3)
+//Used in causets with a "hyperzenith" angle
+inline double solve_hyperzenith(const double &x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
 	assert (p1[0] > 0.0 && p1[0] < 1.0);	//rval
 	#endif
 
-	return (-1.0 * theta1_4D(x, p1[0]) / theta1_Prime4D(x));
+	return -1.0 * hyperzenith(x, p1[0]) / hyperzenith_prime(x);
+}
+
+//Returns u Residual
+//Used in 3+1 K = 1 de Sitter Diamond (Asymmetric)
+inline double solve_u_13348_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0);	//mu * rval
+	#endif
+
+	return -1.0 * u_13348_0(x, p1[0]) / u_prime_13348_0(x);
+}
+
+//Returns u Residual in Bisection Algorithm
+//Used in 3+1 K = 1 de Sitter Diamond (Asymmetric)
+inline double solve_u_13348_0_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0);	//mu * rval
+	#endif
+
+	return u_13348_0(x, p1[0]);
+}
+
+//Returns v Residual
+//Used in 3+1 K = 1 de Sitter Diamond (Asymmetric)
+inline double solve_v_13348_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0);			//u
+	assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
+	#endif
+
+	return -1.0 * v_13348_0(x, p1[0], p1[1]) / v_prime_13348_0(x, p1[0]);
+}
+
+//Returns v Residual in Bisection Algorithm
+//Used in 3+1 K = 1 de Sitter Diamond (Asymmetric)
+inline double solve_v_13348_0_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0);			//u
+	assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
+	#endif
+
+	return v_13348_0(x, p1[0], p1[1]);
 }
 
 //=========================//
@@ -227,7 +298,7 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 	#if DEBUG
 	assert (!c->isNull());
 	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
+	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW));
 
 	if (get_stdim(spacetime) == 2) {
 		#if EMBED_NODES
@@ -265,7 +336,7 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 		assert (zeta < HALF_PI);
 		assert (alpha > 0.0);
 	}
-	if (get_curvature(spacetime) & FLAT)
+	if (get_curvature(spacetime) & FLAT && get_region(spacetime) & SLAB)
 		assert (r_max > 0.0);
 		
 	assert (past_idx >= 0 && past_idx < N_tar);
@@ -306,13 +377,16 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 
 	//Spatial Interval
 	if (get_stdim(spacetime) == 2) {
-		#if EMBED_NODES
-		float phi1 = atan2(c->z(future_idx), c->y(future_idx));
-		float phi2 = atan2(c->z(past_idx), c->y(past_idx));
-		dx = M_PI - fabs(M_PI - fabs(phi2 - phi1));
-		#else
-		dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(c->y(future_idx) - c->y(past_idx)), STL), STL));
-		#endif
+		if (get_curvature(spacetime) & POSITIVE) {
+			#if EMBED_NODES
+			float phi1 = atan2(c->z(future_idx), c->y(future_idx));
+			float phi2 = atan2(c->z(past_idx), c->y(past_idx));
+			dx = M_PI - fabs(M_PI - fabs(phi2 - phi1));
+			#else
+			dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(c->y(future_idx) - c->y(past_idx)), STL), STL));
+			#endif
+		} else if (get_curvature(spacetime) & FLAT)
+			dx = fabs(c->y(future_idx) - c->y(past_idx));
 	} else if (get_stdim(spacetime) == 4) {
 		if (get_curvature(spacetime) & POSITIVE) {
 			//Spherical Law of Cosines
@@ -328,10 +402,6 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 		} else if (get_curvature(spacetime) & FLAT) {
 			//Euclidean Law of Cosines
 			#if EMBED_NODES
-			//float fep = flatEmbProduct(c->getFloat5(past_idx), c->getFloat5(future_idx));
-			//printf("embProduct: %f\n", fep);
-			//if (fep < 0.0f)
-			//	printChk();
 			dx = sqrtf(flatEmbProduct(c->getFloat5(past_idx), c->getFloat5(future_idx)));
 			#else
 			#if DIST_V2
@@ -346,10 +416,13 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 	//printf("dx: %f\n", dx);
 
 	#if DEBUG
-	if (get_curvature(spacetime) & POSITIVE)
-		assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
-	else if (get_curvature(spacetime) & FLAT)
-		assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(r_max));
+	if (get_region(spacetime) & SLAB) {
+		if (get_curvature(spacetime) & POSITIVE)
+			assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
+		else if (get_curvature(spacetime) & FLAT)
+			assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(r_max));
+	} else if (get_region(spacetime) & DIAMOND)
+		assert (dx >= 0.0f && dx <= (HALF_PI - zeta));
 	#endif
 
 	if (omega12 != NULL)
@@ -361,11 +434,25 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 		return false;
 }
 
+//Check if point is inside asymmetric diamond
+inline bool iad(const float eta, const float x, const double eta_min, const double eta_max)
+{
+	return eta > eta_min && ((eta < (eta_max + eta_min) / 2.0 && fabs(x) < eta - eta_min) || (eta > (eta_max + eta_min) / 2.0 && fabs(x) < eta_max - eta));
+}
+
+//Check if point is inside symmetric diamond
+inline bool isd(const float eta, const float x, const float eta0)
+{
+	return eta > -eta0 && ((eta < 0.0 && fabs(x) < eta) || (eta > 0.0 && fabs(x) < eta0 - eta));
+}
+
 //=================================//
 // Conformal/Cosmic Time Relations //
 //=================================//
 
-//Formulae in de Sitter
+//-----------------------//
+// Formulae in de Sitter //
+//-----------------------//
 
 //Conformal to Rescaled Time (de Sitter, spherical foliation)
 inline double etaToTauSph(const double eta)
@@ -403,7 +490,9 @@ inline double tauToEtaFlat(const double tau)
 	return -exp(-tau);
 }
 
-//Formulae for Dust
+//-------------------//
+// Formulae for Dust //
+//-------------------//
 
 //Conformal to Rescaled Time (Dust)
 inline double etaToTauDust(const double eta, const double a, const double alpha)
@@ -429,7 +518,9 @@ inline double tauToEtaDust(const double tau, const double a, const double alpha)
 	return POW(12.0 * tau, 1.0 / 3.0, STL) * a / alpha;
 }
 
-//Formulae in FLRW
+//------------------//
+// Formulae in FLRW //
+//------------------//
 
 //For use with GNU Scientific Library
 inline double tauToEtaFLRW(double tau, void *params)
@@ -441,7 +532,7 @@ inline double tauToEtaFLRW(double tau, void *params)
 	return POW(SINH(1.5 * tau, APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL);
 }
 
-//'Exact' Solution (Hypergeomtric Series)
+//'Exact' Solution (Hypergeometric Series)
 inline double tauToEtaFLRWExact(const double &tau, const double a, const double alpha)
 {
 	#if DEBUG
@@ -503,95 +594,42 @@ inline double etaToTauFLRW(const double &eta, const double &a, const double &alp
 	return g;
 }
 
-//=========================//
-// Average Degree Formulae //
-//=========================//
+//-----------------------//
+// Boost Transformations //
+//-----------------------//
 
-//Rescaled Average Degree in Flat (K = 0) de Sitter Causet
+//NOTE: These are only valid in Minkowski manifold!
 
-//This kernel is used in numerical integration
-//This result should be multipled by 4pi*(eta0*eta1)^3/(eta1^3 - eta0^3)
-inline double rescaledDegreeDeSitterFlat(int dim, double x[], double *params)
+//Performs a boost about the origin (0,0)
+//Returns the boosted coordinate where u' = v'
+//Assumes both u and v are positive
+inline double boost_origin(const double &u, const double &v)
 {
 	#if DEBUG
-	assert (dim > 0);
-	assert (x[0] < 0.0 && x[0] > -1.0 * HALF_PI);
-	assert (x[1] < 0.0 && x[1] > -1.0 * HALF_PI);
+	assert (u >= 0.0);
+	assert (v >= 0.0);
 	#endif
 
-	//Identify x[0] with eta' coordinate
-	//Identify x[1] with eta'' coordinate
-	
-	double t = POW2(POW2(x[0] * x[1], EXACT), EXACT);
-	return ABS(POW3(x[0] - x[1], EXACT), STL) / t;
+	return sqrt(u * v);
 }
 
-//Average Degree in Closed (K = 1) Symmetric de Sitter Causet
-
-//This kernel is used in numerical integration
-//This gives T2/2 - only part of the expression - see notes
-inline double averageDegreeSym(double eta, void *params)
+//Perform a boost about 'origin' on a point (u,v)
+//It is assumed 'origin' is at (origin, origin) in the (u,v) coordinate system
+//This is called 'xi' in the notes
+//Returns the boosted coordinate where u' = v'
+inline double boost_from(const double &u, const double &v, const double &origin)
 {
-	#if DEBUG
-	assert (cos(eta) >= 0.0);
-	#endif
-
-	double t = 1.0 / cos(eta);
-	return eta * eta * t * t * t * t;
+	return origin - sqrt(u * v - origin * (u + v - origin));
 }
 
-//Rescaled Average Degree in Dusty Causet
-
-//This kernel is used in numerical integration
-//This result should be multiplied by (108pi / tau0^3)
-inline double rescaledDegreeDust(int dim, double x[], double *params)
-{
-	#if DEBUG
-	assert (dim > 0);
-	assert (x[0] > 0.0);
-	assert (x[1] > 0.0);
-	#endif
-
-	//Identify x[0] with the tau' coordinate
-	//Identify x[1] with the tau'' coordinate
-	
-	double h1 = x[0] * x[1];
-	double h2 = ABS(POW(x[0], 1.0 / 3.0, STL) - POW(x[1], 1.0 / 3.0, STL), STL);
-
-	return POW2(h1, EXACT) * POW3(h2, EXACT);
-}
-
-//Rescaled Average Degree in Non-Compact FLRW Causet
-
-//This is a kernel used in numerical integration
-//Note to get the (non-compact) rescaled average degree this result must still be
-//multiplied by 8pi / (sinh(3tau0)-3tau0)
-inline double rescaledDegreeFLRW_NC(int dim, double x[], double *params)
-{
-	#if DEBUG
-	assert (dim > 0);
-	assert (x[0] > 0.0);
-	assert (x[1] > 0.0);
-	#endif
-
-	//Identify x[0] with tau' coordinate
-	//Identify x[1] with tau'' coordinate
-
-	double h1 = tauToEtaFLRWExact(x[0], 1.0, 1.0);
-	double h2 = tauToEtaFLRWExact(x[1], 1.0, 1.0);
-
-	double s1 = POW2(SINH(1.5 * x[0], APPROX ? FAST : STL), EXACT);
-	double s2 = POW2(SINH(1.5 * x[1], APPROX ? FAST : STL), EXACT);
-
-	return s1 * s2 * ABS(POW3(h2 - h1, EXACT), STL);
-}
-
-//Rescaled Average Degree in Compact FLRW Causet
+//=====================================//
+// Integration Supplementary Functions //
+//=====================================//
 
 //Approximates (108) in [2]
-inline double xi(double &r)
+inline double isf_01(double &r)
 {
-	double _xi = 0.0;
+	double zeta = 0.0;
 	double err = 0.0;
 	double f;
 	int nterms = 10;
@@ -602,47 +640,19 @@ inline double xi(double &r)
 	if (r < 1.0) {
 		double z = -1.0 * POW3(r, EXACT);
 		_2F1(1.0 / 6.0, 0.5, 7.0 / 6.0, z, &f, &err, &nterms, false);
-		_xi = 2.0 * SQRT(r, STL) * f;
+		zeta = 2.0 * SQRT(r, STL) * f;
 	} else {
 		double z = -1.0 / POW3(r, EXACT);
 		_2F1(1.0 / 3.0, 0.5, 4.0 / 3.0, z, &f, &err, &nterms, false);
-		_xi = SQRT(4.0 / M_PI, STL) * GAMMA(7.0 / 6.0, STL) * GAMMA(1.0 / 3.0, STL) - f / r;
+		zeta = SQRT(4.0 / M_PI, STL) * GAMMA(7.0 / 6.0, STL) * GAMMA(1.0 / 3.0, STL) - f / r;
 	}
 
-	return _xi;
+	return zeta;
 }
 
-//This is a kernel used in numerical integration
-//Note to get the (compact) rescaled averge degree this result must still be
-//multiplied by 8pi/(sinh(3tau0)-3tau0)
-inline double rescaledDegreeFLRW(int dim, double x[], double *params)
-{
-	#if DEBUG
-	assert (dim > 0);
-	assert (x[0] > 0.0);
-	assert (x[1] > 0.0);
-	#endif
-
-	//Identify x[0] with x coordinate
-	//Identify x[1] with r coordinate
-
-	double z;
-
-	z = POW3(ABS(xi(x[0]) - xi(x[1]), STL), EXACT) * POW2(x[0], EXACT) * POW3(x[1], EXACT) * SQRT(x[1], STL);
-	z /= (SQRT(1.0 + 1.0 / POW3(x[0], EXACT), STL) * SQRT(1.0 + POW3(x[1], EXACT), STL));
-
-	#if DEBUG
-	assert (z > 0.0);
-	#endif
-
-	return z;
-}
-
-//Average Degree in Compact FLRW Causet (not rescaled)
-
-//Gives rescaled scale factor as a function of eta
+//Gives rescaled FLRW scale factor as a function of eta
 //Uses 'ctuc' lookup table
-inline double rescaledScaleFactor(double *table, double size, double eta, double a, double alpha)
+inline double isf_02(double *table, double size, double eta, double a, double alpha)
 {
 	#if DEBUG
 	assert (table != NULL);
@@ -683,10 +693,182 @@ inline double rescaledScaleFactor(double *table, double size, double eta, double
 	return POW(SINH(1.5 * tau, APPROX ? FAST : STL), 2.0 / 3.0, APPROX ? FAST : STL);
 }
 
+//=========================//
+// Average Degree Formulae //
+//=========================//
+
+// Note functions are written as
+// > averageDegree_X_Y
+// where X is the spacetime ID
+// for version Y of the program
+
+//--------------------------------------------------------//
+// Rescaled Average Degree in Flat (K = 0) de Sitter Slab //
+//--------------------------------------------------------//
+
+//This kernel is used in numerical integration
+//This result should be multipled by 4pi*(eta0*eta1)^3/(eta1^3 - eta0^3)
+inline double averageDegree_10788_0(int dim, double x[], double *params)
+{
+	#if DEBUG
+	assert (dim > 0);
+	assert (x[0] < 0.0 && x[0] > -1.0 * HALF_PI);
+	assert (x[1] < 0.0 && x[1] > -1.0 * HALF_PI);
+	#endif
+
+	//Identify x[0] with eta' coordinate
+	//Identify x[1] with eta'' coordinate
+	
+	double t = POW2(POW2(x[0] * x[1], EXACT), EXACT);
+	return ABS(POW3(x[0] - x[1], EXACT), STL) / t;
+}
+
+//-----------------------------------------------------------//
+// Average Degree in Closed (K = 1) Symmetric de Sitter Slab //
+//-----------------------------------------------------------//
+
+//For use with GNU Scientific Library
+//This gives T2/2 - only part of the expression - see notes
+inline double averageDegree_21028_0(double eta, void *params)
+{
+	#if DEBUG
+	assert (cos(eta) >= 0.0);
+	#endif
+
+	double t = 1.0 / cos(eta);
+	return eta * eta * t * t * t * t;
+}
+
+//-----------------------------------------------------//
+// Rescaled Average Degree in Closed de Sitter Diamond //
+//-----------------------------------------------------//
+
+//This kernel is used in numerical integration
+//This result should be divided by log((1+sec(sqrt(2)xi))/2) - sec(xi/sqrt(2))^2 + 1
+inline double averageDegree_13348_0(int dim, double x[], double *params)
+{
+	#if DEBUG
+	assert (params != NULL);
+	assert (dim > 0);
+	assert (x[0] > 0.0);
+	assert (x[1] > 0.0);
+	assert (params[0] > 0.0);
+	assert (x[0] < params[0]);
+	assert (x[1] < params[0]);
+	#endif
+
+	double u = x[0];
+	double v = x[1];
+	double xi = params[0];
+	double psi_p = boost_origin(u, v);
+	double psi_f = boost_from(u, v, xi);
+
+	double s4uv = 1.0 / POW2(POW2(cos((u + v) / sqrt(2.0)), EXACT), EXACT);
+	double s2uv = POW2(sin((u - v) / sqrt(2.0)), EXACT);
+
+	double cxp = cos((xi + psi_f) / sqrt(2.0));
+	double c2xp = POW2(cxp, EXACT);
+	double cp = cos(sqrt(2.0) * psi_f);
+	double c2pf = POW2(cp, EXACT);
+	double cx = cos(sqrt(2.0) * xi);
+	double cx3p = cos((xi - 3.0 * psi_f) / sqrt(2.0));
+	double c2pp = POW2(cos(psi_p / sqrt(2.0)), EXACT);
+
+	double t1 = log(c2xp / (cx * cp));
+	double t2 = log(0.5 * (1.0 / cos(sqrt(2.0) * psi_p) + 1.0));
+	double t3 = c2pf / c2xp;
+	double t4 = cx3p / cxp;
+	double t5 = 1.0 / c2pp;
+
+	return s4uv * s2uv * (t1 + t2 - t3 + t4 - t5 + 1.0);
+} 
+
+//---------------------------------------//
+// Rescaled Average Degree in Dusty Slab //
+//---------------------------------------//
+
+//This kernel is used in numerical integration
+//This result should be multiplied by (108pi / tau0^3)
+inline double averageDegree_10820_0(int dim, double x[], double *params)
+{
+	#if DEBUG
+	assert (dim > 0);
+	assert (x[0] > 0.0);
+	assert (x[1] > 0.0);
+	#endif
+
+	//Identify x[0] with the tau' coordinate
+	//Identify x[1] with the tau'' coordinate
+	
+	double h1 = x[0] * x[1];
+	double h2 = ABS(POW(x[0], 1.0 / 3.0, STL) - POW(x[1], 1.0 / 3.0, STL), STL);
+
+	return POW2(h1, EXACT) * POW3(h2, EXACT);
+}
+
+//--------------------------------------------------//
+// Rescaled Average Degree in Non-Compact FLRW Slab //
+//--------------------------------------------------//
+
+//This is a kernel used in numerical integration
+//Note to get the (non-compact) rescaled average degree this result must still be
+//multiplied by 8pi / (sinh(3tau0)-3tau0)
+inline double averageDegree_10884_0(int dim, double x[], double *params)
+{
+	#if DEBUG
+	assert (dim > 0);
+	assert (x[0] > 0.0);
+	assert (x[1] > 0.0);
+	#endif
+
+	//Identify x[0] with tau' coordinate
+	//Identify x[1] with tau'' coordinate
+
+	double h1 = tauToEtaFLRWExact(x[0], 1.0, 1.0);
+	double h2 = tauToEtaFLRWExact(x[1], 1.0, 1.0);
+
+	double s1 = POW2(SINH(1.5 * x[0], APPROX ? FAST : STL), EXACT);
+	double s2 = POW2(SINH(1.5 * x[1], APPROX ? FAST : STL), EXACT);
+
+	return s1 * s2 * ABS(POW3(h2 - h1, EXACT), STL);
+}
+
+//----------------------------------------------//
+// Rescaled Average Degree in Compact FLRW Slab //
+//----------------------------------------------//
+
+//This is a kernel used in numerical integration
+//Note to get the (compact) rescaled averge degree this result must still be
+//multiplied by 8pi/(sinh(3tau0)-3tau0)
+//This kernel is an ALTERNATE (PRIMARY) method to averageDegreeFLRW
+inline double averageDegree_12932_0(int dim, double x[], double *params)
+{
+	#if DEBUG
+	assert (dim > 0);
+	assert (x[0] > 0.0);
+	assert (x[1] > 0.0);
+	#endif
+
+	//Identify x[0] with x coordinate
+	//Identify x[1] with r coordinate
+
+	double z;
+
+	z = POW3(ABS(isf_01(x[0]) - isf_01(x[1]), STL), EXACT) * POW2(x[0], EXACT) * POW3(x[1], EXACT) * SQRT(x[1], STL);
+	z /= (SQRT(1.0 + 1.0 / POW3(x[0], EXACT), STL) * SQRT(1.0 + POW3(x[1], EXACT), STL));
+
+	#if DEBUG
+	assert (z > 0.0);
+	#endif
+
+	return z;
+}
+
 //This is a kernel used in numerical integration
 //Note to get the average degree this result must still be
-//multipled by (4pi/3)*delta*alpha^4/psi
-inline double averageDegreeFLRW(int dim, double x[], double *params)
+//multipled by (4pi/3)*delta*alpha^4/averageDegreeNorm
+//This kernel is an ALTERNATE (SECONDARY) method to rescaledDegreeFLRW
+inline double averageDegree_12932_0_a(int dim, double x[], double *params)
 {
 	#if DEBUG
 	assert (params != NULL);
@@ -708,8 +890,8 @@ inline double averageDegreeFLRW(int dim, double x[], double *params)
 	double z;
 
 	z = POW3(ABS(x[0] - x[1], STL), EXACT);
-	z *= POW2(POW2(rescaledScaleFactor(&params[3], params[2], x[0], params[0], params[1]), EXACT), EXACT);
-	z *= POW2(POW2(rescaledScaleFactor(&params[3], params[2], x[1], params[0], params[1]), EXACT), EXACT);
+	z *= POW2(POW2(isf_02(&params[3], params[2], x[0], params[0], params[1]), EXACT), EXACT);
+	z *= POW2(POW2(isf_02(&params[3], params[2], x[1], params[0], params[1]), EXACT), EXACT);
 
 	#if DEBUG
 	assert (z > 0.0);
@@ -719,7 +901,7 @@ inline double averageDegreeFLRW(int dim, double x[], double *params)
 }
 
 //For use with GNU Scientific Library
-inline double psi(double eta, void *params)
+inline double averageDegree_12932_0_b(double eta, void *params)
 {
 	#if DEBUG
 	assert (params != NULL);
@@ -731,7 +913,7 @@ inline double psi(double eta, void *params)
 	//Identify params[2] with size
 	//Identify params[3] with table
 	
-	return POW2(POW2(rescaledScaleFactor(&((double*)params)[3], ((double*)params)[2], eta, ((double*)params)[0], ((double*)params)[1]), EXACT), EXACT);
+	return POW2(POW2(isf_02(&((double*)params)[3], ((double*)params)[2], eta, ((double*)params)[0], ((double*)params)[1]), EXACT), EXACT);
 }
 
 //=======================//
@@ -752,7 +934,7 @@ inline double degreeFieldTheory(double eta, void *params)
 	//Identify params[3] with size
 	//Identify params[4] with table
 	
-	return POW3(ABS(((double*)params)[0] - eta, STL), EXACT) * POW2(POW2(rescaledScaleFactor(&((double*)params)[4], ((double*)params)[3], eta, ((double*)params)[1], ((double*)params)[2]), EXACT), EXACT);
+	return POW3(ABS(((double*)params)[0] - eta, STL), EXACT) * POW2(POW2(isf_02(&((double*)params)[4], ((double*)params)[3], eta, ((double*)params)[1], ((double*)params)[2]), EXACT), EXACT);
 }
 
 //================//

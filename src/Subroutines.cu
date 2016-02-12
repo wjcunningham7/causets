@@ -210,7 +210,7 @@ void quicksort(Node &nodes, const unsigned int &spacetime, int low, int high)
 	#if DEBUG
 	assert (!nodes.crd->isNull());
 	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
+	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW | HYPERBOLIC));
 	if (get_manifold(spacetime) & HYPERBOLIC)
 		assert (get_stdim(spacetime) == 2);
 	#endif
@@ -283,7 +283,7 @@ void swap(Node &nodes, const unsigned int &spacetime, const int i, const int j)
 	#if DEBUG
 	assert (!nodes.crd->isNull());
 	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
+	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW | HYPERBOLIC));
 	if (get_manifold(spacetime) & HYPERBOLIC)
 		assert (get_stdim(spacetime) == 2);
 	#endif

@@ -1,0 +1,32 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# This script is used to make a table of k(t) for 
+# spacetimes where there exists no theoretical expression
+
+# Spacetime ID
+id=13348
+
+# Version
+ver=0
+
+# Other relevant parameters
+n=10240		# Number of nodes
+
+# Range of times
+tmin=0.93
+tmax=1.57
+tstep=0.01
+
+for i in $(seq ${tmin} ${tstep} ${tmax}) ; do
+  echo "$i $(./bin/CausalSet --spacetime $id --nodes $n --age $i --link --gpu | awk '/rad:/ {print $2}')" >> /tmp/adeg.tmp
+done
+
+#etc/degtable $id $ver
+
+#rm /tmp/adeg.tmp

@@ -325,11 +325,11 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 	if (verbose)
 		printMemUsed("to Measure Success Ratio", ca->hostMemUsed, ca->devMemUsed, rank);
 
-	//if (manifold == FLRW && !getLookupTable("./etc/geodesics_flrw_table.cset.bin", &table, &size))
+	//if (manifold == FLRW && !getLookupTable("./etc/tables/geodesics_flrw_table.cset.bin", &table, &size))
 	//	cmpi.fail = 1;
-	if (get_manifold(spacetime) & FLRW && !getLookupTable("./etc/partial_fraction_coefficients.cset.bin", &table, &size))
+	if (get_manifold(spacetime) & FLRW && !getLookupTable("./etc/tables/partial_fraction_coefficients.cset.bin", &table, &size))
 		cmpi.fail = 1;
-	//else if (manifold == DE_SITTER && !getLookupTable("./etc/geodesics_ds_table.cset.bin", &table, &size))
+	//else if (manifold == DE_SITTER && !getLookupTable("./etc/tables/geodesics_ds_table.cset.bin", &table, &size))
 	//	cmpi.fail = 1;
 
 	if (checkMpiErrors(cmpi))
@@ -779,7 +779,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 		ca->hostMemUsed += sizeof(int) * N_df;
 
 		if (theoretical) {
-			if (!getLookupTable("./etc/ctuc_table.cset.bin", &table, &size))
+			if (!getLookupTable("./etc/tables/ctuc_table.cset.bin", &table, &size))
 				return false;
 			ca->hostMemUsed += size;
 

@@ -5,5 +5,4 @@ net/**
 debug/**
 matlab/**
 core*
-etc/geodesics_flrw_table.cset.bin
-etc/geodesics_ds_table.cset.bin
+etc/tables/*

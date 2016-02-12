@@ -25,7 +25,7 @@ inline float get_hyperzenith_angle(UGenerator &rng)
 	double theta;
 	double x = HALF_PI;
 	double r = rng();
-	if (!newton(&solveTheta1, &x, 1000, TOL, &r, NULL, NULL))
+	if (!newton(&solve_hyperzenith, &x, 1000, TOL, &r, NULL, NULL))
 		theta = NAN;
 	else
 		theta = x;
@@ -67,10 +67,9 @@ inline float2 get_sph_d2(UGenerator &rng)
 
 //Returns (x,y,z) uniformly distributed
 //on the surface of a sphere
-inline float4 get_sph_d3(NGenerator &rng)
+inline float3 get_sph_d3(NGenerator &rng)
 {
-	float4 f;
-	f.w = 0.0;
+	float3 f;
 	f.x = rng();
 	f.y = rng();
 	f.z = rng();
@@ -104,15 +103,29 @@ inline float4 get_sph_d4(NGenerator &rng)
 
 //Returns (x,y,z) for a point uniformly
 //distributed inside a sphere of radius r_max
-inline float4 get_flat_d3(UGenerator &urng, NGenerator &nrng, const float &r_max)
+inline float3 get_flat_d3(UGenerator &urng, NGenerator &nrng, const float &r_max)
 {
 	float r = get_radius(urng, r_max, 4);
-	float4 f = get_sph_d3(nrng);
+	float3 f = get_sph_d3(nrng);
 	f.x *= r;
 	f.y *= r;
 	f.z *= r;
 	return f;
 }
+
+///////////////////////////
+// 2-D Minkowski Diamond //
+// Flat Curvature        //
+// Asymmetric About Eta  //
+///////////////////////////
+
+inline float get_2d_asym_flat_minkowski_diamond_u(UGenerator &rng, const double &xi)
+{
+	return rng() * xi;
+}
+
+#define get_2d_asym_flat_minkowski_diamond_v(rng, xi) \
+	get_2d_asym_flat_minkowski_diamond_u(rng, xi)
 
 //////////////////////////
 // 2-D De Sitter Slab   //
@@ -193,7 +206,7 @@ inline float get_4d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &ze
 	double x = 0.2;
 	double r = rng();
 	double a = r * (2.0 + POW2(1.0 / sin(zeta), EXACT)) / tan(zeta);
-	if (!newton(&solveEtaFunc, &x, 1000, TOL, &a, NULL, NULL))
+	if (!newton(&solve_eta_12836_0, &x, 1000, TOL, &a, NULL, NULL))
 		eta = NAN;
 	else
 		eta = 2.0 * atan(x);
@@ -256,16 +269,39 @@ inline float get_4d_sym_sph_deSitter_slab_eta(UGenerator &rng, const double &zet
 // Asymmetric About Eta  //
 ///////////////////////////
 
-//Returns a value for eta
-inline float get_4d_asym_sph_deSitter_diamond_eta(UGenerator &rng)
+//Returns a value for u
+inline float get_4d_asym_sph_deSitter_diamond_u(UGenerator &rng, const double &xi, const double &mu)
 {
-	return 0.0;
+	double u = 0.3;
+	double rmu = rng() * mu;
+	//if (!newton(&solve_u_13348_0, &u, 1000, TOL, &rmu, NULL, NULL))
+	if (!bisection(&solve_u_13348_0_bisec, &u, 2000, 0.0, xi, TOL, true, &rmu, NULL, NULL)) 
+		u = NAN;
+
+	#if DEBUG
+	assert (u == u);
+	#endif
+
+	return u;
 }
 
-//Returns a value for theta1 given eta
-inline float get_4d_asym_sph_deSitter_diamond_theta1(UGenerator &rng)
+//Returns a value for v given u
+//This function can by OPTIMIZED by passing constants
+inline float get_4d_asym_sph_deSitter_diamond_v(UGenerator &rng, const double &u)
 {
-	return 0.0;
+	double v = 0.05;
+	double p[2];
+	p[0] = u;
+	p[1] = rng();
+	//if (!newton(&solve_v_13348_0, &v, 1000, TOL, p, NULL, NULL))
+	if (!bisection(&solve_v_13348_0_bisec, &v, 2000, 0.0, u, TOL, true, p, NULL, NULL))
+		v = NAN;
+
+	#if DEBUG
+	assert (v == v);
+	#endif
+
+	return v;
 }
 
 //Returns a value for theta2
@@ -277,15 +313,16 @@ inline float get_4d_asym_sph_deSitter_diamond_theta1(UGenerator &rng)
 	get_azimuthal_angle(rng)
 
 //Returns the embedded spatial coordinates
-inline float4 get_4d_asym_sph_deSitter_diamond_emb(UGenerator &urng, NGenerator &nrng)
+inline float4 get_4d_asym_sph_deSitter_diamond_emb(UGenerator &urng, NGenerator &nrng, const double &u, const double &v)
 {
-	float theta1 = get_4d_asym_sph_deSitter_diamond_theta1(urng);
-	float4 f = get_sph_d3(nrng);
-	f.w = cosf(theta1);
-	f.x *= sinf(theta1);
-	f.y *= sinf(theta1);
-	f.z *= sinf(theta1);
-	return f;
+	float theta1 = (u - v) / sqrt(2.0);
+	float3 f = get_sph_d3(nrng);
+	float4 g;
+	g.w = cosf(theta1);
+	g.x = f.x * sinf(theta1);
+	g.y = f.y * sinf(theta1);
+	g.z = f.z * sinf(theta1);
+	return g;
 }
 
 //////////////////////////
@@ -322,16 +359,32 @@ inline float get_4d_asym_flat_deSitter_slab_eta(UGenerator &rng, const double &e
 // Asymmetric About Eta  //
 ///////////////////////////
 
-//Returns a value for eta
-inline float get_4d_asym_flat_deSitter_diamond_eta(UGenerator &rng)
+//Returns a value for u
+inline float get_4d_asym_flat_deSitter_diamond_u(UGenerator &rng, const double &xi, const double &mu)
 {
-	return 0.0f;
+	double x = -exp(-(mu * rng() + 1.0));
+	double w = gsl_sf_lambert_W0(x);
+
+	return 2.0 * xi * (sqrt(1.0 + w) - 1.0) / w - xi;
 }
 
-//Returns a value for radius given eta
-inline float get_4d_asym_flat_deSitter_diamond_radius(UGenerator &rng)
+//Returns a value for v given u
+//This function can by OPTIMIZED by passing constants
+inline float get_4d_asym_flat_deSitter_diamond_v(UGenerator &rng, const double &u, const double &xi)
 {
-	return 0.0f;
+	double t1 = POW3(u, EXACT);
+	double t2 = -3.0 * POW2(u, EXACT) * xi;
+	double t3 = 3.0 * u * POW2(xi, EXACT);
+	double t4 = -POW3(xi, EXACT);
+
+	double F = rng();
+	double alpha = (t1 + t3) * (F - 2.0) + (t2 + t4) * F;
+	double beta = 3.0 * u * ((t1 + t3) * F + (t2 + t4) * (F - 2.0));
+	double gamma = 3.0 * u * alpha;
+	double delta = POW2(beta, EXACT) - POW2(gamma, EXACT);
+	double C = POW(POW2(beta + gamma, EXACT) * (beta - gamma), 1.0 / 3.0, STL);
+
+	return -(beta + C + delta / C) / (3.0 * alpha);
 }
 
 //Returns a value for theta2
@@ -343,15 +396,8 @@ inline float get_4d_asym_flat_deSitter_diamond_radius(UGenerator &rng)
 	get_azimuthal_angle(rng)
 
 //Returns the Cartesian coordinates
-inline float4 get_4d_asym_flat_deSitter_diamond_cartesian(UGenerator &urng, NGenerator &nrng)
-{
-	float r = get_4d_asym_flat_deSitter_diamond_radius(urng);
-	float4 f = get_sph_d3(nrng);
-	f.x *= r;
-	f.y *= r;
-	f.z *= r;
-	return f;
-}
+#define get_4d_asym_flat_deSitter_diamond_cartesian(urng, nrng, u, v) \
+	get_flat_d3(urng, nrng, (u - v) / sqrt(2.0))
 
 //////////////////////////
 // 4-D Dust Slab        //
@@ -396,10 +442,10 @@ inline float get_4d_asym_sph_flrw_slab_tau(UGenerator &rng, const double &tau0)
 	p[1] = rng();
 
 	if (tau0 > 1.8) {	//The value 1.8 is from trial/error
-		if (!bisection(&solveTauUnivBisec, &tau, 2000, 0.0, tau0, TOL, true, p, NULL, NULL))
-			tau = NAN;;
+		if (!bisection(&solve_tau_10884_0_bisec, &tau, 2000, 0.0, tau0, TOL, true, p, NULL, NULL))
+			tau = NAN;
 	} else {
-		if (!newton(&solveTauUniverse, &tau, 1000, TOL, p, NULL, NULL))
+		if (!newton(&solve_tau_10884_0, &tau, 1000, TOL, p, NULL, NULL))
 			tau = NAN;
 	}
 

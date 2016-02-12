@@ -20,7 +20,6 @@ int main(int argc, char **argv)
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &cmpi.num_mpi_threads);
 	MPI_Comm_rank(MPI_COMM_WORLD, &cmpi.rank);
-	printf("rank: %d\n", cmpi.rank);
 	#endif
 
 	CausetPerformance cp = CausetPerformance();
@@ -77,8 +76,12 @@ int main(int argc, char **argv)
 
 	//Identify Potential Memory Leaks
 	success = !ca.hostMemUsed && !ca.devMemUsed;
-	if (!success)
+	if (!success) {
 		printf_mpi(cmpi.rank, "WARNING: Memory leak detected!\n");
+		#if DEBUG
+		printf_mpi(cmpi.rank, "Epsilon = %zd bytes.\n", ca.hostMemUsed);
+		#endif
+	}
 
 	CausetExit:
 	//Exit Program
@@ -142,11 +145,13 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "relink",	no_argument,		NULL,  0  },
 		{ "seed",	required_argument,	NULL, 's' },
 		{ "slice",	required_argument,	NULL,  0  },
+		{ "spacetime",	required_argument,	NULL,  0  },
 		{ "stdim",	required_argument,	NULL,  0  },
 		{ "success",	required_argument,	NULL, 'S' },
 		{ "symmetry",	required_argument,	NULL,  0  },
 		{ "test",	no_argument,		NULL,  0  },
-		{ "verbose", 	no_argument, 		NULL, 'v' },
+		{ "verbose", 	no_argument, 		NULL,  0  },
+		{ "version",	no_argument,		NULL, 'v' },
 		{ "zeta",	required_argument,	NULL, 'z' },
 		{ NULL,		0,			0,     0  }
 	};
@@ -213,7 +218,11 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				break;
 			//case 'h' is located at the end
 			case 'm':	//Manifold
-				if (!strcmp(optarg, "desitter"))
+				if (!strcmp(optarg, "minkowski"))
+					network_properties.spacetime |= MINKOWSKI;
+				else if (!strcmp(optarg, "milne"))
+					network_properties.spacetime |= MILNE;
+				else if (!strcmp(optarg, "desitter"))
 					network_properties.spacetime |= DE_SITTER;
 				else if (!strcmp(optarg, "dust"))
 					network_properties.spacetime |= DUST;
@@ -249,9 +258,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				if (network_properties.seed <= 0L)
 					throw CausetException("Invalid argument for 'seed' parameter!\n");
 				break;
-			case 'v':	//Verbose output
-				network_properties.flags.verbose = true;
-				break;
+			//case 'v' is located at the end
 			case 'y':	//Suppress user input
 				network_properties.flags.yes = true;
 				break;
@@ -324,7 +331,10 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				else if (!strcmp("slice", longOpts[longIndex].name))
 					//Size of spatial slice
 					network_properties.r_max = atof(optarg);
-				else if (!strcmp("stdim", longOpts[longIndex].name)) {
+				else if (!strcmp("spacetime", longOpts[longIndex].name)) {
+					//Spacetime ID
+					network_properties.spacetime = atoi(optarg);
+				} else if (!strcmp("stdim", longOpts[longIndex].name)) {
 					//Spacetime dimensions (2 or 4 right now)
 					if (atoi(optarg) == 2 || atoi(optarg) == 4)
 						network_properties.spacetime |= atoi(optarg);
@@ -341,6 +351,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				} else if (!strcmp("test", longOpts[longIndex].name))
 					//Test parameters
 					network_properties.flags.test = true;
+				else if (!strcmp("verbose", longOpts[longIndex].name))
+					//Verbose output
+					network_properties.flags.verbose = true;
 				else {
 					//Unrecognized options
 					fprintf(stderr, "Option --%s is not recognized.\n", longOpts[longIndex].name);
@@ -351,6 +364,19 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					#endif
 				}
 				break;
+			case 'v':
+				//Print the version information
+				printf_mpi(rank, "CausalSet (Northeastern Causal Set Simulator)\n");
+				printf_mpi(rank, "Copyright (C) 2013-2016 Will Cunningham\n");
+				printf_mpi(rank, "Platform: Redhat Linux x86 64-bit Kernel\n");
+				printf_mpi(rank, "Developed for use with NVIDIA K20m GPU\n");
+				printf_mpi(rank, "Version 0.3\n");
+				printf_mpi(rank, "See doc/VERSION for supported spacetimes\n");
+				#ifdef MPI_ENABLED
+				MPI_Abort(MPI_COMM_WORLD, 0);
+				#else
+				exit(0);
+				#endif
 			case 'h':
 				//Print help menu
 				printf_mpi(rank, "\nUsage  :  CausalSet [options]\n\n");
@@ -400,7 +426,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --stdim\t\tSpacetime Dimensions\t\t2 or 4\n");
 				printf_mpi(rank, "      --symmetry\tTemporal Symmetry\t\t\"symmetric\", \"asymmetric\"\n");
 				printf_mpi(rank, "      --test\t\tTest Parameters Only\n");
-				printf_mpi(rank, "  -v, --verbose\t\tVerbose Output\n");
+				printf_mpi(rank, "      --verbose\t\tVerbose Output\n");
 				printf_mpi(rank, "  -y\t\t\tSuppress User Queries\n");
 				printf_mpi(rank, "  -z, --zeta\t\tHyperbolic Curvature\t\t1.0\n");
 				printf_mpi(rank, "\n");
@@ -528,9 +554,15 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 
 	if (!nb) {
 		printf("\tQuick Sort Successfully Performed.\n");
-		if (get_symmetry(network->network_properties.spacetime) & ASYMMETRIC) {
+		if (get_symmetry(network->network_properties.spacetime) & ASYMMETRIC && !(get_manifold(network->network_properties.spacetime) & HYPERBOLIC)) {
 			printf_cyan();
-			printf("\t\tMinimum Rescaled Time:  %f\n", network->nodes.id.tau[0]);
+			float min_time = 0.0;
+			if (get_manifold(network->network_properties.spacetime) & MINKOWSKI) {
+				if (get_stdim(network->network_properties.spacetime) == 2)
+					min_time = network->nodes.crd->x(0);
+			} else
+				min_time = network->nodes.id.tau[0];
+			printf("\t\tMinimum Rescaled Time:  %f\n", min_time);
 			printf_std();
 		}
 	} else {
@@ -579,6 +611,9 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	#ifdef MPI_ENABLED
 	}
 	#endif
+
+	if (network->network_properties.flags.link)
+		printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime)))); 
 
 	InitExit:
 	if (checkMpiErrors(network->network_properties.cmpi))

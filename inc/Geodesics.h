@@ -1123,8 +1123,6 @@ inline double flrwLookupApprox(double x, void *params)
 //=====================//
 
 //Returns the distance between two nodes in the non-compact K = 0 FLRW manifold
-//Version 2 does not use the lookup table for lambda = f(omega12, tau1, tau2)
-//O(xxx) Efficiency (revise this)
 inline double distanceFLRW(const double * const table, Coordinates *c, const float * const tau, const int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const long &size, int past_idx, int future_idx)
 {
 	#if DEBUG
@@ -1756,11 +1754,15 @@ inline double distance_v1(const double * const table, const float4 &node_a, cons
 	assert (a > 0.0);
 	#endif
 
+	fprintf(stderr, "You should not be here!\n");
+	fprintf(stderr, "I am located at %d in %s.\n", __LINE__, __FILE__);
+	assert (a < 0.0);	//This will surely halt the program
+
 	//Check if they are the same node
 	if (node_a.w == node_b.w && node_a.x == node_b.x && node_a.y == node_b.y && node_a.z == node_b.z)
 		return 0.0;
 
-	bool DIST_DEBUG = true;
+	bool DIST_DEBUG = false;
 
 	IntData idata = IntData();
 	idata.limit = 60;
@@ -1835,7 +1837,7 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 	#if DEBUG
 	assert (get_stdim(spacetime) == 4);
 	assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
-	//assert (get_curvature(spacetime) & POSITIVE);
+	assert (get_curvature(spacetime) & POSITIVE);
 	#endif
 
 	//Check if they are the same node
