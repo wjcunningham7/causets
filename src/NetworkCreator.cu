@@ -136,12 +136,13 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 		//Default constraints
 		if (get_manifold(spacetime) & MINKOWSKI) {
-			eta0 = network_properties->tau0;
+			network_properties->eta0 = network_properties->tau0;
+			eta0 = network_properties->eta0;
 			network_properties->zeta = HALF_PI - eta0;
 			network_properties->a = 1.0;
 
 			#if DEBUG
-			assert (eta0 > 0.0);
+			assert (network_properties->eta0 > 0.0);
 			#endif
 		} else if (get_manifold(spacetime) & DE_SITTER) {
 			//The pseudoradius takes a default value of 1
@@ -162,6 +163,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				//Re-write variables to their correct locations
 				//This is because the '--age' flag has read eta0
 				//into the tau0 variable
+				network_properties->eta0 = network_properties->tau0;
 				network_properties->zeta = HALF_PI - network_properties->tau0;
 				network_properties->tau0 = etaToTauSph(HALF_PI - network_properties->zeta);
 
@@ -172,14 +174,15 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 			eta0 = HALF_PI - network_properties->zeta;
 			eta1 = HALF_PI - network_properties->zeta1;
+			network_properties->eta0 = eta0;
 		} else if (get_manifold(spacetime) & (DUST | FLRW)) {
-			//The density takes a default value of 1000
+			//The pseudoradius takes a default value of 1
 			if (!network_properties->delta)
-				network_properties->delta = 1000;
+				network_properties->a = 1.0;
 
 			//The maximum radius takes a default value of 1
 			//This allows alpha to characterize the spatial cutoff
-			if (!network_properties->r_max)
+			if (get_region(spacetime) & SLAB && !network_properties->r_max)
 				network_properties->r_max = 1.0;
 		} else if (get_manifold(spacetime) & HYPERBOLIC) {
 			//The hyperbolic curvature takes a default value of 1
@@ -191,34 +194,34 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		switch (spacetime) {
 		case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
 			network_properties->k_tar = network_properties->N_tar / 2.0;
-			network_properties->delta = 2.0 * network_properties->N_tar / POW2(eta0, EXACT);
-			network_properties->r_max = eta0 / 2.0;
+			network_properties->delta = 2.0 * network_properties->N_tar / POW2(network_properties->eta0, EXACT);
+			network_properties->r_max = network_properties->eta0 / 2.0;
 			break;
 		case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
-			network_properties->k_tar = network_properties->N_tar * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL) - 1.0) / (TAN(eta0, STL) * HALF_PI);
+			network_properties->k_tar = network_properties->N_tar * (network_properties->eta0 / TAN(network_properties->eta0, STL) - LOG(COS(network_properties->eta0, STL), STL) - 1.0) / (TAN(network_properties->eta0, STL) * HALF_PI);
 			if (!!network_properties->delta)
-				network_properties->a = SQRT(network_properties->N_tar / (TWO_PI * network_properties->delta * TAN(eta0, STL)), STL);
+				network_properties->a = SQRT(network_properties->N_tar / (TWO_PI * network_properties->delta * TAN(network_properties->eta0, STL)), STL);
 			else
-				network_properties->delta = network_properties->N_tar / (TWO_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
+				network_properties->delta = network_properties->N_tar / (TWO_PI * POW2(network_properties->a, EXACT) * TAN(network_properties->eta0, STL));
 			break;
 		case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
-			network_properties->k_tar = (network_properties->N_tar / M_PI) * ((eta0 / TAN(eta0, STL) - 1.0) / TAN(eta0, STL) + eta0);
+			network_properties->k_tar = (network_properties->N_tar / M_PI) * ((network_properties->eta0 / TAN(network_properties->eta0, STL) - 1.0) / TAN(network_properties->eta0, STL) + network_properties->eta0);
 			if (!!network_properties->delta)
-				network_properties->a = SQRT(network_properties->N_tar / (4.0 * M_PI * network_properties->delta * TAN(eta0, STL)), STL);
+				network_properties->a = SQRT(network_properties->N_tar / (4.0 * M_PI * network_properties->delta * TAN(network_properties->eta0, STL)), STL);
 			else
-				network_properties->delta = network_properties->N_tar / (4.0 * M_PI * POW2(network_properties->a, EXACT) * TAN(eta0, STL));
+				network_properties->delta = network_properties->N_tar / (4.0 * M_PI * POW2(network_properties->a, EXACT) * TAN(network_properties->eta0, STL));
 			break;
 		case (2 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-			//assert (false);
+			assert (false);
 			break;
 		case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):	
 			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-			//assert (false);
+			assert (false);
 			break;
 		case (2 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
 			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-			//assert (false);
+			assert (false);
 			break;
 		case (2 | HYPERBOLIC | SLAB | FLAT | ASYMMETRIC):
 			//Nothing else needs to be done
@@ -268,10 +271,9 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->a = POW(3.0 * network_properties->N_tar / (4.0 * M_PI * network_properties->delta * mu), 0.25, STL);
 			else
 				network_properties->delta = 3.0 * network_properties->N_tar / (4.0 * M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * mu);
-			//if (!getLookupTable("./etc/tables/average_degree_13348_0_table.cset.bin", &table, &size))
-			//	throw CausetException("Average degree table not found!\n");
-			//network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &network_properties->tau0, NULL, true);
-			network_properties->k_tar = 5000;
+			if (!getLookupTable("./etc/tables/average_degree_11300_0_table.cset.bin", &table, &size))
+				throw CausetException("Average degree table not found!\n");
+			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &network_properties->tau0, NULL, true);
 			network_properties->r_max = w / sqrt(2.0);
 			break;
 		}
@@ -286,32 +288,43 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			if (!getLookupTable("./etc/tables/average_degree_13348_0_table.cset.bin", &table, &size))
 				throw CausetException("Average degree table not found!\n");
 			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &eta0, NULL, true);
-			//network_properties->k_tar = 5000;
 			break;
 		}
 		case (4 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
 			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-			//assert (false);
+			assert (false);
 			break;
 		case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
-			method = 0;
-			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->spacetime, network_properties->N_tar, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.verbose, network_properties->flags.bench, method))
-				network_properties->cmpi.fail = 1;
-
-			if (checkMpiErrors(network_properties->cmpi))
-				return false;
-
-			q = network_properties->N_tar / (M_PI * POW3(network_properties->alpha * network_properties->r_max * network_properties->tau0, EXACT));
-			network_properties->a = POW(q / network_properties->delta, 0.25, STL);
+		{
+			if (!!network_properties->delta)
+				network_properties->a = POW(network_properties->N_tar / (M_PI * network_properties->delta * POW3(network_properties->alpha * network_properties->tau0, EXACT)), 0.25, STL);
+			else
+				network_properties->delta = network_properties->N_tar / (M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * POW3(network_properties->alpha * network_properties->tau0, EXACT));
+			
+			int seed = static_cast<int>(4000000000 * network_properties->mrng.rng());
+			network_properties->k_tar = (108.0 * M_PI / POW3(network_properties->tau0, EXACT)) * network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * integrate2D(&averageDegree_10820_0, 0.0, 0.0, network_properties->tau0, network_properties->tau0, NULL, seed, 0);
 			network_properties->alpha *= network_properties->a;
-
 			eta0 = tauToEtaDust(network_properties->tau0, network_properties->a, network_properties->alpha);
 			network_properties->zeta = HALF_PI - eta0;
 			break;
+		}
 		case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
-			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-			//assert (false);
+		{
+			double t = POW2(POW2(1.5 * network_properties->tau0, EXACT), EXACT);
+			if (!!network_properties->delta)
+				network_properties->a = POW(2970.0 * 64.0 * network_properties->N_tar / (1981.0 * M_PI * network_properties->delta * t), 0.25, STL);
+			else
+				network_properties->delta = 2970.0 * 64.0 * network_properties->N_tar / (1981.0 * M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * t);
+			network_properties->alpha = 2.0 * network_properties->a; //This property should not affect results in the diamond
+			if (!getLookupTable("./etc/tables/average_degree_11332_0_table.cset.bin", &table, &size))
+				throw CausetException("Average degree table not found!\n");
+			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &network_properties->tau0, NULL, true);
+			eta0 = tauToEtaDust(network_properties->tau0, network_properties->a, network_properties->alpha);
+			network_properties->eta0 = eta0;
+			network_properties->zeta = HALF_PI - eta0;
+			network_properties->r_max = eta0 / 2.0;
 			break;
+		}
 		case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
 			method = 1;
 			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->spacetime, network_properties->N_tar, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.verbose, network_properties->flags.bench, method))
@@ -321,14 +334,20 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				return false;
 				
 			q = 9.0 * network_properties->N_tar / (TWO_PI * POW3(network_properties->alpha * network_properties->r_max, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
-			network_properties->a = POW(q / network_properties->delta, 0.25, STL);
+			if (!!network_properties->delta)
+				network_properties->a = POW(q / network_properties->delta, 0.25, STL);
+			else
+				network_properties->delta = q / POW2(POW2(network_properties->a, EXACT), EXACT);
 			network_properties->alpha *= network_properties->a;
 			eta0 = tauToEtaFLRWExact(network_properties->tau0, network_properties->a, network_properties->alpha);
 			network_properties->zeta = HALF_PI - eta0;
 			break;
 		case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
 			q = 3.0 * network_properties->N_tar / (POW2(M_PI, EXACT) * POW3(network_properties->alpha, EXACT) * (SINH(3.0 * network_properties->tau0, STL) - 3.0 * network_properties->tau0));
-			network_properties->a = POW(q / network_properties->delta, 1.0 / 4.0, STL);
+			if (!!network_properties->delta)
+				network_properties->a = POW(q / network_properties->delta, 0.25, STL);
+			else
+				network_properties->delta = q / POW2(POW2(network_properties->a, EXACT), EXACT);
 			network_properties->alpha *= network_properties->a;
 			eta0 = tauToEtaFLRWExact(network_properties->tau0, network_properties->a, network_properties->alpha);
 			network_properties->zeta = HALF_PI - eta0;
@@ -341,9 +360,60 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				return false;
 			break;
 		case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
-			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-			//assert (false);
+		{
+			//We REQUIRE a = alpha for this spacetime
+			eta0 = tauToEtaFLRWExact(network_properties->tau0, 1.0, 1.0);
+			network_properties->eta0 = eta0;
+			network_properties->zeta = HALF_PI - eta0;
+			network_properties->r_max = eta0 / 2.0;
+
+			//Bisection Method
+			double res = 1.0, tol = 1.0e-10;
+			double lower = 0.0, upper = network_properties->tau0;
+			int iter = 0, max_iter = 10000;
+
+			double x0 = 0.0;
+			while (upper - lower > tol && iter < max_iter) {
+				x0 = (lower + upper) / 2.0;
+				res = tauToEtaFLRWExact(x0, 1.0, 1.0);
+				res -= eta0 / 2.0;
+				if (res < 0.0)
+					lower = x0;
+				else
+					upper = x0;
+				iter++;
+			}
+			//Store the result in zeta1 variable
+			network_properties->zeta1 = x0;
+
+			IntData idata;
+			idata.limit = 100;
+			idata.tol = 1e-8;
+			idata.key = GSL_INTEG_GAUSS61;
+			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
+			idata.upper = network_properties->zeta1;
+			double params[3];
+			params[0] = network_properties->tau0;
+			params[1] = eta0;
+			params[2] = network_properties->zeta1;
+			double vol_lower = integrate1D(&volume_11396_0_lower, &params, &idata, QAG);
+			idata.lower = idata.upper;
+			idata.upper = network_properties->tau0;
+			double vol_upper = integrate1D(&volume_11396_0_upper, &params, &idata, QAG);
+			double mu = vol_lower + vol_upper;
+			gsl_integration_workspace_free(idata.workspace);
+
+			if (!!network_properties->delta)
+				network_properties->a = POW(3.0 * network_properties->N_tar / (4.0 * M_PI * network_properties->delta * mu), 0.25, STL);
+			else
+				network_properties->delta = 3.0 * network_properties->N_tar / (4.0 * M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * mu);
+			network_properties->alpha = network_properties->a;
+
+			if (!getLookupTable("./etc/tables/average_degree_11396_0_table.cset.bin", &table, &size))
+				throw CausetException("Average degree table not found!\n");
+			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &network_properties->tau0, NULL, true);
 			break;
+		}
 		default:
 			throw CausetException("Spacetime parameters not supported!\n");
 		}
@@ -493,26 +563,27 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	return true;
 }
 
-//Calculate Expected Average Degree in the Dust or FLRW Spacetime
+//Calculate Expected Average Degree in the FLRW Spacetime
 //See Causal Set Notes for detailed explanation of methods
+//NOTE: This method is largely historical - only a small portion is used
+//  in practice, but it offers several methods to achieve the same outcome
 bool solveExpAvgDegree(float &k_tar, const unsigned int &spacetime, const int &N_tar, double &a, const double &r_max, double &tau0, const double &alpha, const double &delta, const int &rank, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sCalcDegrees, double &bCalcDegrees, const bool &verbose, const bool &bench, const int method)
 {
 	#if DEBUG
 	assert (ca != NULL);
 	assert (get_stdim(spacetime) & 4);
-	assert (get_manifold(spacetime) & (DUST | FLRW));
+	assert (get_manifold(spacetime) & FLRW);
 	assert (N_tar > 0);
 	assert (tau0 > 0.0);
 	assert (alpha > 0.0);
-	assert (delta > 0.0);
 	assert (method == 0 || method == 1 || method == 2);
-	if (get_manifold(spacetime) & DUST)
-		assert (method == 0);
 	if (get_curvature(spacetime) & FLAT) {
 		assert (method == 0 || method == 1);
 		assert (r_max > 0.0);
-	} else
+	} else {
+		assert (delta > 0.0);
 		assert (a > 0.0);
+	}
 	#endif
 
 	printf_mpi(rank, "\tEstimating Expected Average Degree...\n");
@@ -539,11 +610,6 @@ bool solveExpAvgDegree(float &k_tar, const unsigned int &spacetime, const int &N
 		for (i = 0; i <= nb; i++) {
 			stopwatchStart(&sCalcDegrees);
 			switch (spacetime) {
-			case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
-				kappa = integrate2D(&averageDegree_10820_0, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
-				kappa *= 108 * M_PI / POW3(tau0, EXACT);
-				k_tar = (N_tar * kappa) / (M_PI * POW3(alpha * r_max * tau0, EXACT));
-				break;
 			case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
 				kappa = integrate2D(&averageDegree_10884_0, 0.0, 0.0, tau0, tau0, NULL, seed, 0);
 				kappa *= 8.0 * M_PI;
@@ -724,10 +790,10 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 		if (links_exist) {
 			mem += sizeof(int) * (N_tar << 1);	//For k_in and k_out
 			if (!use_bit) {
-				mem += sizeof(int) * static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer));	//For edge lists
+				mem += sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer));	//For edge lists
 				mem += sizeof(int) * (N_tar << 1);	//For edge list pointers
 			}
-			mem += sizeof(bool) * POW2(core_edge_fraction * N_tar, EXACT) / 8;	//For adjacency list
+			mem += sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)) / 8;	//Adjacency matrix
 		}
 
 		size_t dmem = 0;
@@ -735,7 +801,8 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 		size_t dmem1 = 0, dmem2 = 0, dmem3 = 0;
 		if (use_gpu) {
 			size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
-			mem += sizeof(uint64_t) * d_edges_size;	//For encoded edge list
+			if (!use_bit)
+				mem += sizeof(uint64_t) * d_edges_size;	//For encoded edge list
 			mem += sizeof(int);			//For g_idx
 
 			size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size << 1)));
@@ -753,15 +820,17 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 			dmem1 += sizeof(int) * mthread_size * nbuf << 1;		//For k_in and k_out buffers (device)
 			dmem1 += sizeof(bool) * m_edges_size * nbuf;			//For adjacency matrix buffers (device)
 
-			size_t g_mblock_size = static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / (BLOCK_SIZE * group_size << 1));
-			size_t g_mthread_size = g_mblock_size * BLOCK_SIZE;
-			dmem2 += sizeof(uint64_t) * d_edges_size;	//Encoded edge list used during parallel sorting
-			dmem2 += sizeof(int) * (DECODE_LISTS_GPU_V2 ? g_mthread_size : d_edges_size);	//For edge lists
-			if (decode_cpu)
-				dmem2 = 0;
+			if (!use_bit) {
+				size_t g_mblock_size = static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / (BLOCK_SIZE * group_size << 1));
+				size_t g_mthread_size = g_mblock_size * BLOCK_SIZE;
+				dmem2 += sizeof(uint64_t) * d_edges_size;	//Encoded edge list used during parallel sorting
+				dmem2 += sizeof(int) * (DECODE_LISTS_GPU_V2 ? g_mthread_size : d_edges_size);	//For edge lists
+				if (decode_cpu)
+					dmem2 = 0;
 
-			dmem3 += sizeof(int) * N_tar << 1;	//Edge list pointers
-			dmem3 += sizeof(int) * BLOCK_SIZE << 2;	//Buffers used for scanning
+				dmem3 += sizeof(int) * N_tar << 1;	//Edge list pointers
+				dmem3 += sizeof(int) * BLOCK_SIZE << 2;	//Buffers used for scanning
+			}
 
 			dmem = dmem1 > dmem2 ? dmem1 : dmem2;
 			dmem = dmem > dmem3 ? dmem : dmem3;
@@ -885,17 +954,17 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 
 		if (links_exist) {
 			if (!use_bit) {
-				edges.past_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
+				edges.past_edges = (int*)malloc(sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
 				if (edges.past_edges == NULL)
 					throw std::bad_alloc();
-				memset(edges.past_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
+				memset(edges.past_edges, 0, sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
 				ca->hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
 
-				edges.future_edges = (int*)malloc(sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
+				edges.future_edges = (int*)malloc(sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
 				if (edges.future_edges == NULL)
 					throw std::bad_alloc();
-				memset(edges.future_edges, 0, sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
-				ca->hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
+				memset(edges.future_edges, 0, sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
+				ca->hostMemUsed += sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
 
 				edges.past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
 				if (edges.past_edge_row_start == NULL)
@@ -947,7 +1016,7 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &a, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//Values are in correct ranges
@@ -991,23 +1060,23 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 
 	stopwatchStart(&sGenerateNodes);
 
-	IntData *idata;
-	double xi = (HALF_PI - zeta) / sqrt(2.0);
+	IntData *idata = NULL;
+	double params[3];
+	double xi = eta0 / sqrt(2.0);
 	double w = (zeta - zeta1) / sqrt(2.0);
-	double mu;
+	double mu, mu1, mu2;
+	double p1;
 
 	//Rejection sampling vs exact CDF inversion
 	bool use_rejection = false;
 	if (DEBUG_DIAMOND && get_region(spacetime) & DIAMOND)
-		use_rejection = true;
-	if (spacetime == (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC))
 		use_rejection = true;
 
 	//Initialize GSL integration structure
 	//There is one 'workspace' per OpenMP thread to avoid
 	//write conflicts in the for loop
 	size_t i_size = (use_rejection ? 1 : omp_get_max_threads()) * sizeof(IntData);
-	if (USE_GSL && get_manifold(spacetime) & FLRW) {
+	if ((USE_GSL || get_region(spacetime) & DIAMOND) && get_manifold(spacetime) & FLRW) {
 		try {
 			idata = (IntData*)malloc(i_size);
 			if (idata == NULL)
@@ -1018,7 +1087,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			return false;
 		}
 
-		for (int i = 0; i < i_size / sizeof(IntData); i++) {
+		for (int i = 0; i < (int)(i_size / sizeof(IntData)); i++) {
 			idata[i] = IntData();
 			//Modify these two parameters to trade off between speed and accuracy
 			idata[i].limit = 50;
@@ -1035,6 +1104,23 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	case (4 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
 		mu = LOG(0.5 * (1.0 / COS(sqrt(2.0) * xi, APPROX ? FAST : STL) + 1.0), STL) - 1.0 / POW2(COS(xi / sqrt(2.0), APPROX ? FAST : STL), EXACT) + 1.0;
 		break;
+	case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
+		params[0] = tau0;
+		params[1] = HALF_PI - zeta;
+		params[2] = zeta1;
+		(*idata).limit = 100;
+		(*idata).tol = 1e-8;
+		(*idata).key = GSL_INTEG_GAUSS61;
+		(*idata).upper = zeta1;
+		mu1 = integrate1D(&volume_11396_0_lower, params, idata, QAG);
+		(*idata).lower = (*idata).upper;
+		(*idata).upper = tau0;
+		mu2 = integrate1D(&volume_11396_0_upper, params, idata, QAG);
+		mu = mu1 + mu2;
+		p1 = mu1 / mu;
+		(*idata).limit = 50;
+		(*idata).tol = 1e-4;
+		break;
 	default:
 		mu = 1.0;
 	}
@@ -1045,15 +1131,20 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	NGenerator nrng(mrng.eng, ndist);
 	#endif
 
-	#if EMBED_NODES
-	float2 emb2;
-	float3 emb3;
-	float4 emb4;
-	double r;
-	#endif
-
 	//Generate coordinates for each of N nodes
 	if (use_rejection) {
+		#ifdef _OPENMP
+		UGenerator &urng = mrng.rng;
+		NDistribution ndist(0.0, 1.0);
+		NGenerator nrng(mrng.eng, ndist);
+		#endif
+		#if EMBED_NODES
+		float2 emb2;
+		float3 emb3;
+		float4 emb4;
+		#endif
+		double eta;
+
 		//Use the rejection method
 		int i = 0;
 		while (i < N_tar) {
@@ -1072,6 +1163,9 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 				#else
 				nodes.crd->w(i) = get_4d_asym_flat_deSitter_slab_eta(urng, HALF_PI - zeta, HALF_PI - zeta1);
 				nodes.crd->x(i) = get_4d_asym_flat_deSitter_slab_radius(urng, r_max);
+				if (!iad(nodes.crd->w(i), nodes.crd->x(i), HALF_PI - zeta, HALF_PI - zeta1))
+					continue;
+				nodes.id.tau[i] = etaToTauFlat(nodes.crd->w(i));
 				nodes.crd->y(i) = get_4d_asym_flat_deSitter_diamond_theta2(urng);
 				nodes.crd->z(i) = get_4d_asym_flat_deSitter_diamond_theta3(urng);
 				#endif
@@ -1098,13 +1192,63 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 				nodes.crd->z(i) = get_4d_asym_sph_deSitter_diamond_theta3(urng);
 				#endif
 				break;
+			case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
+			{
+				nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(urng, tau0);
+				#if EMBED_NODES
+				nodes.crd->v(i) = tauToEtaDust(nodes.id.tau[i], a, alpha);
+				emb3 = get_4d_asym_flat_dust_slab_cartesian(urng, nrng, r_max);
+				r = sqrt(POW2(emb3.x, EXACT) + POW2(emb3.y, EXACT) + POW2(emb3.z, EXACT));
+				if (!iad(nodes.crd->v(i), r, 0.0, HALF_PI - zeta))
+					continue;
+				nodes.crd->x(i) = emb3.x;
+				nodes.crd->y(i) = emb3.y;
+				nodes.crd->z(i) = emb3.z;
+				#else
+				nodes.crd->w(i) = tauToEtaDust(nodes.id.tau[i], a, alpha);
+				nodes.crd->x(i) = get_4d_asym_flat_dust_slab_radius(urng, r_max);
+				if (!iad(nodes.crd->w(i), nodes.crd->x(i), 0.0, HALF_PI - zeta))
+					continue;
+				nodes.crd->y(i) = get_4d_asym_flat_dust_diamond_theta2(urng);
+				nodes.crd->z(i) = get_4d_asym_flat_dust_diamond_theta3(urng);
+				#endif
+				break;
+			}
+			case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
+			{
+				nodes.id.tau[i] = get_4d_asym_flat_flrw_slab_tau(urng, tau0);
+				if (USE_GSL) {
+					(*idata).lower = 0.0;
+					(*idata).upper = nodes.id.tau[i];
+					eta = integrate1D(&tauToEtaFLRW, NULL, idata, QAGS) * a / alpha;
+				} else
+					eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
+				#if EMBED_NODES
+				nodes.crd->v(i) = eta;
+				emb3 = get_4d_asym_flat_flrw_slab_cartesian(urng, nrng, r_max);
+				r = sqrt(POW2(emb3.x, EXACT) + POW2(emb3.y, EXACT) + POW2(emb3.z, EXACT));
+				if (!iad(nodes.crd->v(i), r, 0.0, HALF_PI - zeta))
+					continue;
+				nodes.crd->x(i) = emb3.x;
+				nodes.crd->y(i) = emb3.y;
+				nodes.crd->z(i) = emb3.z;
+				#else
+				nodes.crd->w(i) = eta;
+				nodes.crd->x(i) = get_4d_asym_flat_flrw_slab_radius(urng, r_max);
+				if (!iad(nodes.crd->w(i), nodes.crd->x(i), 0.0, HALF_PI - zeta))
+					continue;
+				nodes.crd->y(i) = get_4d_asym_flat_flrw_slab_theta2(urng);
+				nodes.crd->z(i) = get_4d_asym_flat_flrw_slab_theta3(urng);
+				#endif 
+				break;
+			}
 			default:
 				fprintf(stderr, "Spacetime parameters not supported!\n");
 				assert (false);
 			}
 
 			#if DEBUG
-			validateCoordinates(nodes, spacetime, zeta, zeta1, r_max, tau0, i);
+			validateCoordinates(nodes, spacetime, eta0, zeta, zeta1, r_max, tau0, i);
 			#endif
 
 			i++;
@@ -1121,10 +1265,17 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		UGenerator urng(eng, udist);
 		NDistribution ndist(0.0, 1.0);
 		NGenerator nrng(eng, ndist);
-		#pragma omp for schedule (dynamic, 8)
+		#pragma omp for schedule (dynamic, 1)
 		#endif
 		for (int i = 0; i < N_tar; i++) {
-			double eta, u, v;
+			#if EMBED_NODES
+			float2 emb2;
+			float3 emb3;
+			float4 emb4;
+			#endif
+			double eta, r;
+			double u, v;
+			int tid = omp_get_thread_num();
 			switch (spacetime) {
 			case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
 				u = get_2d_asym_flat_minkowski_diamond_u(urng, xi);
@@ -1133,7 +1284,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 				nodes.crd->y(i) = (u - v) / sqrt(2.0);
 				break;
 			case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
-				nodes.crd->x(i) = get_2d_asym_sph_deSitter_slab_eta(urng, zeta);
+				nodes.crd->x(i) = get_2d_asym_sph_deSitter_slab_eta(urng, eta0);
 				nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
 				#if EMBED_NODES
 				emb2 = get_2d_asym_sph_deSitter_slab_emb(urng);
@@ -1144,7 +1295,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 				#endif
 				break;
 			case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
-				nodes.crd->x(i) = get_2d_sym_sph_deSitter_slab_eta(urng, zeta);
+				nodes.crd->x(i) = get_2d_sym_sph_deSitter_slab_eta(urng, eta0);
 				nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
 				#if EMBED_NODES
 				emb2 = get_2d_sym_sph_deSitter_slab_emb(urng);
@@ -1265,15 +1416,14 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 				assert (false);
 				break;
 			case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
-				#if EMBED_NODES
 				nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(urng, tau0);
+				#if EMBED_NODES
 				nodes.crd->v(i) = tauToEtaDust(nodes.id.tau[i], a, alpha);
 				emb3 = get_4d_asym_flat_dust_slab_cartesian(urng, nrng, r_max);
 				nodes.crd->x(i) = emb3.x;
 				nodes.crd->y(i) = emb3.y;
 				nodes.crd->z(i) = emb3.z;
 				#else
-				nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(urng, tau0);
 				nodes.crd->w(i) = tauToEtaDust(nodes.id.tau[i], a, alpha);
 				nodes.crd->x(i) = get_4d_asym_flat_dust_slab_radius(urng, r_max);
 				nodes.crd->y(i) = get_4d_asym_flat_dust_slab_theta2(urng);
@@ -1281,14 +1431,29 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 				#endif
 				break;
 			case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
-				fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-				assert (false);
+				u = get_4d_asym_flat_dust_diamond_u(urng, xi);
+				v = get_4d_asym_flat_dust_diamond_v(urng, u);
+				#if EMBED_NODES
+				nodes.crd->v(i) = (u + v) / sqrt(2.0);
+				nodes.id.tau[i] = etaToTauDust(nodes.crd->v(i), a, alpha);
+				emb3 = get_4d_asym_flat_dust_diamond_cartesian(urng, nrng, u, v);
+				nodes.crd->x(i) = emb3.x;
+				nodes.crd->y(i) = emb3.y;
+				nodes.crd->z(i) = emb3.z;
+				#else
+				nodes.crd->w(i) = (u + v) / sqrt(2.0);
+				nodes.id.tau[i] = etaToTauDust(nodes.crd->w(i), a, alpha);
+				nodes.crd->x(i) = (u - v) / sqrt(2.0);
+				nodes.crd->y(i) = get_4d_asym_flat_dust_diamond_theta2(urng);
+				nodes.crd->z(i) = get_4d_asym_flat_dust_diamond_theta3(urng);
+				#endif
 				break;
 			case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
 				nodes.id.tau[i] = get_4d_asym_flat_flrw_slab_tau(urng, tau0);
 				if (USE_GSL) {
-					idata[omp_get_thread_num()].upper = nodes.id.tau[i];
-					eta = integrate1D(&tauToEtaFLRW, NULL, &idata[omp_get_thread_num()], QAGS) * a / alpha;
+					idata[tid].lower = 0.0;
+					idata[tid].upper = nodes.id.tau[i];
+					eta = integrate1D(&tauToEtaFLRW, NULL, &idata[tid], QAGS) * a / alpha;
 				} else
 					eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
 				#if EMBED_NODES
@@ -1307,8 +1472,9 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
 				nodes.id.tau[i] = get_4d_asym_sph_flrw_slab_tau(urng, tau0);
 				if (USE_GSL) {
-					idata[omp_get_thread_num()].upper = nodes.id.tau[i];
-					eta = integrate1D(&tauToEtaFLRW, NULL, &idata[omp_get_thread_num()], QAGS) * a / alpha;
+					idata[tid].lower = 0.0;
+					idata[tid].upper = nodes.id.tau[i];
+					eta = integrate1D(&tauToEtaFLRW, NULL, &idata[tid], QAGS) * a / alpha;
 				} else
 					eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
 				#if EMBED_NODES
@@ -1326,16 +1492,36 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 				#endif
 				break;
 			case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
-				fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-				assert (false);
+			{
+				nodes.id.tau[i] = get_4d_asym_flat_flrw_diamond_tau(urng, &idata[tid], params, tau0, zeta1, p1, mu, mu1);
+				if (USE_GSL) {
+					idata[tid].lower = 0.0;
+					idata[tid].upper = nodes.id.tau[i];
+					eta = integrate1D(&tauToEtaFLRW, NULL, &idata[tid], QAGS) * a / alpha;
+				} else
+					eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
+				r = get_4d_asym_flat_flrw_diamond_radius(urng, eta, zeta);
+				#if EMBED_NODES
+				nodes.crd->v(i) = eta;
+				emb3 = get_sph_d3(nrng);
+				nodes.crd->x(i) = r * emb3.x;
+				nodes.crd->y(i) = r * emb3.y;
+				nodes.crd->z(i) = r * emb3.z;
+				#else
+				nodes.crd->w(i) = eta;
+				nodes.crd->x(i) = r;
+				nodes.crd->y(i) = get_4d_asym_flat_flrw_diamond_theta2(urng);
+				nodes.crd->z(i) = get_4d_asym_flat_flrw_diamond_theta3(urng);
+				#endif
 				break;
+			}
 			default:
 				fprintf(stderr, "Spacetime parameters not supported!\n");
 				assert (false);
 			}
 
 			#if DEBUG
-			validateCoordinates(nodes, spacetime, zeta, zeta1, r_max, tau0, i);
+			validateCoordinates(nodes, spacetime, eta0, zeta, zeta1, r_max, tau0, i);
 			#endif
 		}
 		#ifdef _OPENMP
@@ -1343,9 +1529,10 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		#endif
 	}
 
+
 	//Free GSL workspace memory
-	if (USE_GSL && get_manifold(spacetime) & FLRW) {
-		for (int i = 0; i < i_size / sizeof(IntData); i++)
+	if ((USE_GSL || get_region(spacetime) & DIAMOND) && get_manifold(spacetime) & FLRW) {
+		for (int i = 0; i < (int)(i_size / sizeof(IntData)); i++)
 			gsl_integration_workspace_free(idata[i].workspace);
 		free(idata);
 		idata = NULL;
@@ -1354,15 +1541,15 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	//Debugging statements used to check coordinate distributions
 	//if (!printValues(nodes, spacetime, N_tar, "tau_dist.cset.dbg.dat", "tau")) return false;
 	//if (!printValues(nodes, spacetime, N_tar, "eta_dist.cset.dbg.dat", "eta")) return false;
-	if (!printValues(nodes, spacetime, N_tar, "u_dist.cset.dbg.dat", "u")) return false;
-	if (!printValues(nodes, spacetime, N_tar, "v_dist.cset.dbg.dat", "v")) return false;
-	if (!printValues(nodes, spacetime, N_tar, "theta1_dist.cset.dbg.dat", "theta1")) return false;
-	if (!printValues(nodes, spacetime, N_tar, "theta2_dist.cset.dbg.dat", "theta2")) return false;
-	if (!printValues(nodes, spacetime, N_tar, "theta3_dist.cset.dbg.dat", "theta3")) return false;
-	printf_red();
+	//if (!printValues(nodes, spacetime, N_tar, "u_dist.cset.dbg.dat", "u")) return false;
+	//if (!printValues(nodes, spacetime, N_tar, "v_dist.cset.dbg.dat", "v")) return false;
+	//if (!printValues(nodes, spacetime, N_tar, "theta1_dist.cset.dbg.dat", "theta1")) return false;
+	//if (!printValues(nodes, spacetime, N_tar, "theta2_dist.cset.dbg.dat", "theta2")) return false;
+	//if (!printValues(nodes, spacetime, N_tar, "theta3_dist.cset.dbg.dat", "theta3")) return false;
+	/*printf_red();
 	printf("Check coordinate distributions now.\n");
 	printf_std();
-	fflush(stdout);
+	fflush(stdout);*/
 	//printChk();
 
 	stopwatchStop(&sGenerateNodes);

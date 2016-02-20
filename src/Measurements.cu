@@ -275,9 +275,6 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 
 	bool SR_DEBUG = false;
 
-	double *table = NULL;
-	bool *used = NULL;
-
 	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
 	#if !SR_RANDOM
 	uint64_t stride = static_cast<uint64_t>(max_pairs / N_sr);
@@ -287,8 +284,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 	uint64_t n_succ = 0;
 	uint64_t start = 0;
 	uint64_t finish = npairs;
-	long size = 0L;
 
+	bool *used = NULL;
 	size_t u_size = sizeof(bool) * N_tar * omp_get_max_threads();
 	int rank = cmpi.rank;
 	bool fail = false;
@@ -325,17 +322,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 	if (verbose)
 		printMemUsed("to Measure Success Ratio", ca->hostMemUsed, ca->devMemUsed, rank);
 
-	//if (manifold == FLRW && !getLookupTable("./etc/tables/geodesics_flrw_table.cset.bin", &table, &size))
-	//	cmpi.fail = 1;
-	if (get_manifold(spacetime) & FLRW && !getLookupTable("./etc/tables/partial_fraction_coefficients.cset.bin", &table, &size))
-		cmpi.fail = 1;
-	//else if (manifold == DE_SITTER && !getLookupTable("./etc/tables/geodesics_ds_table.cset.bin", &table, &size))
-	//	cmpi.fail = 1;
-
-	if (checkMpiErrors(cmpi))
-		return false;
-	ca->hostMemUsed += size;
-
+	//Debugging geodesic distance approximations
 	//validateDistApprox(nodes, edges, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, compact);
 	//printChk();
 
@@ -350,7 +337,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 	nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, compact, idx0, idx1, &omega12);
 	printf("omega12: %f\n", omega12);
 	bool s = false, p = false;
-	if (!traversePath_v1(nodes, edges, core_edge_exists, &used[0], table, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, size, compact, idx0, idx1, s, p))
+	if (!traversePath_v1(nodes, edges, core_edge_exists, &used[0], N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, compact, idx0, idx1, s, p))
 		return false;
 	printf("success: %d\n", (int)s);
 	printf("past hz: %d\n", (int)p);
@@ -431,10 +418,10 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 		bool success = false;
 		bool past_horizon = false;
 		#if TRAVERSE_V2
-		if (!traversePath_v2(nodes, edges, core_edge_exists, &used[offset], table, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, core_edge_fraction, size, i, j, success))
+		if (!traversePath_v2(nodes, edges, core_edge_exists, &used[offset], spacetime, N_tar, a, zeta, zeta1, r_max, alpha, core_edge_fraction, i, j, success))
 			fail = true;
 		#else
-		if (!traversePath_v1(nodes, edges, core_edge_exists, &used[offset], table, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, size, symmetric, compact, i, j, success, past_horizon))
+		if (!traversePath_v1(nodes, edges, core_edge_exists, &used[offset], N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, symmetric, compact, i, j, success, past_horizon))
 			fail = true;
 		#endif
 
@@ -464,12 +451,6 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 	free(used);
 	used = NULL;
 	ca->hostMemUsed -= u_size;
-
-	if (table != NULL) {
-		free(table);
-		table = NULL;
-		ca->hostMemUsed -= size;
-	}
 
 	if (fail)
 		cmpi.fail = 1;
@@ -515,7 +496,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //Uses version 2 of the algorithm - spatial distances instead of geodesics
-bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const double * const table, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, int source, int dest, bool &success)
+bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -544,7 +525,6 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<boo
 	assert (edges.past_edge_row_start != NULL);
 	assert (edges.future_edge_row_start != NULL);
 	assert (used != NULL);
-	//assert (table != NULL);
 		
 	assert (N_tar > 0);
 	if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
@@ -566,13 +546,12 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<boo
 	if (get_curvature(spacetime) & FLAT)
 		assert (r_max > 0.0);
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
-	//assert (size > 0);
 	assert (source >= 0 && source < N_tar);
 	assert (dest >= 0 && dest < N_tar);
 	assert (source != dest);
 	#endif
 
-	bool TRAV_DEBUG = true;
+	bool TRAV_DEBUG = false;
 
 	double min_dist = 0.0;
 	int loc = source;

@@ -10,6 +10,12 @@
 // Northeastern University //
 /////////////////////////////
 
+//Coefficients for tau(u,v) in FLRW diamond
+//This is the inverse series centered about 0
+//These values are the logarithms of the actual coefficients
+//Assumes \tilde\alpha = sqrt(2)
+//static const double tauA[] = { -2.48490665, -9.688312171, -16.38397373, -22.9074773, -29.34585237, -35.73358416, -42.08769934, -48.41786129, -54.73008553, -61.02837227 };
+
 //======================//
 // Root-Finding Kernels //
 //======================//
@@ -79,6 +85,37 @@ inline double v_13348_0(const double &x, const double &u, const double &rval)
 inline double v_prime_13348_0(const double &x, const double &u)
 {
 	return (-3.0 / (4.0 * sqrt(2.0))) * COS(sqrt(2.0) * u, APPROX ? FAST : STL) * (-2.0 * COS(u / sqrt(2.0), APPROX ? FAST : STL) + COS((u - 2.0 * x) / sqrt(2.0), APPROX ? FAST : STL) + COS((3.0 * u - 2.0 * x) / sqrt(2.0), APPROX ? FAST : STL)) / (POW2(TAN(u / sqrt(2.0), APPROX ? FAST : STL), EXACT) * SIN(u / sqrt(2.0), APPROX ? FAST : STL) * POW2(POW2(COS((u + x) / sqrt(2.0), APPROX ? FAST : STL), EXACT), EXACT));
+}
+
+inline double v_11332_0(const double &x, const double &u, const double &rval)
+{
+	double u2 = u * u;
+	double u3 = u2 * u;
+	double u4 = u3 * u;
+	double u5 = u4 * u;
+	double u6 = u5 * u;
+	double u7 = u6 * u;
+	double u8 = u7 * u;
+	double u9 = u8 * u;
+	double u10 = u9 * u;
+	double u11 = u10 * u;
+
+	return x * (u10 + x * (3.0 * u9 + x * (13.0 * u8 / 3.0 + x * (2.0 * u7 + x * (-14.0 * u6 / 5.0 + x * (-14.0 * u5 / 3.0 + x * (-2.0 * u4 + x * (u3 + x * (13.0 * u2 / 9.0 + x * (0.6 * u + x / 11.0)))))))))) - 1981.0 * u11 * rval / 495.0;
+}
+
+inline double v_prime_11332_0(const double &x, const double &u)
+{
+	double u2 = u * u;
+	double u3 = u2 * u;
+	double u4 = u3 * u;
+	double u5 = u4 * u;
+	double u6 = u5 * u;
+	double u7 = u6 * u;
+	double u8 = u7 * u;
+	double u9 = u8 * u;
+	double u10 = u9 * u;
+
+	return u10 + x * (6.0 * u9 + x * (13.0 * u8 + x * (8.0 * u7 + x * (-14.0 * u6 + x * (-28.0 * u5 + x * (-14.0 * u4 + x * (8.0 * u3 + x * (13.0 * u2 + x * (6.0 * u + x)))))))));
 }
 
 //Returns eta Residual
@@ -193,6 +230,32 @@ inline double solve_v_13348_0_bisec(const double &x, const double * const p1, co
 	#endif
 
 	return v_13348_0(x, p1[0], p1[1]);
+}
+
+//Returns v Residual
+//Used in 3+1 Flat Dust Diamond (Asymmetric)
+inline double solve_v_11332_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0);			//u
+	assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
+	#endif
+
+	return -1.0 * v_11332_0(x, p1[0], p1[1]) / v_prime_11332_0(x, p1[0]);
+}
+
+//Returns v Residual in Bisection Algorithm
+//Used in 3+1 Flat Dust Diamond (Asymmetric)
+inline double solve_v_11332_0_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0);			//u
+	assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
+	#endif
+
+	return v_11332_0(x, p1[0], p1[1]);
 }
 
 //=========================//
@@ -336,7 +399,7 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 		assert (zeta < HALF_PI);
 		assert (alpha > 0.0);
 	}
-	if (get_curvature(spacetime) & FLAT && get_region(spacetime) & SLAB)
+	if (get_curvature(spacetime) & FLAT)
 		assert (r_max > 0.0);
 		
 	assert (past_idx >= 0 && past_idx < N_tar);
@@ -416,13 +479,10 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 	//printf("dx: %f\n", dx);
 
 	#if DEBUG
-	if (get_region(spacetime) & SLAB) {
-		if (get_curvature(spacetime) & POSITIVE)
-			assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
-		else if (get_curvature(spacetime) & FLAT)
-			assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(r_max));
-	} else if (get_region(spacetime) & DIAMOND)
-		assert (dx >= 0.0f && dx <= (HALF_PI - zeta));
+	if (get_curvature(spacetime) & POSITIVE)
+		assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
+	else if (get_curvature(spacetime) & FLAT)
+		assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(r_max));
 	#endif
 
 	if (omega12 != NULL)
@@ -594,6 +654,21 @@ inline double etaToTauFLRW(const double &eta, const double &a, const double &alp
 	return g;
 }
 
+//Gives tau(u,v) for diamond
+//Assumes \tilde{\alpha} = sqrt(2)
+/*inline double uvToTauFLRW(const double u, const double v)
+{
+	double loguv = LOG(u + v, STL);
+	double logtau = tauA[0] + 3.0 * loguv;
+
+	double t = 0.0;
+	for (int i = 1; i < 10; i++)
+		t += exp(tauA[i] - tauA[0] + 6.0 * i * loguv);
+	logtau += log1p(t);
+
+	return exp(logtau);
+}*/
+
 //-----------------------//
 // Boost Transformations //
 //-----------------------//
@@ -603,7 +678,7 @@ inline double etaToTauFLRW(const double &eta, const double &a, const double &alp
 //Performs a boost about the origin (0,0)
 //Returns the boosted coordinate where u' = v'
 //Assumes both u and v are positive
-inline double boost_origin(const double &u, const double &v)
+/*inline double boost_origin(const double &u, const double &v)
 {
 	#if DEBUG
 	assert (u >= 0.0);
@@ -611,16 +686,16 @@ inline double boost_origin(const double &u, const double &v)
 	#endif
 
 	return sqrt(u * v);
-}
+}*/
 
 //Perform a boost about 'origin' on a point (u,v)
 //It is assumed 'origin' is at (origin, origin) in the (u,v) coordinate system
 //This is called 'xi' in the notes
 //Returns the boosted coordinate where u' = v'
-inline double boost_from(const double &u, const double &v, const double &origin)
+/*inline double boost_from(const double &u, const double &v, const double &origin)
 {
 	return origin - sqrt(u * v - origin * (u + v - origin));
-}
+}*/
 
 //=====================================//
 // Integration Supplementary Functions //
@@ -693,6 +768,52 @@ inline double isf_02(double *table, double size, double eta, double a, double al
 	return POW(SINH(1.5 * tau, APPROX ? FAST : STL), 2.0 / 3.0, APPROX ? FAST : STL);
 }
 
+//=================//
+// Volume Formulae //
+//=================//
+
+//---------------------------------//
+// Volume in 3+1 Flat FLRW Diamond //
+//---------------------------------//
+
+//This kernel is used in numerical integration
+//This gives the volume from tau=0 to tau=tau0/2 in a diamond
+//This result should be multiplied by (4pi/3)a^4
+inline double volume_11396_0_lower(double tau, void *params)
+{
+	#if DEBUG
+	assert (params != NULL);
+	assert (((double*)params)[0] > 0.0);	//tau0
+	assert (((double*)params)[1] > 0.0);	//eta0
+	assert (((double*)params)[2] > 0.0 && ((double*)params)[2] < ((double*)params)[0]);	//tau1/2
+	assert (tau > 0.0 && tau < ((double*)params)[2]);
+	#endif
+
+	double t = SINH(1.5 * tau, APPROX ? FAST : STL);
+	double eta = tauToEtaFLRWExact(tau, 1.0, 1.0);
+
+	return POW2(t, EXACT) * POW3(eta, EXACT);
+}
+
+//This kernel is used in numerical integration
+//This gives the volume from tau=tau0/2 to tau=tau0 in a diamond
+//This result should be multiplied by (4pi/3)a^4
+inline double volume_11396_0_upper(double tau, void *params)
+{
+	#if DEBUG
+	assert (params != NULL);
+	assert (((double*)params)[0] > 0.0);	//tau0
+	assert (((double*)params)[1] > 0.0);	//eta0
+	assert (((double*)params)[2] > 0.0 && ((double*)params)[2] < ((double*)params)[0]);	//tau1/2
+	assert (tau > ((double*)params)[2] && tau < ((double*)params)[0]);
+	#endif
+
+	double t = SINH(1.5 * tau, APPROX ? FAST : STL);
+	double eta = tauToEtaFLRWExact(tau, 1.0, 1.0);
+
+	return POW2(t, EXACT) * POW3(((double*)params)[1] - eta, EXACT);
+}
+
 //=========================//
 // Average Degree Formulae //
 //=========================//
@@ -745,7 +866,7 @@ inline double averageDegree_21028_0(double eta, void *params)
 
 //This kernel is used in numerical integration
 //This result should be divided by log((1+sec(sqrt(2)xi))/2) - sec(xi/sqrt(2))^2 + 1
-inline double averageDegree_13348_0(int dim, double x[], double *params)
+/*inline double averageDegree_13348_0(int dim, double x[], double *params)
 {
 	#if DEBUG
 	assert (params != NULL);
@@ -781,7 +902,7 @@ inline double averageDegree_13348_0(int dim, double x[], double *params)
 	double t5 = 1.0 / c2pp;
 
 	return s4uv * s2uv * (t1 + t2 - t3 + t4 - t5 + 1.0);
-} 
+}*/
 
 //---------------------------------------//
 // Rescaled Average Degree in Dusty Slab //

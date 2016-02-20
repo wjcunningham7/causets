@@ -21,7 +21,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, float &success_ratio, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &N_sr, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &verbose, const bool &bench);
 
-bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const double * const table, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, int source, int dest, bool &success);
+bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success);
 
 bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const unsigned int &spacetime, const int &N_tar, int &N_df, const double &tau_m, const double &a, const double &zeta, const double &zeta1, const double &alpha, const double &delta, CaResources * const ca, Stopwatch &sMeasureDegreeField, const bool &verbose, const bool &bench);
 

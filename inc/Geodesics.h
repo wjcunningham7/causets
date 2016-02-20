@@ -1123,10 +1123,9 @@ inline double flrwLookupApprox(double x, void *params)
 //=====================//
 
 //Returns the distance between two nodes in the non-compact K = 0 FLRW manifold
-inline double distanceFLRW(const double * const table, Coordinates *c, const float * const tau, const int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const long &size, int past_idx, int future_idx)
+inline double distanceFLRW(Coordinates *c, const float * const tau, const int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
 {
 	#if DEBUG
-	assert (table != NULL);
 	assert (c != NULL);
 	assert (!c->isNull());
 	assert (c->getDim() == 4);
@@ -1142,11 +1141,9 @@ inline double distanceFLRW(const double * const table, Coordinates *c, const flo
 	assert (zeta < HALF_PI);
 	assert (r_max > 0.0);
 	assert (alpha > 0.0);
-	assert (size > 0L);
 	assert (get_curvature(spacetime) & FLAT);
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
-	//assert (past_idx < future_idx);
 	#endif
 
 	if (future_idx < past_idx) {

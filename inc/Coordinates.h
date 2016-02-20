@@ -134,9 +134,12 @@ inline float get_2d_asym_flat_minkowski_diamond_u(UGenerator &rng, const double 
 //////////////////////////
 
 //Returns a value for eta
-inline float get_2d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &zeta)
+inline float get_2d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &eta0)
 {
-	return atan(rng() / tan(zeta));
+	double eta = atan(rng() * tan(eta0));
+	if ((float)eta >= eta0)
+		eta = eta0 - 1.0e-6;
+	return eta;
 }
 
 //Returns a value for theta
@@ -154,10 +157,10 @@ inline float get_2d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &ze
 /////////////////////////
 
 //Returns a value for eta
-inline float get_2d_sym_sph_deSitter_slab_eta(UGenerator &rng, const double &zeta)
+inline float get_2d_sym_sph_deSitter_slab_eta(UGenerator &rng, const double &eta0)
 {
 	int flip = rng() < 0.5 ? 1 : -1;
-	return flip * get_2d_asym_sph_deSitter_slab_eta(rng, zeta);
+	return flip * get_2d_asym_sph_deSitter_slab_eta(rng, eta0);
 }
 
 //Returns a value for theta
@@ -428,6 +431,49 @@ inline float get_4d_asym_flat_dust_slab_tau(UGenerator &rng, const double &tau0)
 	get_flat_d3(urng, nrng, r_max)
 
 //////////////////////////
+// 4-D Dust Diamond     //
+// Flat Curvature       //
+// Asymmetric About Eta //
+//////////////////////////
+
+//Returns a value for u
+inline float get_4d_asym_flat_dust_diamond_u(UGenerator &rng, const double &xi)
+{
+	return xi * pow(rng(), 1.0 / 12.0);
+}
+
+//Returns a value for v given u
+//This function can by OPTIMIZED by passing constants
+inline float get_4d_asym_flat_dust_diamond_v(UGenerator &rng, const double &u)
+{
+	double v = 0.2;
+	double p[2];
+	p[0] = u;
+	p[1] = rng();
+	//if (!newton(&solve_v_11332_0, &v, 1000, TOL, p, NULL, NULL))
+	if (!bisection(&solve_v_11332_0_bisec, &v, 2000, 0.0, u, TOL, true, p, NULL, NULL))
+		v = NAN;
+
+	#if DEBUG
+	assert (v == v);
+	#endif
+
+	return v;
+}
+
+//Returns a value for theta2
+#define get_4d_asym_flat_dust_diamond_theta2(rng) \
+	get_zenith_angle(rng)
+
+//Returns a value for theta3
+#define get_4d_asym_flat_dust_diamond_theta3(rng) \
+	get_azimuthal_angle(rng)
+
+//Returns the Cartesian coordinates
+#define get_4d_asym_flat_dust_diamond_cartesian(urng, nrng, u, v) \
+	get_flat_d3(urng, nrng, (u - v) / sqrt(2.0))
+
+//////////////////////////
 // 4-D FLRW Slab        //
 // Positive Curvature   //
 // Asymmetric About Eta //
@@ -495,5 +541,83 @@ inline float get_4d_asym_sph_flrw_slab_tau(UGenerator &rng, const double &tau0)
 //Returns the Cartesian coordinates
 #define get_4d_asym_flat_flrw_slab_cartesian(urng, nrng, r_max) \
 	get_flat_d3(urng, nrng, r_max)
+
+//////////////////////////
+// 4-D FLRW Diamond     //
+// Flat Curvature       //
+// Asymmetric About Eta //
+//////////////////////////
+
+//Returns a value for tau
+//It's easier to re-implement the bisection method here
+//  due to the structure of inc/Operations.h,
+//  and because the kernel here is an integral rather
+//  than a closed-form expression
+inline float get_4d_asym_flat_flrw_diamond_tau(UGenerator &rng, IntData * const idata, double params[], const double &tau0, const double &tau_half, const double &lower_prob, const double &mu, const double &mu1)
+{
+	double p = rng();
+	double res = 1.0, tol = 1.0e-8, x0 = 0.0;
+	double lower, upper;
+	double lhs = p * mu;
+	int iter = 0, max_iter = 10000;
+	bool use_lower = (p <= lower_prob);
+
+	if (use_lower) {
+		lower = 0.0;
+		upper = tau_half;
+		idata->lower = 0.0;
+	} else {
+		lower = tau_half;
+		upper = tau0;
+		idata->lower = tau_half;
+		lhs -= mu1;
+	}
+
+	while (upper - lower > tol && iter < max_iter) {
+		x0 = (lower + upper) / 2.0;
+		if (use_lower) {
+			idata->upper = x0;
+			res = integrate1D(&volume_11396_0_lower, params, idata, QAG);
+		} else {
+			idata->upper = x0;
+			res = integrate1D(&volume_11396_0_upper, params, idata, QAG);
+		}
+		#if DEBUG
+		assert (res == res);
+		#endif
+		res -= lhs;
+		if (res < 0.0)
+			lower = x0;
+		else
+			upper = x0;
+		iter++;
+	}
+
+	return x0;
+}
+
+//Returns a value for radius given tau
+inline float get_4d_asym_flat_flrw_diamond_radius(UGenerator &rng, const double &eta, const double &zeta)
+{
+	double r, r_max;
+	if (eta < (HALF_PI - zeta) / 2.0)
+		r_max = eta;
+	else
+		r_max = (HALF_PI - zeta) - eta;
+	r = get_radius(rng, r_max, 4);
+	return r;
+}
+
+//Returns a value for theta2
+#define get_4d_asym_flat_flrw_diamond_theta2(rng) \
+	get_zenith_angle(rng)
+
+//Returns a value for theta3
+#define get_4d_asym_flat_flrw_diamond_theta3(rng) \
+	get_azimuthal_angle(rng)
+
+//Returns the Cartesian coordinates
+#define get_4d_asym_flat_flrw_diamond_cartesian(urng, nrng, r) \
+	get_flat_d3(urng, nrng, r)
 
 #endif

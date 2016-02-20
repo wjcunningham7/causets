@@ -49,10 +49,10 @@ bool generateGeodesicLookupTable(const char *filename, const double max_tau, con
 
 bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha);
 
-bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const double * const table, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const long &size, int source, int dest, bool &success, bool &past_horizon);
+bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success, bool &past_horizon);
 
 bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool no_pos, const bool &use_bit, const bool &verbose, const bool &bench);
 
-void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const int &i);
+void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const int &i);
 
 #endif

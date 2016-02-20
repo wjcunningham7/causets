@@ -10,20 +10,23 @@
 # Examples of How to Use CausalSet #
 ####################################
 
+# 1+1 flat Minkowski diamond
+#./bin/CausalSet --spacetime 11274 --nodes 1000 --age 0.5 --link --print
+
 # 1+1 de Sitter, spherical foliation
-#./bin/CausalSet --nodes 24586 --age 1.5707577 --dim 1 --compact --link --print
+#./bin/CausalSet --spacetime 12834 --nodes 24586 --age 1.5707577 --link --print
 
 # 3+1 de Sitter, spherical foliation
-#./bin/CausalSet --nodes 65536 --age 1.2 --buffer 0.3 --compact --link --gpu --print
+#./bin/CausalSet --spacetime 12836 --nodes 65536 --age 1.2 --buffer 0.3 --link --gpu --print
 
 # 3+1 de Sitter, flat foliation
-#./bin/CausalSet --nodes 122880 --age 0.848152 --slice 4.9997 --buffer 0.3 --link --gpu --print
+#./bin/CausalSet --spacetime 10788 --nodes 122880 --age 0.848152 --slice 4.9997 --buffer 0.3 --link --gpu --print
 
 # 3+1 Dust, flat foliation
-#./bin/CausalSet --nodes 10240 --age 0.848152 --alpha 2 --manifold d --link --gpu --print
+#./bin/CausalSet --spacetime 10820 --nodes 65536 --age 0.848152 --alpha 5 --link --gpu --print
 
 # 3+1 FLRW, flat foliation
-#./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 3 --manifold f --link --gpu --print
+#./bin/CausalSet --spacetime 10884 --nodes 10240 --energy 0.7 --alpha 3 --link --gpu --print
 
 # 1+1 Hyperbolic, reading file 'dat/pos/321.cset.pos.dat'
 #./bin/CausalSet --graph 321 --dim 1 --manifold h --relink --print
@@ -33,65 +36,47 @@
 ########################
 
 # de Sitter Embedding
-#./bin/CausalSet --nodes 20480 --age 1.5 --seed 18100 --buffer 0.3 --compact --link --embedding 100
+#./bin/CausalSet --spacetime 12836 --nodes 20480 --age 1.5 --seed 18100 --buffer 0.3 --link --gpu --embedding 1
 
 # de Sitter Distances
-#./bin/CausalSet --nodes 2048 --age 1.2 --seed 18100 --buffer 0.3 --compact --link --gpu --distances 100
-
-# FLRW Distances
-#./bin/CausalSet --nodes 10240 --energy 0.7 --alpha 2 --seed 18100 --manifold f --compact --link --gpu --distances 100
-
+#./bin/CausalSet --spacetime 12836 --nodes 2048 --age 1.2 --seed 18100 --buffer 0.3 --link --gpu --distances 100
 
 #####################################
 # These are experimental parameters #
 #####################################
 
-./bin/CausalSet --spacetime 11300 --nodes 1000 --age 0.93 --seed 1455224443
-#./bin/CausalSet --stdim 2 --manifold minkowski --region diamond --curvature flat --symmetry asymmetric --nodes 1000 --age 0.5 --verbose -y --test
-
-# Study Dust Manifold
-#./bin/CausalSet --nodes 26624 --age 0.2154 --alpha 2.9941 --manifold d --link --gpu
-
 # Greedy Routing
-#./bin/CausalSet --nodes 3513 --age 0.761631 --buffer 0.3 --link --verbose -y --test
-#energy=0.82
-#num=40704
-#rad=5.9908
-#seed=1444666562
-#./bin/CausalSet --nodes $num --age $age --slice $rad --buffer 0.3 --verbose -y --gpu --link --success 200
-#./bin/CausalSet --nodes $num --energy $energy --alpha $rad --seed $seed --manifold d --link --gpu --success 100000
-#./bin/CausalSet --nodes $num --alpha $rad --age $age --manifold f --verbose -y --link --gpu --success 1000
-#./bin/CausalSet --energy 0.975 --alpha 5.9993 --graph 1440786261 --manifold f --link --verbose -y --success 20000000
+age=1
+num=262144
+./bin/CausalSet --spacetime 11300 --nodes $num --age $age --buffer 0.3 --verbose --link --gpu --success 100 --test
+#./bin/CausalSet --spacetime 10820 --nodes $num --age $age --alpha $rad --verbose -y --link --gpu --success 100
+#./bin/CausalSet --spacetime 10884 --nodes $num --age $age --alpha $rad --verbose -y --link --gpu --success 100
 
 # Measure de Sitter Action
-#./bin/CausalSet --graph 1 --age 0.5 --buffer 0.3 --manifold s --compact --link --quiet-read --components --action smeared --print
-#for (( i=0; i<5; i++ )) ; do
-#./bin/CausalSet --nodes 1024 --age 0.5 --buffer 0.3 --manifold s --compact --link --gpu
-#done
-#./bin/CausalSet --nodes 32768 --age 1.2 --seed 18100 --buffer 0.3 --verbose -y --link --gpu --action 5 --core 1
+#./bin/CausalSet --spacetime 12834 --nodes 32768 --age 1.2 --seed 18100 --buffer 0.3 --link --gpu --action local --core 1
 
 ######################################
 # These will reproduce known results #
 ######################################
 
 # Generate causal set for 1+1 de Sitter (no matter)
-#./bin/CausalSet --nodes 24586 --age 1.5707577 --dim 1 --seed 18100 --link --print
+#./bin/CausalSet --spacetime 12834 --nodes 24586 --age 1.5707577 --seed 18100 --link --print
 # Should find k = 5.53, gamma = 2
 
 # Generate causal set for 3+1 de Sitter (no matter)
-#./bin/CausalSet --nodes 25441 --age 1.5296963 --seed 18100 --buffer 0.3 --link --print
+#./bin/CausalSet --spacetime 12836 --nodes 25441 --age 1.5296963 --seed 18100 --buffer 0.3 --link --print
 # Should find k = 5.29, gamma = 1.75
 
-# Generate causal set for universe (mix of dark energy and matter)
-#./bin/CausalSet --nodes 1000887 --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 --manifold f --compact --link --verbose -y --print &> causet.log &
+# Generate causal set for FLRW universe (mix of dark energy and matter)
+#./bin/CausalSet --spacetime 12932 --nodes 1000887 --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 --link --gpu --verbose -y --print &> causet.log &
 # Should find k = 727, in-degree given by Fig. (S3), out-degree given by Fig. (3a)
-# Note this takes ~ 3.5 days to run!!!
+# Note this takes ~ 3.5 days to run without the GPU!!!
 
 # Read hyperbolic graph data and perform greedy routing algorithm
-#./bin/CausalSet --graph 321 --dim 1 --manifold h --seed 18100 --verbose -y --success 1
+#./bin/CausalSet --spacetime 11010 --graph 321 --seed 18100 --verbose -y --success 1
 # Should find a success ratio of 1.0 and a single connected component
 
 # Compare to Dima's Fortran Code
 # Make sure to manually alter parameters in fortran code and re-compile!
-#./bin/CausalSet --graph 22222 --nodes 10240 --age 1.5 --delta 1 --manifold f --compact --link --gpu --components
+#./bin/CausalSet --spacetime 12932 --graph 22222 --nodes 10240 --age 1.5 --delta 1 --link --gpu --components
 #./etc/dk_stats_direct.pl 22222

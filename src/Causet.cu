@@ -541,7 +541,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	int high = network->network_properties.N_tar - 1;
 
 	for (i = 0; i <= nb; i++) {
-		if (!generateNodes(network->nodes, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.mrng, cp->sGenerateNodes, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+		if (!generateNodes(network->nodes, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.a, network->network_properties.eta0, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.mrng, cp->sGenerateNodes, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 			network->network_properties.cmpi.fail = 1;
 			goto InitExit;
 		}
@@ -612,8 +612,9 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	}
 	#endif
 
-	if (network->network_properties.flags.link)
-		printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime)))); 
+	//Use this statement if you're creating a degree lookup table
+	/*if (network->network_properties.flags.link)
+		printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime))));*/
 
 	InitExit:
 	if (checkMpiErrors(network->network_properties.cmpi))
@@ -1861,11 +1862,11 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		if (!network->network_properties.flags.use_bit) {
 			free(network->edges.past_edges);
 			network->edges.past_edges = NULL;
-			hostMemUsed -= sizeof(int) * static_cast<unsigned int>(network->network_properties.N_tar * network->network_properties.k_tar * (1.0 + network->network_properties.edge_buffer) / 2);
+			hostMemUsed -= sizeof(int) * static_cast<uint64_t>(network->network_properties.N_tar * network->network_properties.k_tar * (1.0 + network->network_properties.edge_buffer) / 2);
 
 			free(network->edges.future_edges);
 			network->edges.future_edges = NULL;
-			hostMemUsed -= sizeof(int) * static_cast<unsigned int>(network->network_properties.N_tar * network->network_properties.k_tar * (1.0 + network->network_properties.edge_buffer) / 2);
+			hostMemUsed -= sizeof(int) * static_cast<uint64_t>(network->network_properties.N_tar * network->network_properties.k_tar * (1.0 + network->network_properties.edge_buffer) / 2);
 
 			free(network->edges.past_edge_row_start);
 			network->edges.past_edge_row_start = NULL;
