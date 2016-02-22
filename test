@@ -46,9 +46,10 @@
 #####################################
 
 # Greedy Routing
-age=1
-num=262144
-./bin/CausalSet --spacetime 11300 --nodes $num --age $age --buffer 0.3 --verbose --link --gpu --success 100 --test
+st=11396
+age=1.86
+num=10240
+./bin/CausalSet --spacetime $st --nodes $num --age $age --buffer 0.3 --verbose --link --gpu
 #./bin/CausalSet --spacetime 10820 --nodes $num --age $age --alpha $rad --verbose -y --link --gpu --success 100
 #./bin/CausalSet --spacetime 10884 --nodes $num --age $age --alpha $rad --verbose -y --link --gpu --success 100
 

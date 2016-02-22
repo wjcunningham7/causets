@@ -10,7 +10,7 @@
 # spacetimes where there exists no theoretical expression
 
 # Spacetime ID
-id=11396
+id=13348
 
 # Version
 ver=0
@@ -19,13 +19,14 @@ ver=0
 n=10240		# Number of nodes
 
 # Range of times
-tmin=0.66
-tmax=1.5
+tmin=0.01
+tmax=1.57
 tstep=0.01
 
 for i in $(seq ${tmin} ${tstep} ${tmax}) ; do
   echo "$i $(./bin/CausalSet --spacetime $id --nodes $n --age $i --link --gpu | awk '/rad:/ {print $2}')" >> /tmp/adeg.tmp
 done
 
-etc/degtable $id $ver
-mv /tmp/adeg.tmp etc/tables/adeg_${id}_${ver}.tmp
+cp /tmp/adeg.tmp .
+#etc/degtable $id $ver
+#mv /tmp/adeg.tmp etc/tables/adeg_${id}_${ver}.tmp

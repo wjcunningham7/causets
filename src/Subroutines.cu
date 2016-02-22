@@ -80,14 +80,14 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 	//Identify input value
 	double input = first ? *y : *x;
 	double output = 0.0;
-	int t_idx = 0;
+	int t_idx = (int)(!first);
 	int i;
 
 	try {
 		//Identify Value in Table
 		//Assumes values are written (y, x)
 		for (i = (int)(!first); i < size / (int)sizeof(double); i += 2) {
-			if ((increasing && table[i] > input) || (!increasing && table[i] < input)) {
+			if ((increasing && table[i] >= input) || (!increasing && table[i] <= input)) {
 				t_idx = i;
 				break;
 			}
@@ -95,7 +95,7 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 
 		//Check if Table is Insufficient
 		if (t_idx == (int)(!first)) {
-			printf("%f\n", input);
+			//printf("%f\n", input);
 			throw CausetException("Values from lookup table do not include requested input.  Recreate table or change input.\n");
 		}
 
@@ -552,6 +552,18 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 	for (i = 0; i < nodes.k_out[index]; i++)
 		if (!nodes.cc_id[edges.future_edges[fs+i]])
 			bfsearch(nodes, edges, edges.future_edges[fs+i], id, elements);
+}
+
+//Breadth First Search
+//Uses adjacency matrix only
+void bfsearch_v2(const Node &nodes, const std::vector<bool> &core_edge_exists, const int index, const int id, int &elements)
+{
+	#if DEBUG
+	assert (nodes.cc_id != NULL);
+	assert (index >= 0);
+	assert (id >= 0);
+	assert (elements >= 0);
+	#endif
 }
 
 void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many)

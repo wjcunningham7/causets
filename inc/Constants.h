@@ -36,7 +36,7 @@
 
 #define SR_RANDOM true	//Pick random pairs when calculating success ratio
 
-#define TRAVERSE_V2 true	//Version 2 uses spatial distances rather than geodesics
+#define TRAVERSE_V2 true	//Version 2 (and 3) uses spatial distances rather than geodesics
 
 #define ACTION_V2 true		//Version 2 uses OpenMP
 

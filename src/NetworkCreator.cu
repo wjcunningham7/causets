@@ -79,12 +79,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		network_properties->cmpi.fail = 1;
 	}
 
-	if (network_properties->k_tar >= network_properties->N_tar / 32 - 1) {
-		//This is when a bit array is smaller than the adjacency lists
-		network_properties->flags.use_bit = true;
-		network_properties->core_edge_fraction = 1.0;
-	}
-
 	#ifdef CUDA_ENABLED
 	//If the GPU is requested, optimize parameters
 	if (!LINK_NODES_GPU_V2 && network_properties->flags.use_gpu && network_properties->N_tar % (BLOCK_SIZE << 1)) {
@@ -98,12 +92,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		printf_mpi(rank, "Conflicting parameters: no_pos and use_gpu.  GPU linking requires the use of node positions.\n");
 		fflush(stdout);
 		network_properties->cmpi.fail = 1;
-	}
-
-	//Adjacency matrix not implemented in certain GPU algorithms
-	if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2) {
-		network_properties->flags.use_bit = false;
-		network_properties->core_edge_fraction = 0.0;
 	}
 	#endif
 
@@ -274,6 +262,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			if (!getLookupTable("./etc/tables/average_degree_11300_0_table.cset.bin", &table, &size))
 				throw CausetException("Average degree table not found!\n");
 			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &network_properties->tau0, NULL, true);
+			if (network_properties->k_tar != network_properties->k_tar)
+				throw CausetException("Value not found in average degree table!\n");
 			network_properties->r_max = w / sqrt(2.0);
 			break;
 		}
@@ -288,6 +278,9 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			if (!getLookupTable("./etc/tables/average_degree_13348_0_table.cset.bin", &table, &size))
 				throw CausetException("Average degree table not found!\n");
 			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &eta0, NULL, true);
+			if (network_properties->k_tar != network_properties->k_tar)
+				throw CausetException("Value not found in average degree table!\n");
+			//network_properties->k_tar = 5000;
 			break;
 		}
 		case (4 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
@@ -319,6 +312,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			if (!getLookupTable("./etc/tables/average_degree_11332_0_table.cset.bin", &table, &size))
 				throw CausetException("Average degree table not found!\n");
 			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &network_properties->tau0, NULL, true);
+			if (network_properties->k_tar != network_properties->k_tar)
+				throw CausetException("Value not found in average degree table!\n");
 			eta0 = tauToEtaDust(network_properties->tau0, network_properties->a, network_properties->alpha);
 			network_properties->eta0 = eta0;
 			network_properties->zeta = HALF_PI - eta0;
@@ -389,17 +384,19 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			IntData idata;
 			idata.limit = 100;
 			idata.tol = 1e-8;
-			idata.key = GSL_INTEG_GAUSS61;
+			//idata.key = GSL_INTEG_GAUSS61;	//Was used for QAG instead of QAGS
 			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 			idata.upper = network_properties->zeta1;
 			double params[3];
 			params[0] = network_properties->tau0;
 			params[1] = eta0;
 			params[2] = network_properties->zeta1;
-			double vol_lower = integrate1D(&volume_11396_0_lower, &params, &idata, QAG);
+			double vol_lower = integrate1D(&volume_11396_0_lower, &params, &idata, QAGS);
+			assert (vol_lower == vol_lower);
 			idata.lower = idata.upper;
 			idata.upper = network_properties->tau0;
-			double vol_upper = integrate1D(&volume_11396_0_upper, &params, &idata, QAG);
+			double vol_upper = integrate1D(&volume_11396_0_upper, &params, &idata, QAGS);
+			assert (vol_upper == vol_upper);
 			double mu = vol_lower + vol_upper;
 			gsl_integration_workspace_free(idata.workspace);
 
@@ -412,6 +409,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			if (!getLookupTable("./etc/tables/average_degree_11396_0_table.cset.bin", &table, &size))
 				throw CausetException("Average degree table not found!\n");
 			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &network_properties->tau0, NULL, true);
+			if (network_properties->k_tar != network_properties->k_tar)
+				throw CausetException("Value not found in average degree table!\n");
 			break;
 		}
 		default:
@@ -488,6 +487,12 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		if (!network_properties->edge_buffer)
 			network_properties->edge_buffer = 0.2;
 
+		if (network_properties->k_tar >= network_properties->N_tar / 32 - 1) {
+			//This is when a bit array is smaller than the adjacency lists
+			network_properties->flags.use_bit = true;
+			network_properties->core_edge_fraction = 1.0;
+		}
+
 		#ifdef CUDA_ENABLED
 		//Determine group size and decoding method
 		if (network_properties->flags.use_gpu) {
@@ -523,6 +528,12 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 			network_properties->group_size = gsize < NBUFFERS ? NBUFFERS : gsize;
 			network_properties->flags.decode_cpu = dcpu;
+		}
+
+		//Adjacency matrix not implemented in certain GPU algorithms
+		if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2) {
+			network_properties->flags.use_bit = false;
+			network_properties->core_edge_fraction = 0.0;
 		}
 		#endif
 
@@ -1110,12 +1121,12 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		params[2] = zeta1;
 		(*idata).limit = 100;
 		(*idata).tol = 1e-8;
-		(*idata).key = GSL_INTEG_GAUSS61;
+		//(*idata).key = GSL_INTEG_GAUSS61;
 		(*idata).upper = zeta1;
-		mu1 = integrate1D(&volume_11396_0_lower, params, idata, QAG);
+		mu1 = integrate1D(&volume_11396_0_lower, params, idata, QAGS);
 		(*idata).lower = (*idata).upper;
 		(*idata).upper = tau0;
-		mu2 = integrate1D(&volume_11396_0_upper, params, idata, QAG);
+		mu2 = integrate1D(&volume_11396_0_upper, params, idata, QAGS);
 		mu = mu1 + mu2;
 		p1 = mu1 / mu;
 		(*idata).limit = 50;

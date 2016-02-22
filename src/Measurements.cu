@@ -680,6 +680,14 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<boo
 	return true;
 }
 
+//Node Traversal Algorithm
+//Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
+//Uses version 3 of the algorithm - this uses only the adjacency matrix
+bool traversePath_v2(const Node &nodes, const std::vector<bool> core_edge_exists, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int source, int dest, bool &success)
+{
+	return false;
+}
+
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m
 //O(xxx) Efficiency (revise this)
 bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const unsigned int &spacetime, const int &N_tar, int &N_df, const double &tau_m, const double &a, const double &zeta, const double &zeta1, const double &alpha, const double &delta, CaResources * const ca, Stopwatch &sMeasureDegreeField, const bool &verbose, const bool &bench)

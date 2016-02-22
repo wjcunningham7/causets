@@ -613,8 +613,8 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	#endif
 
 	//Use this statement if you're creating a degree lookup table
-	/*if (network->network_properties.flags.link)
-		printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime))));*/
+	if (network->network_properties.flags.link)
+		printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime))));
 
 	InitExit:
 	if (checkMpiErrors(network->network_properties.cmpi))
@@ -659,7 +659,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			if (!links_exist) {
 				printf_red();
 				printf("\tCannot calculate clustering if links do not exist!\n");
-				printf("\tUse flag '--link' or '--relink' to generate links.\n\tSkipping this subroutine.\n");
+				printf("\tUse flag '--link' or '--relink' to generate links.\n\tSkipping this subroutine.\n\n");
 				printf_std();
 				fflush(stdout);
 
@@ -668,7 +668,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			} else if (network->network_properties.flags.use_bit) {
 				if (!rank) printf_red();
 				printf_mpi(rank, "\tCannot calculate clustering with only the bit array.\n");
-				printf_mpi(rank, "\tImplement new algorithm to proceed.\n\tSkipping this subroutine.\n");
+				printf_mpi(rank, "\tImplement new algorithm to proceed.\n\tSkipping this subroutine.\n\n");
 				if (!rank) printf_std();
 				fflush(stdout);
 
@@ -698,7 +698,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			if (!links_exist) {
 				if (!rank) printf_red();
 				printf_mpi(rank, "\tCannot calculate connected components if links do not exist!\n");
-				printf_mpi(rank, "\tUse flag '--link' or '--relink' to generate links.\n\tSkipping this subroutine.\n");
+				printf_mpi(rank, "\tUse flag '--link' or '--relink' to generate links.\n\tSkipping this subroutine.\n\n");
 				if (!rank) printf_std();
 				fflush(stdout);
 
@@ -707,7 +707,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			} else if (network->network_properties.flags.use_bit) {
 				if (!rank) printf_red();
 				printf_mpi(rank, "\tCannot calculate components with only the bit array.\n");
-				printf_mpi(rank, "\tImplement new algorithm to proceed.\n\tSkipping this subroutine.\n");
+				printf_mpi(rank, "\tImplement new algorithm to proceed.\n\tSkipping this subroutine.\n\n");
 				if (!rank) printf_std();
 				fflush(stdout);
 
@@ -728,14 +728,14 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 		if (network->network_properties.flags.no_pos) {
 			if (!rank) printf_red();
 			printf_mpi(rank, "\tCannot validate embedding if positions do not exist!\n");
-			printf_mpi(rank, "\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n");
+			printf_mpi(rank, "\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n\n");
 			if (!rank) printf_std();
 			fflush(stdout);
 			network->network_properties.flags.validate_embedding = false;
 		} else if (network->network_properties.flags.use_bit) {
 			if (!rank) printf_red();
 			printf_mpi(rank, "\tCannot validate embedding with only the bit array.\n");
-			printf_mpi(rank, "\tImplement new algorithm to proceed.\n\tSkipping this subroutine.\n");
+			printf_mpi(rank, "\tImplement new algorithm to proceed.\n\tSkipping this subroutine.\n\n");
 			if (!rank) printf_std();
 			fflush(stdout);
 			network->network_properties.flags.validate_embedding = false;
@@ -751,7 +751,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			if (!links_exist) {
 				if (!rank) printf_red();
 				printf_mpi(rank, "\tCannot calculate success ratio if links do not exist!\n");
-				printf_mpi(rank, "\tUse flag '--link' or '--relink' to generate links.\n\tSkipping this subroutine.\n");
+				printf_mpi(rank, "\tUse flag '--link' or '--relink' to generate links.\n\tSkipping this subroutine.\n\n");
 				if (!rank) printf_std();
 				fflush(stdout);
 
@@ -760,7 +760,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			} else if (network->network_properties.flags.no_pos) {
 				if (!rank) printf_red();
 				printf_mpi(rank, "\tCannot calculate success ratio if positions do not exist!\n");
-				printf_mpi(rank, "\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n");
+				printf_mpi(rank, "\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n\n");
 				if (!rank) printf_std();
 				fflush(stdout);
 
@@ -769,7 +769,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			} else if (network->network_properties.flags.use_bit) {
 				if (!rank) printf_red();
 				printf_mpi(rank, "\tCannot calculate success ratio with only the bit array.\n");
-				printf_mpi(rank, "\tImplement new algorithm to proceed.\n\tSkipping this subroutine.\n");
+				printf_mpi(rank, "\tImplement new algorithm to proceed.\n\tSkipping this subroutine.\n\n");
 				if (!rank) printf_std();
 				fflush(stdout);
 
@@ -794,7 +794,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			if (network->network_properties.flags.no_pos) {
 				printf_red();
 				printf("\tCannot calculate degree fields if positions do not exist!\n");
-				printf("\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n");
+				printf("\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n\n");
 				printf_std();
 				fflush(stdout);
 
@@ -817,7 +817,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 		if (network->network_properties.flags.no_pos) {
 			printf_red();
 			printf("\tCannot validate distances if positions do not exist!\n");
-			printf("\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n");
+			printf("\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n\n");
 			printf_std();
 			fflush(stdout);
 			network->network_properties.flags.validate_distances = false;
