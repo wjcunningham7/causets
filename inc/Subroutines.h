@@ -37,10 +37,12 @@ bool newton(double (*solve)(const double &x, const double * const p1, const floa
 //Causal Relation Identification Algorithm
 bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const std::vector<bool> core_edge_exists, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx);
 
+bool nodesAreConnected_v2(const std::vector<bool> core_edge_exists, const int &N_tar, int past_idx, int future_idx);
+
 //Breadth First Search Algorithm
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements);
 
-void bfsearch_v2(const Node &nodes, const std::vector<bool> &core_edge_exists, const int index, const int id, int &elements);
+void bfsearch_v2(const Node &nodes, const std::vector<bool> &core_edge_exists, const int &N_tar, const int index, const int id, int &elements);
 
 //Array Intersection Algorithms
 void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many);
@@ -59,7 +61,9 @@ void readIntervals(int * const cardinalities, const unsigned int * const N_ij, c
 //Prefix Sum Algorithm
 void scan(const int * const k_in, const int * const k_out, int * const &past_edge_pointers, int * const &future_edge_pointers, const int &N_tar);
 
-//Print Statements for MPI
+//Overloaded Print Statements
+int printf_dbg(const char * format, ...);
+
 int printf_mpi(int rank, const char * format, ...);
 
 //Check for MPI Errors

@@ -10,6 +10,8 @@ import sys
 # Northeastern University #
 ###########################
 
+# Used to calculate greedy routing parameters for the de Sitter slab (constant q)
+
 q = 90
 r = 5
 

@@ -6,22 +6,28 @@
 # Northeastern University #
 ###########################
 
+# Used to calculate greedy routing parameters for the flrw slab (constant q)
+
 import math
 import numpy as np
 import sys
 
-q = 90
-alpha = 6
-#omega = 0.73
-omega = float(sys.argv[1])
+q = 200000000000
+a = 2
 
+omega = 0.993
+#tau0 = 0.01
 tau0 = (2.0/3.0)*np.arctanh(math.pow(omega, 0.5))
-n0 = math.pi * q * math.pow(alpha * tau0, 3.0)
+#omega = math.pow(math.tanh(1.5*tau0), 2)
+
+alpha = a #* tau0
+n0 = (2*math.pi/9)*q*math.pow(alpha, 3)*(math.sinh(3*tau0)-3*tau0)
 
 n1 = 256 * int(math.floor(n0 / 256))
-alpha1 = math.pow(n1 / (math.pi * q), 1.0 / 3.0) / tau0
+alpha1 = pow(n1 / ((2*math.pi/9)*q*(math.sinh(3*tau0)-3*tau0)), 1.0/3.0)
 
+#sys.stdout.write('omega: %e\n' % omega)
 sys.stdout.write('tau0:  %f\n' % tau0)
-sys.stdout.write('q:     %f\n' % q)
+sys.stdout.write('q:     %e\n' % q)
 sys.stdout.write('N:     %d\n' % n1)
 sys.stdout.write('alpha: %f\n' % alpha1)

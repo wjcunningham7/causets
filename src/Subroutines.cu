@@ -519,6 +519,19 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 	return false;
 }
 
+//Returns true if two nodes are causally connected
+//Note: past_idx must be less than future_idx
+//O(1) Efficiency for Adjacency Matrix
+bool nodesAreConnected_v2(const std::vector<bool> core_edge_exists, const int &N_tar, int past_idx, int future_idx)
+{
+	#if DEBUG
+	assert (past_idx >= 0 && past_idx < N_tar);
+	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (past_idx != future_idx);
+	#endif
+
+	return core_edge_exists[past_idx * N_tar + future_idx];
+}
 
 //Breadth First Search
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements)
@@ -556,14 +569,26 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 
 //Breadth First Search
 //Uses adjacency matrix only
-void bfsearch_v2(const Node &nodes, const std::vector<bool> &core_edge_exists, const int index, const int id, int &elements)
+void bfsearch_v2(const Node &nodes, const std::vector<bool> &core_edge_exists, const int &N_tar, const int index, const int id, int &elements)
 {
 	#if DEBUG
 	assert (nodes.cc_id != NULL);
-	assert (index >= 0);
-	assert (id >= 0);
-	assert (elements >= 0);
+	assert (N_tar >= 0);
+	assert (index >= 0 && index < N_tar);
+	assert (id >= 0 && id <= N_tar / 2);
+	assert (elements >= 0 && elements < N_tar);
 	#endif
+
+	nodes.cc_id[index] = id;
+	elements++;
+
+	//printf_dbg("INSIDE.\n");
+
+	int i;
+	for (i = 0; i < N_tar; i++)
+		if (core_edge_exists[index*N_tar+i])
+			if (!nodes.cc_id[i])
+				bfsearch_v2(nodes, core_edge_exists, N_tar, i, id, elements);
 }
 
 void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many)
@@ -882,6 +907,20 @@ void scan(const int * const k_in, const int * const k_out, int * const &past_edg
 		} else
 			future_edge_pointers[i] = -1;
 	}
+}
+
+//Debug Print Variadic Function
+int printf_dbg(const char * format, ...)
+{
+	printf_mag();
+	va_list argp;
+	va_start(argp, format);
+	vprintf(format, argp);
+	va_end(argp);
+	printf_std();
+	fflush(stdout);
+
+	return 0;
 }
 
 //MPI Print Variadic Function

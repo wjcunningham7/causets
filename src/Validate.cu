@@ -2099,7 +2099,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int
 	double *table;
 	double om3;
 	long size = 0L;
-	getLookupTable("./etc/partial_fraction_coefficients.cset.bin", &table, &size);
+	getLookupTable("./etc/tables/partial_fraction_coefficients.cset.bin", &table, &size);
 	assert (table != NULL);
 
 	printf("Testing single pair.\n");

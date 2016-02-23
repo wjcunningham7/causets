@@ -1,0 +1,25 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# This script is used to compare the different diamond spacetimes (constant k)
+
+if [ "$#" -lt 2 ] ; then
+  echo "Not enough arguments!"
+  exit 1
+fi
+
+k=$1
+tau0=$2
+
+ds=$(./etc/routing/gr_ds_diamond_k $k $tau0 | awk '/n:/ {print $2}')
+dust=$(./etc/routing/gr_dust_diamond_k $k $tau0 | awk '/n:/ {print $2}')
+flrw=$(./etc/routing/gr_flrw_diamond_k $k $tau0 | awk '/n:/ {print $2}')
+
+echo "De Sitter: ${ds}"
+echo "Dust:      ${dust}"
+echo "FLRW:      ${flrw}"

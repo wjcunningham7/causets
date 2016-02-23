@@ -1,0 +1,29 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Used to calculate greedy routing parameters for the de Sitter diamond (constant q)
+
+import math
+import sys
+
+#q = 60
+#tau0 = 2
+
+q = float(sys.argv[1])
+tau0 = float(sys.argv[2])
+
+eta0 = -1
+eta1 = -math.exp(-tau0)
+
+xi = eta0 / math.sqrt(2.0)
+w = (eta1 - eta0) / math.sqrt(2.0)
+mu = math.log(math.pow(w + 2.0 * xi, 2.0) / (4.0 * xi * (w + xi))) - math.pow(w / (w + 2.0 * xi), 2.0)
+
+n = int(4.0 * math.pi * q * mu / 3.0)
+
+sys.stdout.write('n: %d\n' % n)

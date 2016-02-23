@@ -151,13 +151,15 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 //Calculates the number of connected components in the graph
 //as well as the size of the giant connected component
 //Efficiency: O(xxx)
-bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &verbose, const bool &bench)
+bool measureConnectedComponents(Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	assert (edges.past_edges != NULL);
-	assert (edges.future_edges != NULL);
-	assert (edges.past_edge_row_start != NULL);
-	assert (edges.future_edge_row_start != NULL);
+	if (!use_bit) {
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
+	}
 	assert (ca != NULL);
 	assert (N_tar > 0);
 	#endif
@@ -195,9 +197,15 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 	if (!rank) {
 		for (i = 0; i < N_tar; i++) {
+			//printf_dbg("i: %d\n", i);
 			elements = 0;
 			if (!nodes.cc_id[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0) {
-				bfsearch(nodes, edges, i, ++N_cc, elements);
+				if (!use_bit)
+					bfsearch(nodes, edges, i, ++N_cc, elements);
+				else {
+					//printf_dbg("About to call bfsearch_v2.\n");
+					bfsearch_v2(nodes, core_edge_exists, N_tar, i, ++N_cc, elements);
+				}
 			}
 			if (elements > N_gcc)
 				N_gcc = elements;
@@ -237,7 +245,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const int &N_tar
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, float &success_ratio, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &N_sr, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, float &success_ratio, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &N_sr, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -259,10 +267,12 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 
 	assert (nodes.crd->x() != NULL);
 	assert (nodes.crd->y() != NULL);
-	assert (edges.past_edges != NULL);
-	assert (edges.future_edges != NULL);
-	assert (edges.past_edge_row_start != NULL);
-	assert (edges.future_edge_row_start != NULL);
+	if (!use_bit) {
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
+	}
 	assert (ca != NULL);
 
 	assert (N_tar > 0);
@@ -418,10 +428,16 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 		bool success = false;
 		bool past_horizon = false;
 		#if TRAVERSE_V2
-		if (!traversePath_v2(nodes, edges, core_edge_exists, &used[offset], spacetime, N_tar, a, zeta, zeta1, r_max, alpha, core_edge_fraction, i, j, success))
-			fail = true;
+		if (use_bit) {
+			if (!traversePath_v3(nodes, core_edge_exists, &used[offset], spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, success))
+				fail = true;
+		} else if (!traversePath_v2(nodes, edges, core_edge_exists, &used[offset], spacetime, N_tar, a, zeta, zeta1, r_max, alpha, core_edge_fraction, i, j, success))
+				fail = true;
 		#else
-		if (!traversePath_v1(nodes, edges, core_edge_exists, &used[offset], N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, symmetric, compact, i, j, success, past_horizon))
+		if (use_bit) {
+			fprintf(stderr, "traversePath_v1 not implemented for use_bit=true.  Set TRAVERSE_V2=true in inc/Constants.h\n");
+			fail = true;
+		} else if (!traversePath_v1(nodes, edges, core_edge_exists, &used[offset], N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, symmetric, compact, i, j, success, past_horizon))
 			fail = true;
 		#endif
 
@@ -683,9 +699,111 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<boo
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //Uses version 3 of the algorithm - this uses only the adjacency matrix
-bool traversePath_v2(const Node &nodes, const std::vector<bool> core_edge_exists, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int source, int dest, bool &success)
+bool traversePath_v3(const Node &nodes, const std::vector<bool> core_edge_exists, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int source, int dest, bool &success)
 {
-	return false;
+	#if DEBUG
+	assert (!nodes.crd->isNull());
+	assert (get_stdim(spacetime) & (2 | 4));
+	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
+
+	if (get_manifold(spacetime) & HYPERBOLIC)
+		assert (get_stdim(spacetime) == 2);
+
+	if (get_stdim(spacetime) == 2) {
+		assert (nodes.crd->getDim() == 2);
+		assert (get_manifold(spacetime) & (DE_SITTER | HYPERBOLIC));
+	} else if (get_stdim(spacetime) == 4) {
+		assert (nodes.crd->getDim() == 4);
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->z() != NULL);
+		assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
+	}
+
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	assert (nodes.k_in != NULL);
+	assert (nodes.k_out != NULL);
+	assert (used != NULL);
+		
+	assert (N_tar > 0);
+	if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
+		assert (a > 0.0);
+		if (get_manifold(spacetime) & (DUST | FLRW)) {
+			assert (zeta < HALF_PI);
+			assert (alpha > 0.0);
+		} else {
+			if (get_curvature(spacetime) & POSITIVE) {
+				assert (zeta > 0.0);
+				assert (zeta < HALF_PI);
+			} else if (get_curvature(spacetime) & FLAT) {
+				assert (zeta > HALF_PI);
+				assert (zeta1 > HALF_PI);
+				assert (zeta > zeta1);
+			}
+		}
+	}	
+	if (get_curvature(spacetime) & FLAT)
+		assert (r_max > 0.0);
+	assert (source >= 0 && source < N_tar);
+	assert (dest >= 0 && dest < N_tar);
+	assert (source != dest);
+	#endif
+
+	double min_dist = 0.0;
+	int loc = source;
+	int idx_a = source;
+	int idx_b = dest;
+
+	double dist;
+	int next;
+	int m;
+
+	//While the current location (loc) is not equal to the destination (dest)
+	while (loc != dest) {
+		next = loc;
+		dist = INF;
+		min_dist = INF;
+		used[loc] = true;
+
+		//(1) Check if destination is a neigbhor
+		if (nodesAreConnected_v2(core_edge_exists, N_tar, loc, idx_b)) {
+			success = true;
+			return true;
+		}
+
+		for (m = 0; m < N_tar; m++) {
+			//Continue if 'loc' is not connected to 'm'
+			if (!core_edge_exists[loc*N_tar+m])
+				continue;
+			idx_a = m;
+
+			//Continue if not a minimal/maximal element
+			if ((idx_a < loc && !!nodes.k_in[idx_a]) || (idx_a > loc && !!nodes.k_out[idx_a]))
+				continue;
+
+			//Otherwise find the minimal/maximal element closest to the destination
+			if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW))
+				nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b, &dist);
+			else if (get_manifold(spacetime) & HYPERBOLIC)
+				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
+			else
+				return false;
+
+			//Save the minimum distance
+			if (dist <= min_dist) {
+				min_dist = dist;
+				next = idx_a;
+			}
+		}
+
+		if (!used[next] && min_dist + 1.0 < INF)
+			loc = next;
+		else
+			break;
+	}
+
+	success = false;
+	return true;
 }
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m

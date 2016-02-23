@@ -7,6 +7,8 @@
 ###########################
 
 # Use this script to find the optimal flag values to set in inc/Constants.h
+# This script may be outdated since a few data structures have changed:
+#  > Check src/NetworkCreator.cu:initVars() for details
 
 import math
 import sys

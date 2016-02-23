@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Used to calculate greedy routing parameters for the dust diamond (constant k)
+
+import math
+import numpy as np
+import sys
+
+#k = 10
+#tau0 = 0.85
+k = float(sys.argv[1])
+tau0 = float(sys.argv[2])
+kappa = 0
+
+f = open('etc/tables/average_degree_11332_0_table.cset.bin', 'rb')
+data = np.fromfile(f, 'd')
+for x,y in zip(data[1::2], data[0::2]):
+	if x >= tau0:
+		kappa = y
+		break
+
+if y == data[0]:
+	sys.stdout.write('Table is insufficient! First element was used.\n')
+	sys.exit(1)
+if kappa == 0:
+	sys.stdout.write('Table is insufficient! No element could be used.\n')
+	sys.exit(2)
+
+q = k / kappa
+n = 1981.0 * math.pi * q * math.pow(1.5 * tau0, 4.0) / (2970.0 * 64.0)
+
+sys.stdout.write('n: %d\n' % n)

@@ -6,6 +6,8 @@
 # Northeastern University #
 ###########################
 
+# Used to calculate greedy routing parameters for the dust slab (constant k)
+
 import math
 import numpy as np
 import sys

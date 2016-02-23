@@ -254,6 +254,10 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					throw CausetException("Invalid argument for 'success' parameter!\n");
 				break;
 			case 's':	//Random seed
+				#ifdef _OPENMP
+				printf_dbg("NOTE: OpenMP produces non-deterministic behavior.\nCompile without OpenMP to set the seed.\nProgram will abort.\n\n");
+				network_properties.flags.test = true;
+				#endif
 				network_properties.seed = atol(optarg);
 				if (network_properties.seed <= 0L)
 					throw CausetException("Invalid argument for 'seed' parameter!\n");
@@ -613,8 +617,8 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	#endif
 
 	//Use this statement if you're creating a degree lookup table
-	if (network->network_properties.flags.link)
-		printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime))));
+	/*if (network->network_properties.flags.link)
+		printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime))));*/
 
 	InitExit:
 	if (checkMpiErrors(network->network_properties.cmpi))
@@ -704,18 +708,9 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 
 				network->network_properties.flags.calc_components = false;
 				break;
-			} else if (network->network_properties.flags.use_bit) {
-				if (!rank) printf_red();
-				printf_mpi(rank, "\tCannot calculate components with only the bit array.\n");
-				printf_mpi(rank, "\tImplement new algorithm to proceed.\n\tSkipping this subroutine.\n\n");
-				if (!rank) printf_std();
-				fflush(stdout);
-
-				network->network_properties.flags.calc_components = false;
-				break;
 			}
 
-			if (!measureConnectedComponents(network->nodes, network->edges, network->network_properties.N_tar, network->network_properties.cmpi, network->network_observables.N_cc, network->network_observables.N_gcc, ca, cp->sMeasureConnectedComponents, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!measureConnectedComponents(network->nodes, network->edges, network->core_edge_exists, network->network_properties.N_tar, network->network_properties.cmpi, network->network_observables.N_cc, network->network_observables.N_gcc, ca, cp->sMeasureConnectedComponents, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
 
@@ -766,18 +761,9 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 
 				network->network_properties.flags.calc_success_ratio = false;
 				break;
-			} else if (network->network_properties.flags.use_bit) {
-				if (!rank) printf_red();
-				printf_mpi(rank, "\tCannot calculate success ratio with only the bit array.\n");
-				printf_mpi(rank, "\tImplement new algorithm to proceed.\n\tSkipping this subroutine.\n\n");
-				if (!rank) printf_std();
-				fflush(stdout);
-
-				network->network_properties.flags.calc_success_ratio = false;
-				break;
 			}
 
-			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureSuccessRatio, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!measureSuccessRatio(network->nodes, network->edges, network->core_edge_exists, network->network_observables.success_ratio, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureSuccessRatio, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
 

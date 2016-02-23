@@ -6,6 +6,8 @@
 # Northeastern University #
 ###########################
 
+# Generates a node coordinate file for $1 nodes with a graph id $2
+
 n=$1
 gid=$2
 

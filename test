@@ -46,12 +46,11 @@
 #####################################
 
 # Greedy Routing
-st=11396
-age=1.86
-num=10240
-./bin/CausalSet --spacetime $st --nodes $num --age $age --buffer 0.3 --verbose --link --gpu
-#./bin/CausalSet --spacetime 10820 --nodes $num --age $age --alpha $rad --verbose -y --link --gpu --success 100
-#./bin/CausalSet --spacetime 10884 --nodes $num --age $age --alpha $rad --verbose -y --link --gpu --success 100
+st=11332
+age=0.85
+num=131072
+seed=4593475
+./bin/CausalSet --spacetime $st --nodes $num --age $age --link --gpu --verbose
 
 # Measure de Sitter Action
 #./bin/CausalSet --spacetime 12834 --nodes 32768 --age 1.2 --seed 18100 --buffer 0.3 --link --gpu --action local --core 1

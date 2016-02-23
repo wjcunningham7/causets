@@ -280,7 +280,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &eta0, NULL, true);
 			if (network_properties->k_tar != network_properties->k_tar)
 				throw CausetException("Value not found in average degree table!\n");
-			//network_properties->k_tar = 5000;
 			break;
 		}
 		case (4 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
@@ -399,6 +398,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			assert (vol_upper == vol_upper);
 			double mu = vol_lower + vol_upper;
 			gsl_integration_workspace_free(idata.workspace);
+			//printf("Reduced Volume: %.10f\n", mu);
 
 			if (!!network_properties->delta)
 				network_properties->a = POW(3.0 * network_properties->N_tar / (4.0 * M_PI * network_properties->delta * mu), 0.25, STL);
@@ -491,29 +491,42 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			//This is when a bit array is smaller than the adjacency lists
 			network_properties->flags.use_bit = true;
 			network_properties->core_edge_fraction = 1.0;
+			//printf_dbg("USE_BIT = true\n");
 		}
 
 		#ifdef CUDA_ENABLED
+		//Adjacency matrix not implemented in certain GPU algorithms
+		if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2) {
+			network_properties->flags.use_bit = false;
+			network_properties->core_edge_fraction = 0.0;
+		}
+
 		//Determine group size and decoding method
 		if (network_properties->flags.use_gpu) {
 			long glob_mem = 5000000000L;
 			long mem = glob_mem + 1L;
-			long d_edges_size = static_cast<long>(exp2(ceil(log2(network_properties->N_tar * network_properties->k_tar * (1.0 + network_properties->edge_buffer) / 2.0))));
+			long d_edges_size = network_properties->flags.use_bit ? 1L : static_cast<long>(exp2(ceil(log2(network_properties->N_tar * network_properties->k_tar * (1.0 + network_properties->edge_buffer) / 2.0))));
 			float gsize = 0.5f;
 			bool dcpu = false;
 
 			while (mem > glob_mem) {
+				//Used in generateLists_v2
+				//The group size - the number of groups, along one index, the full matrix is broken up into
 				gsize *= 2.0f;
-				//long mbsize = static_cast<long>(ceil(static_cast<float>(network_properties->N_tar) / (BLOCK_SIZE * gsize * 2)));
+				//The 'mega-block' size - the number of thread blocks along index 'i' within a group	
 				long mbsize = static_cast<long>(ceil(static_cast<float>(network_properties->N_tar) / (BLOCK_SIZE * gsize)));
+				//The 'mega-thread' size - the number of threads along a dimension of a group
 				long mtsize = mbsize * BLOCK_SIZE;
+				//The 'mega-edges' size - the number of edges represented by the sub-matrix passed to the GPU
 				long mesize = mtsize * mtsize;
+
+				//Used in decodeLists_v2
 				long gmbsize = static_cast<long>(network_properties->N_tar * network_properties->k_tar * (1.0 + network_properties->edge_buffer) / (BLOCK_SIZE * gsize * 2));
 				long gmtsize = gmbsize * BLOCK_SIZE;
 
-				long mem1 = (40L * mtsize + mesize) * NBUFFERS;
-				long mem2 = 4L * (2L * d_edges_size + gmtsize);
-				long mem3 = 8L * (network_properties->N_tar + 2L * BLOCK_SIZE);
+				long mem1 = (40L * mtsize + mesize) * NBUFFERS;							//For generating
+				long mem2 = network_properties->flags.use_bit ? 0L : 4L * (2L * d_edges_size + gmtsize);	//For decoding
+				//long mem3 = 8L * (network_properties->N_tar + 2L * BLOCK_SIZE);				//For scanning (no longer used)
 
 				if (mem2 > glob_mem / 4L) {
 					mem2 = 0L;
@@ -522,18 +535,12 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 				long max = mem1;
 				if (mem2 > max) max = mem2;
-				if (mem3 > max) max = mem3;
+				//if (mem3 > max) max = mem3;
 				mem = max;
 			}
 
 			network_properties->group_size = gsize < NBUFFERS ? NBUFFERS : gsize;
 			network_properties->flags.decode_cpu = dcpu;
-		}
-
-		//Adjacency matrix not implemented in certain GPU algorithms
-		if (network_properties->flags.use_gpu && !LINK_NODES_GPU_V2) {
-			network_properties->flags.use_bit = false;
-			network_properties->core_edge_fraction = 0.0;
 		}
 		#endif
 
@@ -801,7 +808,7 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 		if (links_exist) {
 			mem += sizeof(int) * (N_tar << 1);	//For k_in and k_out
 			if (!use_bit) {
-				mem += sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer));	//For edge lists
+				mem += sizeof(int) * static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer));	//For edge lists
 				mem += sizeof(int) * (N_tar << 1);	//For edge list pointers
 			}
 			mem += sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)) / 8;	//Adjacency matrix
@@ -816,7 +823,7 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 				mem += sizeof(uint64_t) * d_edges_size;	//For encoded edge list
 			mem += sizeof(int);			//For g_idx
 
-			size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size << 1)));
+			size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
 			size_t mthread_size = mblock_size * BLOCK_SIZE;
 			size_t m_edges_size = mthread_size * mthread_size;
 			size_t nbuf = GEN_ADJ_LISTS_GPU_V2 ? NBUFFERS : 1;
@@ -839,8 +846,9 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 				if (decode_cpu)
 					dmem2 = 0;
 
-				dmem3 += sizeof(int) * N_tar << 1;	//Edge list pointers
-				dmem3 += sizeof(int) * BLOCK_SIZE << 2;	//Buffers used for scanning
+				//Was used for parallel prefix scan - no longer used
+				//dmem3 += sizeof(int) * N_tar << 1;	//Edge list pointers
+				//dmem3 += sizeof(int) * BLOCK_SIZE << 2;	//Buffers used for scanning
 			}
 
 			dmem = dmem1 > dmem2 ? dmem1 : dmem2;
@@ -1630,9 +1638,9 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	#endif
 
+	uint64_t future_idx = 0;
+	uint64_t past_idx = 0;
 	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
-	int future_idx = 0;
-	int past_idx = 0;
 	int i, j, k;
 
 	bool related;
@@ -1674,7 +1682,8 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 	
 						if (future_idx >= static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
 							throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
-					}
+					} else
+						future_idx++;
 	
 					//Record number of degrees for each node
 					nodes.k_in[j]++;
@@ -1695,6 +1704,9 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 				edges.future_edge_row_start[i] = -1;
 		}
 	}
+
+	if (core_edge_fraction == 1.0f)
+		core_edge_exists[(N_tar-1)*N_tar+(N_tar-1)] = false;
 
 	if (!use_bit) {
 		edges.future_edge_row_start[N_tar-1] = -1;

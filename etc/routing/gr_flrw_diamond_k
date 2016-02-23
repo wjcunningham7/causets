@@ -1,0 +1,67 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Used to calculate greedy routing parameters for the FLRW diamond (constant k)
+
+import math
+import numpy as np
+from scipy.integrate import quad
+from scipy.optimize import bisect
+from scipy.special import hyp2f1
+import sys
+
+#k = 10
+#tau0 = 0.7
+k = float(sys.argv[1])
+tau0 = float(sys.argv[2])
+kappa = 0
+
+# Returns conformal time as a function of rescaled cosmological time
+def eta(tau):
+	return 2.0 * math.pow(math.sinh(1.5 * tau), 1.0 / 3.0) * hyp2f1(1.0 / 6.0, 0.5, 7.0 / 6.0, -math.pow(math.sinh(1.5 * tau), 2.0))
+
+# Kernel used in the bisection method
+def func(x, eta_tar):
+	return eta(x) - eta_tar
+
+# Returns rescaled cosmological time as a function of conformal time
+def tau(eta, eta_max):
+	return bisect(func, 0.0, eta_max, args=eta)
+
+# Integrand used in integration of lower half of diamond
+def vol_lower(x):
+	return math.pow(math.sinh(1.5 * x), 2.0) * math.pow(eta(x), 3.0)
+
+# Integrand used in integration of upper half of diamond
+def vol_upper(x, eta0):
+	return math.pow(math.sinh(1.5 * x), 2.0) * math.pow(eta0 - eta(x), 3.0)
+
+eta0 = eta(tau0)
+tau_half = tau(eta0 / 2.0, eta0)
+vl = quad(vol_lower, 0.0, tau_half)[0]
+vu = quad(vol_upper, tau_half, tau0, args=eta0)[0]
+mu = vl + vu
+
+f = open('etc/tables/average_degree_11396_0_table.cset.bin', 'rb')
+data = np.fromfile(f, 'd')
+for x,y in zip(data[1::2], data[0::2]):
+	if x >= tau0:
+		kappa = y
+		break
+
+if y == data[0]:
+	sys.stdout.write('Table is insufficient! First element was used.\n')
+	sys.exit(1)
+if kappa == 0:
+	sys.stdout.write('Table is insufficient! No element could be used.\n')
+	sys.exit(2)
+
+q = k / kappa
+n = int(4.0 * math.pi * q * mu / 3.0)
+
+sys.stdout.write('n: %d\n' % n)

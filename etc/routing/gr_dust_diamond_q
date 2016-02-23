@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Used to calculate greedy routing parameters for the dust diamond (constant q)
+
+import math
+import sys
+
+#q = 60
+#tau0 = 0.85
+q = float(sys.argv[1])
+tau0 = float(sys.argv[2])
+
+mu = math.pow(1.5 * tau0, 4.0)
+n = int(1981.0 * math.pi * q * mu / (2970.0 * 64.0))
+
+sys.stdout.write('n: %d\n' % n)

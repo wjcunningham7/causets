@@ -203,7 +203,7 @@ fortran2 : $(FSOURCES2)
 # Directory Creation #
 ######################
 
-dirs : asmdir objdir bindir
+dirs : objdir bindir
 
 asmdir :
 	@ mkdir -p $(ASMDIR)
