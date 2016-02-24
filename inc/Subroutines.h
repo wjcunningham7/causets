@@ -35,14 +35,14 @@ bool bisection(double (*solve)(const double &x, const double * const p1, const f
 bool newton(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double tol, const double * const p1, const float * const p2, const int * const p3);
 
 //Causal Relation Identification Algorithm
-bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const std::vector<bool> core_edge_exists, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx);
+bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const Bitset adj, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx);
 
-bool nodesAreConnected_v2(const std::vector<bool> core_edge_exists, const int &N_tar, int past_idx, int future_idx);
+bool nodesAreConnected_v2(const Bitset adj, const int &N_tar, int past_idx, int future_idx);
 
 //Breadth First Search Algorithm
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements);
 
-void bfsearch_v2(const Node &nodes, const std::vector<bool> &core_edge_exists, const int &N_tar, const int index, const int id, int &elements);
+void bfsearch_v2(const Node &nodes, const Bitset &adj, const int &N_tar, const int index, const int id, int &elements);
 
 //Array Intersection Algorithms
 void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many);
@@ -52,7 +52,7 @@ void causet_intersection(int &elements, const int * const past_edges, const int 
 //Format Partial Adjacency Matrix Data
 void readDegrees(int * const &degrees, const int * const h_k, const size_t &offset, const size_t &size);
 
-void readEdges(uint64_t * const &edges, const bool * const h_edges, std::vector<bool> &core_edge_exists, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit);
+void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitset &adj, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit);
 
 void remakeAdjMatrix(bool * const adj0, bool * const adj1, const int * const k_in, const int * const k_out, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, int * const idx_buf0, int * const idx_buf1, const int &N_tar, const int &i, const int &j, const int &l);
 

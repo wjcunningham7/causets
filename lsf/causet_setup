@@ -7,11 +7,11 @@
 ###########################
 
 # Make sure base directories exist
-mkdir -p /scratch/cunningham
-mkdir -p /scratch/cunningham/causet@jobID@/
+mkdir -p /gss_gpfs_scratch/cunningham
+mkdir -p /gss_gpfs_scratch/cunningham/causet@jobID@/
 
 # Working directories
-work=/scratch/cunningham/causet@jobID@
+work=/gss_gpfs_scratch/cunningham/causet@jobID@
 homedir=/home/cunningham.wi/projects/causets
 
 # Copy the binary
@@ -19,6 +19,7 @@ cp $homedir/bin/CausalSet $work/
 
 # Create peripheral directories and copy relevant files
 mkdir -p $work/etc
+mkdir -p $work/etc/tables
 
 cp $homedir/etc/action $work/etc/
 cp $homedir/etc/degrees $work/etc/
@@ -29,22 +30,25 @@ cp $homedir/etc/clust_dist $work/etc/
 cp $homedir/etc/fields $work/etc/
 cp $homedir/etc/min_tau $work/etc/
 cp $homedir/etc/success $work/etc/
-
-cp $homedir/etc/raduc_table.cset.bin $work/etc/
-cp $homedir/etc/raducNC_table.cset.bin $work/etc/
-cp $homedir/etc/ctuc_table.cset.bin $work/etc/
-#cp $homedir/etc/geodesics_flrw_table.cset.bin $work/etc/
-#cp $homedir/etc/geodesics_ds_table.cset.bin $work/etc/
-cp $homedir/etc/partial_fraction_coefficients.cset.bin $work/etc/
-
 cp $homedir/etc/mkdat $work/etc/
+
+cp $homedir/etc/tables/raduc_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/raducNC_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/ctuc_table.cset.bin $work/etc/tables
+#cp $homedir/etc/tables/geodesics_flrw_table.cset.bin $work/etc/tables
+#cp $homedir/etc/tables/geodesics_ds_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/partial_fraction_coefficients.cset.bin $work/etc/tables
+cp $homedir/etc/tables/average_degree_13348_0_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/average_degree_11300_0_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/average_degree_11332_0_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/average_degree_11396_0_table.cset.bin $work/etc/tables
 
 # Make directories to hold data files
 $homedir/etc/mkdat $work
 
 # Make sure directories exist if reading previously generated data
 if [ @readjobid@ -ne 0 ] ; then
-  dir1="/scratch/cunningham/causet@readjobid@"
+  dir1="/gss_gpfs_scratch/cunningham/causet@readjobid@"
   if [ ! -d ${dir1} ] ; then
     echo "Folder ${dir1} does not exist!"
     exit 1

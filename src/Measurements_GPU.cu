@@ -49,7 +49,7 @@ __global__ void MeasureAction(bool *edges0, bool *edges1, unsigned int *N_ij)
 //This algorithm has been parallelized on the GPU
 //It is assumed the edge list has already been generated
 //Here we calculate the smeared action
-bool measureActionGPU(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureActionGPU(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitset adj, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!use_bit);

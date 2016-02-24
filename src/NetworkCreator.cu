@@ -768,7 +768,7 @@ bool solveExpAvgDegree(float &k_tar, const unsigned int &spacetime, const int &N
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench, const bool &yes)
 {
 	#if DEBUG
 	assert (ca != NULL);
@@ -998,7 +998,8 @@ bool createNetwork(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists
 				ca->hostMemUsed += sizeof(int) * N_tar;
 			}
 
-			core_edge_exists.resize(POW2(core_edge_fraction * N_tar, EXACT));
+			adj.resize(POW2(core_edge_fraction * N_tar, EXACT));
+			adj.reset();
 			ca->hostMemUsed += sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)) / 8;
 		}
 
@@ -1588,7 +1589,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//No null pointers
@@ -1650,7 +1651,7 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 	//Identify future connections
 	for (i = 0; i < N_tar - 1; i++) {
 		if (i < core_limit)
-			core_edge_exists[(i*core_limit)+i] = false;
+			adj[(i*core_limit)+i] = 0;
 		if (!use_bit)
 			edges.future_edge_row_start[i] = future_idx;
 
@@ -1665,11 +1666,11 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 				uint64_t idx2 = static_cast<uint64_t>(j) * core_limit + i;
 
 				if (related) {
-					core_edge_exists[idx1] = true;
-					core_edge_exists[idx2] = true;
+					adj[idx1] = 1;
+					adj[idx2] = 1;
 				} else {
-					core_edge_exists[idx1] = false;
-					core_edge_exists[idx2] = false;
+					adj[idx1] = 0;
+					adj[idx2] = 0;
 				}
 			}
 						
@@ -1706,7 +1707,7 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 	}
 
 	if (core_edge_fraction == 1.0f)
-		core_edge_exists[(N_tar-1)*N_tar+(N_tar-1)] = false;
+		adj[(N_tar-1)*N_tar+(N_tar-1)] = 0;
 
 	if (!use_bit) {
 		edges.future_edge_row_start[N_tar-1] = -1;
@@ -1762,7 +1763,7 @@ bool linkNodes(Node &nodes, Edge &edges, std::vector<bool> &core_edge_exists, co
 	//Debugging options used to visually inspect the adjacency lists and the adjacency pointer lists
 	//compareAdjacencyLists(nodes, edges);
 	//compareAdjacencyListIndices(nodes, edges);
-	//if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
+	//if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction))
 	//	return false;
 
 	//Print Results

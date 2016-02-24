@@ -153,7 +153,7 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	#if EMBED_NODES
@@ -220,10 +220,10 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 
 	stopwatchStart(&sGenAdjList);
 	#if GEN_ADJ_LISTS_GPU_V2
-	if (!generateLists_v2(nodes, h_edges, core_edge_exists, g_idx, spacetime, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, use_bit, verbose))
+	if (!generateLists_v2(nodes, h_edges, adj, g_idx, spacetime, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, use_bit, verbose))
 		return false;
 	#else
-	if (!generateLists_v1(nodes, h_edges, core_edge_exists, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, compact, verbose))
+	if (!generateLists_v1(nodes, h_edges, adj, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, compact, verbose))
 		return false;
 	#endif
 	stopwatchStop(&sGenAdjList);
@@ -317,7 +317,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 		fflush(stdout);
 	}
 
-	//if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
+	//if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction))
 	//	return false;
 
 	//Print Results
@@ -347,7 +347,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(Node &nodes, uint64_t * const &edges, std::vector<bool> &core_edge_exists, int * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitset &adj, int * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -492,7 +492,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, std::vector<bool> &c
 				//Read Data from Buffers
 				readDegrees(nodes.k_in, h_k_in[m], (j * NBUFFERS + m) * mthread_size, size1);
 				readDegrees(nodes.k_out, h_k_out[m], i * mthread_size, size0);
-				readEdges(edges, h_edges[m], core_edge_exists, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j*NBUFFERS+m, use_bit);
+				readEdges(edges, h_edges[m], adj, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j*NBUFFERS+m, use_bit);
 			}				
 		}
 	}

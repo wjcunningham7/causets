@@ -1,12 +1,12 @@
 #!/bin/bash
 
 #BSUB -J CSET-%jobID%
-#BSUB -o /scratch/cunningham/causet%jobID%/causet%jobID%.log
-#BSUB -e /scratch/cunningham/causet%jobID%/causet%jobID%.err
+#BSUB -o /gss_gpfs_scratch/cunningham/causet%jobID%/causet%jobID%.log
+#BSUB -e /gss_gpfs_scratch/cunningham/causet%jobID%/causet%jobID%.err
 #BSUB -q %queue%
 #BSUB -n %totalcores%
 #BSUB -R span[ptile=%ncores%]
-#BSUB -cwd /scratch/cunningham/causet%jobID%
+#BSUB -cwd /gss_gpfs_scratch/cunningham/causet%jobID%
 #%waitfor%
 
 ###########################
@@ -19,7 +19,7 @@
 # It is intended to be submitted to LSF via the 'causet_bat' script
 
 homedir=/home/cunningham.wi/projects/causets
-work=/scratch/cunningham/causet%jobID%
+work=/gss_gpfs_scratch/cunningham/causet%jobID%
 usempi=%usempi%
 if [[ %readjobid% -ne 0 && %readgraphid% -eq 0 ]] ; then
   usegraphlist=1

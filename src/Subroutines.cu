@@ -477,7 +477,7 @@ bool newton(double (*solve)(const double &x, const double * const p1, const floa
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
 //O(k) Efficiency for Adjacency List
-bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const std::vector<bool> core_edge_exists, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
+bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const Bitset adj, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
 {
 	#if DEBUG
 	//No null pointers
@@ -506,7 +506,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 	//Check if the adjacency matrix can be used
 	if (past_idx < core_limit && future_idx < core_limit)
-		return core_edge_exists[static_cast<uint64_t>(past_idx) * core_limit + future_idx];
+		return (bool)adj[static_cast<uint64_t>(past_idx) * core_limit + future_idx];
 	//Check if past node is not connected to anything
 	else if (future_edge_row_start[past_idx] == -1)
 		return false;
@@ -522,7 +522,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 //Returns true if two nodes are causally connected
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
-bool nodesAreConnected_v2(const std::vector<bool> core_edge_exists, const int &N_tar, int past_idx, int future_idx)
+bool nodesAreConnected_v2(const Bitset adj, const int &N_tar, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (past_idx >= 0 && past_idx < N_tar);
@@ -530,7 +530,7 @@ bool nodesAreConnected_v2(const std::vector<bool> core_edge_exists, const int &N
 	assert (past_idx != future_idx);
 	#endif
 
-	return core_edge_exists[past_idx * N_tar + future_idx];
+	return (bool)adj[static_cast<uint64_t>(past_idx) * N_tar + future_idx];
 }
 
 //Breadth First Search
@@ -569,7 +569,7 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 
 //Breadth First Search
 //Uses adjacency matrix only
-void bfsearch_v2(const Node &nodes, const std::vector<bool> &core_edge_exists, const int &N_tar, const int index, const int id, int &elements)
+void bfsearch_v2(const Node &nodes, const Bitset &adj, const int &N_tar, const int index, const int id, int &elements)
 {
 	#if DEBUG
 	assert (nodes.cc_id != NULL);
@@ -582,13 +582,10 @@ void bfsearch_v2(const Node &nodes, const std::vector<bool> &core_edge_exists, c
 	nodes.cc_id[index] = id;
 	elements++;
 
-	//printf_dbg("INSIDE.\n");
-
 	int i;
 	for (i = 0; i < N_tar; i++)
-		if (core_edge_exists[index*N_tar+i])
-			if (!nodes.cc_id[i])
-				bfsearch_v2(nodes, core_edge_exists, N_tar, i, id, elements);
+		if (adj[index*N_tar+i] && !nodes.cc_id[i])
+			bfsearch_v2(nodes, adj, N_tar, i, id, elements);
 }
 
 void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many)
@@ -745,7 +742,7 @@ void readDegrees(int * const &degrees, const int * const h_k, const size_t &offs
 
 //Data formatting used when reading output of
 //the adjacency list created by the GPU
-void readEdges(uint64_t * const &edges, const bool * const h_edges, std::vector<bool> &core_edge_exists, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit)
+void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitset &adj, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit)
 {
 	#if DEBUG
 	if (!use_bit)
@@ -772,8 +769,8 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, std::vector<
 					idx1 = static_cast<uint64_t>(x * mthread_size + i) * core_limit + y * mthread_size + j;
 					idx2 = static_cast<uint64_t>(y * mthread_size + j) * core_limit + x * mthread_size + i;
 
-					core_edge_exists[idx1] = true;
-					core_edge_exists[idx2] = true;
+					adj[idx1] = 1;
+					adj[idx2] = 1;
 				}
 			}
 		}
@@ -881,7 +878,6 @@ void readIntervals(int * const cardinalities, const unsigned int * const N_ij, c
 	#endif
 
 	int i, j;
-
 	for (i = 0; i < l; i++)
 		for (j = 0; j < l; j++)
 			cardinalities[N_ij[j*l+i]+1]++;

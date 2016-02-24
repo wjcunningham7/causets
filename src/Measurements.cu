@@ -8,7 +8,7 @@
 
 //Calculates clustering coefficient for each node in network
 //O(N*k^3) Efficiency
-bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &calc_autocorr, const bool &verbose, const bool &bench)
+bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const Bitset adj, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &calc_autocorr, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (edges.past_edges != NULL);
@@ -78,7 +78,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 			for (int j = 0; j < nodes.k_in[i]; j++)
 				//3 < 2 < 1
 				for (int k = 0; k < j; k++)
-					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.past_edges[edges.past_edge_row_start[i]+k], edges.past_edges[edges.past_edge_row_start[i]+j]))
+					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, edges.past_edges[edges.past_edge_row_start[i]+k], edges.past_edges[edges.past_edge_row_start[i]+j]))
 						c_i += 1.0f;
 
 		//(2) Consider both neighbors in the future
@@ -86,7 +86,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 			for (int j = 0; j < nodes.k_out[i]; j++)
 				//1 < 3 < 2
 				for (int k = 0; k < j; k++)
-					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.future_edges[edges.future_edge_row_start[i]+k], edges.future_edges[edges.future_edge_row_start[i]+j]))
+					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, edges.future_edges[edges.future_edge_row_start[i]+k], edges.future_edges[edges.future_edge_row_start[i]+j]))
 						c_i += 1.0f;
 
 		//(3) Consider one neighbor in the past and one in the future
@@ -94,7 +94,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 			for (int j = 0; j < nodes.k_out[i]; j++)
 				for (int k = 0; k < nodes.k_in[i]; k++)
 					//3 < 1 < 2
-					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, edges.past_edges[edges.past_edge_row_start[i]+k], edges.future_edges[edges.future_edge_row_start[i]+j]))
+					if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, edges.past_edges[edges.past_edge_row_start[i]+k], edges.future_edges[edges.future_edge_row_start[i]+j]))
 						c_i += 1.0f;
 
 		#if DEBUG
@@ -151,7 +151,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 //Calculates the number of connected components in the graph
 //as well as the size of the giant connected component
 //Efficiency: O(xxx)
-bool measureConnectedComponents(Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitset adj, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!use_bit) {
@@ -202,10 +202,8 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const std::vecto
 			if (!nodes.cc_id[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0) {
 				if (!use_bit)
 					bfsearch(nodes, edges, i, ++N_cc, elements);
-				else {
-					//printf_dbg("About to call bfsearch_v2.\n");
-					bfsearch_v2(nodes, core_edge_exists, N_tar, i, ++N_cc, elements);
-				}
+				else
+					bfsearch_v2(nodes, adj, N_tar, i, ++N_cc, elements);
 			}
 			if (elements > N_gcc)
 				N_gcc = elements;
@@ -245,7 +243,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const std::vecto
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, float &success_ratio, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &N_sr, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitset adj, float &success_ratio, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &N_sr, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -347,7 +345,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 	nodesAreRelated(nodes.crd, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, compact, idx0, idx1, &omega12);
 	printf("omega12: %f\n", omega12);
 	bool s = false, p = false;
-	if (!traversePath_v1(nodes, edges, core_edge_exists, &used[0], N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, compact, idx0, idx1, s, p))
+	if (!traversePath_v1(nodes, edges, adj, &used[0], N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, compact, idx0, idx1, s, p))
 		return false;
 	printf("success: %d\n", (int)s);
 	printf("past hz: %d\n", (int)p);
@@ -369,7 +367,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 	MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.past_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(core_edge_exists, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+	//MPI_Bcast(adj, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
 
 	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
 	start = rank * mpi_chunk;
@@ -429,15 +427,15 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 		bool past_horizon = false;
 		#if TRAVERSE_V2
 		if (use_bit) {
-			if (!traversePath_v3(nodes, core_edge_exists, &used[offset], spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, success))
+			if (!traversePath_v3(nodes, adj, &used[offset], spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, success))
 				fail = true;
-		} else if (!traversePath_v2(nodes, edges, core_edge_exists, &used[offset], spacetime, N_tar, a, zeta, zeta1, r_max, alpha, core_edge_fraction, i, j, success))
+		} else if (!traversePath_v2(nodes, edges, adj, &used[offset], spacetime, N_tar, a, zeta, zeta1, r_max, alpha, core_edge_fraction, i, j, success))
 				fail = true;
 		#else
 		if (use_bit) {
 			fprintf(stderr, "traversePath_v1 not implemented for use_bit=true.  Set TRAVERSE_V2=true in inc/Constants.h\n");
 			fail = true;
-		} else if (!traversePath_v1(nodes, edges, core_edge_exists, &used[offset], N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, symmetric, compact, i, j, success, past_horizon))
+		} else if (!traversePath_v1(nodes, edges, adj, &used[offset], N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, core_edge_fraction, symmetric, compact, i, j, success, past_horizon))
 			fail = true;
 		#endif
 
@@ -512,7 +510,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const std::vector
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //Uses version 2 of the algorithm - spatial distances instead of geodesics
-bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success)
+bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -601,11 +599,11 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<boo
 		#endif
 
 		//(1) Check if destination is a neigbhor
-		if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, loc, idx_b)) {
+		if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, loc, idx_b)) {
 			if (TRAV_DEBUG) {
 				printf_cyan();
 				printf("Moving to %d.\n", idx_a);
-				printf_red();
+				printf_yel();
 				printf("SUCCESS\n");
 				printf_std();
 				fflush(stdout);
@@ -699,7 +697,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const std::vector<boo
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //Uses version 3 of the algorithm - this uses only the adjacency matrix
-bool traversePath_v3(const Node &nodes, const std::vector<bool> core_edge_exists, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int source, int dest, bool &success)
+bool traversePath_v3(const Node &nodes, const Bitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int source, int dest, bool &success)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -749,7 +747,10 @@ bool traversePath_v3(const Node &nodes, const std::vector<bool> core_edge_exists
 	assert (source != dest);
 	#endif
 
+	bool TRAV_DEBUG = false;
+
 	double min_dist = 0.0;
+	uint64_t row;
 	int loc = source;
 	int idx_a = source;
 	int idx_b = dest;
@@ -758,22 +759,38 @@ bool traversePath_v3(const Node &nodes, const std::vector<bool> core_edge_exists
 	int next;
 	int m;
 
+	if (TRAV_DEBUG) {
+		printf_cyan();
+		printf("Beginning at %d. Looking for %d.\n", source, dest);
+		printf_std();
+		fflush(stdout);
+	}
+
 	//While the current location (loc) is not equal to the destination (dest)
 	while (loc != dest) {
 		next = loc;
+		row = static_cast<uint64_t>(loc) * N_tar;
 		dist = INF;
 		min_dist = INF;
 		used[loc] = true;
 
 		//(1) Check if destination is a neigbhor
-		if (nodesAreConnected_v2(core_edge_exists, N_tar, loc, idx_b)) {
+		if (nodesAreConnected_v2(adj, N_tar, loc, idx_b)) {
+			if (TRAV_DEBUG) {
+				printf_cyan();
+				printf("Moving to %d.\n", idx_a);
+				printf_yel();
+				printf("SUCCESS\n");
+				printf_std();
+				fflush(stdout);
+			}
 			success = true;
 			return true;
 		}
 
 		for (m = 0; m < N_tar; m++) {
 			//Continue if 'loc' is not connected to 'm'
-			if (!core_edge_exists[loc*N_tar+m])
+			if (!adj[row+m])
 				continue;
 			idx_a = m;
 
@@ -796,10 +813,24 @@ bool traversePath_v3(const Node &nodes, const std::vector<bool> core_edge_exists
 			}
 		}
 
+		if (TRAV_DEBUG && min_dist + 1.0 < INF) {
+			printf_cyan();
+			printf("Moving to %d.\n", next);
+			printf_std();
+			fflush(stdout);
+		}
+
 		if (!used[next] && min_dist + 1.0 < INF)
 			loc = next;
-		else
+		else {
+			if (TRAV_DEBUG) {
+				printf_red();
+				printf("FAILURE\n");
+				printf_std();
+				fflush(stdout);
+			}
 			break;
+		}
 	}
 
 	success = false;
@@ -1035,7 +1066,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 //Measure Causal Set Action
 //Algorithm has been parallelized on the CPU
-bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitset adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -1136,7 +1167,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 		MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(edges.past_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(core_edge_exists, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+		//MPI_Bcast(adj, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
 	} else {
 		MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
@@ -1177,7 +1208,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 
 		if (!use_bit && (link || relink)) {
 			//If the nodes have been linked, use edge lists / adjacency matrix
-			if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, i, j))
+			if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, i, j))
 				continue;
 
 			#if DEBUG
@@ -1192,7 +1223,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 				int col1 = static_cast<uint64_t>(j) * core_limit;
 
 				for (int k = i + 1; k < j; k++)
-					elements += core_edge_exists[col0+k] * core_edge_exists[col1+k];
+					elements += (int)(adj[col0+k] & adj[col1+k]);
 
 				if (elements >= max_cardinality - 1)
 					too_many = true;

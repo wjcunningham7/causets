@@ -37,6 +37,7 @@
 #endif
 
 //Other System Files
+#include <boost/dynamic_bitset.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/poisson_distribution.hpp>
@@ -144,6 +145,9 @@ extern inline float5 make_float5(float v, float w, float x, float y, float z)
 	f.z = z;
 	return f;
 }
+
+//Bitsets
+typedef boost::dynamic_bitset<> Bitset;
 
 //Boost RNG
 typedef boost::mt19937 Engine;
@@ -636,7 +640,7 @@ struct Network {
 
 	Node nodes;
 	Edge edges;
-	std::vector<bool> core_edge_exists;	//Adjacency matrix
+	Bitset adj;	//Adjacency matrix
 };
 
 //Algorithmic Performance

@@ -103,7 +103,7 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 	}
 }
 
-bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int * const future_edge_row_start, const std::vector<bool> core_edge_exists, const int &N_tar, const float &core_edge_fraction)
+bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int * const future_edge_row_start, const Bitset adj, const int &N_tar, const float &core_edge_fraction)
 {
 	#if DEBUG
 	assert (k_out != NULL);
@@ -138,7 +138,7 @@ bool compareCoreEdgeExists(const int * const k_out, const int * const future_edg
 
 				//printf("idx12: %" PRIu64 "\tidx21: %" PRIu64 "\n", idx12, idx21);
 
-				if (!core_edge_exists[idx12] || !core_edge_exists[idx21])
+				if (!adj[idx12] || !adj[idx21])
 					throw CausetException("Adjacency matrix does not match sparse list!\n");
 			}
 		}
@@ -284,8 +284,8 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 		edges[idx] = ((uint64_t)i_c) << 32 | ((uint64_t)j_c);
 }
 
-//Note that core_edge_exists has not been implemented in this version of the linkNodesGPU subroutine.
-bool linkNodesGPU_v1(Node &nodes, const Edge &edges, std::vector<bool> &core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &verbose, const bool &bench)
+//Note that adj has not been implemented in this version of the linkNodesGPU subroutine.
+bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -629,7 +629,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 		fflush(stdout);
 	}
 	
-	//if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction))
+	//if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction))
 	//	return false;
 
 	//Print Results
@@ -661,7 +661,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, std::vector<bool> &core_edg
 	return true;
 }
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, std::vector<bool> &core_edge_exists, int * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitset &adj, int * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -831,7 +831,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, std::vector<bool> &c
 			//Transfer data from buffers
 			readDegrees(nodes.k_in, h_k_in, j * mthread_size, size1);
 			readDegrees(nodes.k_out, h_k_out, i * mthread_size, size0);
-			readEdges(edges, h_edges, core_edge_exists, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j, use_bit);
+			readEdges(edges, h_edges, adj, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j, use_bit);
 
 			//Clear Device Memory
 			checkCudaErrors(cuMemsetD32(d_k_in, 0, mthread_size));
@@ -1009,7 +1009,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 //Generate confusion matrix for geodesic distances
 //Compares timelike/spacelike in 4D/5D
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const Bitset adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -1086,7 +1086,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const std::v
 	MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(core_edge_exists, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+	//MPI_Bcast(adj, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
 
 	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
 	start = rank * mpi_chunk;
@@ -1136,7 +1136,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const std::v
 
 		//Check light cone condition for 4D vs 5D
 		//Null hypothesis is the nodes are not connected
-		if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, i, j)) {
+		if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, i, j)) {
 			if (distance > 0)
 				//True Negative (both timelike)
 				c1++;
@@ -2244,7 +2244,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
 //Uses geodesic distances
-bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success, bool &past_horizon)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success, bool &past_horizon)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -2377,7 +2377,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<boo
 			}
 
 			//(B) If the current location's past neighbor is directly connected to the destination then return true
-			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
+			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, idx_a, idx_b)) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
 					printf("Moving to [%d : %.4f].\n", idx_a, nodes.id.tau[idx_a]);
@@ -2440,7 +2440,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<boo
 			}
 
 			//(E) If the current location's future neighbor is directly connected to the destination then return true
-			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, idx_a, idx_b)) {
+			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, idx_a, idx_b)) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
 					printf("Moving to [%d : %.4f].\n", idx_a, nodes.id.tau[idx_a]);
@@ -2508,7 +2508,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const std::vector<boo
 //Measure Causal Set Action
 //O(N*k^2*ln(k)) Efficiency (Linked)
 //O(N^2*k) Efficiency (No Links)
-bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const std::vector<bool> core_edge_exists, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitset adj, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -2587,7 +2587,7 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 		for (j = i + 1; j < N_tar; j++) {
 			elements = 0;
 			if (!use_bit && (link || relink)) {
-				if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, core_edge_exists, N_tar, core_edge_fraction, i, j))
+				if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, i, j))
 					continue;
 
 				//These indicate corrupted data
@@ -2602,7 +2602,7 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 					int col0 = static_cast<uint64_t>(i) * core_limit;
 					int col1 = static_cast<uint64_t>(j) * core_limit;
 					for (k = i + 1; k < j; k++)
-						elements += core_edge_exists[col0+k] * core_edge_exists[col1+k];
+						elements += (int)(adj[col0+k] & adj[col1+k]);
 					if (elements >= max_cardinality - 1)
 						too_many = true;
 				} else {

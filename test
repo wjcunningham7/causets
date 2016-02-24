@@ -45,12 +45,19 @@
 # These are experimental parameters #
 #####################################
 
+# Greedy routing experiments:
+#  > omega_lambda = {0.73, 0.99}
+#  > q = {200000, 250000, 300000}
+#  > k = {20000, 40000, 60000}
+#  > N_sr = 10000000
+#  > N_samples = 10
+
 # Greedy Routing
-st=11332
+st=11300
 age=0.85
-num=131072
+num=32768
 seed=4593475
-./bin/CausalSet --spacetime $st --nodes $num --age $age --link --gpu --verbose
+./bin/CausalSet --spacetime $st --nodes $num --age $age --seed $seed --link --gpu --verbose -y --components --success 1000
 
 # Measure de Sitter Action
 #./bin/CausalSet --spacetime 12834 --nodes 32768 --age 1.2 --seed 18100 --buffer 0.3 --link --gpu --action local --core 1
