@@ -22,13 +22,13 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges);
 bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int * const future_edge_row_start, const Bitset adj, const int &N_tar, const float &core_edge_fraction);
 
 #ifdef CUDA_ENABLED
-__global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width, bool compact);
+__global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z, uint64_t *edges, int *k_in, int *k_out, unsigned long long int *g_idx, int width, bool compact);
 
 bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &verbose, const bool &bench);
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitset &adj, int * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose);
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitset &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose);
 
-bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, CaResources * const ca, const bool &verbose);
+bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int64_t * const g_idx, const size_t &d_edges_size, CaResources * const ca, const bool &verbose);
 #endif
 
 bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const Bitset adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &verbose);
@@ -39,7 +39,7 @@ bool printValues(Node &nodes, const unsigned int &spacetime, const int num_vals,
 
 bool printDegrees(const Node &nodes, const int num_vals, const char *filename_in, const char *filename_out);
 
-bool printEdgeLists(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future);
+bool printEdgeLists(const Edge &edges, const int64_t num_vals, const char *filename_past, const char *filename_future);
 
 bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future);
 

@@ -742,7 +742,7 @@ void readDegrees(int * const &degrees, const int * const h_k, const size_t &offs
 
 //Data formatting used when reading output of
 //the adjacency list created by the GPU
-void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitset &adj, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit)
+void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitset &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit)
 {
 	#if DEBUG
 	if (!use_bit)

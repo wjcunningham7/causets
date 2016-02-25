@@ -52,7 +52,7 @@ void causet_intersection(int &elements, const int * const past_edges, const int 
 //Format Partial Adjacency Matrix Data
 void readDegrees(int * const &degrees, const int * const h_k, const size_t &offset, const size_t &size);
 
-void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitset &adj, int * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit);
+void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitset &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit);
 
 void remakeAdjMatrix(bool * const adj0, bool * const adj1, const int * const k_in, const int * const k_out, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, int * const idx_buf0, int * const idx_buf1, const int &N_tar, const int &i, const int &j, const int &l);
 

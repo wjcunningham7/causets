@@ -108,9 +108,9 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 				atomicAdd(&k_in[j*THREAD_SIZE+k], n[0][k]);
 }
 
-__global__ void DecodeFutureEdges(uint64_t *edges, int *future_edges, int elements, int offset)
+__global__ void DecodeFutureEdges(uint64_t *edges, int *future_edges, int64_t elements, int64_t offset)
 {
-	unsigned int idx = blockDim.x * blockIdx.x + threadIdx.x;
+	int64_t idx = static_cast<int64_t>(blockDim.x) * blockIdx.x + threadIdx.x;
 
 	if (idx < elements) {
 		//Decode Future Edges
@@ -126,9 +126,9 @@ __global__ void DecodeFutureEdges(uint64_t *edges, int *future_edges, int elemen
 	}
 }
 
-__global__ void DecodePastEdges(uint64_t *edges, int *past_edges, int elements, int offset)
+__global__ void DecodePastEdges(uint64_t *edges, int *past_edges, int64_t elements, int64_t offset)
 {
-	unsigned int idx = blockDim.x * blockIdx.x + threadIdx.x;
+	int64_t idx = static_cast<int64_t>(blockDim.x) * blockIdx.x + threadIdx.x;
 
 	if (idx < elements) {
 		//Decode Past Edges
@@ -194,7 +194,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 
 	CUdeviceptr d_k_in, d_k_out;
 	uint64_t *h_edges;
-	int *g_idx;
+	int64_t *g_idx;
 
 	size_t d_edges_size = use_bit ? 1 : pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
 
@@ -208,11 +208,11 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 		memset(h_edges, 0, sizeof(uint64_t) * d_edges_size);
 		ca->hostMemUsed += sizeof(uint64_t) * d_edges_size;
 
-		g_idx = (int*)malloc(sizeof(int));
+		g_idx = (int64_t*)malloc(sizeof(int64_t));
 		if (g_idx == NULL)
 			throw std::bad_alloc();
-		memset(g_idx, 0, sizeof(int));
-		ca->hostMemUsed += sizeof(int);
+		memset(g_idx, 0, sizeof(int64_t));
+		ca->hostMemUsed += sizeof(int64_t);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -230,7 +230,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 
 	if (!use_bit) {
 		try {
-			if (*g_idx + 1 >= static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
+			if (*g_idx + 1 >= static_cast<int64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2)
 				throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 		} catch (CausetException c) {
 			fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
@@ -307,7 +307,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	if (!bench) {
 		printf("\tCausets Successfully Connected.\n");
 		printf_cyan();
-		printf("\t\tUndirected Links:         %d\n", *g_idx);
+		printf("\t\tUndirected Links:         %" PRId64 "\n", *g_idx);
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
 		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);
@@ -333,7 +333,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	//Free Host Memory
 	free(g_idx);
 	g_idx = NULL;
-	ca->hostMemUsed -= sizeof(int);
+	ca->hostMemUsed -= sizeof(int64_t);
 
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sLinkNodesGPU.elapsedTime);
@@ -347,7 +347,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitset &adj, int * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitset &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -563,7 +563,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitset &adj, int * c
 }
 
 //Decode past and future edge lists using Bitonic Sort
-bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &verbose)
+bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int64_t * const g_idx, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &verbose)
 {
 	#if DEBUG
 	assert (edges.past_edges != NULL);
@@ -577,15 +577,15 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 
 	CUdeviceptr d_edges;
 	CUdeviceptr d_past_edges, d_future_edges;
-	int cpy_size;
+	int64_t cpy_size;
 	int i, j, k;
 
-	size_t g_mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(*g_idx) / (BLOCK_SIZE * group_size)));
+	size_t g_mblock_size = static_cast<unsigned int>(ceil(static_cast<double>(*g_idx) / (BLOCK_SIZE * group_size)));
 	size_t g_mthread_size = g_mblock_size * BLOCK_SIZE;
 
 	//DEBUG
 	/*printf_red();
-	printf("G_IDX:          %d\n", *g_idx);
+	printf("G_IDX:          %" PRId64 "\n", *g_idx);
 	printf("BLOCK_SIZE:     %d\n", BLOCK_SIZE);
 	printf("GROUP_SIZE:     %d\n", group_size);
 	printf("G_MBLOCK_SIZE:  %zu\n", g_mblock_size);
@@ -642,7 +642,7 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 
 		//Copy Memory from Device to Host
 		if (*g_idx > g_mthread_size)
-			cpy_size = *g_idx - static_cast<int>(i * g_mthread_size) >= 0 ? g_mthread_size : static_cast<int>(i * g_mthread_size) - *g_idx;
+			cpy_size = static_cast<int64_t>(*g_idx - static_cast<int64_t>(i) * g_mthread_size) >= 0 ? g_mthread_size : static_cast<int64_t>(i) * g_mthread_size - *g_idx;
 		else
 			cpy_size = *g_idx;
 		checkCudaErrors(cuMemcpyDtoH(edges.future_edges + i * g_mthread_size, d_future_edges, sizeof(int) * cpy_size));
@@ -682,7 +682,7 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 
 		//Copy Memory from Device to Host
 		if (*g_idx > g_mthread_size)
-			cpy_size = *g_idx - static_cast<int>(i * g_mthread_size) >= 0 ? g_mthread_size : static_cast<int>(i * g_mthread_size) - *g_idx;
+			cpy_size = static_cast<int64_t>(*g_idx - static_cast<int64_t>(i) * g_mthread_size) >= 0 ? g_mthread_size : static_cast<int64_t>(i) * g_mthread_size - *g_idx;
 		else
 			cpy_size = *g_idx;
 		checkCudaErrors(cuMemcpyDtoH(edges.past_edges + i * g_mthread_size, d_past_edges, sizeof(int) * cpy_size));
@@ -703,7 +703,7 @@ bool decodeLists_v2(const Edge &edges, const uint64_t * const h_edges, const int
 	return true;
 }
 
-bool decodeListsCPU(const Edge &edges, uint64_t *h_edges, const int * const g_idx)
+bool decodeListsCPU(const Edge &edges, uint64_t *h_edges, const int64_t * const g_idx)
 {
 	#if DEBUG
 	assert (edges.past_edges != NULL);
@@ -715,7 +715,7 @@ bool decodeListsCPU(const Edge &edges, uint64_t *h_edges, const int * const g_id
 
 	uint64_t key;
 	unsigned int idx0, idx1;
-	int i;
+	int64_t i;
 
 	quicksort(h_edges, 0, *g_idx - 1);
 
@@ -858,7 +858,7 @@ bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d
 	return true;
 }
 
-bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const CUdeviceptr &d_k_out, const int *g_idx, const int &N_tar, int &N_res, int &N_deg2, float &k_res, CaResources * const ca, const bool &verbose)
+bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const CUdeviceptr &d_k_out, const int64_t *g_idx, const int &N_tar, int &N_res, int &N_deg2, float &k_res, CaResources * const ca, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.k_in != NULL);
@@ -905,7 +905,7 @@ bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const 
 
 	N_res = N_tar - N_res;
 	N_deg2 = N_tar - N_deg2;
-	k_res = static_cast<float>(*g_idx * 2) / N_res;
+	k_res = static_cast<float>(static_cast<double>(*g_idx) * 2 / N_res);
 
 	#if DEBUG
 	assert (N_res >= 0);

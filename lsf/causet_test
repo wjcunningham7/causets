@@ -24,9 +24,9 @@
 
 # Routing Experiments
 density=200000
-energy_min=0.97
-energy_max=0.97
-jobstart=562
+energy_min=0.99
+energy_max=0.99
+jobstart=564
 queue="krioukov_gpu"
 ./etc/routing/gr_test $density $energy_min $energy_max
 readarray -t vars < causet.par

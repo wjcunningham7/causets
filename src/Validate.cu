@@ -154,7 +154,7 @@ bool compareCoreEdgeExists(const int * const k_out, const int * const future_edg
 }
 
 #ifdef CUDA_ENABLED
-__global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z, uint64_t *edges, int *k_in, int *k_out, int *g_idx, int width, bool compact)
+__global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z, uint64_t *edges, int *k_in, int *k_out, unsigned long long int *g_idx, int width, bool compact)
 {
 	///////////////////////////////////////
 	// Identify Node Pair with Thread ID //
@@ -328,7 +328,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	CUdeviceptr d_N_res, d_N_deg2;
 	CUdeviceptr d_g_idx;
 
-	int *g_idx;
+	unsigned long long int *g_idx;
 	int j, k;
 	
 	bool compact = get_curvature(spacetime) & POSITIVE;
@@ -338,11 +338,11 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 
 	//Allocate Overhead on Host
 	try {
-		g_idx = (int*)malloc(sizeof(int));
+		g_idx = (unsigned long long int*)malloc(sizeof(unsigned long long int));
 		if (g_idx == NULL)
 			throw std::bad_alloc();
-		memset(g_idx, 0, sizeof(int));
-		ca->hostMemUsed += sizeof(int);
+		memset(g_idx, 0, sizeof(unsigned long long int));
+		ca->hostMemUsed += sizeof(unsigned long long int);
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -366,8 +366,8 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	checkCudaErrors(cuMemAlloc(&d_k_out, sizeof(int) * N_tar));
 	ca->devMemUsed += sizeof(int) * N_tar;
 	
-	checkCudaErrors(cuMemAlloc(&d_g_idx, sizeof(int)));
-	ca->devMemUsed += sizeof(int);
+	checkCudaErrors(cuMemAlloc(&d_g_idx, sizeof(unsigned long long int)));
+	ca->devMemUsed += sizeof(unsigned long long int);
 
 	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
@@ -383,7 +383,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	checkCudaErrors(cuMemsetD32(d_edges, 0, d_edges_size << 1));
 	checkCudaErrors(cuMemsetD32(d_k_in, 0, N_tar));
 	checkCudaErrors(cuMemsetD32(d_k_out, 0, N_tar));
-	checkCudaErrors(cuMemsetD32(d_g_idx, 0, 1));
+	checkCudaErrors(cuMemsetD32(d_g_idx, 0, 2));
 
 	//Synchronize
 	checkCudaErrors(cuCtxSynchronize());
@@ -399,7 +399,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	stopwatchStart(&sGenAdjList);
 
 	//Execute Kernel
-	GenerateAdjacencyLists_v1<<<blocks_per_grid_GAL, threads_per_block_GAL>>>((float*)d_w, (float*)d_x, (float*)d_y, (float*)d_z, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (int*)d_g_idx, N_tar >> 1, compact);
+	GenerateAdjacencyLists_v1<<<blocks_per_grid_GAL, threads_per_block_GAL>>>((float*)d_w, (float*)d_x, (float*)d_y, (float*)d_z, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (unsigned long long int*)d_g_idx, N_tar >> 1, compact);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
 
 	//Synchronize
@@ -409,7 +409,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	stopwatchStart(&sGPUOverhead);
 
 	//Check Number of Connections
-	checkCudaErrors(cuMemcpyDtoH(g_idx, d_g_idx, sizeof(int)));
+	checkCudaErrors(cuMemcpyDtoH(g_idx, d_g_idx, sizeof(unsigned long long int)));
 	checkCudaErrors(cuCtxSynchronize());
 
 	//Free Device Memory
@@ -429,10 +429,10 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 
 	cuMemFree(d_g_idx);
 	d_g_idx = 0;
-	ca->devMemUsed -= sizeof(int);
+	ca->devMemUsed -= sizeof(unsigned long long int);
 
 	try {
-		if (*g_idx + 1 >= static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
+		if (*g_idx + 1 >= static_cast<uint64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2)
 			throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
@@ -475,7 +475,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	stopwatchStop(&sGPUOverhead);
 
 	//CUDA Grid Specifications
-	unsigned int gridx_decode = static_cast<unsigned int>(ceil(static_cast<float>(*g_idx) / BLOCK_SIZE));
+	unsigned int gridx_decode = static_cast<unsigned int>(ceil(static_cast<double>(*g_idx) / BLOCK_SIZE));
 	dim3 blocks_per_grid_decode(gridx_decode, 1, 1);
 
 	stopwatchStart(&sDecode0);
@@ -588,7 +588,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 
 	N_res = N_tar - N_res;
 	N_deg2 = N_tar - N_deg2;
-	k_res = static_cast<float>(*g_idx << 1) / N_res;
+	k_res = static_cast<float>(static_cast<double>(*g_idx) * 2 / N_res);
 
 	#if DEBUG
 	assert (N_res > 0);
@@ -619,7 +619,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	if (!bench) {
 		printf("\tCausets Successfully Connected.\n");
 		printf_cyan();
-		printf("\t\tUndirected Links:         %d\n", *g_idx);
+		printf("\t\tUndirected Links:         %" PRId64 "\n", *g_idx);
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
 		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);
@@ -645,7 +645,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	//Free Host Memory
 	free(g_idx);
 	g_idx = NULL;
-	ca->hostMemUsed -= sizeof(int);
+	ca->hostMemUsed -= sizeof(unsigned long long int);
 
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sLinkNodesGPU.elapsedTime);
@@ -661,7 +661,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	return true;
 }
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitset &adj, int * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitset &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -899,7 +899,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitset &adj, int * c
 }
 
 //Decode past and future edge lists using Bitonic Sort
-bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int * const g_idx, const size_t &d_edges_size, CaResources * const ca, const bool &verbose)
+bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int64_t * const g_idx, const size_t &d_edges_size, CaResources * const ca, const bool &verbose)
 {
 	#if DEBUG
 	assert (edges.past_edges != NULL);
@@ -950,7 +950,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 	checkCudaErrors(cuMemsetD32(d_future_edges, 0, d_edges_size));
 
 	//CUDA Grid Specifications
-	unsigned int gridx_decode = static_cast<unsigned int>(ceil(static_cast<float>(*g_idx) / BLOCK_SIZE));
+	unsigned int gridx_decode = static_cast<unsigned int>(ceil(static_cast<double>(*g_idx) / BLOCK_SIZE));
 	dim3 blocks_per_grid_decode(gridx_decode, 1, 1);
 
 	//Execute Kernel
@@ -1465,7 +1465,7 @@ bool printDegrees(const Node &nodes, const int num_vals, const char *filename_in
 	return true;
 }
 
-bool printEdgeLists(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future)
+bool printEdgeLists(const Edge &edges, const int64_t num_vals, const char *filename_past, const char *filename_future)
 {
 	#if DEBUG
 	assert (edges.past_edges != NULL);
@@ -1486,8 +1486,7 @@ bool printEdgeLists(const Edge &edges, const int num_vals, const char *filename_
 		if (!outputStream_future.is_open())
 			throw CausetException("Failed to open future-edges file in 'printEdgeLists' function!\n");
 
-		int i;
-		for (i = 0; i < num_vals; i++) {
+		for (int64_t i = 0; i < num_vals; i++) {
 			outputStream_past << edges.past_edges[i] << std::endl;
 			outputStream_future << edges.future_edges[i] << std::endl;
 		}
