@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Used to process output of many runs into a format Mathematica can read
+
+st=11300
+ver=0
+q=200000
+k=20000
+constq=true  #if false, constk=true
+
+jobstart=538
+jobend=542
+
+homedir='/home/cunningham.wi/projects/causets'
+basedir='/gss_gpfs_scratch/cunningham'
+for i in $(seq ${jobstart} ${jobend}) ; do
+  dir="$basedir/causet${i}"
+  cd $dir
+  logfile="CausalSet_Job-${i}_Sample-1.log"
+  tau=$(cat $logfile | awk '/Max. Rescaled Time/ {print $5}')
+  if [[ "$constq" == true ]] ; then
+    degrees=$(cat $logfile | awk '/Expected Degrees/ {print $4}')
+  else
+    density=$(cat $logfile | awk 'Node Density/ {print $4}')
+  fi
+  success=$(etc/success | awk '/Success Ratio/')
+  IFS=' ' read -r -a vals <<< "$success"
+  sval=${vals[2]}
+  serr=${vals[4]}
+
+  if [[ "$constq" == true ]] ; then
+    echo "$tau $degrees" >> $homedir/gr_degrees_q-${q}_${st}_${ver}.cset.dat.ref
+    echo "$tau $sval $serr" >> $homedir/gr_success_q-${q}_${st}_${ver}.cset.dat.ref
+  else
+    echo "$tau $density" >> $homedir/gr_density_k-${k}_${st}_${ver}.cset.dat.ref
+    echo "$tau $sval $serr" >> $homedir/gr_success_k-${k}_${st}_${ver}.cset.dat.ref
+  fi
+done

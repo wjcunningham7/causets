@@ -1529,9 +1529,15 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open edge list file!\n");
 			for (i = 0; i < network.network_properties.N_tar; i++) {
-				for (j = 0; j < network.nodes.k_out[i]; j++)
-					dataStream << i << " " << network.edges.future_edges[idx + j] << "\n";
-				idx += network.nodes.k_out[i];
+				if (network.network_properties.flags.use_bit) {
+					for (j = i + 1; j < network.network_properties.N_tar; j++)
+						if ((bool)network.adj[static_cast<uint64_t>(i)*network.network_properties.N_tar+j])
+							dataStream << i << " " << j << "\n";
+				} else {
+					for (j = 0; j < network.nodes.k_out[i]; j++)
+						dataStream << i << " " << network.edges.future_edges[idx + j] << "\n";
+					idx += network.nodes.k_out[i];
+				}
 			}
 			dataStream.flush();
 			dataStream.close();

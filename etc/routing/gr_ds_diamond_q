@@ -9,13 +9,16 @@
 # Used to calculate greedy routing parameters for the de Sitter diamond (constant q)
 
 import math
+import numpy as np
 import sys
 
 #q = 60
 #tau0 = 2
 
 q = float(sys.argv[1])
-tau0 = float(sys.argv[2])
+omega = float(sys.argv[2])
+#tau0 = float(sys.argv[2])
+tau0 = (2.0 / 3.0) * np.arctanh(math.pow(omega, 0.5))
 
 eta0 = -1
 eta1 = -math.exp(-tau0)

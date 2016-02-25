@@ -9,11 +9,8 @@
 # The name of the job
 jobname='myscript'
 
-# Number of cores
-ncores=1
-
 # Parse command line parameters
-OPTIONS=`getopt -o c:hn: -l ncores:,'help',name: -n 'math_bat' -- "$@"`
+OPTIONS=`getopt -o hn: -l 'help',name: -n 'matlab_bat' -- "$@"`
 
 if [ $? -ne 0 ] ; then
   echo "Unrecognized option. Try running with --help flag." >&2
@@ -24,25 +21,19 @@ eval set -- "$OPTIONS"
 
 while true ; do
   case "$1" in
-    -c|--ncores)
-      case "$2" in
-        "") shift 2 ;;
-        *) ncores=$2 ; shift 2 ;;
-      esac ;;
     -n|--name)
       case "$2" in
         "") shift 2 ;;
         *) jobname=$2 ; shift 2 ;;
       esac ;;
     -h|--help)
-      echo "Usage: math_bat [OPTION]..."
-      echo "Send Mathematica jobs to LSF queue on Discovery cluster."
+      echo "Usage: matlab_bat [OPTION]..."
+      echo "Send MATLAB jobs to LSF queue on Discovery cluster."
       echo ""
-      echo "  -c, --ncores     number of cores requested"
-      echo "  -h, --help       display this help and exit"
-      echo "  -n, --name       job name"
+      echo "  -h, --help     display this help and exit"
+      echo "  -n, --name     job name"
       echo ""
-      echo "Report math_bat bugs to w.cunningham@neu.edu"
+      echo "Report matlab_bat bugs to w.cunningham@neu.edu"
       echo "GitHub repository home page: <https://github.com/wjcunningham7/causets>"
       exit 0 ;;
     --) shift ; break ;;
@@ -51,7 +42,7 @@ while true ; do
 done
 
 # Send jobs to LSF via bsub
-sed "s:%ncores%:$ncores:g;s:%jobname%:$jobname:g" < lsf/math_lsf | bsub
+sed "s:%jobname%:$jobname:g" < lsf/batch/matlab_lsf | bsub
 sleep 1
 
-echo "Submitted Mathematica Job Successfully."
+echo "Submitted MATLAB Job Successfully."

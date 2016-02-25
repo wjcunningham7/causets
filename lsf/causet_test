@@ -22,7 +22,26 @@
 # GPU Acceleration #
 #==================#
 
-./lsf/causet_bat --start 538 --ncores 48 --flags '--spacetime 11300 --nodes 32768 --age 0.85 --link --success 1000000 --gpu --verbose -y --print' --queue 'krioukov_gpu' --nsamples 10
+# Routing Experiments
+density=200000
+energy_min=0.97
+energy_max=0.97
+jobstart=562
+queue="krioukov_gpu"
+./etc/routing/gr_test $density $energy_min $energy_max
+readarray -t vars < causet.par
+rm causet.par
+for i in $(seq ${#vars[@]}) ; do
+  job=$(($i+$jobstart-1))
+  energy=$(awk '{print $1}' <<< "${vars[${i}-1]}")
+  nodes=$(awk '{print $2}' <<< "${vars[${i}-1]}")
+  if [[ "$queue" == "krioukov_gpu" ]] ; then
+    ncores=48
+  else
+    ncores=32
+  fi
+  ./lsf/wrapper/causet_bat --start $job --ncores $ncores --flags '--spacetime 11300 --nodes '"$nodes"' --energy '"$energy"' --link --gpu --verbose -y --print' --queue $queue --nsamples 10
+done
 
 #==================#
 # MPI Acceleration #

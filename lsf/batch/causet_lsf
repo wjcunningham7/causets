@@ -28,7 +28,7 @@ else
 fi
 
 # Setup peripheral directories and copy necessary files, as well as the binary
-sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphid%:g" < $homedir/lsf/causet_setup | source /dev/stdin
+sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphid%:g" < $homedir/lsf/setup/causet_setup | source /dev/stdin
 
 # Do not edit below this
 
