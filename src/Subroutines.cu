@@ -246,13 +246,13 @@ void quicksort(Node &nodes, const unsigned int &spacetime, int low, int high)
 }
 
 //Sort edge list
-void quicksort(uint64_t *edges, int low, int high)
+void quicksort(uint64_t *edges, int64_t low, int64_t high)
 {
 	#if DEBUG
 	assert (edges != NULL);
 	#endif
 
-	int i, j, k;
+	int64_t i, j, k;
 	uint64_t key;
 
 	if (low < high) {
@@ -322,7 +322,7 @@ void swap(Node &nodes, const unsigned int &spacetime, const int i, const int j)
 }
 
 //Exchange two edges
-void swap(uint64_t *edges, const int i, const int j)
+void swap(uint64_t *edges, const int64_t i, const int64_t j)
 {
 	#if DEBUG
 	assert (edges != NULL);
@@ -530,7 +530,7 @@ bool nodesAreConnected_v2(const Bitset adj, const int &N_tar, int past_idx, int 
 	assert (past_idx != future_idx);
 	#endif
 
-	return (bool)adj[static_cast<uint64_t>(past_idx) * N_tar + future_idx];
+	return (bool)adj[static_cast<uint64_t>(past_idx)*N_tar+future_idx];
 }
 
 //Breadth First Search
@@ -584,7 +584,7 @@ void bfsearch_v2(const Node &nodes, const Bitset &adj, const int &N_tar, const i
 
 	int i;
 	for (i = 0; i < N_tar; i++)
-		if (adj[index*N_tar+i] && !nodes.cc_id[i])
+		if ((bool)adj[static_cast<uint64_t>(index)*N_tar+i] && !nodes.cc_id[i])
 			bfsearch_v2(nodes, adj, N_tar, i, id, elements);
 }
 

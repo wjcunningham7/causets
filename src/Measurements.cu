@@ -197,7 +197,6 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitset adj
 
 	if (!rank) {
 		for (i = 0; i < N_tar; i++) {
-			//printf_dbg("i: %d\n", i);
 			elements = 0;
 			if (!nodes.cc_id[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0) {
 				if (!use_bit)

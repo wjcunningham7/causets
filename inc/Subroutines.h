@@ -20,11 +20,11 @@ double lookupValue4D(const double *table, const long &size, const double &omega1
 //Quicksort Algorithm
 void quicksort(Node &nodes, const unsigned int &spacetime, int low, int high);
 
-void quicksort(uint64_t *edges, int low, int high);
+void quicksort(uint64_t *edges, int64_t low, int64_t high);
 
 void swap(Node &nodes, const unsigned int &spacetime, const int i, const int j);
 
-void swap(uint64_t *edges, const int i, const int j);
+void swap(uint64_t *edges, const int64_t i, const int64_t j);
 
 void swap(const int * const *& list0, const int * const *& list1, int &idx0, int &idx1, int &max0, int &max1);
 

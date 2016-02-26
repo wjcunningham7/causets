@@ -110,7 +110,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":A:a:b:Cc:k:d:e:F:Gg:hm:n:r:s:S:vyz:";
+	static const char *optString = ":A:a:b:Cc:k:d:e:F:g:hm:n:r:s:S:vyz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
 		{ "action",	required_argument,	NULL, 'A' },
@@ -130,7 +130,6 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "fields",	required_argument,	NULL, 'F' },
 		{ "gen-ds-table", no_argument,		NULL,  0  },
 		{ "gen-flrw-table", no_argument,	NULL,  0  },
-		//{ "geodesics",	no_argument,		NULL, 'G' },
 		{ "gpu", 	no_argument, 		NULL,  0  },
 		{ "graph",	required_argument,	NULL, 'g' },
 		{ "help", 	no_argument,		NULL, 'h' },
@@ -138,6 +137,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "link",	no_argument,		NULL,  0  },
 		{ "manifold",	required_argument,	NULL, 'm' },
 		{ "print", 	no_argument, 		NULL,  0  },
+		{ "print-edges",no_argument,		NULL,  0  },
 		{ "nodes", 	required_argument,	NULL, 'n' },
 		{ "nopos",	no_argument,		NULL,  0  },
 		{ "read-old-format", no_argument,	NULL,  0  },
@@ -208,11 +208,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				network_properties.flags.calc_deg_field = true;
 				network_properties.tau_m = atof(optarg);
 				break;
-			/*case 'G':	//Flag for estimating geodesics
-				network_properties.flags.calc_geodesics = true;
-				break;*/
 			case 'g':	//Graph ID
 				network_properties.graphID = atoi(optarg);
+				//printf_dbg("Setting graph ID to %d\n", network_properties.graphID);
 				if (network_properties.graphID < 0)
 					throw CausetException("Invalid argument for 'Graph ID' parameter!\n");
 				break;
@@ -235,7 +233,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				break;
 			case 'n':	//Number of nodes
 				network_properties.N_tar = atoi(optarg);
-				if (network_properties.N_tar <= 0)
+				if (network_properties.N_tar < 0)
 					throw CausetException("Invalid argument for 'nodes' parameter!\n");
 				break;
 			case 'r':	//Region
@@ -324,6 +322,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				else if (!strcmp("print", longOpts[longIndex].name))
 					//Flag to print results to file in 'dat' folder
 					network_properties.flags.print_network = true;
+				else if (!strcmp("print-edges", longOpts[longIndex].name))
+					//Flag to print links to file in 'dat/edg' folder
+					network_properties.flags.print_edges = true;
 				else if (!strcmp("quiet-read", longOpts[longIndex].name))
 					//Flag to ignore warnings when reading graph
 					network_properties.flags.quiet_read = true;
@@ -407,7 +408,6 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --gen-ds-table\tGenerate de Sitter\n");
 				printf_mpi(rank, "\t\t\tGeodesic Table\n");
 				printf_mpi(rank, "      --gen-flrw-table\tGenerate FLRW Geodesic Table\n");
-				//printf_mpi(rank, "  -G, --geodesics\tGeodesic Estimator\n");
 				#ifdef CUDA_ENABLED
 				printf_mpi(rank, "      --gpu\t\tUse GPU Acceleration\n");
 				#endif
@@ -419,6 +419,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -n, --nodes\t\tNumber of Nodes\t\t\t1000, 10000, 100000\n");
 				printf_mpi(rank, "      --nopos\t\tNo Node Positions\n");
 				printf_mpi(rank, "      --print\t\tPrint Results\n");
+				printf_mpi(rank, "      --print-edges\tPrint Edge List\n");
 				printf_mpi(rank, "      --quiet-read\tIgnore any warnings when\n");
 				printf_mpi(rank, "\t\t\treading graph\n");
 				printf_mpi(rank, "      --read-old-format\tRead Positions in Old Format\n");
@@ -427,6 +428,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.01, 10000\n");
 				printf_mpi(rank, "  -s, --seed\t\tRandom Seed\t\t\t18100\n");
 				printf_mpi(rank, "      --slice\t\tSize of Spatial Slice\t\t1.0\n");
+				printf_mpi(rank, "      --spacetime\tSpacetime ID\t\t\tSee doc/VERSION\n");
 				printf_mpi(rank, "      --stdim\t\tSpacetime Dimensions\t\t2 or 4\n");
 				printf_mpi(rank, "      --symmetry\tTemporal Symmetry\t\t\"symmetric\", \"asymmetric\"\n");
 				printf_mpi(rank, "      --test\t\tTest Parameters Only\n");
@@ -843,8 +845,6 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			bm->bMeasureAction = cp->sMeasureAction.elapsedTime / NBENCH;
 	}
 	
-	//Measure Geodesics w/ Geodesic Estimator
-
 	MeasureExit:
 	if (checkMpiErrors(network->network_properties.cmpi))
 		return false;
@@ -871,6 +871,11 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 
 	assert (network->network_properties.graphID);
 	assert (!network->network_properties.flags.bench);
+	#endif
+
+	#if EMBED_NODES
+	fprintf(stderr, "linkNodesGPU_v2 not implemented for EMBED_NODES=true.  Find me on line %d in %s.\n", __LINE__, __FILE__);
+	return false;
 	#endif
 
 	unsigned int spacetime = network->network_properties.spacetime;
@@ -902,9 +907,10 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		char *delimeters;
 
 		uint64_t key;
-		int N_edg;
+		int64_t N_edg;
 		int node_idx;
-		int i, j;
+		int64_t i;
+		int j;
 		unsigned int e0, e1;
 		unsigned int idx0 = 0, idx1 = 0;
 
@@ -922,7 +928,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			dataname << "./dat/pos/" << network->network_properties.graphID << ".cset.pos.dat";
 			dataStream.open(dataname.str().c_str());
 			if (dataStream.is_open()) {
-				while(getline(dataStream, line))
+				while (getline(dataStream, line))
 					network->network_properties.N_tar++;
 				dataStream.close();
 			} else {
@@ -938,7 +944,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			dataname << "./dat/edg/" << network->network_properties.graphID << ".cset.edg.dat";
 			dataStream.open(dataname.str().c_str());
 			if (dataStream.is_open()) {
-				while(getline(dataStream, line))
+				while (getline(dataStream, line))
 					N_edg++;
 				dataStream.close();
 			} else {
@@ -953,7 +959,8 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		#endif
 
 		//printf("Number of Nodes: %d\n", network->network_properties.N_tar);
-		//printf("Number of Edges: %d\n", N_edg);
+		//printf("Number of Edges: %" PRIu64 "\n", N_edg);
+		//fflush(stdout);
 
 		LoadPoint1:
 		if (checkMpiErrors(network->network_properties.cmpi)) {
@@ -970,10 +977,14 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		MPI_Bcast(&network->network_properties.N_tar, 1, MPI_INT, 0, MPI_COMM_WORLD);
 		#endif
 
+		//printf_dbg("(1) %d\n", network->network_properties.graphID);
+
 		if (!initVars(&network->network_properties, ca, cp, bm))
 			return false;
 		if (!!N_edg)
-			network->network_properties.k_tar = 2.0 * N_edg / network->network_properties.N_tar;
+			network->network_properties.k_tar = static_cast<float>(static_cast<double>(N_edg) * 2.0 / network->network_properties.N_tar);
+
+		//printf_dbg("(1) %d\n", network->network_properties.graphID);
 
 		printf_mpi(rank, "\nFinished Gathering Peripheral Network Data.\n");
 		fflush(stdout);
@@ -987,6 +998,8 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		if (!createNetwork(network->nodes, network->edges, network->adj, spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sCreateNetwork, network->network_properties.flags.use_gpu, network->network_properties.flags.decode_cpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 			return false;
 
+		//printf_dbg("Graph ID: %d\n", network->network_properties.graphID);
+
 		#ifdef MPI_ENABLED
 		if (rank == 0) {
 		#endif
@@ -997,6 +1010,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			dataname.str("");
 			dataname.clear();
 			dataname << "./dat/pos/" << network->network_properties.graphID << ".cset.pos.dat";
+			//printf_dbg("Attempting to open %s\n", dataname.str().c_str());
 			dataStream.open(dataname.str().c_str());
 			if (dataStream.is_open()) {
 				for (i = 0; i < network->network_properties.N_tar; i++) {
@@ -1019,7 +1033,10 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 								network->nodes.crd->w(i) = tauToEtaDust(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
 							} else if (get_manifold(spacetime) & DE_SITTER) {
 								network->nodes.crd->w(i) = atof(strtok((char*)line.c_str(), delimeters));
-								network->nodes.id.tau[i] = etaToTauSph(network->nodes.crd->w(i));
+								if (get_curvature(spacetime) & FLAT)
+									network->nodes.id.tau[i] = etaToTauFlat(network->nodes.crd->w(i));
+								else if (get_curvature(spacetime) & POSITIVE)
+									network->nodes.id.tau[i] = etaToTauSph(network->nodes.crd->w(i));
 							}
 
 							if (network->network_properties.flags.read_old_format) {
@@ -1051,7 +1068,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 								goto LoadPoint2;
 							}
 						} else if (get_stdim(spacetime) == 4 && get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
-							if ((get_symmetry(spacetime) & SYMMETRIC && fabs(network->nodes.crd->w(i)) > static_cast<float>(HALF_PI - network->network_properties.zeta)) || (get_symmetry(spacetime) & ASYMMETRIC && (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > static_cast<float>(HALF_PI - network->network_properties.zeta)))) {
+							if (get_curvature(spacetime) & POSITIVE && ((get_symmetry(spacetime) & SYMMETRIC && fabs(network->nodes.crd->w(i)) > static_cast<float>(HALF_PI - network->network_properties.zeta)) || (get_symmetry(spacetime) & ASYMMETRIC && (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > static_cast<float>(HALF_PI - network->network_properties.zeta)))) || (get_curvature(spacetime) & FLAT && (get_manifold(spacetime) & DE_SITTER && (network->nodes.crd->w(i) < HALF_PI - network->network_properties.zeta || network->nodes.crd->w(i) > HALF_PI - network->network_properties.zeta1)) || (get_manifold(spacetime) & (DUST | FLRW) && (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > HALF_PI - network->network_properties.zeta)))) {
 								message = "Invalid value for 'eta' in node position file!\n";
 								network->network_properties.cmpi.fail = 1;
 								goto LoadPoint2;
@@ -1081,6 +1098,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 				goto LoadPoint2;
 			}
 			printf("\t\tCompleted.\n");
+			fflush(stdout);
 
 			if (USE_GSL && get_manifold(spacetime) & FLRW)
 				gsl_integration_workspace_free(idata.workspace);
@@ -1173,8 +1191,8 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 					edges[i] = ((uint64_t)idx0) << 32 | ((uint64_t)idx1);
 
 				if (idx0 < core_limit && idx1 < core_limit) {
-					network->adj[(idx0*core_limit)+idx1] = true;
-					network->adj[(idx1*core_limit)+idx0] = true;
+					network->adj[static_cast<uint64_t>(idx0)*core_limit+idx1] = true;
+					network->adj[static_cast<uint64_t>(idx1)*core_limit+idx0] = true;
 				}
 				//printf("%d %d\n", idx0, idx1);
 			}
@@ -1185,6 +1203,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 				//Sort Edge List
 				quicksort(edges, 0, N_edg - 1);
 				printf("\t\tFirst Quicksort Performed.\n");
+				fflush(stdout);
 
 				//Future Edge Data
 				node_idx = -1;
@@ -1258,7 +1277,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 						network->network_observables.N_deg2++;
 				}
 			}
-			network->network_observables.k_res = static_cast<float>(N_edg << 1) / network->network_observables.N_res;
+			network->network_observables.k_res = static_cast<float>(static_cast<double>(N_edg) * 2 / network->network_observables.N_res);
 			printf("\t\tProperties Identified.\n");
 			printf_cyan();
 			printf("\t\t\tResulting Network Size:   %d\n", network->network_observables.N_res);
@@ -1433,7 +1452,8 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 		outputStream << "-------------------------" << std::endl;
 		outputStream << "Node Position Data:\t\t\t" << "pos/" << network.network_properties.graphID << ".cset.pos.dat" << std::endl;
 		if (links_exist) {
-			outputStream << "Node Edge Data:\t\t\t\t" << "edg/" << network.network_properties.graphID << ".cset.edg.dat" << std::endl;
+			if (network.network_properties.flags.print_edges)
+				outputStream << "Node Edge Data:\t\t\t\t" << "edg/" << network.network_properties.graphID << ".cset.edg.dat" << std::endl;
 			outputStream << "Degree Distribution Data:\t\t" << "dst/" << network.network_properties.graphID << ".cset.dst.dat" << std::endl;
 			outputStream << "In-Degree Distribution Data:\t\t" << "idd/" << network.network_properties.graphID << ".cset.idd.dat" << std::endl;
 			outputStream << "Out-Degree Distribution Data:\t\t" << "odd/" << network.network_properties.graphID << ".cset.odd.dat" << std::endl;
@@ -1522,25 +1542,27 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 
 		int idx = 0;
 		if (links_exist) {
-			sstm.str("");
-			sstm.clear();
-			sstm << "./dat/edg/" << network.network_properties.graphID << ".cset.edg.dat";
-			dataStream.open(sstm.str().c_str());
-			if (!dataStream.is_open())
-				throw CausetException("Failed to open edge list file!\n");
-			for (i = 0; i < network.network_properties.N_tar; i++) {
-				if (network.network_properties.flags.use_bit) {
-					for (j = i + 1; j < network.network_properties.N_tar; j++)
-						if ((bool)network.adj[static_cast<uint64_t>(i)*network.network_properties.N_tar+j])
-							dataStream << i << " " << j << "\n";
-				} else {
-					for (j = 0; j < network.nodes.k_out[i]; j++)
-						dataStream << i << " " << network.edges.future_edges[idx + j] << "\n";
-					idx += network.nodes.k_out[i];
+			if (network.network_properties.flags.print_edges) {
+				sstm.str("");
+				sstm.clear();
+				sstm << "./dat/edg/" << network.network_properties.graphID << ".cset.edg.dat";
+				dataStream.open(sstm.str().c_str());
+				if (!dataStream.is_open())
+					throw CausetException("Failed to open edge list file!\n");
+				for (i = 0; i < network.network_properties.N_tar; i++) {
+					if (network.network_properties.flags.use_bit) {
+						for (j = i + 1; j < network.network_properties.N_tar; j++)
+							if ((bool)network.adj[static_cast<uint64_t>(i)*network.network_properties.N_tar+j])
+								dataStream << i << " " << j << "\n";
+					} else {
+						for (j = 0; j < network.nodes.k_out[i]; j++)
+							dataStream << i << " " << network.edges.future_edges[idx + j] << "\n";
+						idx += network.nodes.k_out[i];
+					}
 				}
+				dataStream.flush();
+				dataStream.close();
 			}
-			dataStream.flush();
-			dataStream.close();
 
 			sstm.str("");
 			sstm.clear();

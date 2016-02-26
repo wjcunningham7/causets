@@ -18,6 +18,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	unsigned int spacetime = network_properties->spacetime;
 	int rank = network_properties->cmpi.rank;
 
+	//printf_dbg("(2a) %d\n", network_properties->graphID);
+
 	//Make sure the spacetime is fully defined
 	if (!rank) printf_red();
 	if (!get_stdim(spacetime)) {
@@ -101,6 +103,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	//Disable the default GSL Error Handler
 	disableGSLErrHandler();
 
+	//printf_dbg("(2b) %d\n", network_properties->graphID);
 	try {
 		double *table;
 		double eta0 = 0.0, eta1 = 0.0;
@@ -178,6 +181,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->zeta = 1.0;
 		}
 
+		//printf_dbg("(2c) %d\n", network_properties->graphID);
 		//Solve for the remaining constraints
 		switch (spacetime) {
 		case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
@@ -417,6 +421,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			throw CausetException("Spacetime parameters not supported!\n");
 		}
 
+		//printf_dbg("(2d) %d\n", network_properties->graphID);
 		if (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW)) {
 			#if DEBUG
 			assert (network_properties->k_tar > 0.0);
@@ -482,6 +487,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			}
 			
 		}
+		//printf_dbg("(2e) %d\n", network_properties->graphID);
 
 		//Miscellaneous Tasks
 		if (!network_properties->edge_buffer)
@@ -489,8 +495,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 		if (network_properties->k_tar >= network_properties->N_tar / 32 - 1) {
 			//This is when a bit array is smaller than the adjacency lists
-			network_properties->flags.use_bit = true;
-			network_properties->core_edge_fraction = 1.0;
+			//network_properties->flags.use_bit = true;
+			//network_properties->core_edge_fraction = 1.0;
 			//printf_dbg("USE_BIT = true\n");
 		}
 
@@ -564,6 +570,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			else
 				network_properties->max_cardinality = network_properties->N_tar - 1;
 		}
+		//printf_dbg("(2f) %d\n", network_properties->graphID);
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		network_properties->cmpi.fail = 1;

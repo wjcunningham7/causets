@@ -23,24 +23,32 @@
 #==================#
 
 # Routing Experiments
-density=200000
-energy_min=0.99
+density=250000
+energy_min=0.95
 energy_max=0.99
-jobstart=564
-queue="krioukov_gpu"
+jobstart=590
+readstart=0
+samples=10
+queue="par-gpu"
 ./etc/routing/gr_test $density $energy_min $energy_max
 readarray -t vars < causet.par
 rm causet.par
 for i in $(seq ${#vars[@]}) ; do
-  job=$(($i+$jobstart-1))
   energy=$(awk '{print $1}' <<< "${vars[${i}-1]}")
   nodes=$(awk '{print $2}' <<< "${vars[${i}-1]}")
+  job=$(($i+$jobstart-1))
+  if [[ "$readstart" -ne 0 ]] ; then
+    readjob=$(($i+$readstart-1))
+    nodes=0
+  else
+    readjob=0
+  fi
   if [[ "$queue" == "krioukov_gpu" ]] ; then
     ncores=48
   else
     ncores=32
   fi
-  ./lsf/wrapper/causet_bat --start $job --ncores $ncores --flags '--spacetime 11300 --nodes '"$nodes"' --energy '"$energy"' --link --gpu --verbose -y --print' --queue $queue --nsamples 10
+  ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime 11300 --nodes '"$nodes"' --energy '"$energy"' --link --gpu --verbose -y --print --print-edges --core 1' --queue $queue --nsamples $samples
 done
 
 #==================#
