@@ -2,5 +2,7 @@ asm/*
 dat/**
 bin/*
 obj/*
+opt/fastmath/**
 core*
 etc/tables/*
+Makefile

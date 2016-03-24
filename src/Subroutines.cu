@@ -94,7 +94,7 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 		}
 
 		//Check if Table is Insufficient
-		if (t_idx == (int)(!first)) {
+		if (t_idx == (int)(!first) && input != table[i]) {
 			//printf("%f\n", input);
 			throw CausetException("Values from lookup table do not include requested input.  Recreate table or change input.\n");
 		}
@@ -337,7 +337,7 @@ void swap(uint64_t *edges, const int64_t i, const int64_t j)
 
 //Exchange references to two lists
 //as well as related indices (used in causet_intersection)
-void swap(const int * const *& list0, const int * const *& list1, int &idx0, int &idx1, int &max0, int &max1)
+void swap(const int * const *& list0, const int * const *& list1, int64_t &idx0, int64_t &idx1, int64_t &max0, int64_t &max1)
 {
 	#if DEBUG
 	assert (idx0 >= 0);
@@ -477,7 +477,7 @@ bool newton(double (*solve)(const double &x, const double * const p1, const floa
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
 //O(k) Efficiency for Adjacency List
-bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int * const future_edge_row_start, const Bitset adj, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
+bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int64_t * const future_edge_row_start, const FastBitset adj, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
 {
 	#if DEBUG
 	//No null pointers
@@ -506,7 +506,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 	//Check if the adjacency matrix can be used
 	if (past_idx < core_limit && future_idx < core_limit)
-		return (bool)adj[static_cast<uint64_t>(past_idx) * core_limit + future_idx];
+		return (bool)adj.read(static_cast<uint64_t>(past_idx)*core_limit+future_idx);
 	//Check if past node is not connected to anything
 	else if (future_edge_row_start[past_idx] == -1)
 		return false;
@@ -522,7 +522,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 //Returns true if two nodes are causally connected
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
-bool nodesAreConnected_v2(const Bitset adj, const int &N_tar, int past_idx, int future_idx)
+bool nodesAreConnected_v2(const FastBitset adj, const int &N_tar, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (past_idx >= 0 && past_idx < N_tar);
@@ -530,7 +530,7 @@ bool nodesAreConnected_v2(const Bitset adj, const int &N_tar, int past_idx, int 
 	assert (past_idx != future_idx);
 	#endif
 
-	return (bool)adj[static_cast<uint64_t>(past_idx)*N_tar+future_idx];
+	return (bool)adj.read(static_cast<uint64_t>(past_idx)*N_tar+future_idx);
 }
 
 //Breadth First Search
@@ -549,8 +549,8 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 	assert (elements >= 0);
 	#endif
 
-	int ps = edges.past_edge_row_start[index];
-	int fs = edges.future_edge_row_start[index];
+	int64_t ps = edges.past_edge_row_start[index];
+	int64_t fs = edges.future_edge_row_start[index];
 	int i;
 
 	nodes.cc_id[index] = id;
@@ -569,7 +569,7 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 
 //Breadth First Search
 //Uses adjacency matrix only
-void bfsearch_v2(const Node &nodes, const Bitset &adj, const int &N_tar, const int index, const int id, int &elements)
+void bfsearch_v2(const Node &nodes, const FastBitset &adj, const int &N_tar, const int index, const int id, int &elements)
 {
 	#if DEBUG
 	assert (nodes.cc_id != NULL);
@@ -584,11 +584,11 @@ void bfsearch_v2(const Node &nodes, const Bitset &adj, const int &N_tar, const i
 
 	int i;
 	for (i = 0; i < N_tar; i++)
-		if ((bool)adj[static_cast<uint64_t>(index)*N_tar+i] && !nodes.cc_id[i])
+		if (adj.read(static_cast<uint64_t>(index)*N_tar+i) && !nodes.cc_id[i])
 			bfsearch_v2(nodes, adj, N_tar, i, id, elements);
 }
 
-void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many)
+void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int64_t &pstart, const int64_t &fstart, bool &too_many)
 {
 	#if DEBUG
 	assert (past_edges != NULL);
@@ -612,10 +612,10 @@ void causet_intersection_v2(int &elements, const int * const past_edges, const i
 	//if (larger + smaller > smaller * LOG(larger, APPROX ? FAST : STL)) {
 		//Binary search
 	//} else {
-		int idx0 = pstart;	//Index of past neighbors of 'future element j'
-		int idx1 = fstart;	//Index of future neighbors of 'past element i'
-		int max0 = idx0 + k_i;
-		int max1 = idx1 + k_o;
+		int64_t idx0 = pstart;	//Index of past neighbors of 'future element j'
+		int64_t idx1 = fstart;	//Index of future neighbors of 'past element i'
+		int64_t max0 = idx0 + k_i;
+		int64_t max1 = idx1 + k_o;
 
 		while (idx0 < max0 && idx1 < max1 && !too_many) {
 			if (past_edges[idx0] > future_edges[idx1])
@@ -643,7 +643,7 @@ void causet_intersection_v2(int &elements, const int * const past_edges, const i
 //Intersection of Sorted Lists
 //Used to find the cardinality of an interval
 //Complexity: O(k*log(k))
-void causet_intersection(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int &pstart, const int &fstart, bool &too_many)
+void causet_intersection(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int64_t &pstart, const int64_t &fstart, bool &too_many)
 {
 	#if DEBUG
 	assert (past_edges != NULL);
@@ -656,10 +656,10 @@ void causet_intersection(int &elements, const int * const past_edges, const int 
 	assert (fstart >= 0);
 	#endif
 
-	int idx0 = pstart;
-	int idx1 = fstart;
-	int max0 = idx0 + k_i;
-	int max1 = idx1 + k_o;
+	int64_t idx0 = pstart;
+	int64_t idx1 = fstart;
+	int64_t max0 = idx0 + k_i;
+	int64_t max1 = idx1 + k_o;
 
 	if (k_i == 1 || k_o == 1) {
 		elements = 0;
@@ -742,7 +742,7 @@ void readDegrees(int * const &degrees, const int * const h_k, const size_t &offs
 
 //Data formatting used when reading output of
 //the adjacency list created by the GPU
-void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitset &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit)
+void readEdges(uint64_t * const &edges, const bool * const h_edges, FastBitset &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit)
 {
 	#if DEBUG
 	if (!use_bit)
@@ -760,7 +760,7 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitset &adj,
 
 	for (i = 0; i < size0; i++) {
 		for (j = 0; j < size1; j++) {
-			if (h_edges[i*mthread_size+j] && (use_bit || g_idx[0] < (int)d_edges_size)) {
+			if (h_edges[i*mthread_size+j] && (use_bit || g_idx[0] < (int64_t)d_edges_size)) {
 				if (!use_bit)
 					edges[g_idx[0]++] = (static_cast<uint64_t>(x*mthread_size+i)) << 32 | (static_cast<uint64_t>(y*mthread_size+j));
 				else
@@ -769,8 +769,8 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitset &adj,
 					idx1 = static_cast<uint64_t>(x * mthread_size + i) * core_limit + y * mthread_size + j;
 					idx2 = static_cast<uint64_t>(y * mthread_size + j) * core_limit + x * mthread_size + i;
 
-					adj[idx1] = 1;
-					adj[idx2] = 1;
+					adj.set(idx1);
+					adj.set(idx2);
 				}
 			}
 		}
@@ -778,7 +778,7 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitset &adj,
 }
 
 //Remake adjacency sub-matrix using 'l' rows, beginning at row 'i'
-void remakeAdjMatrix(bool * const adj0, bool * const adj1, const int * const k_in, const int * const k_out, const int * const past_edges, const int * const future_edges, const int * const past_edge_row_start, const int * const future_edge_row_start, int * const idx_buf0, int * const idx_buf1, const int &N_tar, const int &i, const int &j, const int &l)
+void remakeAdjMatrix(bool * const adj0, bool * const adj1, const int * const k_in, const int * const k_out, const int * const past_edges, const int * const future_edges, const int64_t * const past_edge_row_start, const int64_t * const future_edge_row_start, int * const idx_buf0, int * const idx_buf1, const int &N_tar, const int &i, const int &j, const int64_t &l)
 {
 	#if DEBUG
 	assert (adj0 != NULL);
@@ -826,7 +826,7 @@ void remakeAdjMatrix(bool * const adj0, bool * const adj1, const int * const k_i
 		int element;
 
 		//Past Neighbors
-		int start = past_edge_row_start[M];
+		int64_t start = past_edge_row_start[M];
 		for (int p = 0; p < k_in[M]; p++) {
 			element = past_edges[start+p];
 			adj0[m*N_tar+element] = true;
@@ -852,7 +852,7 @@ void remakeAdjMatrix(bool * const adj0, bool * const adj1, const int * const k_i
 			continue;
 
 		//Past Neighbors
-		int start = past_edge_row_start[N];
+		int64_t start = past_edge_row_start[N];
 		for (int p = 0; p < k_in[N]; p++) {
 			element = past_edges[start+p];
 			adj1[n*N_tar+element] = true;
@@ -885,9 +885,9 @@ void readIntervals(int * const cardinalities, const unsigned int * const N_ij, c
 
 //Scanning algorithm used when decoding
 //lists found using GPU algorithms
-void scan(const int * const k_in, const int * const k_out, int * const &past_edge_pointers, int * const &future_edge_pointers, const int &N_tar)
+void scan(const int * const k_in, const int * const k_out, int64_t * const &past_edge_pointers, int64_t * const &future_edge_pointers, const int &N_tar)
 {
-	int past_idx = 0, future_idx = 0;
+	int64_t past_idx = 0, future_idx = 0;
 	int i;
 
 	for (i = 0; i < N_tar; i++) {

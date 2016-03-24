@@ -54,11 +54,11 @@
 
 # Greedy Routing
 st=11300
-#age=0.85
-energy=0.73
-num=12070
-#seed=4593475
-./bin/CausalSet --spacetime $st --nodes $num --energy $energy --link --gpu --verbose -y
+age=0.01
+#energy=0.81
+num=203045
+#seed=1458742213
+./bin/CausalSet --spacetime $st --nodes $num --age $age --verbose -y --link --gpu --core 1
 
 # Measure de Sitter Action
 #./bin/CausalSet --spacetime 12834 --nodes 32768 --age 1.2 --seed 18100 --buffer 0.3 --link --gpu --action local --core 1

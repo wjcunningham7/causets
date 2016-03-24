@@ -58,7 +58,7 @@ __device__ void swap(uint64_t * const &edges, const unsigned int &i, const unsig
 //Parallel Prefix Sum
 //Borrowed from https://gist.github.com/wh5a/4500706
 
-__global__ void Scan(int *input, int *output, int *buf, int elements)
+__global__ void Scan(int *input, int64_t *output, int *buf, int elements)
 {
 	__shared__ int s_vals[BLOCK_SIZE << 1];
 	unsigned int tid = threadIdx.x;
@@ -94,16 +94,16 @@ __global__ void Scan(int *input, int *output, int *buf, int elements)
 	}
 
 	if (start + tid < elements)
-		output[start + tid] = s_vals[tid];
+		output[start + tid] = static_cast<int64_t>(s_vals[tid]);
 
 	if (start + blockDim.x + tid < elements)
-		output[start + blockDim.x + tid] = s_vals[blockDim.x + tid];
+		output[start + blockDim.x + tid] = static_cast<int64_t>(s_vals[blockDim.x + tid]);
 
 	if (buf && tid == 0)
 		buf[blockIdx.x] = s_vals[(blockDim.x << 1) - 1];
 }
 
-__global__ void PostScan(int *input, int *buf, int elements)
+__global__ void PostScan(int64_t *input, int64_t *buf, int elements)
 {
 	unsigned int tid = threadIdx.x;
 	unsigned int start = blockDim.x * blockIdx.x << 1;

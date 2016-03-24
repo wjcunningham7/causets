@@ -16,28 +16,15 @@ OBJDIR		:= ./obj
 DATDIR		:= ./dat
 ETCDIR		:= ./etc
 
-# Reference for directories on Northeastern's Discovery cluster
-HOST0=compute
-# Reference for your personal directories (edit as needed)
-# NOTE: If you are using HOST1 then make sure to edit all entries
-# which reference it below with the correct directories
-HOST1=tiberius
-
-FASTSRC		:= $(LOCAL_DIR)/src/fastmath
+LOCAL_DIR	:= $(CAUSET_LOCAL_DIR)
+FASTSRC		:= $(FAST_LOCAL_DIR)/src/fastmath
 
 #############################
 # CUDA Resource Directories #
 #############################
 
-ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
 CUDA_SDK_PATH 	?= /shared/apps/cuda7.0/samples
 CUDA_HOME 	?= /shared/apps/cuda7.0
-else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
-CUDA_SDK_PATH	?= /usr/local/cuda-7.5/samples
-CUDA_HOME	?= /usr/local/cuda
-else
-$(error Cannot find CUDA directories!)
-endif
 
 #############
 # Compilers #
@@ -45,62 +32,53 @@ endif
 
 GCC		?= gcc
 CXX 		?= g++
-ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
 MPI		?= mpiCC
-else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
-MPI		?= /usr/lib64/openmpi/bin/mpicc
-else
-$(error Cannot find MPI compiler!)
-endif
 GFOR		?= gfortran
-NVCC 		?= $(CUDA_HOME)/bin/nvcc
+NVCC 		?= /shared/apps/cuda7.0/bin/nvcc
 
 #########################
 # Headers and Libraries #
 #########################
 
 INCD 		 = -I $(INCDIR) -I $(LOCAL_DIR)/include/
-CUDA_INCD	 = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include
-LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas -lfastmath -lnint -lprintcolor -lgomp
-CUDA_LIBS	 = -L /usr/lib/nvidia-current -L $(CUDA_HOME)/lib64/ -L $(CUDA_SDK_PATH)/common/lib -lcuda -lcudart
+CUDA_INCD	 = -I /shared/apps/cuda7.0/samples/common/inc -I /shared/apps/cuda7.0/include
+LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas -lnint -lprintcolor
+CUDA_LIBS	 = -L /usr/lib/nvidia-current -L /shared/apps/cuda7.0/lib64 -L /shared/apps/cuda7.0/samples/common/lib -lcuda -lcudart
 
 ##################
 # Compiler Flags #
 ##################
 
-CXXFLAGS	:= -O3 -g -Wall -x c++ -fmax-errors=5
-NVCCFLAGS 	:= -O3 -G -g -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED --compiler-options -fmax-errors=5 #--use-fast-math #--keep --keep-dir $(ASMDIR)
-ifneq (, $(findstring $(HOST0), $(HOSTNAME)))
-NVCCFLAGS += -arch=sm_35
-else ifneq (, $(findstring $(HOST1), $(HOSTNAME)))
-NVCCFLAGS += -arch=sm_30
-else
-endif
-OMPFLAGS1	:=
-OMPFLAGS2	:=
-MPIFLAGS1	:=
-MPIFLAGS2	:=
+CXXFLAGS	:= -O3 -g -Wall -x c++
+NVCCFLAGS 	:= -O3 -G -g -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED -arch=sm_35
 
-##############################
-# OpenMP or MPI Acceleration #
-##############################
+################
+# Acceleration #
+################
 
+USE_AVX2	:= 1
 USE_OMP		:= 1
 USE_MPI		:= 0
 
 ifneq ($(USE_OMP), 0)
-OMPFLAGS1 += -fopenmp
-OMPFLAGS2 += -Xcompiler -fopenmp
+CXXFLAGS += -fopenmp
+NVCCFLAGS += -Xcompiler -fopenmp
+LIBS += -lgomp
 endif
 
 ifneq ($(USE_MPI), 0)
 CXX=$(MPI)
-MPIFLAGS1 += -DMPI_ENABLED -Wno-deprecated
-MPIFLAGS2 += -DMPI_ENABLED -Xcompiler -Wno-deprecated
+CXXFLAGS += -DMPI_ENABLED -Wno-deprecated
+NVCCFLAGS += -DMPI_ENABLED -Xcompiler -Wno-deprecated
 endif
 
-CXXFLAGS += $(OMPFLAGS1) $(MPIFLAGS1)
-NVCCFLAGS += $(OMPFLAGS2) $(MPIFLAGS2)
+ifneq ($(USE_AVX2), 0)
+CXXFLAGS += -mavx2 -march=core-avx2 -mtune=core-avx2 -mpopcnt -DAVX2_ENABLED
+NVCCFLAGS += -Xcompiler "-mavx2 -march=core-avx2 -mtune=core-avx2 -mpopcnt -DAVX2_ENABLED"
+LIBS += -lfastmathavx
+else
+LIBS += -lfastmath
+endif
 
 ###############
 # Source Code #
@@ -134,11 +112,9 @@ OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.o, $(SOURCES))
 
 all : gpu
 
-#cpu : check-env $(COBJS) $(CEXTOBJS) $(OBJS) link
 cpu : check-env $(COBJS) $(OBJS) link
 
-#gpu : check-env $(COBJS) $(CEXTOBJS) $(CUDAOBJS) linkgpu bin
-gpu : check-env $(COBJS) $(CUDAOBJS) linkgpu bin
+gpu : check-env dirs $(COBJS) $(CUDAOBJS) linkgpu bin
 
 ###############################
 # Check Environment Variables #

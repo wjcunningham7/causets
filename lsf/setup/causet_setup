@@ -102,8 +102,8 @@ if [ @readjobid@ -ne 0 ] ; then
         exit 8
       fi
 
-      cp $posfile $work/dat/pos
-      cp $edgfile $work/dat/edg
+      #cp $posfile $work/dat/pos
+      #cp $edgfile $work/dat/edg
     done
   else
     posfile=$dir3/@readgraphid@.cset.pos.dat

@@ -1,6 +1,10 @@
 #ifndef CAUSET_H_
 #define CAUSET_H_
 
+#ifdef AVX2_ENABLED
+#include <intrinsics/x86intrin.h>
+#endif
+
 //Core System Files
 #include <cstring>
 #include <exception>
@@ -37,7 +41,7 @@
 #endif
 
 //Other System Files
-#include <boost/dynamic_bitset.hpp>
+//#include <boost/dynamic_bitset.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/poisson_distribution.hpp>
@@ -145,9 +149,6 @@ extern inline float5 make_float5(float v, float w, float x, float y, float z)
 	f.z = z;
 	return f;
 }
-
-//Bitsets
-typedef boost::dynamic_bitset<> Bitset;
 
 //Boost RNG
 typedef boost::mt19937 Engine;
@@ -491,8 +492,8 @@ struct Edge {
 
 	int *past_edges;		//Sparse adjacency lists
 	int *future_edges;
-	int *past_edge_row_start;	//Adjacency list indices
-	int *future_edge_row_start;
+	int64_t *past_edge_row_start;	//Adjacency list indices
+	int64_t *future_edge_row_start;
 };
 
 //Embedding Validation Data
@@ -566,8 +567,8 @@ struct NetworkProperties {
 	int N_tar;			//Target Number of Nodes
 	float k_tar;			//Target Average Degree
 
-	double N_emb;			//Number of Pairs Used in Embedding Validation
-	double N_sr;			//Number of Pairs Used in Success Ratio
+	long double N_emb;		//Number of Pairs Used in Embedding Validation
+	long double N_sr;		//Number of Pairs Used in Success Ratio
 	int N_df;			//Number of Samples Used in Degree Field Measurements
 	double tau_m;			//Rescaled Time of Nodes used for Measuring Degree Field
 	double N_dst;			//Number of Pairs Used in Distance Validation
@@ -640,7 +641,7 @@ struct Network {
 
 	Node nodes;
 	Edge edges;
-	Bitset adj;	//Adjacency matrix
+	FastBitset adj;
 };
 
 //Algorithmic Performance

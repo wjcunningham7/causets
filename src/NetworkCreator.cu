@@ -18,8 +18,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	unsigned int spacetime = network_properties->spacetime;
 	int rank = network_properties->cmpi.rank;
 
-	//printf_dbg("(2a) %d\n", network_properties->graphID);
-
 	//Make sure the spacetime is fully defined
 	if (!rank) printf_red();
 	if (!get_stdim(spacetime)) {
@@ -103,7 +101,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	//Disable the default GSL Error Handler
 	disableGSLErrHandler();
 
-	//printf_dbg("(2b) %d\n", network_properties->graphID);
 	try {
 		double *table;
 		double eta0 = 0.0, eta1 = 0.0;
@@ -181,7 +178,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->zeta = 1.0;
 		}
 
-		//printf_dbg("(2c) %d\n", network_properties->graphID);
 		//Solve for the remaining constraints
 		switch (spacetime) {
 		case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
@@ -268,6 +264,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &network_properties->tau0, NULL, true);
 			if (network_properties->k_tar != network_properties->k_tar)
 				throw CausetException("Value not found in average degree table!\n");
+			//network_properties->k_tar = 5000;
 			network_properties->r_max = w / sqrt(2.0);
 			break;
 		}
@@ -421,7 +418,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			throw CausetException("Spacetime parameters not supported!\n");
 		}
 
-		//printf_dbg("(2d) %d\n", network_properties->graphID);
 		if (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW)) {
 			#if DEBUG
 			assert (network_properties->k_tar > 0.0);
@@ -487,7 +483,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			}
 			
 		}
-		//printf_dbg("(2e) %d\n", network_properties->graphID);
 
 		//Miscellaneous Tasks
 		if (!network_properties->edge_buffer)
@@ -509,13 +504,12 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 		//Determine group size and decoding method
 		if (network_properties->flags.use_gpu) {
-			long glob_mem = 5000000000L;
-			long mem = glob_mem + 1L;
+			long mem = GLOB_MEM + 1L;
 			long d_edges_size = network_properties->flags.use_bit ? 1L : static_cast<long>(exp2(ceil(log2(network_properties->N_tar * network_properties->k_tar * (1.0 + network_properties->edge_buffer) / 2.0))));
 			float gsize = 0.5f;
 			bool dcpu = false;
 
-			while (mem > glob_mem) {
+			while (mem > GLOB_MEM) {
 				//Used in generateLists_v2
 				//The group size - the number of groups, along one index, the full matrix is broken up into
 				gsize *= 2.0f;
@@ -532,17 +526,13 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 				long mem1 = (40L * mtsize + mesize) * NBUFFERS;							//For generating
 				long mem2 = network_properties->flags.use_bit ? 0L : 4L * (2L * d_edges_size + gmtsize);	//For decoding
-				//long mem3 = 8L * (network_properties->N_tar + 2L * BLOCK_SIZE);				//For scanning (no longer used)
 
-				if (mem2 > glob_mem / 4L) {
+				if (mem2 > GLOB_MEM / 4L) {
 					mem2 = 0L;
 					dcpu = true;
 				}
 
-				long max = mem1;
-				if (mem2 > max) max = mem2;
-				//if (mem3 > max) max = mem3;
-				mem = max;
+				mem = mem1 > mem2 ? mem1 : mem2;
 			}
 
 			network_properties->group_size = gsize < NBUFFERS ? NBUFFERS : gsize;
@@ -570,7 +560,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			else
 				network_properties->max_cardinality = network_properties->N_tar - 1;
 		}
-		//printf_dbg("(2f) %d\n", network_properties->graphID);
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		network_properties->cmpi.fail = 1;
@@ -775,7 +764,7 @@ bool solveExpAvgDegree(float &k_tar, const unsigned int &spacetime, const int &N
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, Edge &edges, FastBitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench, const bool &yes)
 {
 	#if DEBUG
 	assert (ca != NULL);
@@ -815,20 +804,20 @@ bool createNetwork(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &sp
 		if (links_exist) {
 			mem += sizeof(int) * (N_tar << 1);	//For k_in and k_out
 			if (!use_bit) {
-				mem += sizeof(int) * static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer));	//For edge lists
-				mem += sizeof(int) * (N_tar << 1);	//For edge list pointers
+				mem += sizeof(int) * static_cast<int64_t>(N_tar) * k_tar * (1.0 + edge_buffer);	//For edge lists
+				mem += sizeof(int64_t) * (N_tar << 1);	//For edge list pointers
 			}
 			mem += sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)) / 8;	//Adjacency matrix
 		}
 
 		size_t dmem = 0;
 		#ifdef CUDA_ENABLED
-		size_t dmem1 = 0, dmem2 = 0, dmem3 = 0;
+		size_t dmem1 = 0, dmem2 = 0;
 		if (use_gpu) {
 			size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
 			if (!use_bit)
 				mem += sizeof(uint64_t) * d_edges_size;	//For encoded edge list
-			mem += sizeof(int);			//For g_idx
+			mem += sizeof(int64_t);				//For g_idx
 
 			size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
 			size_t mthread_size = mblock_size * BLOCK_SIZE;
@@ -846,20 +835,15 @@ bool createNetwork(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &sp
 			dmem1 += sizeof(bool) * m_edges_size * nbuf;			//For adjacency matrix buffers (device)
 
 			if (!use_bit) {
-				size_t g_mblock_size = static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / (BLOCK_SIZE * group_size << 1));
+				size_t g_mblock_size = static_cast<uint64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / (BLOCK_SIZE * group_size << 1);
 				size_t g_mthread_size = g_mblock_size * BLOCK_SIZE;
 				dmem2 += sizeof(uint64_t) * d_edges_size;	//Encoded edge list used during parallel sorting
 				dmem2 += sizeof(int) * (DECODE_LISTS_GPU_V2 ? g_mthread_size : d_edges_size);	//For edge lists
 				if (decode_cpu)
 					dmem2 = 0;
-
-				//Was used for parallel prefix scan - no longer used
-				//dmem3 += sizeof(int) * N_tar << 1;	//Edge list pointers
-				//dmem3 += sizeof(int) * BLOCK_SIZE << 2;	//Buffers used for scanning
 			}
 
 			dmem = dmem1 > dmem2 ? dmem1 : dmem2;
-			dmem = dmem > dmem3 ? dmem : dmem3;
 		}
 		#endif
 
@@ -984,7 +968,7 @@ bool createNetwork(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &sp
 				if (edges.past_edges == NULL)
 					throw std::bad_alloc();
 				memset(edges.past_edges, 0, sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
-				ca->hostMemUsed += sizeof(int) * static_cast<unsigned int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
+				ca->hostMemUsed += sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
 
 				edges.future_edges = (int*)malloc(sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
 				if (edges.future_edges == NULL)
@@ -992,22 +976,21 @@ bool createNetwork(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &sp
 				memset(edges.future_edges, 0, sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2));
 				ca->hostMemUsed += sizeof(int) * static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
 
-				edges.past_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
+				edges.past_edge_row_start = (int64_t*)malloc(sizeof(int64_t) * N_tar);
 				if (edges.past_edge_row_start == NULL)
 					throw std::bad_alloc();
-				memset(edges.past_edge_row_start, 0, sizeof(int) * N_tar);
-				ca->hostMemUsed += sizeof(int) * N_tar;
+				memset(edges.past_edge_row_start, 0, sizeof(int64_t) * N_tar);
+				ca->hostMemUsed += sizeof(int64_t) * N_tar;
 	
-				edges.future_edge_row_start = (int*)malloc(sizeof(int) * N_tar);
+				edges.future_edge_row_start = (int64_t*)malloc(sizeof(int64_t) * N_tar);
 				if (edges.future_edge_row_start == NULL)
 					throw std::bad_alloc();
-				memset(edges.future_edge_row_start, 0, sizeof(int) * N_tar);
-				ca->hostMemUsed += sizeof(int) * N_tar;
+				memset(edges.future_edge_row_start, 0, sizeof(int64_t) * N_tar);
+				ca->hostMemUsed += sizeof(int64_t) * N_tar;
 			}
 
-			adj.resize(POW2(core_edge_fraction * N_tar, EXACT));
-			adj.reset();
-			ca->hostMemUsed += sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)) / 8;
+			adj.createBitset(static_cast<uint64_t>(POW2(core_edge_fraction, EXACT) * N_tar * N_tar));
+			ca->hostMemUsed += sizeof(BlockType) * adj.getNumBlocks();
 		}
 
 		memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
@@ -1275,7 +1258,8 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			}
 
 			#if DEBUG
-			validateCoordinates(nodes, spacetime, eta0, zeta, zeta1, r_max, tau0, i);
+			if (!validateCoordinates(nodes, spacetime, eta0, zeta, zeta1, r_max, tau0, i))
+				i--;
 			#endif
 
 			i++;
@@ -1284,7 +1268,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		//Use exact CDF inversion formulae (see notes)
 		#ifdef _OPENMP
 		unsigned int seed = static_cast<unsigned int>(mrng.rng() * 400000000);
-		#pragma omp parallel
+		#pragma omp parallel if (N_tar > 1000)
 		{
 		//Initialize one RNG per thread
 		Engine eng(seed ^ omp_get_thread_num());
@@ -1292,7 +1276,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		UGenerator urng(eng, udist);
 		NDistribution ndist(0.0, 1.0);
 		NGenerator nrng(eng, ndist);
-		#pragma omp for schedule (dynamic, 1)
+		#pragma omp for schedule (dynamic, 8)
 		#endif
 		for (int i = 0; i < N_tar; i++) {
 			#if EMBED_NODES
@@ -1303,253 +1287,252 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			double eta, r;
 			double u, v;
 			int tid = omp_get_thread_num();
-			switch (spacetime) {
-			case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
-				u = get_2d_asym_flat_minkowski_diamond_u(urng, xi);
-				v = get_2d_asym_flat_minkowski_diamond_v(urng, xi);
-				nodes.crd->x(i) = (u + v) / sqrt(2.0);
-				nodes.crd->y(i) = (u - v) / sqrt(2.0);
-				break;
-			case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
-				nodes.crd->x(i) = get_2d_asym_sph_deSitter_slab_eta(urng, eta0);
-				nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
-				#if EMBED_NODES
-				emb2 = get_2d_asym_sph_deSitter_slab_emb(urng);
-				nodes.crd->y(i) = emb2.x;
-				nodes.crd->z(i) = emb2.y;
-				#else
-				nodes.crd->y(i) = get_2d_asym_sph_deSitter_slab_theta(urng);
-				#endif
-				break;
-			case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
-				nodes.crd->x(i) = get_2d_sym_sph_deSitter_slab_eta(urng, eta0);
-				nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
-				#if EMBED_NODES
-				emb2 = get_2d_sym_sph_deSitter_slab_emb(urng);
-				nodes.crd->y(i) = emb2.x;
-				nodes.crd->z(i) = emb2.y;
-				#else
-				nodes.crd->y(i) = get_2d_sym_sph_deSitter_slab_theta(urng);
-				#endif
-				break;
-			case (2 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
-				fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-				assert (false);
-				break;
-			case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
-				nodes.crd->x(i) = get_2d_asym_sph_deSitter_diamond_eta(urng);
-				nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
-				#if EMBED_NODES
-				emb2 = get_2d_asym_sph_deSitter_diamond_emb(mrng.rng, nodes.crd->x(i));
-				nodes.crd->y(i) = emb2.x;
-				nodes.crd->z(i) = emb2.y;
-				#else
-				nodes.crd->y(i) = get_2d_asym_sph_deSitter_diamond_theta(urng, nodes.crd->x(i));
-				#endif
-				break;
-			case (2 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
-				fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-				assert (false);
-				break;
-			case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
-				#if EMBED_NODES
-				nodes.crd->v(i) = get_4d_asym_flat_deSitter_slab_eta(urng, HALF_PI - zeta, HALF_PI - zeta1);
-				nodes.id.tau[i] = etaToTauFlat(nodes.crd->v(i));
-				emb3 = get_4d_asym_flat_deSitter_slab_cartesian(urng, nrng, r_max);
-				nodes.crd->x(i) = emb3.x;
-				nodes.crd->y(i) = emb3.y;
-				nodes.crd->z(i) = emb3.z;
-				#else
-				nodes.crd->w(i) = get_4d_asym_flat_deSitter_slab_eta(urng, HALF_PI - zeta, HALF_PI - zeta1);
-				nodes.id.tau[i] = etaToTauFlat(nodes.crd->w(i));
-				nodes.crd->x(i) = get_4d_asym_flat_deSitter_slab_radius(mrng.rng, r_max);
-				nodes.crd->y(i) = get_4d_asym_flat_deSitter_slab_theta2(mrng.rng);
-				nodes.crd->z(i) = get_4d_asym_flat_deSitter_slab_theta3(mrng.rng);
-				#endif
-				break;
-			case (4 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
-				#if EMBED_NODES
-				nodes.crd->v(i) = get_4d_asym_sph_deSitter_slab_eta(urng, zeta);
-				nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
-				emb4 = get_4d_asym_sph_deSitter_slab_emb(nrng);
-				nodes.crd->w(i) = emb4.w;
-				nodes.crd->x(i) = emb4.x;
-				nodes.crd->y(i) = emb4.y;
-				nodes.crd->z(i) = emb4.z;
-				#else
-				nodes.crd->w(i) = get_4d_asym_sph_deSitter_slab_eta(urng, zeta);
-				nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
-				nodes.crd->x(i) = get_4d_asym_sph_deSitter_slab_theta1(urng);
-				nodes.crd->y(i) = get_4d_asym_sph_deSitter_slab_theta2(urng);
-				nodes.crd->z(i) = get_4d_asym_sph_deSitter_slab_theta3(urng);
-				#endif
-				break;
-			case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
-				#if EMBED_NODES
-				nodes.crd->v(i) = get_4d_sym_sph_deSitter_slab_eta(urng, zeta);
-				nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
-				emb4 = get_4d_sym_sph_deSitter_slab_emb(nrng);
-				nodes.crd->w(i) = emb4.w;
-				nodes.crd->x(i) = emb4.x;
-				nodes.crd->y(i) = emb4.y;
-				nodes.crd->z(i) = emb4.z;
-				#else
-				nodes.crd->w(i) = get_4d_sym_sph_deSitter_slab_eta(urng, zeta);
-				nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
-				nodes.crd->x(i) = get_4d_sym_sph_deSitter_slab_theta1(urng);
-				nodes.crd->y(i) = get_4d_sym_sph_deSitter_slab_theta2(urng);
-				nodes.crd->z(i) = get_4d_sym_sph_deSitter_slab_theta3(urng);
-				#endif
-				break;
-			case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
-				u = get_4d_asym_flat_deSitter_diamond_u(urng, xi, mu);
-				v = get_4d_asym_flat_deSitter_diamond_v(urng, u, xi);
-				#if EMBED_NODES
-				nodes.crd->v(i) = (u + v) / sqrt(2.0);
-				nodes.id.tau[i] = etaToTauFlat(nodes.crd->v(i));
-				emb3 = get_4d_asym_flat_deSitter_diamond_cartesian(urng, nrng);
-				nodes.crd->x(i) = emb3.x;
-				nodes.crd->y(i) = emb3.y;
-				nodes.crd->z(i) = emb3.z;
-				#else
-				nodes.crd->w(i) = (u + v) / sqrt(2.0);
-				nodes.crd->x(i) = (u - v) / sqrt(2.0);
-				nodes.id.tau[i] = etaToTauFlat(nodes.crd->w(i));
-				nodes.crd->y(i) = get_4d_asym_flat_deSitter_diamond_theta2(urng);
-				nodes.crd->z(i) = get_4d_asym_flat_deSitter_diamond_theta3(urng);
-				#endif
-				break;
-			case (4 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
-				u = get_4d_asym_sph_deSitter_diamond_u(urng, xi, mu);
-				v = get_4d_asym_sph_deSitter_diamond_v(urng, u);
-				#if EMBED_NODES
-				nodes.crd->v(i) = (u + v) / sqrt(2.0);
-				nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
-				emb4 = get_4d_asym_sph_deSitter_diamond_emb(urng, nrng, u, v);
-				nodes.crd->w(i) = emb4.w;
-				nodes.crd->x(i) = emb4.x;
-				nodes.crd->y(i) = emb4.y;
-				nodes.crd->z(i) = emb4.z;
-				#else
-				nodes.crd->w(i) = (u + v) / sqrt(2.0);
-				nodes.crd->x(i) = (u - v) / sqrt(2.0);
-				nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
-				nodes.crd->y(i) = get_4d_asym_sph_deSitter_diamond_theta2(urng);
-				nodes.crd->z(i) = get_4d_asym_sph_deSitter_diamond_theta3(urng);
-				#endif
-				break;
-			case (4 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
-				fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-				assert (false);
-				break;
-			case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
-				nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(urng, tau0);
-				#if EMBED_NODES
-				nodes.crd->v(i) = tauToEtaDust(nodes.id.tau[i], a, alpha);
-				emb3 = get_4d_asym_flat_dust_slab_cartesian(urng, nrng, r_max);
-				nodes.crd->x(i) = emb3.x;
-				nodes.crd->y(i) = emb3.y;
-				nodes.crd->z(i) = emb3.z;
-				#else
-				nodes.crd->w(i) = tauToEtaDust(nodes.id.tau[i], a, alpha);
-				nodes.crd->x(i) = get_4d_asym_flat_dust_slab_radius(urng, r_max);
-				nodes.crd->y(i) = get_4d_asym_flat_dust_slab_theta2(urng);
-				nodes.crd->z(i) = get_4d_asym_flat_dust_slab_theta3(urng);
-				#endif
-				break;
-			case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
-				u = get_4d_asym_flat_dust_diamond_u(urng, xi);
-				v = get_4d_asym_flat_dust_diamond_v(urng, u);
-				#if EMBED_NODES
-				nodes.crd->v(i) = (u + v) / sqrt(2.0);
-				nodes.id.tau[i] = etaToTauDust(nodes.crd->v(i), a, alpha);
-				emb3 = get_4d_asym_flat_dust_diamond_cartesian(urng, nrng, u, v);
-				nodes.crd->x(i) = emb3.x;
-				nodes.crd->y(i) = emb3.y;
-				nodes.crd->z(i) = emb3.z;
-				#else
-				nodes.crd->w(i) = (u + v) / sqrt(2.0);
-				nodes.id.tau[i] = etaToTauDust(nodes.crd->w(i), a, alpha);
-				nodes.crd->x(i) = (u - v) / sqrt(2.0);
-				nodes.crd->y(i) = get_4d_asym_flat_dust_diamond_theta2(urng);
-				nodes.crd->z(i) = get_4d_asym_flat_dust_diamond_theta3(urng);
-				#endif
-				break;
-			case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
-				nodes.id.tau[i] = get_4d_asym_flat_flrw_slab_tau(urng, tau0);
-				if (USE_GSL) {
-					idata[tid].lower = 0.0;
-					idata[tid].upper = nodes.id.tau[i];
-					eta = integrate1D(&tauToEtaFLRW, NULL, &idata[tid], QAGS) * a / alpha;
-				} else
-					eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
-				#if EMBED_NODES
-				nodes.crd->v(i) = eta;
-				emb3 = get_4d_asym_flat_flrw_slab_cartesian(urng, nrng, r_max);
-				nodes.crd->x(i) = emb3.x;
-				nodes.crd->y(i) = emb3.y;
-				nodes.crd->z(i) = emb3.z;
-				#else
-				nodes.crd->w(i) = eta;
-				nodes.crd->x(i) = get_4d_asym_flat_flrw_slab_radius(urng, r_max);
-				nodes.crd->y(i) = get_4d_asym_flat_flrw_slab_theta2(urng);
-				nodes.crd->z(i) = get_4d_asym_flat_flrw_slab_theta3(urng);
-				#endif
-				break;
-			case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
-				nodes.id.tau[i] = get_4d_asym_sph_flrw_slab_tau(urng, tau0);
-				if (USE_GSL) {
-					idata[tid].lower = 0.0;
-					idata[tid].upper = nodes.id.tau[i];
-					eta = integrate1D(&tauToEtaFLRW, NULL, &idata[tid], QAGS) * a / alpha;
-				} else
-					eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
-				#if EMBED_NODES
-				nodes.crd->v(i) = eta;
-				emb4 = get_4d_asym_sph_flrw_slab_cartesian(nrng);
-				nodes.crd->w(i) = emb4.w;
-				nodes.crd->x(i) = emb4.x;
-				nodes.crd->y(i) = emb4.y;
-				nodes.crd->z(i) = emb4.z;
-				#else
-				nodes.crd->w(i) = eta;
-				nodes.crd->x(i) = get_4d_asym_sph_flrw_slab_theta1(urng);
-				nodes.crd->y(i) = get_4d_asym_sph_flrw_slab_theta2(urng);
-				nodes.crd->z(i) = get_4d_asym_sph_flrw_slab_theta3(urng);
-				#endif
-				break;
-			case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
-			{
-				nodes.id.tau[i] = get_4d_asym_flat_flrw_diamond_tau(urng, &idata[tid], params, tau0, zeta1, p1, mu, mu1);
-				if (USE_GSL) {
-					idata[tid].lower = 0.0;
-					idata[tid].upper = nodes.id.tau[i];
-					eta = integrate1D(&tauToEtaFLRW, NULL, &idata[tid], QAGS) * a / alpha;
-				} else
-					eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
-				r = get_4d_asym_flat_flrw_diamond_radius(urng, eta, zeta);
-				#if EMBED_NODES
-				nodes.crd->v(i) = eta;
-				emb3 = get_sph_d3(nrng);
-				nodes.crd->x(i) = r * emb3.x;
-				nodes.crd->y(i) = r * emb3.y;
-				nodes.crd->z(i) = r * emb3.z;
-				#else
-				nodes.crd->w(i) = eta;
-				nodes.crd->x(i) = r;
-				nodes.crd->y(i) = get_4d_asym_flat_flrw_diamond_theta2(urng);
-				nodes.crd->z(i) = get_4d_asym_flat_flrw_diamond_theta3(urng);
-				#endif
-				break;
-			}
-			default:
-				fprintf(stderr, "Spacetime parameters not supported!\n");
-				assert (false);
-			}
 
-			#if DEBUG
-			validateCoordinates(nodes, spacetime, eta0, zeta, zeta1, r_max, tau0, i);
-			#endif
+			do {
+				switch (spacetime) {
+				case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
+					u = get_2d_asym_flat_minkowski_diamond_u(urng, xi);
+					v = get_2d_asym_flat_minkowski_diamond_v(urng, xi);
+					nodes.crd->x(i) = (u + v) / sqrt(2.0);
+					nodes.crd->y(i) = (u - v) / sqrt(2.0);
+					break;
+				case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
+					nodes.crd->x(i) = get_2d_asym_sph_deSitter_slab_eta(urng, eta0);
+					nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
+					#if EMBED_NODES
+					emb2 = get_2d_asym_sph_deSitter_slab_emb(urng);
+					nodes.crd->y(i) = emb2.x;
+					nodes.crd->z(i) = emb2.y;
+					#else
+					nodes.crd->y(i) = get_2d_asym_sph_deSitter_slab_theta(urng);
+					#endif
+					break;
+				case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
+					nodes.crd->x(i) = get_2d_sym_sph_deSitter_slab_eta(urng, eta0);
+					nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
+					#if EMBED_NODES
+					emb2 = get_2d_sym_sph_deSitter_slab_emb(urng);
+					nodes.crd->y(i) = emb2.x;
+					nodes.crd->z(i) = emb2.y;
+					#else
+					nodes.crd->y(i) = get_2d_sym_sph_deSitter_slab_theta(urng);
+					#endif
+					break;
+				case (2 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
+					fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+					assert (false);
+					break;
+				case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
+					nodes.crd->x(i) = get_2d_asym_sph_deSitter_diamond_eta(urng);
+					nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
+					#if EMBED_NODES
+					emb2 = get_2d_asym_sph_deSitter_diamond_emb(mrng.rng, nodes.crd->x(i));
+					nodes.crd->y(i) = emb2.x;
+					nodes.crd->z(i) = emb2.y;
+					#else
+					nodes.crd->y(i) = get_2d_asym_sph_deSitter_diamond_theta(urng, nodes.crd->x(i));
+					#endif
+					break;
+				case (2 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
+					fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+					assert (false);
+					break;
+				case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
+					#if EMBED_NODES
+					nodes.crd->v(i) = get_4d_asym_flat_deSitter_slab_eta(urng, HALF_PI - zeta, HALF_PI - zeta1);
+					nodes.id.tau[i] = etaToTauFlat(nodes.crd->v(i));
+					emb3 = get_4d_asym_flat_deSitter_slab_cartesian(urng, nrng, r_max);
+					nodes.crd->x(i) = emb3.x;
+					nodes.crd->y(i) = emb3.y;
+					nodes.crd->z(i) = emb3.z;
+					#else
+					nodes.crd->w(i) = get_4d_asym_flat_deSitter_slab_eta(urng, HALF_PI - zeta, HALF_PI - zeta1);
+					nodes.id.tau[i] = etaToTauFlat(nodes.crd->w(i));
+					nodes.crd->x(i) = get_4d_asym_flat_deSitter_slab_radius(mrng.rng, r_max);
+					nodes.crd->y(i) = get_4d_asym_flat_deSitter_slab_theta2(mrng.rng);
+					nodes.crd->z(i) = get_4d_asym_flat_deSitter_slab_theta3(mrng.rng);
+					#endif
+					break;
+				case (4 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
+					#if EMBED_NODES
+					nodes.crd->v(i) = get_4d_asym_sph_deSitter_slab_eta(urng, zeta);
+					nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
+					emb4 = get_4d_asym_sph_deSitter_slab_emb(nrng);
+					nodes.crd->w(i) = emb4.w;
+					nodes.crd->x(i) = emb4.x;
+					nodes.crd->y(i) = emb4.y;
+					nodes.crd->z(i) = emb4.z;
+					#else
+					nodes.crd->w(i) = get_4d_asym_sph_deSitter_slab_eta(urng, zeta);
+					nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
+					nodes.crd->x(i) = get_4d_asym_sph_deSitter_slab_theta1(urng);
+					nodes.crd->y(i) = get_4d_asym_sph_deSitter_slab_theta2(urng);
+					nodes.crd->z(i) = get_4d_asym_sph_deSitter_slab_theta3(urng);
+					#endif
+					break;
+				case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
+					#if EMBED_NODES
+					nodes.crd->v(i) = get_4d_sym_sph_deSitter_slab_eta(urng, zeta);
+					nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
+					emb4 = get_4d_sym_sph_deSitter_slab_emb(nrng);
+					nodes.crd->w(i) = emb4.w;
+					nodes.crd->x(i) = emb4.x;
+					nodes.crd->y(i) = emb4.y;
+					nodes.crd->z(i) = emb4.z;
+					#else
+					nodes.crd->w(i) = get_4d_sym_sph_deSitter_slab_eta(urng, zeta);
+					nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
+					nodes.crd->x(i) = get_4d_sym_sph_deSitter_slab_theta1(urng);
+					nodes.crd->y(i) = get_4d_sym_sph_deSitter_slab_theta2(urng);
+					nodes.crd->z(i) = get_4d_sym_sph_deSitter_slab_theta3(urng);
+					#endif
+					break;
+				case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
+					u = get_4d_asym_flat_deSitter_diamond_u(urng, xi, mu);
+					v = get_4d_asym_flat_deSitter_diamond_v(urng, u, xi);
+					#if EMBED_NODES
+					nodes.crd->v(i) = (u + v) / sqrt(2.0);
+					nodes.id.tau[i] = etaToTauFlat(nodes.crd->v(i));
+					emb3 = get_4d_asym_flat_deSitter_diamond_cartesian(urng, nrng);
+					nodes.crd->x(i) = emb3.x;
+					nodes.crd->y(i) = emb3.y;
+					nodes.crd->z(i) = emb3.z;
+					#else
+					nodes.crd->w(i) = (u + v) / sqrt(2.0);
+					nodes.crd->x(i) = (u - v) / sqrt(2.0);
+					nodes.id.tau[i] = etaToTauFlat(nodes.crd->w(i));
+					nodes.crd->y(i) = get_4d_asym_flat_deSitter_diamond_theta2(urng);
+					nodes.crd->z(i) = get_4d_asym_flat_deSitter_diamond_theta3(urng);
+					#endif
+					break;
+				case (4 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
+					u = get_4d_asym_sph_deSitter_diamond_u(urng, xi, mu);
+					v = get_4d_asym_sph_deSitter_diamond_v(urng, u);
+					#if EMBED_NODES
+					nodes.crd->v(i) = (u + v) / sqrt(2.0);
+					nodes.id.tau[i] = etaToTauSph(nodes.crd->v(i));
+					emb4 = get_4d_asym_sph_deSitter_diamond_emb(urng, nrng, u, v);
+					nodes.crd->w(i) = emb4.w;
+					nodes.crd->x(i) = emb4.x;
+					nodes.crd->y(i) = emb4.y;
+					nodes.crd->z(i) = emb4.z;
+					#else
+					nodes.crd->w(i) = (u + v) / sqrt(2.0);
+					nodes.crd->x(i) = (u - v) / sqrt(2.0);
+					nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
+					nodes.crd->y(i) = get_4d_asym_sph_deSitter_diamond_theta2(urng);
+					nodes.crd->z(i) = get_4d_asym_sph_deSitter_diamond_theta3(urng);
+					#endif
+					break;
+				case (4 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
+					fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+					assert (false);
+					break;
+				case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
+					nodes.id.tau[i] = get_4d_asym_flat_dust_slab_tau(urng, tau0);
+					#if EMBED_NODES
+					nodes.crd->v(i) = tauToEtaDust(nodes.id.tau[i], a, alpha);
+					emb3 = get_4d_asym_flat_dust_slab_cartesian(urng, nrng, r_max);
+					nodes.crd->x(i) = emb3.x;
+					nodes.crd->y(i) = emb3.y;
+					nodes.crd->z(i) = emb3.z;
+					#else
+					nodes.crd->w(i) = tauToEtaDust(nodes.id.tau[i], a, alpha);
+					nodes.crd->x(i) = get_4d_asym_flat_dust_slab_radius(urng, r_max);
+					nodes.crd->y(i) = get_4d_asym_flat_dust_slab_theta2(urng);
+					nodes.crd->z(i) = get_4d_asym_flat_dust_slab_theta3(urng);
+					#endif
+					break;
+				case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
+					u = get_4d_asym_flat_dust_diamond_u(urng, xi);
+					v = get_4d_asym_flat_dust_diamond_v(urng, u);
+					#if EMBED_NODES
+					nodes.crd->v(i) = (u + v) / sqrt(2.0);
+					nodes.id.tau[i] = etaToTauDust(nodes.crd->v(i), a, alpha);
+					emb3 = get_4d_asym_flat_dust_diamond_cartesian(urng, nrng, u, v);
+					nodes.crd->x(i) = emb3.x;
+					nodes.crd->y(i) = emb3.y;
+					nodes.crd->z(i) = emb3.z;
+					#else
+					nodes.crd->w(i) = (u + v) / sqrt(2.0);
+					nodes.id.tau[i] = etaToTauDust(nodes.crd->w(i), a, alpha);
+					nodes.crd->x(i) = (u - v) / sqrt(2.0);
+					nodes.crd->y(i) = get_4d_asym_flat_dust_diamond_theta2(urng);
+					nodes.crd->z(i) = get_4d_asym_flat_dust_diamond_theta3(urng);
+					#endif
+					break;
+				case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
+					nodes.id.tau[i] = get_4d_asym_flat_flrw_slab_tau(urng, tau0);
+					if (USE_GSL) {
+						idata[tid].lower = 0.0;
+						idata[tid].upper = nodes.id.tau[i];
+						eta = integrate1D(&tauToEtaFLRW, NULL, &idata[tid], QAGS) * a / alpha;
+					} else
+						eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
+					#if EMBED_NODES
+					nodes.crd->v(i) = eta;
+					emb3 = get_4d_asym_flat_flrw_slab_cartesian(urng, nrng, r_max);
+					nodes.crd->x(i) = emb3.x;
+					nodes.crd->y(i) = emb3.y;
+					nodes.crd->z(i) = emb3.z;
+					#else
+					nodes.crd->w(i) = eta;
+					nodes.crd->x(i) = get_4d_asym_flat_flrw_slab_radius(urng, r_max);
+					nodes.crd->y(i) = get_4d_asym_flat_flrw_slab_theta2(urng);
+					nodes.crd->z(i) = get_4d_asym_flat_flrw_slab_theta3(urng);
+					#endif
+					break;
+				case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
+					nodes.id.tau[i] = get_4d_asym_sph_flrw_slab_tau(urng, tau0);
+					if (USE_GSL) {
+						idata[tid].lower = 0.0;
+						idata[tid].upper = nodes.id.tau[i];
+						eta = integrate1D(&tauToEtaFLRW, NULL, &idata[tid], QAGS) * a / alpha;
+					} else
+						eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
+					#if EMBED_NODES
+					nodes.crd->v(i) = eta;
+					emb4 = get_4d_asym_sph_flrw_slab_cartesian(nrng);
+					nodes.crd->w(i) = emb4.w;
+					nodes.crd->x(i) = emb4.x;
+					nodes.crd->y(i) = emb4.y;
+					nodes.crd->z(i) = emb4.z;
+					#else
+					nodes.crd->w(i) = eta;
+					nodes.crd->x(i) = get_4d_asym_sph_flrw_slab_theta1(urng);
+					nodes.crd->y(i) = get_4d_asym_sph_flrw_slab_theta2(urng);
+					nodes.crd->z(i) = get_4d_asym_sph_flrw_slab_theta3(urng);
+					#endif
+					break;
+				case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
+				{
+					nodes.id.tau[i] = get_4d_asym_flat_flrw_diamond_tau(urng, &idata[tid], params, tau0, zeta1, p1, mu, mu1);
+					if (USE_GSL) {
+						idata[tid].lower = 0.0;
+						idata[tid].upper = nodes.id.tau[i];
+						eta = integrate1D(&tauToEtaFLRW, NULL, &idata[tid], QAGS) * a / alpha;
+					} else
+						eta = tauToEtaFLRWExact(nodes.id.tau[i], a, alpha);
+					r = get_4d_asym_flat_flrw_diamond_radius(urng, eta, zeta);
+					#if EMBED_NODES
+					nodes.crd->v(i) = eta;
+					emb3 = get_sph_d3(nrng);
+					nodes.crd->x(i) = r * emb3.x;
+					nodes.crd->y(i) = r * emb3.y;
+					nodes.crd->z(i) = r * emb3.z;
+					#else
+					nodes.crd->w(i) = eta;
+					nodes.crd->x(i) = r;
+					nodes.crd->y(i) = get_4d_asym_flat_flrw_diamond_theta2(urng);
+					nodes.crd->z(i) = get_4d_asym_flat_flrw_diamond_theta3(urng);
+					#endif
+					break;
+				}
+				default:
+					fprintf(stderr, "Spacetime parameters not supported!\n");
+					assert (false);
+				}
+			} while (!validateCoordinates(nodes, spacetime, eta0, zeta, zeta1, r_max, tau0, i));
 		}
 		#ifdef _OPENMP
 		}
@@ -1596,7 +1579,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, FastBitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//No null pointers
@@ -1658,7 +1641,7 @@ bool linkNodes(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacet
 	//Identify future connections
 	for (i = 0; i < N_tar - 1; i++) {
 		if (i < core_limit)
-			adj[(i*core_limit)+i] = 0;
+			adj.unset(static_cast<uint64_t>(i)*core_limit+i);
 		if (!use_bit)
 			edges.future_edge_row_start[i] = future_idx;
 
@@ -1673,11 +1656,11 @@ bool linkNodes(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacet
 				uint64_t idx2 = static_cast<uint64_t>(j) * core_limit + i;
 
 				if (related) {
-					adj[idx1] = 1;
-					adj[idx2] = 1;
+					adj.set(idx1);
+					adj.set(idx2);
 				} else {
-					adj[idx1] = 0;
-					adj[idx2] = 0;
+					adj.unset(idx1);
+					adj.unset(idx1);
 				}
 			}
 						
@@ -1688,7 +1671,7 @@ bool linkNodes(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacet
 						//if (i % NPRINT == 0) printf("%d %d\n", i, j); fflush(stdout);
 						edges.future_edges[future_idx++] = j;
 	
-						if (future_idx >= static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
+						if (future_idx >= static_cast<int64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2)
 							throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 					} else
 						future_idx++;
@@ -1708,13 +1691,13 @@ bool linkNodes(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacet
 
 		if (!use_bit) {
 			//If there are no forward connections from node i, mark with -1
-			if (edges.future_edge_row_start[i] == future_idx)
+			if (static_cast<uint64_t>(edges.future_edge_row_start[i]) == future_idx)
 				edges.future_edge_row_start[i] = -1;
 		}
 	}
 
 	if (core_edge_fraction == 1.0f)
-		adj[(N_tar-1)*N_tar+(N_tar-1)] = 0;
+		adj.unset(static_cast<uint64_t>(N_tar-1)*N_tar+(N_tar-1));
 
 	if (!use_bit) {
 		edges.future_edge_row_start[N_tar-1] = -1;
@@ -1735,7 +1718,7 @@ bool linkNodes(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacet
 			}
 
 			//If there are no backward connections from node i, mark with -1
-			if (edges.past_edge_row_start[i] == past_idx)
+			if (static_cast<uint64_t>(edges.past_edge_row_start[i]) == past_idx)
 				edges.past_edge_row_start[i] = -1;
 		}
 
@@ -1743,15 +1726,16 @@ bool linkNodes(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacet
 		#if DEBUG
 		assert (future_idx == past_idx);
 		#endif
-		//printf("\t\tEdges (backward): %d\n", past_idx);
+		//printf("\t\tEdges (backward): %" PRId64 "\n", past_idx);
 		//fflush(stdout);
 	}
 
 	//Identify Resulting Network
+	uint64_t kr = 0;
 	for (i = 0; i < N_tar; i++) {
 		if (nodes.k_in[i] + nodes.k_out[i] > 0) {
 			N_res++;
-			k_res += nodes.k_in[i] + nodes.k_out[i];
+			kr += nodes.k_in[i] + nodes.k_out[i];
 
 			if (nodes.k_in[i] + nodes.k_out[i] > 1)
 				N_deg2++;
@@ -1761,11 +1745,10 @@ bool linkNodes(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacet
 	#if DEBUG
 	assert (N_res >= 0);
 	assert (N_deg2 >= 0);
-	assert (k_res >= 0.0);
 	#endif
 
 	if (N_res > 0)
-		k_res /= N_res;
+		k_res = static_cast<long double>(kr) / N_res;
 
 	//Debugging options used to visually inspect the adjacency lists and the adjacency pointer lists
 	//compareAdjacencyLists(nodes, edges);
@@ -1788,10 +1771,10 @@ bool linkNodes(Node &nodes, Edge &edges, Bitset &adj, const unsigned int &spacet
 	if (!bench) {
 		printf("\tCausets Successfully Connected.\n");
 		printf_cyan();
-		printf("\t\tUndirected Links:         %d\n", future_idx);
+		printf("\t\tUndirected Links:         %" PRIu64 "\n", future_idx);
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
-		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);
+		printf("\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N_tar));
 		printf_red();
 		printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
 		printf_std();

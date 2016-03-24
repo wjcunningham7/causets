@@ -101,7 +101,7 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 	//Write out-degrees
 	atomicAdd(&k_out[i], out);
 
-	//Wrtie in-degrees
+	//Write in-degrees
 	if (!tid)
 		for (k = 0; k < THREAD_SIZE; k++)
 			if ((!diag || i < j * THREAD_SIZE + k) && (i < size0 && j * THREAD_SIZE + k < size1))
@@ -153,7 +153,7 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, FastBitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	#if EMBED_NODES
@@ -228,9 +228,12 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	#endif
 	stopwatchStop(&sGenAdjList);
 
+	//printf_dbg("Number of Links: %" PRId64 "\n", *g_idx);
+	//printChk();
+
 	if (!use_bit) {
 		try {
-			if (*g_idx + 1 >= static_cast<int64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2)
+			if (*g_idx + 1 >= static_cast<int64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
 				throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 		} catch (CausetException c) {
 			fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
@@ -310,7 +313,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 		printf("\t\tUndirected Links:         %" PRId64 "\n", *g_idx);
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
-		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);
+		printf("\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N_tar));
 		printf_red();
 		printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
 		printf_std();
@@ -347,7 +350,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitset &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, FastBitset &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -741,6 +744,7 @@ bool decodeListsCPU(const Edge &edges, uint64_t *h_edges, const int64_t * const 
 
 //Parallel Prefix Sum of 'k_in' and 'k_out' and Write to Edge Pointers
 //This function works, but has been deprecated since it doesn't provide much speedup
+//NOTE: This function HAS NOT been tested since the index pointers were changed to int64_t
 bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d_k_out, const int &N_tar, CaResources * const ca, const bool &verbose)
 {
 	#if DEBUG
@@ -755,11 +759,11 @@ bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d
 	int i;
 
 	//Allocate Device Memory
-	checkCudaErrors(cuMemAlloc(&d_past_edge_row_start, sizeof(int) * N_tar));
-	ca->devMemUsed += sizeof(int) * N_tar;
+	checkCudaErrors(cuMemAlloc(&d_past_edge_row_start, sizeof(int64_t) * N_tar));
+	ca->devMemUsed += sizeof(int64_t) * N_tar;
 
-	checkCudaErrors(cuMemAlloc(&d_future_edge_row_start, sizeof(int) * N_tar));
-	ca->devMemUsed += sizeof(int) * N_tar;
+	checkCudaErrors(cuMemAlloc(&d_future_edge_row_start, sizeof(int64_t) * N_tar));
+	ca->devMemUsed += sizeof(int64_t) * N_tar;
 
 	checkCudaErrors(cuMemAlloc(&d_buf, sizeof(int) * (BLOCK_SIZE << 1)));
 	ca->devMemUsed += sizeof(int) * (BLOCK_SIZE << 1);
@@ -772,8 +776,8 @@ bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d
 		printMemUsed("for Parallel Prefix Sum", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//Initialize Memory on Device
-	checkCudaErrors(cuMemsetD32(d_past_edge_row_start, 0, N_tar));
-	checkCudaErrors(cuMemsetD32(d_future_edge_row_start, 0, N_tar));
+	checkCudaErrors(cuMemsetD32(d_past_edge_row_start, 0, 2 * N_tar));
+	checkCudaErrors(cuMemsetD32(d_future_edge_row_start, 0, 2 * N_tar));
 
 	//CUDA Grid Specifications
 	unsigned int gridx_scan = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE << 1)));
@@ -781,33 +785,33 @@ bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d
 	dim3 blocks_per_grid_scan(gridx_scan, 1, 1);
 
 	//Execute Kernels
-	Scan<<<blocks_per_grid_scan, threads_per_block>>>((int*)d_k_in, (int*)d_past_edge_row_start, (int*)d_buf, N_tar);
+	Scan<<<blocks_per_grid_scan, threads_per_block>>>((int*)d_k_in, (int64_t*)d_past_edge_row_start, (int*)d_buf, N_tar);
 	getLastCudaError("Kernel 'Subroutines_GPU.Scan' Failed to Execute!\n");
 	checkCudaErrors(cuCtxSynchronize());
 
-	Scan<<<dim3(1,1,1), threads_per_block>>>((int*)d_buf, (int*)d_buf_scanned, NULL, BLOCK_SIZE << 1);
+	Scan<<<dim3(1,1,1), threads_per_block>>>((int*)d_buf, (int64_t*)d_buf_scanned, NULL, BLOCK_SIZE << 1);
 	getLastCudaError("Kernel 'Subroutines_GPU.Scan' Failed to Execute!\n");
 	checkCudaErrors(cuCtxSynchronize());
 
-	PostScan<<<blocks_per_grid_scan, threads_per_block>>>((int*)d_past_edge_row_start, (int*)d_buf_scanned, N_tar);
+	PostScan<<<blocks_per_grid_scan, threads_per_block>>>((int64_t*)d_past_edge_row_start, (int64_t*)d_buf_scanned, N_tar);
 	getLastCudaError("Kernel 'Subroutines_GPU.PostScan' Failed to Execute!\n");
 	checkCudaErrors(cuCtxSynchronize());
 
-	Scan<<<blocks_per_grid_scan, threads_per_block>>>((int*)d_k_out, (int*)d_future_edge_row_start, (int*)d_buf, N_tar);
+	Scan<<<blocks_per_grid_scan, threads_per_block>>>((int*)d_k_out, (int64_t*)d_future_edge_row_start, (int*)d_buf, N_tar);
 	getLastCudaError("Kernel 'Subroutines_GPU.Scan' Failed to Execute!\n");
 	checkCudaErrors(cuCtxSynchronize());
 
-	Scan<<<dim3(1,1,1), threads_per_block>>>((int*)d_buf, (int*)d_buf_scanned, NULL, BLOCK_SIZE << 1);
+	Scan<<<dim3(1,1,1), threads_per_block>>>((int*)d_buf, (int64_t*)d_buf_scanned, NULL, BLOCK_SIZE << 1);
 	getLastCudaError("Kernel 'Subroutines_GPU.Scan' Failed to Execute!\n");
 	checkCudaErrors(cuCtxSynchronize());
 
-	PostScan<<<blocks_per_grid_scan, threads_per_block>>>((int*)d_future_edge_row_start, (int*)d_buf_scanned, N_tar);
+	PostScan<<<blocks_per_grid_scan, threads_per_block>>>((int64_t*)d_future_edge_row_start, (int64_t*)d_buf_scanned, N_tar);
 	getLastCudaError("Kernel 'Subroutines_GPU.PostScan' Failed to Execute!\n");
 	checkCudaErrors(cuCtxSynchronize());
 
 	//Copy Memory from Device to Host
-	checkCudaErrors(cuMemcpyDtoH(edges.past_edge_row_start, d_past_edge_row_start, sizeof(int) * N_tar));
-	checkCudaErrors(cuMemcpyDtoH(edges.future_edge_row_start, d_future_edge_row_start, sizeof(int) * N_tar));
+	checkCudaErrors(cuMemcpyDtoH(edges.past_edge_row_start, d_past_edge_row_start, sizeof(int64_t) * N_tar));
+	checkCudaErrors(cuMemcpyDtoH(edges.future_edge_row_start, d_future_edge_row_start, sizeof(int64_t) * N_tar));
 
 	//Synchronize
 	checkCudaErrors(cuCtxSynchronize());
@@ -821,8 +825,8 @@ bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d
 	edges.past_edge_row_start[0] = -1;
 	edges.future_edge_row_start[0] = 0;
 
-	int pv = edges.past_edge_row_start[N_tar-1];
-	int fv = edges.future_edge_row_start[N_tar-1];
+	int64_t pv = edges.past_edge_row_start[N_tar-1];
+	int64_t fv = edges.future_edge_row_start[N_tar-1];
 
 	for (i = N_tar-2; i >= 0; i--) {
 		if (pv == edges.past_edge_row_start[i])
@@ -841,11 +845,11 @@ bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d
 	//Free Device Memory
 	cuMemFree(d_past_edge_row_start);
 	d_past_edge_row_start = 0;
-	ca->devMemUsed -= sizeof(int) * N_tar;
+	ca->devMemUsed -= sizeof(int64_t) * N_tar;
 
 	cuMemFree(d_future_edge_row_start);
 	d_future_edge_row_start = 0;
-	ca->devMemUsed -= sizeof(int) * N_tar;
+	ca->devMemUsed -= sizeof(int64_t) * N_tar;
 
 	cuMemFree(d_buf);
 	d_buf = 0;
@@ -905,7 +909,7 @@ bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const 
 
 	N_res = N_tar - N_res;
 	N_deg2 = N_tar - N_deg2;
-	k_res = static_cast<float>(static_cast<double>(*g_idx) * 2 / N_res);
+	k_res = static_cast<float>(static_cast<long double>(*g_idx) * 2 / N_res);
 
 	#if DEBUG
 	assert (N_res >= 0);

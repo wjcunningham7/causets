@@ -25,6 +25,5 @@ for line in lines:
 	data.append(float(y))
 	data.append(float(x))
 
-# outdata = array('d', data)
 data.tofile(outfile)
 outfile.close()

@@ -42,8 +42,10 @@ for file in files:
 
 	f.close()
 
-avg /= N
-stderr = np.std(s) / math.sqrt(float(N))
+stderr = 0
+if N > 0:
+	avg /= N
+	stderr = np.std(s) / math.sqrt(float(N))
 sys.stdout.write('Success Ratio: ' + str(avg) + ' +/- ' + str(stderr) + '\n')
 
 f = open(basedir + 'dat/ref/success_ratio.cset.suc.ref','w')

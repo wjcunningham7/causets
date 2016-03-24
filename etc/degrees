@@ -47,8 +47,9 @@ for file in files:
 
 	f.close()
 
-avg /= N
-avg_eps /= N
+if N > 0:
+	avg /= N
+	avg_eps /= N
 sys.stdout.write('Average Degrees: %f\n' % avg)
 sys.stdout.write('Average Error: %f\n' % avg_eps)
 

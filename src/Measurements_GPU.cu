@@ -49,7 +49,7 @@ __global__ void MeasureAction(bool *edges0, bool *edges1, unsigned int *N_ij)
 //This algorithm has been parallelized on the GPU
 //It is assumed the edge list has already been generated
 //Here we calculate the smeared action
-bool measureActionGPU(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitset adj, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureActionGPU(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const FastBitset adj, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!use_bit);
@@ -95,7 +95,7 @@ bool measureActionGPU(int *& cardinalities, float &action, const Node &nodes, co
 	int *idx_buf0, *idx_buf1;
 
 	long double N2 = static_cast<long double>(N_tar) * N_tar + 1.8E10;
-	int l = static_cast<int>(exp2(floor(log2(static_cast<double>((sqrt(N2) - N_tar) / 4.0)))));
+	int64_t l = static_cast<int64_t>(exp2(floor(log2(static_cast<double>((sqrt(N2) - N_tar) / 4.0)))));
 
 	size_t d_adj_size = l * l * N_tar;
 	size_t num_groups = N_tar / l + 1;

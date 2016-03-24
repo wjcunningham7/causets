@@ -1,0 +1,22 @@
+g++ -O3 -g -c -o printcolor.o printcolor.cpp
+make: Warning: File `printcolor.o' has modification time 0.93 s in the future
+ar rvs libprintcolor.a printcolor.o
+ar: creating libprintcolor.a
+a - printcolor.o
+make: warning:  Clock skew detected.  Your build may be incomplete.
+mkdir -p /home/cunningham.wi/local/lib64
+mkdir -p /home/cunningham.wi/local/include/printcolor
+cp libprintcolor.a /home/cunningham.wi/local/lib64/
+cp printcolor.h /home/cunningham.wi/local/include/printcolor/
+rm -f printcolor.o libprintcolor.a
+g++ -O3 -g -c -o nintlib.o nintlib.cpp
+ar rvs libnint.a nintlib.o
+ar: creating libnint.a
+a - nintlib.o
+mkdir -p /home/cunningham.wi/local/lib64
+mkdir -p /home/cunningham.wi/local/include/nintlib
+cp libnint.a /home/cunningham.wi/local/lib64/
+cp nintlib.hpp /home/cunningham.wi/local/include/nintlib/
+rm -f nintlib.o libnint.a
+./INSTALL: line 25: git: command not found
+Something went wrong with git...

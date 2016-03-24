@@ -62,10 +62,10 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 
 	printf("\nFuture Edge Indices:\n");
 	for (i = 0; i < max1; i++)
-		printf("%d\n", edges.future_edge_row_start[i]);
+		printf("%" PRId64 "\n", edges.future_edge_row_start[i]);
 	printf("\nPast Edge Indices:\n");
 	for (i = 0; i < max1; i++)
-		printf("%d\n", edges.past_edge_row_start[i]);
+		printf("%" PRId64 "\n", edges.past_edge_row_start[i]);
 	fflush(stdout);
 
 	int next_future_idx = -1;
@@ -84,7 +84,7 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 					break;
 				}
 			}
-			printf("Pointer: %d\n", (edges.future_edge_row_start[i+next_future_idx] - edges.future_edge_row_start[i]));
+			printf("Pointer: %" PRId64 "\n", (edges.future_edge_row_start[i+next_future_idx] - edges.future_edge_row_start[i]));
 		}
 
 		printf("In-Degrees: %d\n", nodes.k_in[i]);
@@ -97,13 +97,13 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 					break;
 				}
 			}
-			printf("Pointer: %d\n", (edges.past_edge_row_start[i+next_past_idx] - edges.past_edge_row_start[i]));
+			printf("Pointer: %" PRId64 "\n", (edges.past_edge_row_start[i+next_past_idx] - edges.past_edge_row_start[i]));
 		}
 		fflush(stdout);
 	}
 }
 
-bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int * const future_edge_row_start, const Bitset adj, const int &N_tar, const float &core_edge_fraction)
+bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int64_t * const future_edge_row_start, const FastBitset adj, const int &N_tar, const float &core_edge_fraction)
 {
 	#if DEBUG
 	assert (k_out != NULL);
@@ -138,7 +138,7 @@ bool compareCoreEdgeExists(const int * const k_out, const int * const future_edg
 
 				//printf("idx12: %" PRIu64 "\tidx21: %" PRIu64 "\n", idx12, idx21);
 
-				if (!adj[idx12] || !adj[idx21])
+				if (!adj.read(idx12) || !adj.read(idx21))
 					throw CausetException("Adjacency matrix does not match sparse list!\n");
 			}
 		}
@@ -285,7 +285,7 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 }
 
 //Note that adj has not been implemented in this version of the linkNodesGPU subroutine.
-bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v1(Node &nodes, const Edge &edges, FastBitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -432,7 +432,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	ca->devMemUsed -= sizeof(unsigned long long int);
 
 	try {
-		if (*g_idx + 1 >= static_cast<uint64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2)
+		if (*g_idx + 1 >= static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
 			throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
@@ -588,7 +588,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 
 	N_res = N_tar - N_res;
 	N_deg2 = N_tar - N_deg2;
-	k_res = static_cast<float>(static_cast<double>(*g_idx) * 2 / N_res);
+	k_res = static_cast<float>(static_cast<long double>(*g_idx) * 2 / N_res);
 
 	#if DEBUG
 	assert (N_res > 0);
@@ -622,7 +622,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 		printf("\t\tUndirected Links:         %" PRId64 "\n", *g_idx);
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
-		printf("\t\t    Incl. Isolated Nodes: %f\n", (k_res * N_res) / N_tar);
+		printf("\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N_tar));
 		printf_red();
 		printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
 		printf_std();
@@ -661,7 +661,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitset &adj, const unsigned
 	return true;
 }
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitset &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, FastBitset &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -1009,7 +1009,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 //Generate confusion matrix for geodesic distances
 //Compares timelike/spacelike in 4D/5D
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const Bitset adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &N_emb, const int &N_res, const float &k_res, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const FastBitset adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const long double &N_emb, const int &N_res, const float &k_res, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -1085,7 +1085,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const Bitset
 
 	MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(edges.future_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	//MPI_Bcast(adj, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
 
 	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
@@ -2243,7 +2243,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
 //Uses geodesic distances
-bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success, bool &past_horizon)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const FastBitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success, bool &past_horizon)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -2507,7 +2507,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitset adj, boo
 //Measure Causal Set Action
 //O(N*k^2*ln(k)) Efficiency (Linked)
 //O(N^2*k) Efficiency (No Links)
-bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitset adj, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const FastBitset adj, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -2554,7 +2554,7 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 
 	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 	int elements;
-	int fstart, pstart;
+	int64_t fstart, pstart;
 	int i, j, k;
 	bool too_many;
 
@@ -2598,10 +2598,10 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 				#endif
 
 				if (core_limit == N_tar) {
-					int col0 = static_cast<uint64_t>(i) * core_limit;
-					int col1 = static_cast<uint64_t>(j) * core_limit;
+					uint64_t col0 = static_cast<uint64_t>(i) * core_limit;
+					uint64_t col1 = static_cast<uint64_t>(j) * core_limit;
 					for (k = i + 1; k < j; k++)
-						elements += (int)(adj[col0+k] & adj[col1+k]);
+						elements += (int)(adj.read(col0+k) & adj.read(col1+k));
 					if (elements >= max_cardinality - 1)
 						too_many = true;
 				} else {
@@ -2660,7 +2660,7 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 	return true;
 }
 
-void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const int &i)
+bool validateCoordinates(const Node &nodes, const unsigned int &spacetime, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const int &i)
 {
 	#if EMBED_NODES
 	float tol = 1.0e-4;
@@ -2668,27 +2668,25 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 	#endif
 	switch (spacetime) {
 	case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
-		//printf("eta: %.10f\n", nodes.crd->x(i));
-		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0);
-		assert (iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0));
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
+		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
 		break;
 	case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
-		//printf("eta: %.8f\n", nodes.crd->x(i));
-		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0);
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
+		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (fabs(POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0) < tol);
+		if (!(fabs(POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0) < tol)) return false;
 		#else
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI);
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI)) return false;
 		#endif
 		break;
 	case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
-		assert (fabs(nodes.crd->x(i)) < HALF_PI - zeta);
-		assert (nodes.id.tau[i] > -tau0 && nodes.id.tau[i] < tau0);
+		if (!(fabs(nodes.crd->x(i)) < HALF_PI - zeta)) return false;
+		if (!(nodes.id.tau[i] > -tau0 && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (fabs(POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0) < tol);
+		if (!(fabs(POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0) < tol)) return false;
 		#else
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI);
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI)) return false;
 		#endif
 		break;
 	case (2 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
@@ -2696,78 +2694,73 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		assert (false);
 		break;
 	case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
-		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < HALF_PI - zeta);
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
-		#if EMBED_NODES
-		//y, z
-		#else
-		//y
-		#endif
+		fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+		assert (false);
 		break;
 	case (2 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
 		fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
 		assert (false);
 		break;
 	case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (nodes.crd->v(i) > HALF_PI - zeta && nodes.crd->v(i) < HALF_PI - zeta1);
-		assert (POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) < POW2(r_max, EXACT));
+		if (!(nodes.crd->v(i) > HALF_PI - zeta && nodes.crd->v(i) < HALF_PI - zeta1)) return false;
+		if (!(POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) < POW2(r_max, EXACT))) return false;
 		#else
-		assert (nodes.crd->w(i) > HALF_PI - zeta && nodes.crd->w(i) < HALF_PI - zeta1);
-		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max);
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
-		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		if (!(nodes.crd->w(i) > HALF_PI - zeta && nodes.crd->w(i) < HALF_PI - zeta1)) return false;
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
 		break;
 	case (4 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
-		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0f) < tol);
+		if (!(nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta)) return false;
+		if (!(fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0f) < tol)) return false;
 		#else
-		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
-		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < M_PI);
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
-		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		if (!(nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta)) return false;
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < M_PI)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
 		break;
 	case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
-		assert (nodes.id.tau[i] > -tau0 && nodes.id.tau[i] < tau0);
+		if (!(nodes.id.tau[i] > -tau0 && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (fabs(nodes.crd->v(i)) < HALF_PI - zeta);
-		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0f) < tol);
+		if (!(fabs(nodes.crd->v(i)) < HALF_PI - zeta)) return false;
+		if (!(fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0f) < tol)) return false;
 		#else
-		assert (fabs(nodes.crd->v(i)) < HALF_PI - zeta);
-		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < M_PI);
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
-		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		if (!(fabs(nodes.crd->v(i)) < HALF_PI - zeta)) return false;
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < M_PI)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
 		break;
 	case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
+		if (!(nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta)) return false;
 		r = sqrt(POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT));
-		assert (iad(nodes.crd->v(i), r, HALF_PI - zeta, HALF_PI - zeta1));
+		if (!iad(nodes.crd->v(i), r, HALF_PI - zeta, HALF_PI - zeta1)) return false;
 		#else
-		assert (nodes.crd->w(i) > HALF_PI - zeta && nodes.crd->w(i) < HALF_PI - zeta1);
-		assert (iad(nodes.crd->w(i), nodes.crd->x(i), HALF_PI - zeta, HALF_PI - zeta1));
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
-		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		if (!(nodes.crd->w(i) > HALF_PI - zeta && nodes.crd->w(i) < HALF_PI - zeta1)) return false;
+		if (!iad(nodes.crd->w(i), nodes.crd->x(i), HALF_PI - zeta, HALF_PI - zeta1)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
 		break;
 	case (4 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
+		if (!(nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta)) return false;
 		r = acos(nodes.crd->w(i));
-		assert (iad(nodes.crd->v(i), r, 0.0, HALF_PI - zeta));
+		if (!iad(nodes.crd->v(i), r, 0.0, HALF_PI - zeta)) return false;
 		#else
-		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
-		assert (iad(nodes.crd->w(i), nodes.crd->x(i), 0.0, HALF_PI - zeta));
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
-		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		if (!(nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta)) return false;
+		if (!iad(nodes.crd->w(i), nodes.crd->x(i), 0.0, HALF_PI - zeta)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
 		break;
 	case (4 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
@@ -2775,69 +2768,71 @@ void validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		assert (false);
 		break;
 	case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
-		assert (POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) < r_max);
+		if (!(nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta)) return false;
+		if (!(POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) < r_max)) return false;
 		#else
-		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
-		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max);
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
-		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		if (!(nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta)) return false;
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
 		break;
 	case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
+		if (!(nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta)) return false;
 		r = sqrt(POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT));
-		assert (iad(nodes.crd->v(i), r, 0.0, HALF_PI - zeta));
+		if (!iad(nodes.crd->v(i), r, 0.0, HALF_PI - zeta)) return false;
 		#else
-		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
-		assert (iad(nodes.crd->w(i), nodes.crd->x(i), 0.0, HALF_PI - zeta));
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
-		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		if (!(nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta)) return false;
+		if (!iad(nodes.crd->w(i), nodes.crd->x(i), 0.0, HALF_PI - zeta)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
 		break;
 	case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
-		assert (POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) < r_max);;
+		if (!(nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta)) return false;
+		if (!(POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) < r_max)) return false;
 		#else
-		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
-		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max);
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
-		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		if (!(nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta)) return false;
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
 		break;
 	case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
-		assert (fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0f) < tol);
+		if (!(nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta)) return false;
+		if (!(fabs(POW2(nodes.crd->w(i), EXACT) + POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT) - 1.0f) < tol)) return false;
 		#else
-		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
-		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < M_PI);
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
-		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		if (!(nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta)) return false;
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < M_PI)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
 		break;
 	case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
-		assert (nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0);
+		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
-		assert (nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta);
+		if (!(nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < HALF_PI - zeta)) return false;
 		r = sqrt(POW2(nodes.crd->x(i), EXACT) + POW2(nodes.crd->y(i), EXACT) + POW2(nodes.crd->z(i), EXACT));
-		assert (iad(nodes.crd->v(i), r, 0.0, HALF_PI - zeta));
+		if (!(iad(nodes.crd->v(i), r, 0.0, HALF_PI - zeta))) return false;
 		#else
-		assert (nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta);
-		assert (nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max);
-		assert (nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI);
-		assert (nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI);
+		if (!(nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < HALF_PI - zeta)) return false;
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < r_max)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
 		break;
 	default:
 		fprintf(stderr, "Spacetime parameters not supported!\n");
 		assert (false);
 	}
+
+	return true;
 }

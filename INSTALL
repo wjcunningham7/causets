@@ -1,0 +1,64 @@
+#!/bin/bash
+
+if [[ -z "$CAUSET_LOCAL_DIR" ]] ; then
+  echo "Using $PWD/local as your local directory."
+  echo "Adding this variable to your .bashrc file."
+  mkdir -p local
+  CAUSET_LOCAL_DIR=$PWD/local
+  echo "export CAUSET_LOCAL_DIR=$CAUSET_LOCAL_DIR" >> /home/$USER/.bashrc
+fi
+
+cd opt/printcolor
+make; make install; make clean
+
+cd ../nintlib
+make; make install; make clean
+
+# Remote project locations
+FASTMATH_BB="git@bitbucket.org:dk-lab/2015_code_fastmath.git"
+
+if [[ -z "$FAST_LOCAL_DIR" ]] ; then
+  export "FAST_LOCAL_DIR=$COSMIC_LOCAL_DIR" >> /home/$USER/.bashrc
+fi
+
+cd ../../
+if [[ ! -d "opt/fastmath" ]] ; then
+  git clone $FASTMATH_BB opt/fastmath
+fi
+
+if [[ ! -d "opt/fastmath" ]] ; then
+  echo "Something went wrong with git..."
+  exit 1
+fi
+cd opt/fastmath
+./INSTALL
+
+if [[ $(lspci | grep NVIDIA | wc -l) -ne 0 ]] ; then
+  echo "NVIDIA graphics card detected."
+  echo "Attempting to locate CUDA install path..."
+
+  CUDA_HOME=$(which nvcc | sed "s/\/bin\/nvcc//")
+  echo "  Using CUDA path $CUDA_HOME."
+  CUDA_SDK_PATH=$CUDA_HOME/samples
+  NVCC=$CUDA_HOME/bin/nvcc
+  CUDA_INCD="-I $CUDA_SDK_PATH/common/inc -I $CUDA_HOME/include"
+  CUDA_LIBS="-L /usr/lib/nvidia-current -L $CUDA_HOME/lib64 -L $CUDA_SDK_PATH/common/lib -lcuda -lcudart"
+  NVCC_FLAGS="-O3 -G -g -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED -arch=sm_35"
+  GPU_TARGET="check-env dirs \$(COBJS) \$(CUDAOBJS) linkgpu bin"
+  echo "Use 'make gpu' to compile with GPU features enabled."
+fi
+
+AVX=0
+if [[ $(cat /proc/cpuinfo | grep avx2 | wc -l) -ne 0 ]] ; then
+  echo "AVX2 support detected."
+  echo "Compiling CosmicWeb with AVX2 features enabled."
+  AVX=1
+  AVX_FLAGS="-mavx2 -march=core-avx2 -mtune=core-avx2 -mpopcnt -DAVX2_ENABLED"
+fi
+
+cd ../../
+sed "s:%CUDA_HOME%:$CUDA_HOME:g;s:%CUDA_SDK_PATH%:$CUDA_SDK_PATH:g;s:%NVCC%:$NVCC:g;s:%CUDA_INCD%:$CUDA_INCD:g;s:%CUDA_LIBS%:$CUDA_LIBS:g;s:%NVCC_FLAGS%:$NVCC_FLAGS:g;s:%GPU_TARGET%:$GPU_TARGET:g;s:%AVX%:$AVX:g;s:%AVX_FLAGS%:$AVX_FLAGS:g" < Makefile.in > Makefile
+
+./etc/mkdat
+make clean
+#make clean; make

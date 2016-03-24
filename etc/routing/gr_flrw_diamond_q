@@ -9,6 +9,7 @@
 # Used to calculate greedy routing parameters for the FLRW diamond (constant q)
 
 import math
+import numpy as np
 from scipy.integrate import quad
 from scipy.optimize import bisect
 from scipy.special import hyp2f1
@@ -16,8 +17,11 @@ import sys
 
 #q = 60
 #tau0 = 1.2
+
 q = float(sys.argv[1])
-tau0 = float(sys.argv[2])
+omega = float(sys.argv[2])
+#tau0 = float(sys.argv[2])
+tau0 = (2.0 / 3.0) * np.arctanh(math.pow(omega, 0.5))
 
 # Returns conformal time as a function of rescaled cosmological time
 def eta(tau):

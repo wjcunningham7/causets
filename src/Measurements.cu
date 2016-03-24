@@ -8,7 +8,7 @@
 
 //Calculates clustering coefficient for each node in network
 //O(N*k^3) Efficiency
-bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const Bitset adj, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &calc_autocorr, const bool &verbose, const bool &bench)
+bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const FastBitset adj, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &calc_autocorr, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (edges.past_edges != NULL);
@@ -151,7 +151,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 //Calculates the number of connected components in the graph
 //as well as the size of the giant connected component
 //Efficiency: O(xxx)
-bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitset adj, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureConnectedComponents(Node &nodes, const Edge &edges, const FastBitset adj, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!use_bit) {
@@ -242,7 +242,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitset adj
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitset adj, float &success_ratio, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &N_sr, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, const FastBitset adj, float &success_ratio, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const long double &N_sr, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -280,7 +280,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitset adj,
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	#endif
 
-	bool SR_DEBUG = false;
+	static const bool SR_DEBUG = false;
 
 	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
 	#if !SR_RANDOM
@@ -364,8 +364,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitset adj,
 	MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.past_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(edges.past_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(edges.past_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(edges.future_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	//MPI_Bcast(adj, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
 
 	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
@@ -375,12 +375,14 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitset adj,
 
 	#ifdef _OPENMP
 	unsigned int seed = static_cast<unsigned int>(mrng.rng() * 4000000000);
-	#pragma omp parallel reduction (+ : n_trav, n_succ)
+	omp_set_nested(1);
+	unsigned int nthreads = omp_get_max_threads() / 2;
+	#pragma omp parallel reduction (+ : n_trav, n_succ) if (finish - start > 1000) num_threads (nthreads)
 	{
 	Engine eng(seed ^ omp_get_thread_num());
 	UDistribution dst(0.0, 1.0);
 	UGenerator rng(eng, dst);
-	#pragma omp for schedule (dynamic, 1)
+	#pragma omp for schedule (dynamic, 2)
 	#else
 	UGenerator &rng = mrng.rng;
 	#endif
@@ -416,6 +418,9 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitset adj,
 			}
 			continue;
 		}
+
+		#pragma omp flush (fail)
+		if (fail) continue;
 
 		//Set all nodes to "not yet used"
 		int offset = N_tar * omp_get_thread_num();
@@ -472,29 +477,29 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitset adj,
 
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
-	if (rank == 0)
+	if (!rank)
 		MPI_Reduce(MPI_IN_PLACE, &n_succ, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
 	else
 		MPI_Reduce(&n_succ, NULL, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
 
-	if (rank == 0)
+	if (!rank)
 		MPI_Reduce(MPI_IN_PLACE, &n_trav, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
 	else
 		MPI_Reduce(&n_trav, NULL, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
 	MPI_Barrier(MPI_COMM_WORLD);
 	#endif
 
-	if (rank == 0 && n_trav > 0)
-		success_ratio = static_cast<float>(n_succ) / n_trav;
+	if (!rank && n_trav)
+		success_ratio = static_cast<float>(static_cast<long double>(n_succ) / n_trav);
 
 	stopwatchStop(&sMeasureSuccessRatio);
 
 	if (!bench) {
 		printf_mpi(rank, "\tCalculated Success Ratio.\n");
-		if (rank == 0) printf_cyan();
+		if (!rank) printf_cyan();
 		printf_mpi(rank, "\t\tSuccess Ratio: %f\n", success_ratio);
 		printf_mpi(rank, "\t\tTraversed Pairs: %" PRIu64 "\n", n_trav);
-		if (rank == 0) printf_std();
+		if (!rank) printf_std();
 		fflush(stdout);
 	}
 
@@ -509,7 +514,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitset adj,
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //Uses version 2 of the algorithm - spatial distances instead of geodesics
-bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success)
+bool traversePath_v2(const Node &nodes, const Edge &edges, const FastBitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -526,7 +531,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitset adj, boo
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
-		assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
+		assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
 	}
 
 	assert (nodes.crd->x() != NULL);
@@ -564,7 +569,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitset adj, boo
 	assert (source != dest);
 	#endif
 
-	bool TRAV_DEBUG = false;
+	static const bool TRAV_DEBUG = false;
 
 	double min_dist = 0.0;
 	int loc = source;
@@ -696,7 +701,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitset adj, boo
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //Uses version 3 of the algorithm - this uses only the adjacency matrix
-bool traversePath_v3(const Node &nodes, const Bitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int source, int dest, bool &success)
+bool traversePath_v3(const Node &nodes, const FastBitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int source, int dest, bool &success)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -713,7 +718,7 @@ bool traversePath_v3(const Node &nodes, const Bitset adj, bool * const &used, co
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
-		assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
+		assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
 	}
 
 	assert (nodes.crd->x() != NULL);
@@ -743,20 +748,14 @@ bool traversePath_v3(const Node &nodes, const Bitset adj, bool * const &used, co
 		assert (r_max > 0.0);
 	assert (source >= 0 && source < N_tar);
 	assert (dest >= 0 && dest < N_tar);
-	assert (source != dest);
+	//assert (source != dest);
 	#endif
 
-	bool TRAV_DEBUG = false;
+	static const bool TRAV_DEBUG = false;
 
-	double min_dist = 0.0;
-	uint64_t row;
-	int loc = source;
-	int idx_a = source;
-	int idx_b = dest;
-
+	uint64_t row, block;
 	double dist;
 	int next;
-	int m;
 
 	if (TRAV_DEBUG) {
 		printf_cyan();
@@ -766,18 +765,22 @@ bool traversePath_v3(const Node &nodes, const Bitset adj, bool * const &used, co
 	}
 
 	//While the current location (loc) is not equal to the destination (dest)
+	double min_dist = 0.0;
+	int loc = source;
+	bool retval = true;
 	while (loc != dest) {
 		next = loc;
 		row = static_cast<uint64_t>(loc) * N_tar;
+		block = static_cast<uint64_t>(ceil(static_cast<long double>(row + 1ULL) / (sizeof(BlockType) * CHAR_BIT))) - 1ULL;
 		dist = INF;
 		min_dist = INF;
 		used[loc] = true;
 
 		//(1) Check if destination is a neigbhor
-		if (nodesAreConnected_v2(adj, N_tar, loc, idx_b)) {
+		if (nodesAreConnected_v2(adj, N_tar, loc, dest)) {
 			if (TRAV_DEBUG) {
 				printf_cyan();
-				printf("Moving to %d.\n", idx_a);
+				printf("Moving to %d.\n", dest);
 				printf_yel();
 				printf("SUCCESS\n");
 				printf_std();
@@ -787,28 +790,44 @@ bool traversePath_v3(const Node &nodes, const Bitset adj, bool * const &used, co
 			return true;
 		}
 
-		for (m = 0; m < N_tar; m++) {
+		#ifdef _OPENMP
+		#pragma omp parallel for private (dist) schedule (dynamic, 4) num_threads(4)
+		#endif
+		for (int m = 0; m < N_tar; m++) {
+			//Continue if 'loc' is not connected to anything in the whole block
+			if (!(m % (sizeof(BlockType) * CHAR_BIT))) {
+				if (!adj.readBlock(block + m / (sizeof(BlockType) * CHAR_BIT)))
+					continue;
+			}
+
 			//Continue if 'loc' is not connected to 'm'
-			if (!adj[row+m])
+			if (!adj.read(row+m))
 				continue;
-			idx_a = m;
 
 			//Continue if not a minimal/maximal element
-			if ((idx_a < loc && !!nodes.k_in[idx_a]) || (idx_a > loc && !!nodes.k_out[idx_a]))
+			if ((m < loc && !!nodes.k_in[m]) || (m > loc && !!nodes.k_out[m]))
 				continue;
 
 			//Otherwise find the minimal/maximal element closest to the destination
 			if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW))
-				nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b, &dist);
+				nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, m, dest, &dist);
 			else if (get_manifold(spacetime) & HYPERBOLIC)
-				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
+				dist = distanceH(nodes.crd->getFloat2(m), nodes.crd->getFloat2(dest), spacetime, zeta);
 			else
-				return false;
+				#ifdef _OPENMP
+				#pragma omp critical
+				#endif
+				retval = false;
 
 			//Save the minimum distance
-			if (dist <= min_dist) {
-				min_dist = dist;
-				next = idx_a;
+			#ifdef _OPENMP
+			#pragma omp critical
+			#endif
+			{
+				if (dist <= min_dist) {
+					min_dist = dist;
+					next = m;
+				}
 			}
 		}
 
@@ -833,7 +852,7 @@ bool traversePath_v3(const Node &nodes, const Bitset adj, bool * const &used, co
 	}
 
 	success = false;
-	return true;
+	return retval;
 }
 
 //Takes N_df measurements of in-degree and out-degree fields at time tau_m
@@ -1065,7 +1084,7 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 //Measure Causal Set Action
 //Algorithm has been parallelized on the CPU
-bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitset adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const FastBitset adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -1123,7 +1142,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 
 	#ifdef MPI_ENABLED
 	uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
-	int edges_size = static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
+	uint64_t edges_size = static_cast<uint64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2;
 	#endif
 
 	stopwatchStart(&sMeasureAction);
@@ -1164,8 +1183,8 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 		MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(edges.past_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(edges.past_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(edges.future_edge_row_start, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(edges.past_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(edges.future_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 		//MPI_Bcast(adj, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
 	} else {
 		MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
@@ -1218,19 +1237,19 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 			#endif
 
 			if (core_limit == N_tar) {
-				int col0 = static_cast<uint64_t>(i) * core_limit;
-				int col1 = static_cast<uint64_t>(j) * core_limit;
+				uint64_t col0 = static_cast<uint64_t>(i) * core_limit;
+				uint64_t col1 = static_cast<uint64_t>(j) * core_limit;
 
 				for (int k = i + 1; k < j; k++)
-					elements += (int)(adj[col0+k] & adj[col1+k]);
+					elements += (int)(adj.read(col0+k) & adj.read(col1+k));
 
 				if (elements >= max_cardinality - 1)
 					too_many = true;
 			} else {
 				//Index of first past neighbor of the 'future element j'
-				int pstart = edges.past_edge_row_start[j];
+				int64_t pstart = edges.past_edge_row_start[j];
 				//Index of first future neighbor of the 'past element i'
-				int fstart = edges.future_edge_row_start[i];
+				int64_t fstart = edges.future_edge_row_start[i];
 
 				//Intersection of edge lists
 				causet_intersection_v2(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], max_cardinality, pstart, fstart, too_many);

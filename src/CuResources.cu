@@ -124,6 +124,8 @@ void printMemUsed(char const * chkPoint, size_t hostMem, size_t devMem, const in
 		printf_mpi(rank, " [HOST]\n\n");
 	fflush(stdout);
 
+	GBytes = MBytes = KBytes = bytes = 0;
+
 	if (devMem >= GB) {
 		GBytes = devMem / GB;
 		devMem -= GBytes * GB;

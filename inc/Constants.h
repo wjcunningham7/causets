@@ -64,6 +64,8 @@
 #ifdef CUDA_ENABLED
 
 //CUDA Flags
+#define GLOB_MEM 12000000000
+
 #define BLOCK_SIZE 128	//Number of threads per block
 			//This value is dependent on the GPU architecture
 			//DO NOT EDIT THIS VALUE

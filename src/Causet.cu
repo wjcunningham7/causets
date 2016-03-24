@@ -447,9 +447,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 			case ':':
 				//Single-character flag needs an argument
 				if (!!optopt)
-					fprintf(stderr, "%s : option '-%c' requires an argument\n", argv[0], optopt);
+					fprintf(stderr, "%s : option '-%c' requires an argument.\n", argv[0], optopt);
 				else
-					fprintf(stderr, "%s : option '%s' requires an argument\n", argv[0], argv[optind-1]);
+					fprintf(stderr, "%s : option '%s' requires an argument.\n", argv[0], argv[optind-1]);
 				#ifdef MPI_ENABLED
 				MPI_Abort(MPI_COMM_WORLD, 6);
 				#else
@@ -488,9 +488,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 	if (network_properties.seed == 12345L) {
 		srand(time(NULL));
 		network_properties.seed = static_cast<long>(time(NULL));
-		network_properties.mrng.rng.engine().seed(network_properties.seed);
-		network_properties.mrng.rng.distribution().reset();
 	}
+	network_properties.mrng.rng.engine().seed(network_properties.seed);
+	network_properties.mrng.rng.distribution().reset();
 
 	return network_properties;
 }
@@ -515,6 +515,10 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 
 	#ifdef _OPENMP
 	printf_mpi(rank, "\n\t[ *** OPENMP MODULE ACTIVE *** ]\n");
+	#endif
+
+	#ifdef AVX2_ENABLED
+	printf_mpi(rank, "\n\t[ ***  AVX2 MODULE ACTIVE  *** ]\n");
 	#endif
 
 	//Initialize variables using constraints
@@ -619,8 +623,8 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	#endif
 
 	//Use this statement if you're creating a degree lookup table
-	/*if (network->network_properties.flags.link)
-		printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime))));*/
+	if (network->network_properties.flags.link)
+		printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime))));
 
 	InitExit:
 	if (checkMpiErrors(network->network_properties.cmpi))
@@ -889,6 +893,10 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 	printf_mpi(rank, "\n\t[ *** OPENMP MODULE ACTIVE *** ]\n");
 	#endif
 
+	#ifdef AVX2_ENABLED
+	printf_mpi(rank, "\n\t[ ***  AVX2 MODULE ACTIVE  *** ]\n");
+	#endif
+
 	printf_mpi(rank, "\nLoading Graph from File.....\n");
 	fflush(stdout);
 
@@ -977,14 +985,10 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		MPI_Bcast(&network->network_properties.N_tar, 1, MPI_INT, 0, MPI_COMM_WORLD);
 		#endif
 
-		//printf_dbg("(1) %d\n", network->network_properties.graphID);
-
 		if (!initVars(&network->network_properties, ca, cp, bm))
 			return false;
 		if (!!N_edg)
 			network->network_properties.k_tar = static_cast<float>(static_cast<double>(N_edg) * 2.0 / network->network_properties.N_tar);
-
-		//printf_dbg("(1) %d\n", network->network_properties.graphID);
 
 		printf_mpi(rank, "\nFinished Gathering Peripheral Network Data.\n");
 		fflush(stdout);
@@ -998,8 +1002,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		if (!createNetwork(network->nodes, network->edges, network->adj, spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sCreateNetwork, network->network_properties.flags.use_gpu, network->network_properties.flags.decode_cpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 			return false;
 
-		//printf_dbg("Graph ID: %d\n", network->network_properties.graphID);
-
 		#ifdef MPI_ENABLED
 		if (rank == 0) {
 		#endif
@@ -1010,7 +1012,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			dataname.str("");
 			dataname.clear();
 			dataname << "./dat/pos/" << network->network_properties.graphID << ".cset.pos.dat";
-			//printf_dbg("Attempting to open %s\n", dataname.str().c_str());
 			dataStream.open(dataname.str().c_str());
 			if (dataStream.is_open()) {
 				for (i = 0; i < network->network_properties.N_tar; i++) {
@@ -1068,7 +1069,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 								goto LoadPoint2;
 							}
 						} else if (get_stdim(spacetime) == 4 && get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
-							if (get_curvature(spacetime) & POSITIVE && ((get_symmetry(spacetime) & SYMMETRIC && fabs(network->nodes.crd->w(i)) > static_cast<float>(HALF_PI - network->network_properties.zeta)) || (get_symmetry(spacetime) & ASYMMETRIC && (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > static_cast<float>(HALF_PI - network->network_properties.zeta)))) || (get_curvature(spacetime) & FLAT && (get_manifold(spacetime) & DE_SITTER && (network->nodes.crd->w(i) < HALF_PI - network->network_properties.zeta || network->nodes.crd->w(i) > HALF_PI - network->network_properties.zeta1)) || (get_manifold(spacetime) & (DUST | FLRW) && (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > HALF_PI - network->network_properties.zeta)))) {
+							if ((get_curvature(spacetime) & POSITIVE && ((get_symmetry(spacetime) & SYMMETRIC && fabs(network->nodes.crd->w(i)) > static_cast<float>(HALF_PI - network->network_properties.zeta)) || (get_symmetry(spacetime) & ASYMMETRIC && (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > static_cast<float>(HALF_PI - network->network_properties.zeta))))) || (get_curvature(spacetime) & FLAT && ((get_manifold(spacetime) & DE_SITTER && (network->nodes.crd->w(i) < HALF_PI - network->network_properties.zeta || network->nodes.crd->w(i) > HALF_PI - network->network_properties.zeta1)) || (get_manifold(spacetime) & (DUST | FLRW) && (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > HALF_PI - network->network_properties.zeta))))) {
 								message = "Invalid value for 'eta' in node position file!\n";
 								network->network_properties.cmpi.fail = 1;
 								goto LoadPoint2;
@@ -1191,8 +1192,8 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 					edges[i] = ((uint64_t)idx0) << 32 | ((uint64_t)idx1);
 
 				if (idx0 < core_limit && idx1 < core_limit) {
-					network->adj[static_cast<uint64_t>(idx0)*core_limit+idx1] = true;
-					network->adj[static_cast<uint64_t>(idx1)*core_limit+idx0] = true;
+					network->adj.set(static_cast<uint64_t>(idx0)*core_limit+idx1);
+					network->adj.set(static_cast<uint64_t>(idx1)*core_limit+idx1);
 				}
 				//printf("%d %d\n", idx0, idx1);
 			}
@@ -1552,7 +1553,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 				for (i = 0; i < network.network_properties.N_tar; i++) {
 					if (network.network_properties.flags.use_bit) {
 						for (j = i + 1; j < network.network_properties.N_tar; j++)
-							if ((bool)network.adj[static_cast<uint64_t>(i)*network.network_properties.N_tar+j])
+							if (network.adj.read(static_cast<uint64_t>(i)*network.network_properties.N_tar+j))
 								dataStream << i << " " << j << "\n";
 					} else {
 						for (j = 0; j < network.nodes.k_out[i]; j++)
@@ -1884,16 +1885,14 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 
 			free(network->edges.past_edge_row_start);
 			network->edges.past_edge_row_start = NULL;
-			hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
+			hostMemUsed -= sizeof(int64_t) * network->network_properties.N_tar;
 
 			free(network->edges.future_edge_row_start);
 			network->edges.future_edge_row_start = NULL;
-			hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
+			hostMemUsed -= sizeof(int64_t) * network->network_properties.N_tar;
 		}
 
-		network->adj.clear();
-		network->adj.swap(network->adj);
-		hostMemUsed -= sizeof(bool) * static_cast<uint64_t>(POW2(network->network_properties.core_edge_fraction * network->network_properties.N_tar, EXACT)) / 8;
+		hostMemUsed -= sizeof(BlockType) * network->adj.getNumBlocks();
 	}
 
 	if (network->network_properties.flags.bench)

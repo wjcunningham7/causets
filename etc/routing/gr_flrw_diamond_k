@@ -49,17 +49,32 @@ mu = vl + vu
 
 f = open('etc/tables/average_degree_11396_0_table.cset.bin', 'rb')
 data = np.fromfile(f, 'd')
-for x,y in zip(data[1::2], data[0::2]):
+
+x0 = data[1]
+y0 = data[0]
+
+values = list(zip(data[1::2], data[0::2]))
+
+for i in range(0, len(values)):
+	if i > 0:
+		x0 = values[i-1][0]
+		y0 = values[i-1][1]
+
+	x = values[i][0]
+	y = values[i][1]
 	if x >= tau0:
 		kappa = y
 		break
 
-if y == data[0]:
+if y == data[0] and tau0 != data[1]:
 	sys.stdout.write('Table is insufficient! First element was used.\n')
 	sys.exit(1)
 if kappa == 0:
 	sys.stdout.write('Table is insufficient! No element could be used.\n')
 	sys.exit(2)
+
+if x != x0:
+	kappa = y0 + (y - y0) * (tau0 - x0) / (x - x0)
 
 q = k / kappa
 n = int(4.0 * math.pi * q * mu / 3.0)

@@ -528,7 +528,7 @@ inline double etaToTauSph(const double eta)
 inline double etaToTauFlat(const double eta)
 {
 	#if DEBUG
-	assert (eta > -1.0f && eta < 0.0);
+	assert (eta < 0.0);
 	#endif
 
 	return -LOG(-eta, APPROX ? FAST : STL);

@@ -23,18 +23,23 @@
 #==================#
 
 # Routing Experiments
-density=250000
-energy_min=0.95
-energy_max=0.99
-jobstart=590
+spacetime=11300
+#density=300000
+degree=40000
+#energy_min=0.73
+#energy_max=0.99
+jobstart=806
 readstart=0
-samples=10
-queue="par-gpu"
-./etc/routing/gr_test $density $energy_min $energy_max
+samples=1
+queue="krioukov_gpu"
+rm -f causet.par
+#./etc/routing/gr_test_density $spacetime $density $energy_min $energy_max	//For constant k
+./etc/routing/gr_test_degree $spacetime $degree					//For constant q
 readarray -t vars < causet.par
 rm causet.par
 for i in $(seq ${#vars[@]}) ; do
-  energy=$(awk '{print $1}' <<< "${vars[${i}-1]}")
+  #energy=$(awk '{print $1}' <<< "${vars[${i}-1]}")
+  age=$(awk '{print $1}' <<< "${vars[${i}-1]}")
   nodes=$(awk '{print $2}' <<< "${vars[${i}-1]}")
   job=$(($i+$jobstart-1))
   if [[ "$readstart" -ne 0 ]] ; then
@@ -45,10 +50,16 @@ for i in $(seq ${#vars[@]}) ; do
   fi
   if [[ "$queue" == "krioukov_gpu" ]] ; then
     ncores=48
-  else
+  elif [[ "$queue" == "ser-par-10g-3" ]] ; then
+    ncores=40
+  elif [[ "$queue" == "par-gpu" ]] ; then
     ncores=32
+  elif [[ "$queue" == "par-gpu-2" ]] ; then
+    ncores=48
+  else
+    ncores=0
   fi
-  ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime 11300 --nodes '"$nodes"' --energy '"$energy"' --link --gpu --verbose -y --print --print-edges --core 1' --queue $queue --nsamples $samples
+  ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --age '"$age"' --link --verbose -y --print --gpu --core 1 --success 100' --queue $queue --nsamples $samples
 done
 
 #==================#
