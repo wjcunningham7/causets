@@ -103,7 +103,7 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 	}
 }
 
-bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int64_t * const future_edge_row_start, const FastBitset adj, const int &N_tar, const float &core_edge_fraction)
+bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int64_t * const future_edge_row_start, const Bitvector &adj, const int &N_tar, const float &core_edge_fraction)
 {
 	#if DEBUG
 	assert (k_out != NULL);
@@ -115,7 +115,6 @@ bool compareCoreEdgeExists(const int * const k_out, const int * const future_edg
 	
 	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 	int idx1, idx2;
-	uint64_t idx12, idx21;
 	int i, j;
 
 	try {
@@ -133,12 +132,7 @@ bool compareCoreEdgeExists(const int * const k_out, const int * const future_edg
 				if (idx2 >= core_limit)
 					continue;
 
-				idx12 = static_cast<uint64_t>(idx1) * core_limit + idx2;
-				idx21 = static_cast<uint64_t>(idx2) * core_limit + idx1;
-
-				//printf("idx12: %" PRIu64 "\tidx21: %" PRIu64 "\n", idx12, idx21);
-
-				if (!adj.read(idx12) || !adj.read(idx21))
+				if (!adj[idx1].read(idx2) || !adj[idx2].read(idx1))
 					throw CausetException("Adjacency matrix does not match sparse list!\n");
 			}
 		}
@@ -285,7 +279,7 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 }
 
 //Note that adj has not been implemented in this version of the linkNodesGPU subroutine.
-bool linkNodesGPU_v1(Node &nodes, const Edge &edges, FastBitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -661,7 +655,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, FastBitset &adj, const unsi
 	return true;
 }
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, FastBitset &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -1009,7 +1003,7 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 
 //Generate confusion matrix for geodesic distances
 //Compares timelike/spacelike in 4D/5D
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const FastBitset adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const long double &N_emb, const int &N_res, const float &k_res, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &verbose)
+bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const long double &N_emb, const int &N_res, const float &k_res, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -2243,7 +2237,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
 //Uses geodesic distances
-bool traversePath_v1(const Node &nodes, const Edge &edges, const FastBitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success, bool &past_horizon)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success, bool &past_horizon)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -2507,7 +2501,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const FastBitset adj,
 //Measure Causal Set Action
 //O(N*k^2*ln(k)) Efficiency (Linked)
 //O(N^2*k) Efficiency (No Links)
-bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const FastBitset adj, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -2601,7 +2595,7 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 					uint64_t col0 = static_cast<uint64_t>(i) * core_limit;
 					uint64_t col1 = static_cast<uint64_t>(j) * core_limit;
 					for (k = i + 1; k < j; k++)
-						elements += (int)(adj.read(col0+k) & adj.read(col1+k));
+						elements += (int)(adj[col0].read(k) & adj[col1].read(k));
 					if (elements >= max_cardinality - 1)
 						too_many = true;
 				} else {
@@ -2654,6 +2648,242 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sMeasureAction.elapsedTime);
+		fflush(stdout);
+	}
+
+	return true;
+}
+
+//Measure Causal Set Action
+//Algorithm has been parallelized on the CPU
+bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+{
+	#if DEBUG
+	if (!no_pos)
+		assert (!nodes.crd->isNull());
+	assert (get_stdim(spacetime) & (2 | 4));
+	assert (get_manifold(spacetime) & DE_SITTER);
+
+	if (!no_pos) {
+		if (get_stdim(spacetime) == 2)
+			assert (nodes.crd->getDim() == 2);
+		else if (get_stdim(spacetime) == 4) {
+			assert (nodes.crd->getDim() == 4);
+			assert (nodes.crd->w() != NULL);
+			assert (nodes.crd->z() != NULL);
+		}
+
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+	}
+
+	if (!use_bit && (link || relink)) {
+		assert (nodes.k_in != NULL);
+		assert (nodes.k_out != NULL);
+		assert (edges.past_edges != NULL);
+		assert (edges.future_edges != NULL);
+		assert (edges.past_edge_row_start != NULL);
+		assert (edges.future_edge_row_start != NULL);
+	}
+	assert (ca != NULL);
+
+	assert (N_tar > 0);
+	assert (k_tar > 0.0f);
+	assert (max_cardinality > 0);
+	assert (a > 0.0);
+	if (get_curvature(spacetime) & POSITIVE) {
+		assert (zeta > 0.0);
+		assert (zeta < HALF_PI);
+	} else if (get_curvature(spacetime) & FLAT) {
+		assert (zeta > HALF_PI);
+		assert (zeta1 > HALF_PI);
+		assert (zeta > zeta1);
+	} 
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	assert (edge_buffer > 0.0f);
+	#endif
+
+	printf_dbg("Using Version 2.\n");
+
+	uint64_t npairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
+	uint64_t start = 0;
+	uint64_t finish = npairs;
+	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
+	int rank = cmpi.rank;
+	int m, n;
+	bool smeared = (max_cardinality == N_tar - 1);
+	double lk = 2.0;
+
+	#ifdef MPI_ENABLED
+	uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
+	uint64_t edges_size = static_cast<uint64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2;
+	#endif
+
+	stopwatchStart(&sMeasureAction);
+
+	//Allocate memory for cardinality measurements
+	try {
+		cardinalities = (int*)malloc(sizeof(int) * max_cardinality * omp_get_max_threads());
+		if (cardinalities == NULL) {
+			cmpi.fail = 1;
+			goto ActPoint;
+		}
+		memset(cardinalities, 0, sizeof(int) * max_cardinality * omp_get_max_threads());
+		ca->hostMemUsed += sizeof(int) * max_cardinality * omp_get_max_threads();
+
+		ActPoint:
+		if (checkMpiErrors(cmpi)) {
+			if (!rank)
+				throw std::bad_alloc();
+			else
+				return false;
+		}
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	}
+
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
+	if (verbose)
+		printMemUsed("to Measure Action", ca->hostMemUsed, ca->devMemUsed, rank);
+
+	//The first element will be N_tar
+	cardinalities[0] = N_tar;
+
+	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
+	if (!use_bit && (link || relink)) {
+		MPI_Bcast(nodes.k_in, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(edges.past_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(edges.past_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(edges.future_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+		//MPI_Bcast(adj, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+	} else {
+		MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+		if (stdim == 4) {
+			MPI_Bcast(nodes.crd->w(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+			MPI_Bcast(nodes.crd->z(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+		}
+	}
+
+	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
+	start = rank * mpi_chunk;
+	finish = start + mpi_chunk;
+	#endif
+
+	if (max_cardinality == 1)
+		goto ActionExit;
+
+	#ifdef _OPENMP
+	#pragma omp parallel for schedule (dynamic, 4)
+	#endif
+	for (uint64_t v = start; v < finish; v++) {
+		//Choose a pair
+		int i = static_cast<int>(v / (N_tar - 1));
+		int j = static_cast<int>(v % (N_tar - 1) + 1);
+		int do_map = i >= j;
+
+		if (j < N_tar >> 1) {
+			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
+			j = j + do_map * (((N_tar >> 1) - j) << 1);
+		}
+
+		if (i == j)
+			continue;
+		//printf("i: %d\tj: %d\n", i, j);
+
+		int elements = 0;
+		bool too_many = false;
+
+		if (!use_bit && (link || relink)) {
+			//If the nodes have been linked, use edge lists / adjacency matrix
+			if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, i, j))
+				continue;
+
+			#if DEBUG
+			assert (!(edges.past_edge_row_start[j] == -1 && nodes.k_in[j] > 0));
+			assert (!(edges.past_edge_row_start[j] != -1 && nodes.k_in[j] == 0));
+			assert (!(edges.future_edge_row_start[i] == -1 && nodes.k_out[i] > 0));
+			assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
+			#endif
+
+			if (core_limit == N_tar) {
+				uint64_t col0 = static_cast<uint64_t>(i) * core_limit;
+				uint64_t col1 = static_cast<uint64_t>(j) * core_limit;
+
+				for (int k = i + 1; k < j; k++)
+					elements += (int)(adj[col0].read(k) & adj[col1].read(k));
+
+				if (elements >= max_cardinality - 1)
+					too_many = true;
+			} else {
+				//Index of first past neighbor of the 'future element j'
+				int64_t pstart = edges.past_edge_row_start[j];
+				//Index of first future neighbor of the 'past element i'
+				int64_t fstart = edges.future_edge_row_start[i];
+
+				//Intersection of edge lists
+				causet_intersection_v2(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], max_cardinality, pstart, fstart, too_many);
+			}
+		} else {
+			//If nodes have not been linked, do each comparison
+			if (!nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, NULL))
+				continue;
+
+			for (int k = i + 1; k < j; k++) {
+				if (nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, k, NULL) && nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, k, j, NULL))
+					elements++;
+
+				if (elements >= max_cardinality - 1) {
+					too_many = true;
+					break;
+				}
+			}
+		}
+
+		if (!too_many)
+			cardinalities[omp_get_thread_num()*max_cardinality+elements+1]++;
+	}
+
+	//Reduction used when OpenMP has been used
+	for (m = 1; m < omp_get_max_threads(); m++)
+		for (n = 0; n < max_cardinality; n++)
+			cardinalities[n] += cardinalities[m*max_cardinality+n];
+
+	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
+	if (!rank)
+		MPI_Reduce(MPI_IN_PLACE, cardinalities, max_cardinality, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+	else
+		MPI_Reduce(cardinalities, NULL, max_cardinality, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+	#endif
+
+	if (max_cardinality < 5)
+		goto ActionExit;
+
+	action = calcAction(cardinalities, get_stdim(spacetime), lk, smeared);
+	assert (action == action);
+
+	ActionExit:
+	stopwatchStop(&sMeasureAction);
+
+	if (!bench) {
+		printf_mpi(rank, "\tCalculated Action.\n");
+		printf_mpi(rank, "\t\tTerms Used: %d\n", max_cardinality);
+		if (!rank) printf_cyan();
+		printf_mpi(rank, "\t\tCausal Set Action: %f\n", action);
+		if (max_cardinality < 10)
+			for (m = 0; m < max_cardinality; m++)
+				printf_mpi(rank, "\t\t\tN%d: %d\n", m, cardinalities[m]);
+		if (!rank) printf_std();
+		fflush(stdout);
+	}
+
+	if (verbose) {
+		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sMeasureAction.elapsedTime);
 		fflush(stdout);
 	}
 

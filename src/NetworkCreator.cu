@@ -764,7 +764,7 @@ bool solveExpAvgDegree(float &k_tar, const unsigned int &spacetime, const int &N
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node &nodes, Edge &edges, FastBitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench, const bool &yes)
 {
 	#if DEBUG
 	assert (ca != NULL);
@@ -989,8 +989,12 @@ bool createNetwork(Node &nodes, Edge &edges, FastBitset &adj, const unsigned int
 				ca->hostMemUsed += sizeof(int64_t) * N_tar;
 			}
 
-			adj.createBitset(static_cast<uint64_t>(POW2(core_edge_fraction, EXACT) * N_tar * N_tar));
-			ca->hostMemUsed += sizeof(BlockType) * adj.getNumBlocks();
+			adj.reserve(N_tar);
+			for (int i = 0; i < static_cast<int>(N_tar * core_edge_fraction); i++) {
+				FastBitset fb(static_cast<uint64_t>(core_edge_fraction * N_tar));
+				adj.push_back(fb);
+				ca->hostMemUsed += sizeof(BlockType) * fb.getNumBlocks();
+			}
 		}
 
 		memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
@@ -1579,7 +1583,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, FastBitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//No null pointers
@@ -1640,8 +1644,6 @@ bool linkNodes(Node &nodes, Edge &edges, FastBitset &adj, const unsigned int &sp
 
 	//Identify future connections
 	for (i = 0; i < N_tar - 1; i++) {
-		if (i < core_limit)
-			adj.unset(static_cast<uint64_t>(i)*core_limit+i);
 		if (!use_bit)
 			edges.future_edge_row_start[i] = future_idx;
 
@@ -1652,15 +1654,9 @@ bool linkNodes(Node &nodes, Edge &edges, FastBitset &adj, const unsigned int &sp
 
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {
-				uint64_t idx1 = static_cast<uint64_t>(i) * core_limit + j;
-				uint64_t idx2 = static_cast<uint64_t>(j) * core_limit + i;
-
 				if (related) {
-					adj.set(idx1);
-					adj.set(idx2);
-				} else {
-					adj.unset(idx1);
-					adj.unset(idx1);
+					adj[i].set(j);
+					adj[j].set(i);
 				}
 			}
 						
@@ -1695,9 +1691,6 @@ bool linkNodes(Node &nodes, Edge &edges, FastBitset &adj, const unsigned int &sp
 				edges.future_edge_row_start[i] = -1;
 		}
 	}
-
-	if (core_edge_fraction == 1.0f)
-		adj.unset(static_cast<uint64_t>(N_tar-1)*N_tar+(N_tar-1));
 
 	if (!use_bit) {
 		edges.future_edge_row_start[N_tar-1] = -1;

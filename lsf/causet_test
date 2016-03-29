@@ -23,23 +23,23 @@
 #==================#
 
 # Routing Experiments
-spacetime=11300
-#density=300000
-degree=40000
-#energy_min=0.73
-#energy_max=0.99
-jobstart=806
+spacetime=11396
+density=300000
+#degree=60000
+energy_min=0.99
+energy_max=0.99
+jobstart=794
 readstart=0
-samples=1
-queue="krioukov_gpu"
+samples=10
+queue="par-gpu-2"
 rm -f causet.par
-#./etc/routing/gr_test_density $spacetime $density $energy_min $energy_max	//For constant k
-./etc/routing/gr_test_degree $spacetime $degree					//For constant q
+./etc/routing/gr_test_density $spacetime $density $energy_min $energy_max	//For constant k
+#./etc/routing/gr_test_degree $spacetime $degree					//For constant q
 readarray -t vars < causet.par
 rm causet.par
 for i in $(seq ${#vars[@]}) ; do
-  #energy=$(awk '{print $1}' <<< "${vars[${i}-1]}")
-  age=$(awk '{print $1}' <<< "${vars[${i}-1]}")
+  energy=$(awk '{print $1}' <<< "${vars[${i}-1]}")
+  #age=$(awk '{print $1}' <<< "${vars[${i}-1]}")
   nodes=$(awk '{print $2}' <<< "${vars[${i}-1]}")
   job=$(($i+$jobstart-1))
   if [[ "$readstart" -ne 0 ]] ; then
@@ -59,7 +59,7 @@ for i in $(seq ${#vars[@]}) ; do
   else
     ncores=0
   fi
-  ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --age '"$age"' --link --verbose -y --print --gpu --core 1 --success 100' --queue $queue --nsamples $samples
+  ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --energy '"$energy"' --link --verbose -y --print --gpu --core 1 --success 1000000' --queue $queue --nsamples $samples
 done
 
 #==================#

@@ -42,7 +42,8 @@ NVCC 		?= %NVCC%
 
 INCD 		 = -I $(INCDIR) -I $(LOCAL_DIR)/include/
 CUDA_INCD	 = %CUDA_INCD%
-LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas -lnint -lprintcolor
+LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas
+LOCAL_LIBS	 = -lnint -lprintcolor
 CUDA_LIBS	 = %CUDA_LIBS%
 
 ##################
@@ -151,7 +152,7 @@ $(OBJDIR)/%_cu.o : $(SRCDIR)/%.cu
 ##################
 
 link :
-	$(CXX) -o $(BINDIR)/CausalSet $(OBJDIR)/*.o $(LIBS)
+	$(CXX) -o $(BINDIR)/CausalSet%PLATFORM% $(OBJDIR)/*.o $(LIBS) $(LOCAL_LIBS)
 
 linkgpu : 
 	$(NVCC) $(NVCCFLAGS) -dlink $(OBJDIR)/*_cu.o -o $(OBJDIR)/linked.o
@@ -161,7 +162,7 @@ linkgpu :
 ###################
 
 bin : $(COBJS) $(CUDAOBJS)
-	$(CXX) -o $(BINDIR)/CausalSet $(OBJDIR)/*.o $(INCD) $(CUDA_INCD) $(LIBS) $(CUDA_LIBS)
+	$(CXX) -o $(BINDIR)/CausalSet%PLATFORM% $(OBJDIR)/*.o $(INCD) $(CUDA_INCD) $(LIBS) $(LOCAL_LIBS) $(CUDA_LIBS)
 
 #######################
 # Fortran Compilation #
@@ -196,7 +197,7 @@ bindir :
 
 cleanall : clean cleanscratch cleandata cleandbg
 
-clean : cleanbin cleanasm cleanobj cleanlog
+clean : cleanasm cleanobj cleanlog
 
 cleanbin :
 	@ rm -rf $(BINDIR)

@@ -153,7 +153,7 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, FastBitset &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	#if EMBED_NODES
@@ -320,7 +320,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, FastBitset &adj, const unsi
 		fflush(stdout);
 	}
 
-	//if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction))
+	//if(!use_bit && !compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction))
 	//	return false;
 
 	//Print Results
@@ -341,8 +341,10 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, FastBitset &adj, const unsi
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sLinkNodesGPU.elapsedTime);
 		printf("\t\t\tAdjacency List Function Time: %5.6f sec\n", sGenAdjList.elapsedTime);
-		printf("\t\t\tDecode Lists Function Time: %5.6f sec\n", sDecodeLists.elapsedTime);
-		printf("\t\t\tScan Lists Function Time: %5.6f sec\n", sScanLists.elapsedTime);
+		if (!use_bit) {
+			printf("\t\t\tDecode Lists Function Time: %5.6f sec\n", sDecodeLists.elapsedTime);
+			printf("\t\t\tScan Lists Function Time: %5.6f sec\n", sScanLists.elapsedTime);
+		}
 		fflush(stdout);
 	}
 
@@ -350,7 +352,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, FastBitset &adj, const unsi
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(Node &nodes, uint64_t * const &edges, FastBitset &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);

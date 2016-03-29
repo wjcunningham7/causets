@@ -623,8 +623,8 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	#endif
 
 	//Use this statement if you're creating a degree lookup table
-	if (network->network_properties.flags.link)
-		printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime))));
+	//if (network->network_properties.flags.link)
+	//	printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime))));
 
 	InitExit:
 	if (checkMpiErrors(network->network_properties.cmpi))
@@ -820,20 +820,17 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			goto MeasureExit;
 		}
 	}
-	#ifdef MPI_ENABLED
-	}
-	#endif
 
 	//Measure Action
 	if (network->network_properties.flags.calc_action) {
 		for (i = 0; i <= nb; i++) {
-			#if ACTION_GPU && !MPI_ENABLED
-			network->network_properties.max_cardinality = network->network_properties.N_tar - 1;
-			if (!measureActionGPU(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->adj, network->network_properties.N_tar, network->network_properties.stdim, network->network_properties.manifold, network->network_properties.core_edge_fraction, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench))
-				network->network_properties.cmpi.fail = 1;
-				goto MeasureExit;
-			#elif ACTION_V2
-			if (!measureAction_v2(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.max_cardinality, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+			#if ACTION_V2
+			if (network->network_properties.flags.use_bit && (network->network_properties.flags.link || network->network_properties.flags.relink)) {
+				if (!measureAction_v3(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+					network->network_properties.cmpi.fail = 1;
+					goto MeasureExit;
+				}
+			} else if (!measureAction_v2(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.max_cardinality, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
 				goto MeasureExit;
 			}
@@ -848,6 +845,9 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 		if (nb)
 			bm->bMeasureAction = cp->sMeasureAction.elapsedTime / NBENCH;
 	}
+	#ifdef MPI_ENABLED
+	}
+	#endif
 	
 	MeasureExit:
 	if (checkMpiErrors(network->network_properties.cmpi))
@@ -1192,8 +1192,8 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 					edges[i] = ((uint64_t)idx0) << 32 | ((uint64_t)idx1);
 
 				if (idx0 < core_limit && idx1 < core_limit) {
-					network->adj.set(static_cast<uint64_t>(idx0)*core_limit+idx1);
-					network->adj.set(static_cast<uint64_t>(idx1)*core_limit+idx1);
+					network->adj[idx0].set(idx1);
+					network->adj[idx1].set(idx0);
 				}
 				//printf("%d %d\n", idx0, idx1);
 			}
@@ -1553,7 +1553,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 				for (i = 0; i < network.network_properties.N_tar; i++) {
 					if (network.network_properties.flags.use_bit) {
 						for (j = i + 1; j < network.network_properties.N_tar; j++)
-							if (network.adj.read(static_cast<uint64_t>(i)*network.network_properties.N_tar+j))
+							if (network.adj[i].read(j))
 								dataStream << i << " " << j << "\n";
 					} else {
 						for (j = 0; j < network.nodes.k_out[i]; j++)
@@ -1892,7 +1892,10 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 			hostMemUsed -= sizeof(int64_t) * network->network_properties.N_tar;
 		}
 
-		hostMemUsed -= sizeof(BlockType) * network->adj.getNumBlocks();
+		for (int i = 0; i < static_cast<int>(network->network_properties.N_tar * network->network_properties.core_edge_fraction); i++)
+			hostMemUsed -= sizeof(BlockType) * network->adj[i].getNumBlocks();
+		network->adj.clear();
+		network->adj.swap(network->adj);
 	}
 
 	if (network->network_properties.flags.bench)

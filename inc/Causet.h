@@ -52,6 +52,7 @@
 #include <sys/io.h>
 
 //Custom System Files
+#include <fastmath/FastBitset.h>
 #include <fastmath/FastMath.h>
 #include <fastmath/FastNumInt.h>
 #include <fastmath/stopwatch.h>
@@ -78,6 +79,9 @@
 //[4] Approximations for Elliptic Integrals
 //    www.jstor.org/stable/2004539
 //////////////////////////////////////////////////////////////////////////////
+
+//Bitsets
+typedef std::vector< FastBitset > Bitvector;
 
 #ifndef CUDA_ENABLED
 //Redefine CUDA data types
@@ -641,7 +645,7 @@ struct Network {
 
 	Node nodes;
 	Edge edges;
-	FastBitset adj;
+	Bitvector adj;
 };
 
 //Algorithmic Performance

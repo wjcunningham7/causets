@@ -38,13 +38,7 @@
 
 #define TRAVERSE_V2 true	//Version 2 (and 3) uses spatial distances rather than geodesics
 
-#define ACTION_V2 true		//Version 2 uses OpenMP
-
-#ifdef CUDA_ENABLED
-#define ACTION_GPU false		//Use the GPU for to calculate the smeared action
-#else
-#define ACTION_GPU false
-#endif
+#define ACTION_V2 true		//Version 2 uses OpenMP, Version 3 uses minimal bitwise optimizations
 
 #define GEODESIC_LOWER 0.95	//Boundary between Region I and Region II approximations
 				//Should be less than 1.0
@@ -64,7 +58,7 @@
 #ifdef CUDA_ENABLED
 
 //CUDA Flags
-#define GLOB_MEM 5000000000
+#define GLOB_MEM %GLOB_MEM%
 
 #define BLOCK_SIZE 128	//Number of threads per block
 			//This value is dependent on the GPU architecture

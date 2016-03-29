@@ -42,7 +42,8 @@ NVCC 		?= /shared/apps/cuda7.0/bin/nvcc
 
 INCD 		 = -I $(INCDIR) -I $(LOCAL_DIR)/include/
 CUDA_INCD	 = -I /shared/apps/cuda7.0/samples/common/inc -I /shared/apps/cuda7.0/include
-LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas -lnint -lprintcolor
+LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas
+LOCAL_LIBS	 = -lnint -lprintcolor
 CUDA_LIBS	 = -L /usr/lib/nvidia-current -L /shared/apps/cuda7.0/lib64 -L /shared/apps/cuda7.0/samples/common/lib -lcuda -lcudart
 
 ##################
@@ -86,7 +87,7 @@ endif
 
 CSOURCES	:= $(SRCDIR)/autocorr2.cpp
 CEXTSOURCES	:= $(FASTSRC)/ran2.cpp $(FASTSRC)/stopwatch.cpp
-CUDASOURCES	:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines_GPU.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Operations_GPU.cu $(SRCDIR)/NetworkCreator_GPU.cu $(SRCDIR)/Validate.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements_GPU.cu $(SRCDIR)/Measurements.cu
+CUDASOURCES	:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines_GPU.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Operations_GPU.cu $(SRCDIR)/NetworkCreator_GPU.cu $(SRCDIR)/Validate.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements.cu
 SOURCES		:= $(SRCDIR)/CuResources.cu $(SRCDIR)/Causet.cu $(SRCDIR)/Subroutines.cu $(SRCDIR)/Validate.cu $(SRCDIR)/NetworkCreator.cu $(SRCDIR)/Measurements.cu
 FSOURCES1	:= $(SRCDIR)/ds3.F
 FSOURCES2	:= $(SRCDIR)/Matter_Dark_Energy_downscaled.f
@@ -151,7 +152,7 @@ $(OBJDIR)/%_cu.o : $(SRCDIR)/%.cu
 ##################
 
 link :
-	$(CXX) -o $(BINDIR)/CausalSet $(OBJDIR)/*.o $(LIBS)
+	$(CXX) -o $(BINDIR)/CausalSet_debug $(OBJDIR)/*.o $(LIBS) $(LOCAL_LIBS)
 
 linkgpu : 
 	$(NVCC) $(NVCCFLAGS) -dlink $(OBJDIR)/*_cu.o -o $(OBJDIR)/linked.o
@@ -161,7 +162,7 @@ linkgpu :
 ###################
 
 bin : $(COBJS) $(CUDAOBJS)
-	$(CXX) -o $(BINDIR)/CausalSet $(OBJDIR)/*.o $(INCD) $(CUDA_INCD) $(LIBS) $(CUDA_LIBS)
+	$(CXX) -o $(BINDIR)/CausalSet_debug $(OBJDIR)/*.o $(INCD) $(CUDA_INCD) $(LIBS) $(LOCAL_LIBS) $(CUDA_LIBS)
 
 #######################
 # Fortran Compilation #
@@ -196,7 +197,7 @@ bindir :
 
 cleanall : clean cleanscratch cleandata cleandbg
 
-clean : cleanbin cleanasm cleanobj cleanlog
+clean : cleanasm cleanobj cleanlog
 
 cleanbin :
 	@ rm -rf $(BINDIR)

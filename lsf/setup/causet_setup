@@ -15,7 +15,7 @@ work=/gss_gpfs_scratch/cunningham/causet@jobID@
 homedir=/home/cunningham.wi/projects/causets
 
 # Copy the binary
-cp $homedir/bin/CausalSet $work/
+cp $homedir/bin/CausalSet_@queue@ $work/
 
 # Create peripheral directories and copy relevant files
 mkdir -p $work/etc

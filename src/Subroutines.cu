@@ -477,7 +477,7 @@ bool newton(double (*solve)(const double &x, const double * const p1, const floa
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
 //O(k) Efficiency for Adjacency List
-bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int64_t * const future_edge_row_start, const FastBitset adj, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
+bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int64_t * const future_edge_row_start, const Bitvector &adj, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
 {
 	#if DEBUG
 	//No null pointers
@@ -506,7 +506,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 	//Check if the adjacency matrix can be used
 	if (past_idx < core_limit && future_idx < core_limit)
-		return (bool)adj.read(static_cast<uint64_t>(past_idx)*core_limit+future_idx);
+		return (bool)adj[past_idx].read(future_idx);
 	//Check if past node is not connected to anything
 	else if (future_edge_row_start[past_idx] == -1)
 		return false;
@@ -522,7 +522,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 //Returns true if two nodes are causally connected
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
-bool nodesAreConnected_v2(const FastBitset adj, const int &N_tar, int past_idx, int future_idx)
+bool nodesAreConnected_v2(const Bitvector &adj, const int &N_tar, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (past_idx >= 0 && past_idx < N_tar);
@@ -530,7 +530,7 @@ bool nodesAreConnected_v2(const FastBitset adj, const int &N_tar, int past_idx, 
 	assert (past_idx != future_idx);
 	#endif
 
-	return (bool)adj.read(static_cast<uint64_t>(past_idx)*N_tar+future_idx);
+	return (bool)adj[past_idx].read(future_idx);
 }
 
 //Breadth First Search
@@ -569,7 +569,7 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 
 //Breadth First Search
 //Uses adjacency matrix only
-void bfsearch_v2(const Node &nodes, const FastBitset &adj, const int &N_tar, const int index, const int id, int &elements)
+void bfsearch_v2(const Node &nodes, const Bitvector &adj, const int &N_tar, const int index, const int id, int &elements)
 {
 	#if DEBUG
 	assert (nodes.cc_id != NULL);
@@ -584,7 +584,7 @@ void bfsearch_v2(const Node &nodes, const FastBitset &adj, const int &N_tar, con
 
 	int i;
 	for (i = 0; i < N_tar; i++)
-		if (adj.read(static_cast<uint64_t>(index)*N_tar+i) && !nodes.cc_id[i])
+		if (adj[index].read(i) && !nodes.cc_id[i])
 			bfsearch_v2(nodes, adj, N_tar, i, id, elements);
 }
 
@@ -742,7 +742,7 @@ void readDegrees(int * const &degrees, const int * const h_k, const size_t &offs
 
 //Data formatting used when reading output of
 //the adjacency list created by the GPU
-void readEdges(uint64_t * const &edges, const bool * const h_edges, FastBitset &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit)
+void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit)
 {
 	#if DEBUG
 	if (!use_bit)
@@ -755,9 +755,7 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, FastBitset &
 	assert (x <= y);
 	#endif
 
-	uint64_t idx1, idx2;
 	unsigned int i, j;
-
 	for (i = 0; i < size0; i++) {
 		for (j = 0; j < size1; j++) {
 			if (h_edges[i*mthread_size+j] && (use_bit || g_idx[0] < (int64_t)d_edges_size)) {
@@ -766,11 +764,8 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, FastBitset &
 				else
 					g_idx[0]++;
 				if (x*mthread_size+i < core_limit && y*mthread_size+j < core_limit) {
-					idx1 = static_cast<uint64_t>(x * mthread_size + i) * core_limit + y * mthread_size + j;
-					idx2 = static_cast<uint64_t>(y * mthread_size + j) * core_limit + x * mthread_size + i;
-
-					adj.set(idx1);
-					adj.set(idx2);
+					adj[x*mthread_size+i].set(y*mthread_size+j);
+					adj[y*mthread_size+j].set(x*mthread_size+i);
 				}
 			}
 		}

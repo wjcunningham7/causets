@@ -8,7 +8,7 @@
 
 //Calculates clustering coefficient for each node in network
 //O(N*k^3) Efficiency
-bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const FastBitset adj, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &calc_autocorr, const bool &verbose, const bool &bench)
+bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const Bitvector &adj, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &calc_autocorr, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (edges.past_edges != NULL);
@@ -151,7 +151,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 //Calculates the number of connected components in the graph
 //as well as the size of the giant connected component
 //Efficiency: O(xxx)
-bool measureConnectedComponents(Node &nodes, const Edge &edges, const FastBitset adj, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitvector &adj, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!use_bit) {
@@ -242,7 +242,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const FastBitset
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
 //O(xxx) Efficiency (revise this)
-bool measureSuccessRatio(const Node &nodes, const Edge &edges, const FastBitset adj, float &success_ratio, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const long double &N_sr, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &adj, float &success_ratio, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const long double &N_sr, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -514,7 +514,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const FastBitset 
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //Uses version 2 of the algorithm - spatial distances instead of geodesics
-bool traversePath_v2(const Node &nodes, const Edge &edges, const FastBitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success)
+bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -701,7 +701,7 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const FastBitset adj,
 //Node Traversal Algorithm
 //Returns true if the modified greedy routing algorithm successfully links 'source' and 'dest'
 //Uses version 3 of the algorithm - this uses only the adjacency matrix
-bool traversePath_v3(const Node &nodes, const FastBitset adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int source, int dest, bool &success)
+bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int source, int dest, bool &success)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -753,7 +753,7 @@ bool traversePath_v3(const Node &nodes, const FastBitset adj, bool * const &used
 
 	static const bool TRAV_DEBUG = false;
 
-	uint64_t row, block;
+	uint64_t row;//, block;
 	double dist;
 	int next;
 
@@ -771,7 +771,7 @@ bool traversePath_v3(const Node &nodes, const FastBitset adj, bool * const &used
 	while (loc != dest) {
 		next = loc;
 		row = static_cast<uint64_t>(loc) * N_tar;
-		block = static_cast<uint64_t>(ceil(static_cast<long double>(row + 1ULL) / (sizeof(BlockType) * CHAR_BIT))) - 1ULL;
+		//block = static_cast<uint64_t>(ceil(static_cast<long double>(row + 1ULL) / (sizeof(BlockType) * CHAR_BIT))) - 1ULL;
 		dist = INF;
 		min_dist = INF;
 		used[loc] = true;
@@ -795,13 +795,13 @@ bool traversePath_v3(const Node &nodes, const FastBitset adj, bool * const &used
 		#endif
 		for (int m = 0; m < N_tar; m++) {
 			//Continue if 'loc' is not connected to anything in the whole block
-			if (!(m % (sizeof(BlockType) * CHAR_BIT))) {
+			/*if (!(m % (sizeof(BlockType) * CHAR_BIT))) {
 				if (!adj.readBlock(block + m / (sizeof(BlockType) * CHAR_BIT)))
 					continue;
-			}
+			}*/
 
 			//Continue if 'loc' is not connected to 'm'
-			if (!adj.read(row+m))
+			if (!adj[row].read(m))
 				continue;
 
 			//Continue if not a minimal/maximal element
@@ -1083,86 +1083,42 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 }
 
 //Measure Causal Set Action
-//Algorithm has been parallelized on the CPU
-bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const FastBitset adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+//Algorithm has been optimized using minimal bitwise operations
+//Requires the existence of the whole adjacency matrix
+//This will calculate all cardinality intervals by construction
+bool measureAction_v3(int *& cardinalities, float &action, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, CaResources * const ca, Stopwatch sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	if (!no_pos)
-		assert (!nodes.crd->isNull());
+	assert (adj.size() > 0);
 	assert (get_stdim(spacetime) & (2 | 4));
 	assert (get_manifold(spacetime) & DE_SITTER);
-
-	if (!no_pos) {
-		if (get_stdim(spacetime) == 2)
-			assert (nodes.crd->getDim() == 2);
-		else if (get_stdim(spacetime) == 4) {
-			assert (nodes.crd->getDim() == 4);
-			assert (nodes.crd->w() != NULL);
-			assert (nodes.crd->z() != NULL);
-		}
-
-		assert (nodes.crd->x() != NULL);
-		assert (nodes.crd->y() != NULL);
-	}
-
-	if (!use_bit && (link || relink)) {
-		assert (nodes.k_in != NULL);
-		assert (nodes.k_out != NULL);
-		assert (edges.past_edges != NULL);
-		assert (edges.future_edges != NULL);
-		assert (edges.past_edge_row_start != NULL);
-		assert (edges.future_edge_row_start != NULL);
-	}
-	assert (ca != NULL);
-
 	assert (N_tar > 0);
-	assert (k_tar > 0.0f);
-	assert (max_cardinality > 0);
-	assert (a > 0.0);
-	if (get_curvature(spacetime) & POSITIVE) {
-		assert (zeta > 0.0);
-		assert (zeta < HALF_PI);
-	} else if (get_curvature(spacetime) & FLAT) {
-		assert (zeta > HALF_PI);
-		assert (zeta1 > HALF_PI);
-		assert (zeta > zeta1);
-	} 
-	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-	assert (edge_buffer > 0.0f);
+	assert (ca != NULL);
+	assert (use_bit);
 	#endif
 
+	printf_dbg("Using Version 3.\n");
+
+	Bitvector workspace;
 	uint64_t npairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
-	uint64_t start = 0;
-	uint64_t finish = npairs;
-	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
-	int rank = cmpi.rank;
-	int m, n;
-	bool smeared = (max_cardinality == N_tar - 1);
+	uint64_t clone_length = adj[0].getNumBlocks();
 	double lk = 2.0;
-
-	#ifdef MPI_ENABLED
-	uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
-	uint64_t edges_size = static_cast<uint64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2;
-	#endif
 
 	stopwatchStart(&sMeasureAction);
 
-	//Allocate memory for cardinality measurements
+	//Allocate memory for cardinality measurements and workspace
 	try {
-		cardinalities = (int*)malloc(sizeof(int) * max_cardinality * omp_get_max_threads());
-		if (cardinalities == NULL) {
-			cmpi.fail = 1;
-			goto ActPoint;
-		}
-		memset(cardinalities, 0, sizeof(int) * max_cardinality * omp_get_max_threads());
-		ca->hostMemUsed += sizeof(int) * max_cardinality * omp_get_max_threads();
+		cardinalities = (int*)malloc(sizeof(int) * (N_tar - 1) * omp_get_max_threads());
+		if (cardinalities == NULL)
+			throw std::bad_alloc();
+		memset(cardinalities, 0, sizeof(int) * (N_tar - 1) * omp_get_max_threads());
+		ca->hostMemUsed += sizeof(int) * (N_tar - 1) * omp_get_max_threads();
 
-		ActPoint:
-		if (checkMpiErrors(cmpi)) {
-			if (!rank)
-				throw std::bad_alloc();
-			else
-				return false;
+		workspace.reserve(omp_get_max_threads());
+		for (int i = 0; i < omp_get_max_threads(); i++) {
+			FastBitset fb(static_cast<uint64_t>(N_tar));
+			workspace.push_back(fb);
+			ca->hostMemUsed += sizeof(BlockType) * fb.getNumBlocks();
 		}
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
@@ -1171,148 +1127,63 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 
 	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Action", ca->hostMemUsed, ca->devMemUsed, rank);
+		printMemUsed("to Measure Action", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//The first element will be N_tar
 	cardinalities[0] = N_tar;
 
-	#ifdef MPI_ENABLED
-	MPI_Barrier(MPI_COMM_WORLD);
-	if (!use_bit && (link || relink)) {
-		MPI_Bcast(nodes.k_in, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(edges.past_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(edges.past_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(edges.future_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-		//MPI_Bcast(adj, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
-	} else {
-		MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-		if (stdim == 4) {
-			MPI_Bcast(nodes.crd->w(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-			MPI_Bcast(nodes.crd->z(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-		}
-	}
-
-	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
-	start = rank * mpi_chunk;
-	finish = start + mpi_chunk;
-	#endif
-
-	if (max_cardinality == 1)
-		goto ActionExit;
-
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 1)
+	#pragma omp parallel for schedule (dynamic, 64) if (npairs > 10000)
 	#endif
-	for (uint64_t v = start; v < finish; v++) {
+	for (uint64_t k = 0; k < npairs; k++) {
+		unsigned int tid = omp_get_thread_num();
 		//Choose a pair
-		int i = static_cast<int>(v / (N_tar - 1));
-		int j = static_cast<int>(v % (N_tar - 1) + 1);
-		int do_map = i >= j;
+		uint64_t i = k / (N_tar - 1);
+		uint64_t j = k % (N_tar - 1) + 1;
+		uint64_t do_map = i >= j ? 1ULL : 0ULL;
 
 		if (j < N_tar >> 1) {
 			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
 			j = j + do_map * (((N_tar >> 1) - j) << 1);
 		}
 
-		if (i == j)
-			continue;
-		//printf("i: %d\tj: %d\n", i, j);
+		if (i == j) continue;
+		if (!nodesAreConnected_v2(adj, N_tar, static_cast<int>(i), static_cast<int>(j))) continue;
 
-		int elements = 0;
-		bool too_many = false;
-
-		if (!use_bit && (link || relink)) {
-			//If the nodes have been linked, use edge lists / adjacency matrix
-			if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, i, j))
-				continue;
-
-			#if DEBUG
-			assert (!(edges.past_edge_row_start[j] == -1 && nodes.k_in[j] > 0));
-			assert (!(edges.past_edge_row_start[j] != -1 && nodes.k_in[j] == 0));
-			assert (!(edges.future_edge_row_start[i] == -1 && nodes.k_out[i] > 0));
-			assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
-			#endif
-
-			if (core_limit == N_tar) {
-				uint64_t col0 = static_cast<uint64_t>(i) * core_limit;
-				uint64_t col1 = static_cast<uint64_t>(j) * core_limit;
-
-				for (int k = i + 1; k < j; k++)
-					elements += (int)(adj.read(col0+k) & adj.read(col1+k));
-
-				if (elements >= max_cardinality - 1)
-					too_many = true;
-			} else {
-				//Index of first past neighbor of the 'future element j'
-				int64_t pstart = edges.past_edge_row_start[j];
-				//Index of first future neighbor of the 'past element i'
-				int64_t fstart = edges.future_edge_row_start[i];
-
-				//Intersection of edge lists
-				causet_intersection_v2(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], max_cardinality, pstart, fstart, too_many);
-			}
-		} else {
-			//If nodes have not been linked, do each comparison
-			if (!nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, NULL))
-				continue;
-
-			for (int k = i + 1; k < j; k++) {
-				if (nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, k, NULL) && nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, k, j, NULL))
-					elements++;
-
-				if (elements >= max_cardinality - 1) {
-					too_many = true;
-					break;
-				}
-			}
-		}
-
-		if (!too_many)
-			cardinalities[omp_get_thread_num()*max_cardinality+elements+1]++;
+		uint64_t length = j - i + 1;
+		adj[i].clone(workspace[tid], 0ULL, clone_length);
+		workspace[tid].partial_intersection(adj[j], i, length);
+		cardinalities[tid*N_tar+workspace[tid].partial_count(i, length)+1]++;
 	}
 
-	//Reduction used when OpenMP has been used
-	for (m = 1; m < omp_get_max_threads(); m++)
-		for (n = 0; n < max_cardinality; n++)
-			cardinalities[n] += cardinalities[m*max_cardinality+n];
+	//Reduction for OpenMP
+	for (int i = 1; i < omp_get_max_threads(); i++)
+		for (int j = 0; j < N_tar - 1; j++)
+			cardinalities[j] += cardinalities[i*(N_tar-1)+j];
 
-	#ifdef MPI_ENABLED
-	MPI_Barrier(MPI_COMM_WORLD);
-	if (!rank)
-		MPI_Reduce(MPI_IN_PLACE, cardinalities, max_cardinality, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-	else
-		MPI_Reduce(cardinalities, NULL, max_cardinality, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-	#endif
+	//Free Workspace
+	ca->hostMemUsed -= sizeof(BlockType) * clone_length * omp_get_max_threads();
+	workspace.clear();
+	workspace.swap(workspace);
 
-	if (max_cardinality < 5)
-		goto ActionExit;
-
-	action = calcAction(cardinalities, get_stdim(spacetime), lk, smeared);
+	action = calcAction(cardinalities, get_stdim(spacetime), lk, true);
 	assert (action == action);
 
-	ActionExit:
 	stopwatchStop(&sMeasureAction);
 
 	if (!bench) {
-		printf_mpi(rank, "\tCalculated Action.\n");
-		printf_mpi(rank, "\t\tTerms Used: %d\n", max_cardinality);
-		if (!rank) printf_cyan();
-		printf_mpi(rank, "\t\tCausal Set Action: %f\n", action);
-		if (max_cardinality < 10)
-			for (m = 0; m < max_cardinality; m++)
-				printf_mpi(rank, "\t\t\tN%d: %d\n", m, cardinalities[m]);
-		if (!rank) printf_std();
+		printf("\tCalculated Action.\n");
+		printf("\t\tTerms Used: %d\n", N_tar - 1);
+		printf_cyan();
+		printf("\t\tCausal Set Action: %f\n", action);
+		printf_std();
 		fflush(stdout);
 	}
 
 	if (verbose) {
-		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sMeasureAction.elapsedTime);
+		printf("\t\tExecution Time: %5.6f sec\n", sMeasureAction.elapsedTime);
 		fflush(stdout);
 	}
 
 	return true;
 }
-

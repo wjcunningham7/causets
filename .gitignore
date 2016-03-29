@@ -3,6 +3,7 @@ dat/**
 bin/*
 obj/*
 opt/fastmath/**
+opt/fastmath
 core*
 etc/tables/*
 Makefile

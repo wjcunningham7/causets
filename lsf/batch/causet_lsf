@@ -28,7 +28,7 @@ else
 fi
 
 # Setup peripheral directories and copy necessary files, as well as the binary
-sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphid%:g" < $homedir/lsf/setup/causet_setup | source /dev/stdin
+sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphid%:g;s:@queue@:%queue%:g" < $homedir/lsf/setup/causet_setup | source /dev/stdin
 
 # Do not edit below this
 
@@ -60,9 +60,9 @@ if [ "$usegraphlist" -eq 1 ] ; then # Use a list of graph ids
   for (( i=1; i<=${#graphs[@]}; i++ )) ; do
     echo "Reading Graph ${graphs[$i-1]}."
     if [ ${usempi} -eq 0 ] ; then # Do not use MPI
-      ./CausalSet %flags% --graph ${graphs[$i-1]} > CausalSet_Job-%jobID%_Sample-$i.log
+      ./CausalSet_%queue% %flags% --graph ${graphs[$i-1]} > CausalSet_Job-%jobID%_Sample-$i.log
     else # Do use MPI
-      mpirun -np %mpinodes% -hostfile hostlist-tcp ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+      mpirun -np %mpinodes% -hostfile hostlist-tcp ./CausalSet_%queue% %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
     fi
     sleep 1
   done
@@ -70,9 +70,9 @@ else # Use a single graph id or create new graphs
   for (( i=1; i<=%nsamples%; i++ )); do
     echo "Starting Trial ${i} of %nsamples%"
     if [ ${usempi} -eq 0 ] ; then # Do not use MPI
-      ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+      ./CausalSet_%queue% %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
     else # Do use MPI
-      mpirun -np %mpinodes% -hostfile hostlist-tcp ./CausalSet %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+      mpirun -np %mpinodes% -hostfile hostlist-tcp ./CausalSet_%queue% %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
     fi
     sleep 1
   done
