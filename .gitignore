@@ -7,3 +7,4 @@ opt/fastmath
 core*
 etc/tables/*
 Makefile
+inc/Constants.h
