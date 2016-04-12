@@ -234,20 +234,12 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			break;
 		case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
 		{
-			IntData idata;
-			idata.limit = 50;
-			idata.tol = 1e-5;
-			idata.lower = -eta0;
-			idata.upper = eta0;
-			double t1 = (sin(eta0) + sin(5.0 * eta0)) / (3.0 * POW3(cos(eta0), EXACT));
-			double t2 = 2.0 * integrate1D(&averageDegree_21028_0, NULL, &idata, QNG);
-			double t3 = (2.0 * eta0 * eta0 - 1.0) * (3.0 * sin(eta0) + sin(3.0 * eta0)) / (3.0 * POW3(cos(eta0), EXACT));
-
-			network_properties->k_tar = 3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) * (t1 + t2 + t3) / (M_PI * tan(eta0) * (2.0 + 1.0 / POW2(cos(eta0), EXACT)) * (3.0 * sin(eta0) + sin(3.0 * eta0)));
+			network_properties->k_tar = 2.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) * (-51.0 * sin(eta0) + 7.0 * sin(3.0 * eta0) + 6.0 * (eta0 * (3.0 + 1.0 / POW2(cos(eta0), EXACT)) + tan(eta0)) / cos(eta0)) / (3.0 * M_PI * POW2(3.0 * sin(eta0) + sin(3.0 * eta0), EXACT));
 			if (!!network_properties->delta)
-				network_properties->a = POW(3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) / (TWO_PI * M_PI * network_properties->delta * (3.0 * sin(eta0) + sin(3.0 * eta0))), 0.25, STL);
+				network_properties->a = POW(3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) / (2.0 * POW2(M_PI, EXACT) * network_properties->delta * (3.0 * sin(eta0) + sin(3.0 * eta0))), 0.25, STL);
 			else
-				network_properties->delta = 3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) / (TWO_PI * M_PI * POW2(POW2(network_properties->a, EXACT), EXACT) * (3.0 * sin(eta0) + sin(3.0 * eta0)));
+				network_properties->delta = 3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) / (2.0 * POW2(M_PI, EXACT) * POW2(POW2(network_properties->a, EXACT), EXACT) * (3.0 * sin(eta0) + sin(3.0 * eta0)));
+
 			break;
 		}
 		case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
@@ -1385,6 +1377,9 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 					nodes.crd->z(i) = emb4.z;
 					#else
 					nodes.crd->w(i) = get_4d_sym_sph_deSitter_slab_eta(urng, zeta);
+					//This statement makes the slab partially asymmetric on the upper half
+					//if (nodes.crd->w(i) > eta0 / 2.0)
+					//	nodes.crd->w(i) = M_PI;
 					nodes.id.tau[i] = etaToTauSph(nodes.crd->w(i));
 					nodes.crd->x(i) = get_4d_sym_sph_deSitter_slab_theta1(urng);
 					nodes.crd->y(i) = get_4d_sym_sph_deSitter_slab_theta2(urng);

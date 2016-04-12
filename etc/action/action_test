@@ -1,0 +1,20 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Creates a parameter file which lsf/tests/action can read (for many runs)
+
+min=$1
+max=$2
+num=$3
+
+basedir=./etc/action
+while IFS=' ' read -r -a avals ; do
+  for i in $(seq ${#avals[@]}) ; do
+    echo ${avals[${i}-1]} >> causet.par
+  done
+done <<< $($basedir/action_params $min $max $num)

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Use this to broadcast a local file to many data sets
+
+start=894
+end=993
+
+homedir=/home/cunningham.wi/projects/causets
+basedir=/gss_gpfs_scratch/cunningham
+
+sourcefile=$homedir/etc/action/action_single
+dest=etc
+
+for i in $(seq $start $end) ; do
+  dir=$basedir/causet${i}
+  cp $sourcefile $dir/$dest
+done

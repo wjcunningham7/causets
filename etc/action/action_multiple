@@ -8,21 +8,22 @@
 
 # Calculates the average and standard error of the action over several lk
 # Note this script should only be used for the smeared action
+# Data is put in a good form for plotting in Mathematica
 
 import glob
 import math
 import numpy as np
 import sys
 
-stdim = 2
+stdim = 4
 
 if not (stdim == 2 or stdim == 4):
 	sys.stdout.write('Invalid parameter: [stdim]');
 	sys.exit(1)
 
 # Range of job numbers (inclusive)
-jobStart = 506
-jobEnd = 521
+jobStart = 980
+jobEnd = 981
 njobs = jobEnd - jobStart + 1
 
 # Range of lk to use (inclusive)
@@ -31,8 +32,8 @@ lkmax = 10
 lkstep = 1
 nlk = (lkmax - lkmin + 1) / lkstep
 
-#basedir = '/scratch/cunningham/'
-basedir = '/krioukov/will/'
+basedir = '/gss_gpfs_scratch/cunningham/'
+#basedir = '/krioukov/will/'
 action = np.zeros((nlk, njobs))
 err = np.zeros((nlk, njobs))
 
@@ -81,7 +82,7 @@ for lk in range(lkmin, lkmax + lkstep, lkstep):
 		action[int((lk-lkmin)/lkstep)][int(job-jobStart)] = np.mean(a)
 		err[int((lk-lkmin)/lkstep)][int(job-jobStart)] = np.std(a) / math.sqrt(len(files))
 
-basedir = '/home/cunningham.wi/projects/causets/dat/ref/'
+basedir = '/home/cunningham.wi/projects/causets/'
 
 if stdim == 2:
 	filename = 'd2_'
@@ -89,8 +90,8 @@ elif stdim == 4:
 	filename = 'd4_'
 filename += 'smeared'
 
-f = open(basedir + 'action_' + filename + '.cset.act.ref', 'w')
-g = open(basedir + 'stderr_' + filename + '.cset.act.ref', 'w')
+f = open(basedir + 'action_' + filename + '.cset.act.ref', 'a')
+g = open(basedir + 'stderr_' + filename + '.cset.act.ref', 'a')
 for i in range(nlk):
 	for j in range(njobs):
 		f.write(str(action[i][j]) + ' ')

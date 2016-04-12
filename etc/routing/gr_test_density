@@ -1,6 +1,12 @@
 #!/bin/bash
 
-# Creates a parameter file which lsf/causet_test can read (for many runs)
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Creates a parameter file which lsf/tests/navigation can read (for many runs)
 
 st=$1
 q=$2

@@ -1027,7 +1027,8 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const Bitvec
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	#endif
 
-	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
+	int n = N_tar + N_tar % 2;
+	uint64_t max_pairs = static_cast<uint64_t>(n) * (n - 1) / 2;
 	uint64_t stride = max_pairs / static_cast<uint64_t>(N_emb);
 	uint64_t npairs = static_cast<uint64_t>(N_emb);
 	uint64_t start = 0;
@@ -1035,6 +1036,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const Bitvec
 	int rank = cmpi.rank;
 
 	#ifdef MPI_ENABLED
+	assert (false);	//MPI code not maintained
 	uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
 	int edges_size = static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
 	#endif
@@ -1107,23 +1109,21 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const Bitvec
 		//Choose a pair
 		uint64_t vec_idx;
 
-		if (VE_RANDOM) {
-			#ifdef _OPENMP
+		if (VE_RANDOM)
 			vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
-			#else
-			vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
-			#endif
-		} else
+		else
 			vec_idx = k * stride;
 
-		int i = static_cast<int>(vec_idx / (N_tar - 1));
-		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
+		int i = static_cast<int>(vec_idx / (n - 1));
+		int j = static_cast<int>(vec_idx % (n - 1) + 1);
 		int do_map = i >= j;
 
-		if (j < N_tar >> 1) {
-			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
-			j = j + do_map * (((N_tar >> 1) - j) << 1);
+		if (j < n >> 1) {
+			i = i + do_map * ((((n >> 1) - i) << 1) - 1);
+			j = j + do_map * (((n >> 1) - j) << 1);
 		}
+
+		if (j == N_tar) continue;
 
 		//Embedded distance
 		double distance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], spacetime, a, alpha);
@@ -1211,7 +1211,8 @@ bool validateDistances(DVData &dvd, Node &nodes, const unsigned int &spacetime, 
 
 	bool DST_DEBUG = false;
 
-	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
+	int n = N_tar + N_tar % 2;
+	uint64_t max_pairs = static_cast<uint64_t>(n) * (n - 1) / 2;
 	uint64_t stride = max_pairs / static_cast<uint64_t>(N_dst);
 	uint64_t npairs = static_cast<uint64_t>(N_dst);
 	uint64_t start = 0;
@@ -1253,22 +1254,18 @@ bool validateDistances(DVData &dvd, Node &nodes, const unsigned int &spacetime, 
 	for (uint64_t k = start; k < finish; k++) {
 		//Choose a pair
 		uint64_t vec_idx;
-		if (VD_RANDOM) {
-			#ifdef _OPENMP
+		if (VD_RANDOM)
 			vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
-			#else
-			vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
-			#endif
-		} else
+		else
 			vec_idx = k * stride;
 
-		int i = static_cast<int>(vec_idx / (N_tar - 1));
-		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
+		int i = static_cast<int>(vec_idx / (n - 1));
+		int j = static_cast<int>(vec_idx % (n - 1) + 1);
 		int do_map = i >= j;
 
-		if (j < N_tar >> 1) {
-			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
-			j = j + do_map * (((N_tar >> 1) - j) << 1);
+		if (j < n >> 1) {
+			i = i + do_map * ((((n >> 1) - i) << 1) - 1);
+			j = j + do_map * (((n >> 1) - j) << 1);
 		}
 
 		//Distance using embedding
@@ -2705,16 +2702,18 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 
 	printf_dbg("Using Version 2.\n");
 
-	uint64_t npairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
+	int n = N_tar + N_tar % 2;
+	uint64_t npairs = static_cast<uint64_t>(n) * (n - 1) / 2;
 	uint64_t start = 0;
 	uint64_t finish = npairs;
 	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 	int rank = cmpi.rank;
-	int m, n;
+	//int m, n;
 	bool smeared = (max_cardinality == N_tar - 1);
 	double lk = 2.0;
 
 	#ifdef MPI_ENABLED
+	assert (false);	//MPI code not maintained
 	uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
 	uint64_t edges_size = static_cast<uint64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2;
 	#endif
@@ -2782,18 +2781,16 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	#endif
 	for (uint64_t v = start; v < finish; v++) {
 		//Choose a pair
-		int i = static_cast<int>(v / (N_tar - 1));
-		int j = static_cast<int>(v % (N_tar - 1) + 1);
+		int i = static_cast<int>(v / (n - 1));
+		int j = static_cast<int>(v % (n - 1) + 1);
 		int do_map = i >= j;
 
-		if (j < N_tar >> 1) {
-			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
-			j = j + do_map * (((N_tar >> 1) - j) << 1);
+		if (j < n >> 1) {
+			i = i + do_map * ((((n >> 1) - i) << 1) - 1);
+			j = j + do_map * (((n >> 1) - j) << 1);
 		}
 
-		if (i == j)
-			continue;
-		//printf("i: %d\tj: %d\n", i, j);
+		if (j == N_tar) continue;
 
 		int elements = 0;
 		bool too_many = false;
@@ -2849,9 +2846,9 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	}
 
 	//Reduction used when OpenMP has been used
-	for (m = 1; m < omp_get_max_threads(); m++)
-		for (n = 0; n < max_cardinality; n++)
-			cardinalities[n] += cardinalities[m*max_cardinality+n];
+	for (int i = 1; i < omp_get_max_threads(); i++)
+		for (int j = 0; j < max_cardinality; j++)
+			cardinalities[j] += cardinalities[i*max_cardinality+j];
 
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -2876,8 +2873,8 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 		if (!rank) printf_cyan();
 		printf_mpi(rank, "\t\tCausal Set Action: %f\n", action);
 		if (max_cardinality < 10)
-			for (m = 0; m < max_cardinality; m++)
-				printf_mpi(rank, "\t\t\tN%d: %d\n", m, cardinalities[m]);
+			for (int i = 0; i < max_cardinality; i++)
+				printf_mpi(rank, "\t\t\tN%d: %d\n", i, cardinalities[i]);
 		if (!rank) printf_std();
 		fflush(stdout);
 	}

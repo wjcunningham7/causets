@@ -5,7 +5,7 @@
 #BSUB -e /gss_gpfs_scratch/cunningham/causet%jobID%/causet%jobID%.err
 #BSUB -q %queue%
 #BSUB -n %totalcores%
-#BSUB -R span[ptile=%ncores%]
+#BSUB -R "span[ptile=%ncores%] select[hname!='%exclhost%']"
 #BSUB -cwd /gss_gpfs_scratch/cunningham/causet%jobID%
 #%waitfor%
 

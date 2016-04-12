@@ -282,7 +282,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 
 	static const bool SR_DEBUG = false;
 
-	uint64_t max_pairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
+	int n = N_tar + N_tar % 2;
+	uint64_t max_pairs = static_cast<uint64_t>(n) * (n - 1) / 2;
 	#if !SR_RANDOM
 	uint64_t stride = static_cast<uint64_t>(max_pairs / N_sr);
 	#endif
@@ -298,6 +299,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 	bool fail = false;
 
 	#ifdef MPI_ENABLED
+	assert (false);	//MPI code has not been maintained
 	uint64_t core_edges_size = static_cast<int>(POW2(core_edge_fraction * N_tar, EXACT));
 	int edges_size = static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
 	#endif
@@ -395,14 +397,16 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 		vec_idx = k * stride;
 		#endif
 
-		int i = static_cast<int>(vec_idx / (N_tar - 1));
-		int j = static_cast<int>(vec_idx % (N_tar - 1) + 1);
+		int i = static_cast<int>(vec_idx / (n - 1));
+		int j = static_cast<int>(vec_idx % (n - 1) + 1);
 		int do_map = i >= j;
 
-		if (j < N_tar >> 1) {
-			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
-			j = j + do_map * (((N_tar >> 1) - j) << 1);
+		if (j < n >> 1) {
+			i = i + do_map * ((((n >> 1) - i) << 1) - 1);
+			j = j + do_map * (((n >> 1) - j) << 1);
 		}
+
+		if (j == N_tar) continue;
 
 		if (SR_DEBUG) {
 			//printf("k: %" PRIu64 "    \ti: %d    \tj: %d    \t", k, i, j);
@@ -1100,7 +1104,8 @@ bool measureAction_v3(int *& cardinalities, float &action, Bitvector &adj, const
 	printf_dbg("Using Version 3.\n");
 
 	Bitvector workspace;
-	uint64_t npairs = static_cast<uint64_t>(N_tar) * (N_tar - 1) / 2;
+	int n = N_tar + N_tar % 2;
+	uint64_t npairs = static_cast<uint64_t>(n) * (n - 1) / 2;
 	uint64_t clone_length = adj[0].getNumBlocks();
 	double lk = 2.0;
 
@@ -1138,22 +1143,22 @@ bool measureAction_v3(int *& cardinalities, float &action, Bitvector &adj, const
 	for (uint64_t k = 0; k < npairs; k++) {
 		unsigned int tid = omp_get_thread_num();
 		//Choose a pair
-		uint64_t i = k / (N_tar - 1);
-		uint64_t j = k % (N_tar - 1) + 1;
+		uint64_t i = k / (n - 1);
+		uint64_t j = k % (n - 1) + 1;
 		uint64_t do_map = i >= j ? 1ULL : 0ULL;
 
-		if (j < N_tar >> 1) {
-			i = i + do_map * ((((N_tar >> 1) - i) << 1) - 1);
-			j = j + do_map * (((N_tar >> 1) - j) << 1);
+		if (j < n >> 1) {
+			i = i + do_map * ((((n >> 1) - i) << 1) - 1);
+			j = j + do_map * (((n >> 1) - j) << 1);
 		}
 
-		if (i == j) continue;
+		if (j == N_tar) continue;
 		if (!nodesAreConnected_v2(adj, N_tar, static_cast<int>(i), static_cast<int>(j))) continue;
 
 		uint64_t length = j - i + 1;
 		adj[i].clone(workspace[tid], 0ULL, clone_length);
 		workspace[tid].partial_intersection(adj[j], i, length);
-		cardinalities[tid*N_tar+workspace[tid].partial_count(i, length)+1]++;
+		cardinalities[tid*(N_tar-1)+workspace[tid].partial_count(i, length)+1]++;
 	}
 
 	//Reduction for OpenMP

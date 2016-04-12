@@ -438,7 +438,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "\n");
 
 				printf_mpi(rank, "Report bugs to w.cunningham@neu.edu\n");
-				printf_mpi(rank, "GitHub repository home page: <https://bitbucket.org/dk-lab/2015_code_causets>\n");
+				printf_mpi(rank, "Bitbucket repository home page: <https://bitbucket.org/dk-lab/2015_code_causets>\n");
 				#ifdef MPI_ENABLED
 				MPI_Abort(MPI_COMM_WORLD, 0);
 				#else
@@ -623,8 +623,8 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	#endif
 
 	//Use this statement if you're creating a degree lookup table
-	//if (network->network_properties.flags.link)
-	//	printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime))));
+	if (network->network_properties.flags.link)
+		printf("rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(network->network_properties.a, (double)get_stdim(network->network_properties.spacetime))));
 
 	InitExit:
 	if (checkMpiErrors(network->network_properties.cmpi))

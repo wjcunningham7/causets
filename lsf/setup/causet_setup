@@ -21,7 +21,7 @@ cp $homedir/bin/CausalSet_@queue@ $work/
 mkdir -p $work/etc
 mkdir -p $work/etc/tables
 
-cp $homedir/etc/action $work/etc/
+cp $homedir/etc/action/action_single $work/etc/
 cp $homedir/etc/degrees $work/etc/
 cp $homedir/etc/deg_dist $work/etc/
 cp $homedir/etc/components $work/etc/
@@ -102,8 +102,8 @@ if [ @readjobid@ -ne 0 ] ; then
         exit 8
       fi
 
-      #cp $posfile $work/dat/pos
-      #cp $edgfile $work/dat/edg
+      cp $posfile $work/dat/pos
+      cp $edgfile $work/dat/edg
     done
   else
     posfile=$dir3/@readgraphid@.cset.pos.dat

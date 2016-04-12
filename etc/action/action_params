@@ -1,0 +1,24 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Generate a log-binned sequence of numbers
+
+import numpy as np
+import sys
+
+if len(sys.argv) == 1:
+  sys.stdout.write('Specify the minimum, maximum, and number of elements.\n')
+  sys.exit(1)
+
+min = float(sys.argv[1])
+max = float(sys.argv[2])
+n = float(sys.argv[3])
+
+x = np.logspace(np.log10(min), np.log10(max), num = n)
+for i in range(0, len(x)):
+	sys.stdout.write('%d\n' % np.round(x[i]))

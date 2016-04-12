@@ -1,5 +1,11 @@
 #!/bin/bash
 
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
 # Creates a parameter file which lsf/causet_test can read (for several runs)
 
 st=$1

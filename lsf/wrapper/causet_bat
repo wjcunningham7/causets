@@ -36,8 +36,10 @@ mpinodes=0
 # Wait for a job to finish first
 waitid=0
 
+exclude="none"
+
 # Parse command line parameters
-OPTIONS=`getopt -o c:f:G:hJ:j:m:q:R:s:w: -l ncores:,flags:,graph:,'help',mpi:,start:,njobs:,queue:,readjob:,nsamples:,waitfor: -n 'causet_bat' -- "$@"`
+OPTIONS=`getopt -o c:f:G:hJ:j:m:q:R:s:w:x: -l ncores:,flags:,graph:,'help',mpi:,start:,njobs:,queue:,readjob:,nsamples:,waitfor:,exclude: -n 'causet_bat' -- "$@"`
 
 if [ $? -ne 0 ] ; then
   echo "Unrecognized option. Try running with --help flag." >&2
@@ -98,6 +100,11 @@ while true ; do
         "") shift 2 ;;
         *) waitid=$2 ; shift 2 ;;
       esac ;;
+    -x|--exclude)
+      case "$2" in
+        "") shift 2 ;;
+        *) exclude=$2 ; shift 2 ;;
+      esac ;;
     -h|--help)
       echo "Usage: causet_bat [OPTION]..."
       echo "Send CausalSet jobs to LSF queue on Discovery cluster."
@@ -113,6 +120,7 @@ while true ; do
       echo "  -R, --readjob    job ID specified when reading graph(s) from another job"
       echo "  -s, --nsamples   number of samples to run serially on a single node"
       echo "  -w, --waitfor    job which must complete before this one starts"
+      echo "  -x, --exclude    exclude a certain host"
       echo ""
       echo "Report causet_bat bugs to w.cunningham@neu.edu"
       echo "GitHub repository home page: <https://bitbucket.org/dk-lab/2015_code_causets>"
@@ -158,7 +166,7 @@ for (( i=${istart}; i<${njobs}+${istart}; i++ )) ; do
     echo "Invalid option: jobid equals readjobid!"
     exit 3;
   fi
-  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%totalcores%:$totalcores:g;s:%mpinodes%:$mpinodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%usempi%:$usempi:g;s:%waitfor%:$waitfor:g" < lsf/batch/causet_lsf | bsub
+  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%totalcores%:$totalcores:g;s:%mpinodes%:$mpinodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%usempi%:$usempi:g;s:%waitfor%:$waitfor:g;s:%exclhost%:$exclude:g" < lsf/batch/causet_lsf | bsub
   sleep 1
 done
 

@@ -7,15 +7,22 @@
 ###########################
 
 # Concatenates cardinalities, and then calculates average action and std. dev.
+# The theoretical action is calculated assuming a K = 1 de Sitter slab
 
 import glob
 import math
 import numpy as np
 import sys
 
-stdim = 2
+stdim = 4
 smeared = True
-symmetric = False
+symmetric = True
+
+if len(sys.argv) == 1:
+	sys.stdout.write('Specify the cutoff time and number of nodes.')
+
+eta0 = float(sys.argv[1])
+n = int(sys.argv[2])
 
 if not (stdim == 2 or stdim == 4):
 	sys.stdout.write('Invalid parameter: [stdim]');
@@ -25,6 +32,10 @@ basedir = ''
 act_files = glob.glob(basedir + 'dat/act/*.cset.act.dat')
 a = []
 c = []
+
+if len(act_files) == 0:
+	sys.stdout.write('No files found.\n')
+	sys.exit(2)
 
 # Array of actions
 for i in range(0,len(act_files)):
@@ -67,6 +78,7 @@ for file in act_files:
 
 avg_action = np.mean(a)
 std_action = np.std(a)
+stderr = std_action / math.sqrt(len(act_files))
 
 basedir = './dat/ref/'
 
@@ -85,7 +97,6 @@ for i in range(0,len(act_files)):
 	h.write(str(a[i]) + '\n')
 h.close()
 
-eta0 = 0.5
 if stdim == 2:
 	v = 2.0 * math.pi * math.tan(eta0)
 elif stdim == 4:
@@ -99,14 +110,6 @@ if stdim == 2:
 elif stdim == 4:
 	th_action = 6.0 * math.sqrt(n * v)
 
-if stdim == 2:
-	plt_val = th_action
-elif stdim == 4:
-	plt_val = avg_action / (6.0 * math.sqrt(v))
-
-#sys.stdout.write('Plot Value:     %f\n' % plt_val)
-sys.stdout.write('Average Action: %f\n' % avg_action)
-#sys.stdout.write('Std. Deviation: %f\n' % std_action)
-sys.stdout.write('Std. Error:     %f\n' % (std_action / math.sqrt(len(act_files))))
+sys.stdout.write('Average Action: %f \xC2\xB1 %f\n' % (avg_action, stderr))
 sys.stdout.write('Theor. Action:  %f\n' % th_action)
 sys.stdout.write('Completed ACT.\n')

@@ -1,5 +1,11 @@
 #!/bin/bash
 
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
 # Used to process output of many runs into a format Mathematica can read
 
 st=11396
