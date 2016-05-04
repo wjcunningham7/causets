@@ -8,7 +8,7 @@
 /////////////////////////////
 
 //Version
-#define VERSION 0
+#define VERSION 1
 
 //Numerical Constants
 #define TOL (1e-28)	//Zero
@@ -47,7 +47,7 @@
 				//Should be greater than 1.0
 
 //Debugging Flags
-#define DEBUG true	//Determines whether unit testing is in effect
+#define DEBUG false	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements
 
 #define NPRINT 1000	//Used for debugging statements inside loops
@@ -59,6 +59,8 @@
 
 //CUDA Flags
 #define GLOB_MEM %GLOB_MEM%
+
+#define GPU_MIN 384	//Minimum number of nodes needed for GPU linking
 
 #define BLOCK_SIZE 128	//Number of threads per block
 			//This value is dependent on the GPU architecture

@@ -42,7 +42,7 @@ for ((i=0; i<${#hosts[@]}; i += 2)) ;
 do
 	HOST=${hosts[$i]}
 	CORE=${hosts[(($i+1))]}
-	echo $HOST:$CORE >> $tempfile2
+	echo $HOST 1 >> $tempfile2
 done
 
 # Do not edit above this
@@ -62,7 +62,7 @@ if [ "$usegraphlist" -eq 1 ] ; then # Use a list of graph ids
     if [ ${usempi} -eq 0 ] ; then # Do not use MPI
       ./CausalSet_%queue% %flags% --graph ${graphs[$i-1]} > CausalSet_Job-%jobID%_Sample-$i.log
     else # Do use MPI
-      mpirun -np %mpinodes% -hostfile hostlist-tcp ./CausalSet_%queue% %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+      mpirun -np %mpinodes% -hostfile $tempfile2 -prot ./CausalSet_%queue% %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
     fi
     sleep 1
   done
@@ -72,7 +72,7 @@ else # Use a single graph id or create new graphs
     if [ ${usempi} -eq 0 ] ; then # Do not use MPI
       ./CausalSet_%queue% %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
     else # Do use MPI
-      mpirun -np %mpinodes% -hostfile hostlist-tcp ./CausalSet_%queue% %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
+      mpirun -np %mpinodes% -hostfile $tempfile2 -prot ./CausalSet_%queue% %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-$i.log
     fi
     sleep 1
   done

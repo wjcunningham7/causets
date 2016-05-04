@@ -9,6 +9,8 @@
 # This script is used to create the directory structure used
 # by the CausalSet program to store data files
 
+set -eu -o pipefail
+
 basedir='.'
 
 if [ "$#" -eq 1 ]; then

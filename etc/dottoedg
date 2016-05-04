@@ -8,6 +8,8 @@
 
 # Converts a dot file to an edge list
 
+set -eu -o pipefail
+
 if [[ "$#" -ne 2 ]] ; then
   echo "Must specify an input and output filename."
   exit 1

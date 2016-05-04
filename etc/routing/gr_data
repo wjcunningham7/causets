@@ -8,17 +8,32 @@
 
 # Used to process output of many runs into a format Mathematica can read
 
-st=11396
-ver=0
-q=300000
-k=60000
-constq=false  #if false, constk=true
+set -eu -o pipefail
 
-jobstart=883
-jobend=893
+constq=true  #if false, constk=true
+if [[ "$#" -lt 5 ]] ; then
+  if [[ "$constq" == "true" ]] ; then
+    echo "Arguments are [jobstart] [jobend] [density] [spacetime] [version]."
+  else
+    echo "Arguments are [jobstart] [jobend] [degree] [spacetime] [version]."
+  fi
+  exit 1
+fi
+
+jobstart=$1
+jobend=$2
+if [[ "$constq" == "true" ]] ; then
+  q=$3
+else
+  k=$3
+fi
+st=$4
+ver=$5
 
 homedir='/home/cunningham.wi/projects/causets'
-basedir='/krioukov/will'
+#basedir='/krioukov/will'
+basedir='/gss_gpfs_scratch/cunningham'
+
 for i in $(seq ${jobstart} ${jobend}) ; do
   dir="$basedir/causet${i}"
   cd $dir

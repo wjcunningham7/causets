@@ -8,8 +8,10 @@
 
 # Use this to broadcast a local file to many data sets
 
-start=894
-end=993
+set -eu -o pipefail
+
+start=984
+end=1002
 
 homedir=/home/cunningham.wi/projects/causets
 basedir=/gss_gpfs_scratch/cunningham

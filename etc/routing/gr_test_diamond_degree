@@ -8,11 +8,16 @@
 
 # Creates a parameter file which lsf/causet_test can read (for several runs)
 
+set -eu -o pipefail
+
+if [[ "$#" -lt 2 ]] ; then
+  echo "Arguments are [spacetime] [degree]."
+  exit 1
+fi
+
 st=$1
 k=$2
 tau0=(0.01 0.0169865 0.028854 0.0490127 0.0832553 0.141421 0.240225 0.408057 0.693145 1.17741 1.99)
-#tau0=(0.240225 0.408057 0.693145 1.17741 1.99)
-#tau0=(0.028854)
 
 basedir=./etc/routing
 if [[ "$st" == 11300 ]] ; then
@@ -23,6 +28,6 @@ elif [[ "$st" == 11396 ]] ; then
   scr=$basedir/gr_flrw_diamond_k
 fi
 
-for i in ${tau0[@]}; do
+for i in ${tau0[@]} ; do
   echo "$i $($scr $k $i | awk '/n:/ {print $2}')" >> causet.par
 done

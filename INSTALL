@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eu -o pipefail
+
 if [[ -z "$CAUSET_LOCAL_DIR" ]] ; then
   echo "Using $PWD/local as your local directory."
   echo "Adding this variable to your .bashrc file."
@@ -47,6 +49,8 @@ if [[ $(cat /proc/cpuinfo | grep avx2 | wc -l) -ne 0 ]] ; then
   echo "AVX2 support detected."
   AVX=1
   AVX_FLAGS="-mavx2 -march=core-avx2 -mtune=core-avx2 -mpopcnt -DAVX2_ENABLED"
+else
+  AVX_FLAGS=""
 fi
 
 if [[ $(lspci | grep NVIDIA | wc -l) -ne 0 ]] ; then
@@ -59,7 +63,7 @@ if [[ $(lspci | grep NVIDIA | wc -l) -ne 0 ]] ; then
   NVCC=$CUDA_HOME/bin/nvcc
   CUDA_INCD="-I $CUDA_SDK_PATH/common/inc -I $CUDA_HOME/include"
   CUDA_LIBS="-L /usr/lib/nvidia-current -L $CUDA_HOME/lib64 -L $CUDA_SDK_PATH/common/lib -lcuda -lcudart"
-  NVCC_FLAGS="-O3 -G -g -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED -arch=sm_35"
+  NVCC_FLAGS="-O3 -G -g -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED -arch=sm_35 --std=c++11 -DBOOST_NO_FENV_H"
   GPU_TARGET="check-env dirs \$(COBJS) \$(CUDAOBJS) linkgpu bin"
 
   GLOB_MEM_MIB=$(nvidia-smi -q | grep -A3 "FB Memory Usage" | awk '/Total/ {print $3}')
@@ -68,6 +72,13 @@ if [[ $(lspci | grep NVIDIA | wc -l) -ne 0 ]] ; then
   echo "Use 'make gpu' to compile with GPU features enabled."
   echo "NOTE: If your graphics card does not have Compute Capability 3.5, you must edit the -arch flag in the Makefile!"
 else
+  CUDA_HOME=""
+  CUDA_SDK_PATH=""
+  NVCC=""
+  CUDA_INCD=""
+  CUDA_LIBS=""
+  NVCC_FLAGS=""
+  GPU_TARGET=""
   sed "s:%GLOB_MEM%:0:g" < inc/Constants.in > inc/Constants.h
 fi
 

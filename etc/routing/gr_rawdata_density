@@ -1,0 +1,82 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Generate a raw data table for a constant-density routing experiment
+
+set -u -o pipefail
+
+if [[ "$#" -lt 5 ]] ; then
+  echo "Arguments are [jobstart] [jobend] [density] [spacetime] [version]."
+  exit 1
+fi
+
+jobstart=$1
+jobend=$2
+density=$3
+spacetime=$4
+version=$5
+
+declare -a energies=(0.73 0.75 0.77 0.78 0.8 0.82 0.83 0.85 0.86 0.875 0.88 0.89 0.9 0.91 0.92 0.93 0.94 0.95 0.96 0.97 0.975 0.98 0.985 0.99 0.993)
+declare -a nodes
+declare -a degrees
+declare -a success err
+
+basedir='/gss_gpfs_scratch/cunningham'
+homedir='/home/cunningham.wi/projects/causets'
+
+if [[ ! -d $basedir ]] ; then
+  echo "Base directory does not exist!"
+  exit 2
+fi
+
+for i in $(seq $jobstart $jobend) ; do
+  dir=$basedir/causet${i}
+  if [[ ! -d $dir ]] ; then
+    echo "Could not find directory: $dir"
+    exit 3
+  fi
+
+  cd $dir
+  if [[ ! -e $dir/causet${i}.err ]] ; then
+    echo "It appears job $i is still running."
+    exit 4
+  fi
+
+  if [[ -s $dir/causet${i}.err ]] ; then
+    echo "Error detected in job $i"
+    echo "--------------------------"
+    cat $dir/causet${i}.err
+    echo -e "\nContinue? [y/n]"
+    read response
+    if [[ "$response" != "y" ]] ; then
+      exit 5
+    fi
+  fi
+
+  nsamples=$(ls $dir/dat/*.cset.out 2> /dev/null | wc -l)
+  if [[ $nsamples -eq 0 ]] ; then
+    echo "No data found!"
+    exit 6
+  fi
+
+  logfile=$dir/CausalSet_Job-${i}_Sample-1.log
+
+  nodes+=($(awk '/Number of Nodes:/ {print $6}' $logfile))
+  degrees+=($(./etc/degrees | awk '/Average Degrees:/ {print $3}'))
+  s=($(./etc/success | awk '/Success Ratio:/ {print $3, $5}'))
+  success+=(${s[0]})
+  err+=(${s[1]})
+done
+
+outfile=$homedir/navigation_q-${density}_${spacetime}_${version}.cset.suc.raw
+echo "Job Energy Nodes Degree Success Error" >> $outfile
+njobs=$(($jobend-$jobstart+1))
+for (( i=0 ; i<$njobs ; i++ )) ; do
+  job=$(($i+$jobstart))
+  echo "$job ${energies[$i]} ${nodes[$i]} ${degrees[$i]} ${success[$i]} ${err[$i]}" >> $outfile
+done

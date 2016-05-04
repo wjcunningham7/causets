@@ -9,6 +9,8 @@
 # This script is used to make a table of k(t) for 
 # spacetimes where there exists no theoretical expression
 
+set -eu -o pipefail
+
 # Spacetime ID
 id=11300
 

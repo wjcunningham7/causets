@@ -12,8 +12,6 @@ import math
 import numpy as np
 import sys
 
-#k = 10
-#tau0 = 0.3
 k = float(sys.argv[1])
 tau0 = float(sys.argv[2])
 kappa = 0

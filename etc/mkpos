@@ -8,6 +8,8 @@
 
 # Generates a node coordinate file for $1 nodes with a graph id $2
 
+set -eu -o pipefail
+
 n=$1
 gid=$2
 

@@ -52,7 +52,7 @@ void causet_intersection(int &elements, const int * const past_edges, const int 
 //Format Partial Adjacency Matrix Data
 void readDegrees(int * const &degrees, const int * const h_k, const size_t &offset, const size_t &size);
 
-void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit);
+void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit, const bool &use_mpi);
 
 void remakeAdjMatrix(bool * const adj0, bool * const adj1, const int * const k_in, const int * const k_out, const int * const past_edges, const int * const future_edges, const int64_t * const past_edge_row_start, const int64_t * const future_edge_row_start, int * const idx_buf0, int * const idx_buf1, const int &N_tar, const int &i, const int &j, const int64_t &l);
 
@@ -68,5 +68,25 @@ int printf_mpi(int rank, const char * format, ...);
 
 //Check for MPI Errors
 bool checkMpiErrors(CausetMPI &cmpi);
+
+void perm_to_binary(FastBitset &fb, std::vector<unsigned int> perm);
+
+void binary_to_perm(std::vector<unsigned int> &perm, const FastBitset &fb, const unsigned int len);
+
+void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> perm);
+
+void fill_mpi_similar(std::vector<std::vector<unsigned int> > &similar, std::vector<unsigned int> perm);
+
+void print_pairs(std::vector<unsigned int> vec);
+
+void cyclesort(unsigned int &writes, std::vector<unsigned int> c, std::vector<std::pair<int,int> > *swaps);
+
+void relabel_vector(std::vector<unsigned int> &output, std::vector<unsigned int> input);
+
+void get_most_similar(std::vector<unsigned int> &sim, unsigned int &nsteps, std::vector<std::vector<unsigned int> > candidates, std::vector<unsigned int> current);
+
+void mpi_swaps(std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N_tar, const int num_mpi_threads, const int rank);
+
+unsigned int loc_to_glob_idx(std::vector<unsigned int> config, unsigned int idx, const int N_tar, const int num_mpi_threads, const int rank);
 
 #endif

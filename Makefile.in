@@ -50,7 +50,7 @@ CUDA_LIBS	 = %CUDA_LIBS%
 # Compiler Flags #
 ##################
 
-CXXFLAGS	:= -O3 -g -Wall -x c++
+CXXFLAGS	:= -O3 -g -Wall -x c++ -std=c++0x -DBOOST_NO_FENV_H
 NVCCFLAGS 	:= %NVCC_FLAGS%
 
 ################

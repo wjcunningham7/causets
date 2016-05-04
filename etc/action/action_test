@@ -8,6 +8,8 @@
 
 # Creates a parameter file which lsf/tests/action can read (for many runs)
 
+set -eu -o pipefail
+
 min=$1
 max=$2
 num=$3

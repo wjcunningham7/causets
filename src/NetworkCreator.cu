@@ -54,6 +54,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 	#ifdef MPI_ENABLED
 	if (network_properties->flags.verbose)
 		network_properties->flags.yes = true;
+	network_properties->flags.use_bit = true;
+	network_properties->core_edge_fraction = 1.0;
 	#endif
 
 	//If a graph ID has been provided, warn user
@@ -120,11 +122,16 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				else if (get_manifold(spacetime) & (DUST | FLRW) && !network_properties->alpha)
 					throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
 			}
+			if (get_curvature(spacetime) & POSITIVE && get_manifold(spacetime) & FLRW && !network_properties->alpha)
+				throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
 		}
 
 		//Default constraints
 		if (get_manifold(spacetime) & MINKOWSKI) {
-			network_properties->eta0 = network_properties->tau0;
+			if (get_region(spacetime) & SAUCER)
+				network_properties->tau0 = network_properties->eta0 = 1.0;
+			else
+				network_properties->eta0 = network_properties->tau0;
 			eta0 = network_properties->eta0;
 			network_properties->zeta = HALF_PI - eta0;
 			network_properties->a = 1.0;
@@ -185,6 +192,16 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->delta = 2.0 * network_properties->N_tar / POW2(network_properties->eta0, EXACT);
 			network_properties->r_max = network_properties->eta0 / 2.0;
 			break;
+		case (2 | MINKOWSKI | SAUCER | FLAT | SYMMETRIC):
+		{
+			//A guess here...
+			network_properties->k_tar = network_properties->N_tar / 2.0;
+			double volume = volume_77834_1(1.5) - volume_77834_1(-1.5);
+			network_properties->delta = static_cast<double>(network_properties->N_tar) / volume;
+			network_properties->a = 1.0;
+			network_properties->r_max = 1.5;
+			break;
+		}
 		case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 			network_properties->k_tar = network_properties->N_tar * (network_properties->eta0 / TAN(network_properties->eta0, STL) - LOG(COS(network_properties->eta0, STL), STL) - 1.0) / (TAN(network_properties->eta0, STL) * HALF_PI);
 			if (!!network_properties->delta)
@@ -313,7 +330,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			break;
 		}
 		case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
-			method = 1;
+			method = 0;
 			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->spacetime, network_properties->N_tar, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.verbose, network_properties->flags.bench, method))
 				network_properties->cmpi.fail = 1;
 
@@ -446,7 +463,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				printf_mpi(rank, "\t > Min. Conformal Time:\t\t0.0\n");
 				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
 			}
-			printf_mpi(rank, "\t > Max. Rescaled Time:\t\t%.6f\n", network_properties->tau0);
+			if (!(get_manifold(spacetime) & MINKOWSKI))
+				printf_mpi(rank, "\t > Max. Rescaled Time:\t\t%.6f\n", network_properties->tau0);
 			if (get_manifold(spacetime) & (DE_SITTER | FLRW))
 				printf_mpi(rank, "\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
 			if (get_manifold(spacetime) & (DUST | FLRW))
@@ -529,6 +547,10 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 			network_properties->group_size = gsize < NBUFFERS ? NBUFFERS : gsize;
 			network_properties->flags.decode_cpu = dcpu;
+
+			/*printf("MPI Threads: %d\n", network_properties->cmpi.num_mpi_threads);
+			printf("gsize:       %d\n", static_cast<int>(gsize));
+			printf("Group Size:  %d\n", network_properties->group_size);*/
 		}
 		#endif
 
@@ -799,7 +821,10 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int 
 				mem += sizeof(int) * static_cast<int64_t>(N_tar) * k_tar * (1.0 + edge_buffer);	//For edge lists
 				mem += sizeof(int64_t) * (N_tar << 1);	//For edge list pointers
 			}
-			mem += sizeof(bool) * static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)) / 8;	//Adjacency matrix
+			mem += static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT)) / (8 * cmpi.num_mpi_threads);	//Adjacency matrix
+			#ifdef MPI_ENABLED
+			mem += static_cast<uint64_t>(core_edge_fraction * N_tar) * ceil(static_cast<int>(N_tar * core_edge_fraction) / (2.0 * POW2(cmpi.num_mpi_threads, EXACT))) / 8;
+			#endif
 		}
 
 		size_t dmem = 0;
@@ -821,7 +846,7 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int 
 			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
 			assert (false);
 			#else
-			dmem1 += sizeof(float) * mthread_size * 4 * nbuf << 1;	//For 4-D coordinate buffers
+			dmem1 += sizeof(float) * mthread_size * get_stdim(spacetime) * nbuf << 1;	//For 4-D coordinate buffers
 			#endif
 			dmem1 += sizeof(int) * mthread_size * nbuf << 1;		//For k_in and k_out buffers (device)
 			dmem1 += sizeof(bool) * m_edges_size * nbuf;			//For adjacency matrix buffers (device)
@@ -981,12 +1006,28 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int 
 				ca->hostMemUsed += sizeof(int64_t) * N_tar;
 			}
 
-			adj.reserve(N_tar);
-			for (int i = 0; i < static_cast<int>(N_tar * core_edge_fraction); i++) {
+			int length = ceil(static_cast<int>(N_tar * core_edge_fraction) / cmpi.num_mpi_threads);
+			adj.reserve(length);
+			for (int i = 0; i < length; i++) {
 				FastBitset fb(static_cast<uint64_t>(core_edge_fraction * N_tar));
 				adj.push_back(fb);
 				ca->hostMemUsed += sizeof(BlockType) * fb.getNumBlocks();
 			}
+
+			#ifdef MPI_ENABLED
+			if (cmpi.num_mpi_threads > 1) {
+				int buflen = ceil(static_cast<int>(N_tar * core_edge_fraction) / (2.0 * POW2(cmpi.num_mpi_threads, EXACT)));
+				cmpi.adj_buf.reserve(buflen);
+				for (int i = 0; i < buflen; i++) {
+					FastBitset fb(static_cast<uint64_t>(core_edge_fraction * N_tar));
+					cmpi.adj_buf.push_back(fb);
+					ca->hostMemUsed += sizeof(BlockType) * fb.getNumBlocks();
+					//printf_mpi(rank, "buffer row [%d] has %" PRIu64 " blocks\n", i, fb.getNumBlocks());
+					//if (!rank) fflush(stdout);
+					//MPI_Barrier(MPI_COMM_WORLD);
+				}
+			}
+			#endif
 		}
 
 		memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
@@ -1022,7 +1063,7 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int 
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &a, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &a, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, CausetMPI &cmpi, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//Values are in correct ranges
@@ -1070,8 +1111,8 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	double params[3];
 	double xi = eta0 / sqrt(2.0);
 	double w = (zeta - zeta1) / sqrt(2.0);
-	double mu, mu1, mu2;
-	double p1;
+	double mu = 0.0, mu1 = 0.0, mu2 = 0.0;
+	double p1 = 0.0;
 
 	//Rejection sampling vs exact CDF inversion
 	bool use_rejection = false;
@@ -1104,6 +1145,11 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 
 	//Initialize constants
 	switch (spacetime) {
+	case (2 | MINKOWSKI | SAUCER | FLAT | SYMMETRIC):
+		mu1 = volume_77834_1(1.5);
+		mu2 = volume_77834_1(-1.5);
+		mu = mu1 - mu2;
+		break;
 	case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 		mu = LOG(POW2(w + 2.0 * xi, EXACT) / (4.0 * xi * (w + xi)), STL) - POW2(w / (w + 2.0 * xi), EXACT);
 		break;
@@ -1116,7 +1162,6 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		params[2] = zeta1;
 		(*idata).limit = 100;
 		(*idata).tol = 1e-8;
-		//(*idata).key = GSL_INTEG_GAUSS61;
 		(*idata).upper = zeta1;
 		mu1 = integrate1D(&volume_11396_0_lower, params, idata, QAGS);
 		(*idata).lower = (*idata).upper;
@@ -1138,6 +1183,8 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	#endif
 
 	//Generate coordinates for each of N nodes
+	int mpi_chunk = N_tar / cmpi.num_mpi_threads;
+	int mpi_offset = mpi_chunk * cmpi.rank;
 	if (use_rejection) {
 		#ifdef _OPENMP
 		UGenerator &urng = mrng.rng;
@@ -1155,6 +1202,12 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		int i = 0;
 		while (i < N_tar) {
 			switch (spacetime) {
+			case (2 | MINKOWSKI | SAUCER | FLAT | SYMMETRIC):
+				nodes.crd->x(i) = 3.0 * urng() - 1.5;
+				nodes.crd->y(i) = 2.0 * urng() - 1.0;
+				if (nodes.crd->x(i) > eta_77834_1(nodes.crd->y(i)))
+					continue;
+				break;
 			case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 				#if EMBED_NODES
 				nodes.crd->v(i) = get_4d_asym_flat_deSitter_slab_eta(urng, HALF_PI - zeta, HALF_PI - zeta1);
@@ -1262,9 +1315,12 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		}
 	} else {
 		//Use exact CDF inversion formulae (see notes)
+		int start = mpi_offset;
+		int finish = start + mpi_chunk;
+
 		#ifdef _OPENMP
 		unsigned int seed = static_cast<unsigned int>(mrng.rng() * 400000000);
-		#pragma omp parallel if (N_tar > 1000)
+		#pragma omp parallel if (N_tar < 1000)
 		{
 		//Initialize one RNG per thread
 		Engine eng(seed ^ omp_get_thread_num());
@@ -1274,7 +1330,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		NGenerator nrng(eng, ndist);
 		#pragma omp for schedule (dynamic, 8)
 		#endif
-		for (int i = 0; i < N_tar; i++) {
+		for (int i = start; i < finish; i++) {
 			#if EMBED_NODES
 			float2 emb2;
 			float3 emb3;
@@ -1291,6 +1347,10 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 					v = get_2d_asym_flat_minkowski_diamond_v(urng, xi);
 					nodes.crd->x(i) = (u + v) / sqrt(2.0);
 					nodes.crd->y(i) = (u - v) / sqrt(2.0);
+					break;
+				case (2 | MINKOWSKI | SAUCER | FLAT | SYMMETRIC):
+					nodes.crd->y(i) = get_2d_sym_flat_minkowski_saucer_x(urng, mu, mu2);
+					nodes.crd->x(i) = get_2d_sym_flat_minkowski_saucer_eta(urng, nodes.crd->y(i));
 					break;
 				case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 					nodes.crd->x(i) = get_2d_asym_sph_deSitter_slab_eta(urng, eta0);
@@ -1538,7 +1598,6 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		#endif
 	}
 
-
 	//Free GSL workspace memory
 	if ((USE_GSL || get_region(spacetime) & DIAMOND) && get_manifold(spacetime) & FLRW) {
 		for (int i = 0; i < (int)(i_size / sizeof(IntData)); i++)
@@ -1547,8 +1606,24 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		idata = NULL;
 	}
 
+	#ifdef MPI_ENABLED
+	if (nodes.id.tau != NULL)
+		MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, nodes.id.tau, mpi_chunk, MPI_FLOAT, MPI_COMM_WORLD);
+	if (nodes.crd->v() != NULL)
+		MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, nodes.crd->v(), mpi_chunk, MPI_FLOAT, MPI_COMM_WORLD);
+	if (nodes.crd->w() != NULL)
+		MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, nodes.crd->w(), mpi_chunk, MPI_FLOAT, MPI_COMM_WORLD);
+	if (nodes.crd->x() != NULL)
+		MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, nodes.crd->x(), mpi_chunk, MPI_FLOAT, MPI_COMM_WORLD);
+	if (nodes.crd->y() != NULL)
+		MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, nodes.crd->y(), mpi_chunk, MPI_FLOAT, MPI_COMM_WORLD);
+	if (nodes.crd->z() != NULL)
+		MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, nodes.crd->z(), mpi_chunk, MPI_FLOAT, MPI_COMM_WORLD);
+	#endif
+
 	//Debugging statements used to check coordinate distributions
-	//if (!printValues(nodes, spacetime, N_tar, "tau_dist.cset.dbg.dat", "tau")) return false;
+	//if (cmpi.rank == 0 && !printValues(nodes, spacetime, N_tar, "tau_dist_rank0.cset.dbg.dat", "tau")) return false;
+	//if (cmpi.rank == 1 && !printValues(nodes, spacetime, N_tar, "tau_dist_rank1.cset.dbg.dat", "tau")) return false;
 	//if (!printValues(nodes, spacetime, N_tar, "eta_dist.cset.dbg.dat", "eta")) return false;
 	//if (!printValues(nodes, spacetime, N_tar, "u_dist.cset.dbg.dat", "u")) return false;
 	//if (!printValues(nodes, spacetime, N_tar, "v_dist.cset.dbg.dat", "v")) return false;
@@ -1564,14 +1639,177 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	stopwatchStop(&sGenerateNodes);
 
 	if (!bench) {
-		printf("\tNodes Successfully Generated.\n");
+		printf_mpi(cmpi.rank, "\tNodes Successfully Generated.\n");
 		fflush(stdout);
 	}
 
 	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sGenerateNodes.elapsedTime);
+		printf_mpi(cmpi.rank, "\t\tExecution Time: %5.6f sec\n", sGenerateNodes.elapsedTime);
 		fflush(stdout);
 	}
+
+	return true;
+}
+
+bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, CausetMPI &cmpi, Stopwatch &sLinkNodes, const bool &use_bit, const bool &verbose, const bool &bench)
+{
+	#if DEBUG
+	//No null pointers
+	assert (!nodes.crd->isNull());
+
+	//Variables in correct ranges
+	assert (N_tar > 0);
+	assert (k_tar > 0.0f);
+	assert (get_stdim(spacetime) & (2 | 4));
+	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW));
+	assert (a > 0.0);
+	assert (tau0 > 0.0);
+	if (get_manifold(spacetime) & DE_SITTER) {
+		if (get_curvature(spacetime) & POSITIVE) {
+			assert (zeta > 0.0);
+			assert (zeta < HALF_PI);
+		} else if (get_curvature(spacetime) & FLAT) {
+			assert (zeta > HALF_PI);
+			assert (zeta1 > HALF_PI);
+			assert (zeta > zeta1);
+		}
+	} else if (get_manifold(spacetime) & (DUST | FLRW)) {
+		#if EMBED_NODES
+		assert (nodes.crd->getDim() == 5);
+		assert (nodes.crd->v() != NULL);
+		#else
+		assert (nodes.crd->getDim() == 4);
+		#endif
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->x() != NULL);
+		assert (nodes.crd->y() != NULL);
+		assert (nodes.crd->z() != NULL);
+		assert (get_stdim(spacetime) == 4);
+		assert (zeta < HALF_PI);
+		assert (alpha > 0.0);
+	}
+	if (get_curvature(spacetime) & FLAT)
+		assert (r_max > 0.0);
+	assert (use_bit);
+	#endif
+
+	#ifdef MPI_ENABLED
+	if (!cmpi.rank) printf_mag();
+	printf_mpi(cmpi.rank, "Using Version 2.\n");
+	if (!cmpi.rank) printf_std();
+	#endif
+
+	int64_t idx = 0;
+	int rank = cmpi.rank;
+	int mpi_chunk = N_tar / cmpi.num_mpi_threads;
+	int mpi_offset = rank * mpi_chunk;
+
+	uint64_t npairs = static_cast<uint64_t>(N_tar) * mpi_chunk;
+	uint64_t start = rank * npairs;
+	uint64_t finish = start + npairs;
+	stopwatchStart(&sLinkNodes);
+
+	//printf_mpi(rank - 1, "mpi_offset: %d\n", mpi_offset);
+	//printf_mpi(rank, "start: %d\tfinish: %d\n", start, finish);
+
+	#ifdef _OPENMP
+	#pragma omp parallel for schedule (dynamic, 1) reduction (+ : idx) if (finish - start > 1024)
+	#endif
+	for (uint64_t k = start; k < finish; k++) {
+		int i = static_cast<int>(k / N_tar);
+		int j = static_cast<int>(k % N_tar);
+
+		if (i == j) continue;
+		//printf_mpi(rank - 1, "i: %d\tj: %d\t", i, j);
+		bool related = nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, NULL);
+		//printf_mpi(rank - 1, "related: %d\n", (int)related);
+
+		/*if (i == 3 && j == 2) related = true;
+		if (i == 2 && j == 3) related = true;
+		if (i == 5 && j == 4) related = true;
+		if (i == 4 && j == 5) related = true;
+		if (i == 7 && j == 1) related = true;
+		if (i == 1 && j == 7) related = true;*/
+
+		if (related) {
+			#ifdef _OPENMP
+			#pragma omp critical
+			#endif
+			{
+				//printf_mpi(rank - 1, "Setting row [%d] column [%d]\n", i-mpi_offset, j);
+				adj[i-mpi_offset].set(j);
+				//printf_mpi(rank, "Setting row [%d] column [%d]\n", j, i);
+				//adj[j].set(i);
+				//printf_mpi(rank, "Successfully set both elements.\n");
+			}
+
+			if (i < j) {
+				#ifdef _OPENMP
+				#pragma omp atomic
+				#endif
+				nodes.k_in[j]++;
+				#ifdef _OPENMP
+				#pragma omp atomic
+				#endif
+				nodes.k_out[i]++;
+
+				idx++;
+			}
+		}
+	}
+
+	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Allreduce(MPI_IN_PLACE, nodes.k_in, N_tar, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+	MPI_Allreduce(MPI_IN_PLACE, nodes.k_out, N_tar, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+	MPI_Allreduce(MPI_IN_PLACE, &idx, 1, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
+	#endif
+
+	uint64_t kr = 0;
+	for (int i = 0; i < N_tar; i++) {
+		if (nodes.k_in[i] + nodes.k_out[i] > 0) {
+			N_res++;
+			kr += nodes.k_in[i] + nodes.k_out[i];
+
+			if (nodes.k_in[i] + nodes.k_out[i] > 1)
+				N_deg2++;
+		} 
+	}
+
+	#if DEBUG
+	assert (N_res >= 0);
+	assert (N_deg2 >= 0);
+	#endif
+
+	if (N_res > 0)
+		k_res = static_cast<long double>(kr) / N_res;
+
+	//if (!rank && !printDegrees(nodes, N_tar, "in-degrees_MPI_CPU.cset.dbg.dat", "out-degrees_MPI_CPU.cset.dbg.dat")) return false;
+	//if (!printAdjMatrix(adj, N_tar, "adj_matrix_MPI_CPU.cset.dbg.dat", cmpi.num_mpi_threads, cmpi.rank)) return false;
+
+	stopwatchStop(&sLinkNodes);
+
+	if (!bench) {
+		printf_mpi(rank, "\tCausets Successfully Connected.\n");
+		if (!rank) printf_cyan();
+		printf_mpi(rank, "\t\tUndirected Links:         %" PRIu64 "\n", idx);
+		printf_mpi(rank, "\t\tResulting Network Size:   %d\n", N_res);
+		printf_mpi(rank, "\t\tResulting Average Degree: %f\n", k_res);
+		printf_mpi(rank, "\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N_tar));
+		if (!rank) printf_red();
+		printf_mpi(rank, "\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
+		if (!rank) printf_std();
+		if (!rank) fflush(stdout);
+	}
+
+	if (verbose) {
+		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sLinkNodes.elapsedTime);
+		fflush(stdout);
+	}
+	
+	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
+	#endif
 
 	return true;
 }
@@ -1628,9 +1866,13 @@ bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spa
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	#endif
 
+	#ifdef MPI_ENABLED
+	printf_dbg("Using Version 1.\n");
+	#endif
+
 	uint64_t future_idx = 0;
 	uint64_t past_idx = 0;
-	int core_limit = static_cast<int>((core_edge_fraction * N_tar));
+	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 	int i, j, k;
 
 	bool related;
@@ -1650,6 +1892,7 @@ bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spa
 			//Core Edge Adjacency Matrix
 			if (i < core_limit && j < core_limit) {
 				if (related) {
+					//printf("[%d] and [%d] are related\n", i, j);
 					adj[i].set(j);
 					adj[j].set(i);
 				}
@@ -1746,6 +1989,7 @@ bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spa
 
 	//Print Results
 	/*if (!printDegrees(nodes, N_tar, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
+	if (!printAdjMatrix(adj, N_tar, "adj_matrix_CPU.cset.dbg.dat", 1, 0)) return false;
 	if (!printEdgeLists(edges, past_idx, "past-edges_CPU.cset.dbg.dat", "future-edges_CPU.cset.dbg.dat")) return false;
 	if (!printEdgeListPointers(edges, N_tar, "past-edge-pointers_CPU.cset.dbg.dat", "future-edge-pointers_CPU.cset.dbg.dat")) return false;
 	printf_red();

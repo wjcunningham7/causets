@@ -43,6 +43,8 @@ bool printEdgeLists(const Edge &edges, const int64_t num_vals, const char *filen
 
 bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *filename_past, const char *filename_future);
 
+bool printAdjMatrix(const Bitvector &adj, const int N, const char *filename, const int num_mpi_threads, const int rank);
+
 bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const unsigned int &spacetime);
 
 bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const unsigned int &spacetime, const bool &verbose);

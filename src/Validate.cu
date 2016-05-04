@@ -689,6 +689,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	unsigned int i, j;
 	bool diag;
 
+	unsigned int stdim = get_stdim(spacetime);
 	bool compact = get_curvature(spacetime) & POSITIVE;
 
 	//Thread blocks are grouped into "mega" blocks
@@ -734,17 +735,21 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	}
 	
 	//Allocate Node Buffers on Device
-	checkCudaErrors(cuMemAlloc(&d_w0, sizeof(float) * mthread_size));
 	checkCudaErrors(cuMemAlloc(&d_x0, sizeof(float) * mthread_size));
 	checkCudaErrors(cuMemAlloc(&d_y0, sizeof(float) * mthread_size));
-	checkCudaErrors(cuMemAlloc(&d_z0, sizeof(float) * mthread_size));
-	ca->devMemUsed += sizeof(float) * mthread_size * 4;
+	if (stdim == 4) {
+		checkCudaErrors(cuMemAlloc(&d_w0, sizeof(float) * mthread_size));
+		checkCudaErrors(cuMemAlloc(&d_z0, sizeof(float) * mthread_size));
+	}
+	ca->devMemUsed += sizeof(float) * mthread_size * stdim;
 
-	checkCudaErrors(cuMemAlloc(&d_w1, sizeof(float) * mthread_size));
 	checkCudaErrors(cuMemAlloc(&d_x1, sizeof(float) * mthread_size));
 	checkCudaErrors(cuMemAlloc(&d_y1, sizeof(float) * mthread_size));
-	checkCudaErrors(cuMemAlloc(&d_z1, sizeof(float) * mthread_size));
-	ca->devMemUsed += sizeof(float) * mthread_size * 4;
+	if (stdim == 4) {
+		checkCudaErrors(cuMemAlloc(&d_w1, sizeof(float) * mthread_size));
+		checkCudaErrors(cuMemAlloc(&d_z1, sizeof(float) * mthread_size));
+	}
+	ca->devMemUsed += sizeof(float) * mthread_size * stdim;
 
 	//Allocate Degree Buffers on Device
 	checkCudaErrors(cuMemAlloc(&d_k_in, sizeof(int) * mthread_size));
@@ -792,21 +797,55 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 			size1 = (j < group_size - 1) ? mthread_size : final_size;
 
 			//Copy node values to device buffers
-			checkCudaErrors(cuMemcpyHtoD(d_w0, nodes.crd->w() + i * mthread_size, sizeof(float) * size0));
 			checkCudaErrors(cuMemcpyHtoD(d_x0, nodes.crd->x() + i * mthread_size, sizeof(float) * size0));
 			checkCudaErrors(cuMemcpyHtoD(d_y0, nodes.crd->y() + i * mthread_size, sizeof(float) * size0));
-			checkCudaErrors(cuMemcpyHtoD(d_z0, nodes.crd->z() + i * mthread_size, sizeof(float) * size0));
+			if (stdim == 4) {
+				checkCudaErrors(cuMemcpyHtoD(d_w0, nodes.crd->w() + i * mthread_size, sizeof(float) * size0));
+				checkCudaErrors(cuMemcpyHtoD(d_z0, nodes.crd->z() + i * mthread_size, sizeof(float) * size0));
+			}
 
-			checkCudaErrors(cuMemcpyHtoD(d_w1, nodes.crd->w() + j * mthread_size, sizeof(float) * size1));
 			checkCudaErrors(cuMemcpyHtoD(d_x1, nodes.crd->x() + j * mthread_size, sizeof(float) * size1));
 			checkCudaErrors(cuMemcpyHtoD(d_y1, nodes.crd->y() + j * mthread_size, sizeof(float) * size1));
-			checkCudaErrors(cuMemcpyHtoD(d_z1, nodes.crd->z() + j * mthread_size, sizeof(float) * size1));
+			if (stdim == 4) {
+				checkCudaErrors(cuMemcpyHtoD(d_w1, nodes.crd->w() + j * mthread_size, sizeof(float) * size1));
+				checkCudaErrors(cuMemcpyHtoD(d_z1, nodes.crd->z() + j * mthread_size, sizeof(float) * size1));
+			}
 
 			//Synchronize
 			checkCudaErrors(cuCtxSynchronize());
 
 			//Execute Kernel
-			GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1, diag, compact);
+			int flags = ((int)diag << 4) | ((int)compact << 3) | stdim;
+			switch (flags) {
+			case 2:
+				GenerateAdjacencyLists_v2<false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				break;
+			case 4:
+				GenerateAdjacencyLists_v2<false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				break;
+			case 10:
+				GenerateAdjacencyLists_v2<true, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				break;
+			case 12:
+				GenerateAdjacencyLists_v2<true, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				break;
+			case 18:
+				GenerateAdjacencyLists_v2<false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				break;
+			case 20:
+				GenerateAdjacencyLists_v2<false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				break;
+			case 26:
+				GenerateAdjacencyLists_v2<true, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				break;
+			case 28:
+				GenerateAdjacencyLists_v2<true, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				break;
+			default:
+				fprintf(stderr, "Invalid flag value: %d\n", flags);
+				return false;
+			}
+
 			getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
 
 			//Synchronize
@@ -825,7 +864,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 			//Transfer data from buffers
 			readDegrees(nodes.k_in, h_k_in, j * mthread_size, size1);
 			readDegrees(nodes.k_out, h_k_out, i * mthread_size, size0);
-			readEdges(edges, h_edges, adj, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j, use_bit);
+			readEdges(edges, h_edges, adj, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j, use_bit, false);
 
 			//Clear Device Memory
 			checkCudaErrors(cuMemsetD32(d_k_in, 0, mthread_size));
@@ -837,22 +876,21 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 		}
 	}
 
-	cuMemFree(d_w0);
-	d_w0 = 0;
-
 	cuMemFree(d_x0);
 	d_x0 = 0;
 
 	cuMemFree(d_y0);
 	d_y0 = 0;
 
-	cuMemFree(d_z0);
-	d_z0 = 0;
+	if (stdim == 4) {
+		cuMemFree(d_w0);
+		d_w0 = 0;
 
-	ca->devMemUsed -= sizeof(float) * mthread_size * 4;
+		cuMemFree(d_z0);
+		d_z0 = 0;
+	}
 
-	cuMemFree(d_w1);
-	d_w1 = 0;
+	ca->devMemUsed -= sizeof(float) * mthread_size * stdim;
 
 	cuMemFree(d_x1);
 	d_x1 = 0;
@@ -860,10 +898,15 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	cuMemFree(d_y1);
 	d_y1 = 0;
 
-	cuMemFree(d_z1);
-	d_z1 = 0;
+	if (stdim == 4) {
+		cuMemFree(d_w1);
+		d_w1 = 0;
 
-	ca->devMemUsed -= sizeof(float) * mthread_size * 4;
+		cuMemFree(d_z1);
+		d_z1 = 0;
+	}
+
+	ca->devMemUsed -= sizeof(float) * mthread_size * stdim;
 
 	cuMemFree(d_k_in);
 	d_k_in = 0;
@@ -1037,7 +1080,7 @@ bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const Bitvec
 
 	#ifdef MPI_ENABLED
 	assert (false);	//MPI code not maintained
-	uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
+	//uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
 	int edges_size = static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
 	#endif
 
@@ -1530,6 +1573,65 @@ bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *fi
 
 		outputStream_future.flush();
 		outputStream_future.close();
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+		return false;
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+		return false;
+	}
+
+	return true;
+}
+
+bool printAdjMatrix(const Bitvector &adj, const int N, const char *filename, const int num_mpi_threads, const int rank)
+{
+	#if DEBUG
+	assert (adj.size() > 0);
+	assert (N > 0);
+	assert (filename != NULL);
+	assert (num_mpi_threads >= 1);
+	assert (rank >= 0);
+	#endif
+
+	try {
+		std::ofstream os;
+		for (int i = 0; i < num_mpi_threads; i++) {
+			#ifdef MPI_ENABLED
+			MPI_Barrier(MPI_COMM_WORLD);
+			#endif
+
+			if (i == rank) {
+				os.open(filename, std::ios::app);
+				if (!os.is_open())
+					throw CausetException("Failed to open adjacency matrix file in 'printEdgeLists' function!\n");
+
+				for (int j = 0; j < N / num_mpi_threads; j++) {
+					/*if (j == N / (num_mpi_threads << 1)) {
+						for (int k = 0; k < N; k++)
+							printf("--");
+						printf("\n");
+					}*/
+					for (int k = 0; k < N; k++) {
+						os << adj[j].read(k);
+						//printf("%" PRIu64 " ", adj[j].read(k));
+					}
+					os << "\n";
+					//printf(" [%d]\n", rank);
+				}
+
+				/*if (i != num_mpi_threads - 1) {
+					for (int j = 0; j < N; j++)
+						printf("==");
+					printf("\n");
+				}
+				fflush(stdout);*/
+				sleep(1);
+
+				os.flush();
+				os.close();
+			}
+		}
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
@@ -2300,12 +2402,16 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 	int m;
 
 	//Check if source and destination can be connected by any geodesic
-	if (get_manifold(spacetime) & (DE_SITTER | FLRW)) {
-		if ((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & POSITIVE))
+	if (get_manifold(spacetime) & DE_SITTER) {
+		if (get_curvature(spacetime) & POSITIVE)
 			dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
+		else if (get_curvature(spacetime) & FLAT)
+			dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 		else
+			return false;
+	} else if (get_manifold(spacetime) & FLRW)
 			dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
-	} else if (get_manifold(spacetime) & DUST)
+	else if (get_manifold(spacetime) & DUST)
 		dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 	else if (get_manifold(spacetime) & HYPERBOLIC)
 		dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
@@ -2382,12 +2488,16 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 			}
 
 			//(C) Otherwise find the past neighbor closest to the destination
-			if (get_manifold(spacetime) & (DE_SITTER | FLRW)) {
-				if ((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & POSITIVE))
+			if (get_manifold(spacetime) & DE_SITTER) {
+				if (get_curvature(spacetime) & POSITIVE)
 					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
+				else if (get_curvature(spacetime) & FLAT)
+					dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 				else
+					return false;
+			} else if (get_manifold(spacetime) & FLRW)
 					dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
-			} else if (get_manifold(spacetime) & DUST)
+			else if (get_manifold(spacetime) & DUST)
 				dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 			else if (get_manifold(spacetime) & HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
@@ -2445,12 +2555,16 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 			}
 
 			//(F) Otherwise find the future neighbor closest to the destination
-			if (get_manifold(spacetime) & (DE_SITTER | FLRW)) {
-				if ((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & POSITIVE))
+			if (get_manifold(spacetime) & DE_SITTER) {
+				if (get_curvature(spacetime) & POSITIVE)
 					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
+				else if (get_curvature(spacetime) & FLAT)
+					dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 				else
+					return false;
+			} else if (get_manifold(spacetime) & FLRW)
 					dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
-			} else if (get_manifold(spacetime) & DUST)
+			else if (get_manifold(spacetime) & DUST)
 				dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 			else if (get_manifold(spacetime) & HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
@@ -2498,7 +2612,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 //Measure Causal Set Action
 //O(N*k^2*ln(k)) Efficiency (Linked)
 //O(N^2*k) Efficiency (No Links)
-bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -2543,6 +2657,10 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	#endif
 
+	printf_dbg("Using Version 1.\n");
+
+	double lk = 2.0;
+	bool smeared = max_cardinality == N_tar - 1;
 	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 	int elements;
 	int64_t fstart, pstart;
@@ -2625,8 +2743,9 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 	if (max_cardinality < 5)
 		goto ActionExit;
 
-	action = static_cast<float>(cardinalities[0] - cardinalities[1] + 9 * cardinalities[2] - 16 * cardinalities[3] + 8 * cardinalities[4]);
-	action *= 4.0f / sqrtf(6.0f);
+	//action = static_cast<float>(cardinalities[0] - cardinalities[1] + 9 * cardinalities[2] - 16 * cardinalities[3] + 8 * cardinalities[4]);
+	//action *= 4.0f / sqrtf(6.0f);
+	action = calcAction(cardinalities, get_stdim(spacetime), lk, smeared);
 	
 	ActionExit:
 	stopwatchStop(&sMeasureAction);
@@ -2708,14 +2827,13 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	uint64_t finish = npairs;
 	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
 	int rank = cmpi.rank;
-	//int m, n;
 	bool smeared = (max_cardinality == N_tar - 1);
 	double lk = 2.0;
 
 	#ifdef MPI_ENABLED
-	assert (false);	//MPI code not maintained
-	uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
-	uint64_t edges_size = static_cast<uint64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2;
+	//assert (false);	//MPI code not maintained
+	//uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
+	//uint64_t edges_size = static_cast<uint64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2;
 	#endif
 
 	stopwatchStart(&sMeasureAction);
@@ -2750,7 +2868,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	cardinalities[0] = N_tar;
 
 	#ifdef MPI_ENABLED
-	MPI_Barrier(MPI_COMM_WORLD);
+	/*MPI_Barrier(MPI_COMM_WORLD);
 	if (!use_bit && (link || relink)) {
 		MPI_Bcast(nodes.k_in, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
@@ -2762,7 +2880,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 	} else {
 		MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-		if (stdim == 4) {
+		if (get_stdim(spacetime) == 4) {
 			MPI_Bcast(nodes.crd->w(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 			MPI_Bcast(nodes.crd->z(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
 		}
@@ -2770,7 +2888,7 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 
 	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
 	start = rank * mpi_chunk;
-	finish = start + mpi_chunk;
+	finish = start + mpi_chunk;*/
 	#endif
 
 	if (max_cardinality == 1)
@@ -2851,11 +2969,11 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 			cardinalities[j] += cardinalities[i*max_cardinality+j];
 
 	#ifdef MPI_ENABLED
-	MPI_Barrier(MPI_COMM_WORLD);
+	/*MPI_Barrier(MPI_COMM_WORLD);
 	if (!rank)
 		MPI_Reduce(MPI_IN_PLACE, cardinalities, max_cardinality, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 	else
-		MPI_Reduce(cardinalities, NULL, max_cardinality, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Reduce(cardinalities, NULL, max_cardinality, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);*/
 	#endif
 
 	if (max_cardinality < 5)
@@ -2897,6 +3015,10 @@ bool validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 	case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
 		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
 		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
+		break;
+	case (2 | MINKOWSKI | SAUCER | FLAT | SYMMETRIC):
+		if (!(nodes.crd->x(i) > -1.0 && nodes.crd->x(i) < 1.0)) return false;
+		if (!(nodes.crd->y(i) > -1.5 && nodes.crd->y(i) < 1.5)) return false;
 		break;
 	case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;

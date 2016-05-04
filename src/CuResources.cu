@@ -161,7 +161,11 @@ void memoryCheckpoint(const size_t &hostMemUsed, size_t &maxHostMemUsed, const s
 //Print 'CHECKPOINT' for debugging
 void printChk()
 {
+	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
 	printf("CHECKPOINT\n");
+	MPI_Finalize();
+	#endif
 	exit(99);
 }
 

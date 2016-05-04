@@ -1,0 +1,97 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Slab Routing Experiments
+
+# GENERAL USE #
+# Use 'setnextjob' command
+# Set spacetime
+# Set density/degree (do not define both)
+# Modify 'readstart' and 'samples'
+# Choose 'queue'
+# Set 'makeparfile' accordingly
+
+set -eu -o pipefail
+
+spacetime=41604
+#density=90
+degree=10
+
+if [[ "$spacetime" -eq 41508 ]] ; then
+  spacecut="slice"
+else
+  spacecut="alpha"
+fi
+
+if [[ -z ${degree+x} ]] ; then
+  echo "Beginning constant density routing experiment."
+  timecut=energy
+else
+  echo "Beginning constant degree routing experiment."
+  timecut=age
+fi
+
+source ~/.queues
+jobstart=$NEXT_JOB
+readstart=190
+samples=10
+queue="par-gpu-2"
+exclude="compute-4-017"
+
+host=$(bqueues -l $queue | awk '/HOSTS:/ {print $2}' | sed 's#/*$##')
+ncores=$(bhosts $host | awk 'NR==2 {print $4}')
+
+makeparfile=false
+
+if [[ $makeparfile == "true" ]] ; then
+  rm -f causet.par
+  if [[ "$timecut" == "energy" ]] ; then
+    ./etc/routing/gr_test_slab_density $spacetime $density
+  else
+    ./etc/routing/gr_test_slab_degree $spacetime $degree
+  fi
+fi
+readarray -t vars < causet.par
+if [[ $makeparfile == "true" ]] ; then
+  rm causet.par
+fi
+
+for i in $(seq ${#vars[@]}) ; do
+  var=(${vars[${i}-1]})
+  age=${var[0]}
+  nodes=${var[1]}
+  cutoff=${var[2]}
+
+  job=$(($i+$jobstart-1))
+
+  if [[ "$readstart" -ne 0 ]] ; then
+    readjob=$(($i+$readstart-1))
+    nodes=0
+    samples=1
+    link=relink
+
+    basedir=/gss_gpfs_scratch/cunningham
+    if [[ ! -d $basedir/causet${readjob} ]] ; then
+      echo "Job ${readjob} could not be found."
+      continue
+    fi
+
+    numfound=$(ls $basedir/causet${readjob}/dat/pos/*.pos.dat | wc -l)
+    if [[ $numfound -lt 10 ]] ; then
+      echo "Not enough data found for job ${readjob} - $numfound sample(s) found."
+      continue
+    fi
+  else
+    readjob=0
+    link=link
+  fi
+
+  ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' --gpu --verbose -y --quiet-read --print --success 1000000' --queue $queue --nsamples $samples --exclude $exclude
+done
+
+setnextjob $(($job+1))

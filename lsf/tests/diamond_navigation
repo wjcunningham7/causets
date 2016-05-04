@@ -6,43 +6,44 @@
 # Northeastern University #
 ###########################
 
-# Routing Experiments
+# Diamond Routing Experiments
+
+set -eu -o pipefail
 
 spacetime=11396
 density=300000
 #degree=60000
 energy_min=0.99
 energy_max=0.99
-jobstart=794
+
+jobstart=$NEXT_JOB
 readstart=0
 samples=10
 queue="par-gpu-2"
+
+host=$(bqueues -l $queue | awk '/HOSTS:/ {print $2}' | sed 's#/*$##')
+ncores=$(bhosts $host | awk 'NR==2 {print $4}')
+
 rm -f causet.par
-./etc/routing/gr_test_density $spacetime $density $energy_min $energy_max	//For constant k
-#./etc/routing/gr_test_degree $spacetime $degree					//For constant q
+./etc/routing/gr_test_diamond_density $spacetime $density $energy_min $energy_max	//For constant k
+#./etc/routing/gr_test_diamond_degree $spacetime $degree					//For constant q
 readarray -t vars < causet.par
 rm causet.par
+
 for i in $(seq ${#vars[@]}) ; do
   energy=$(awk '{print $1}' <<< "${vars[${i}-1]}")
   #age=$(awk '{print $1}' <<< "${vars[${i}-1]}")
   nodes=$(awk '{print $2}' <<< "${vars[${i}-1]}")
   job=$(($i+$jobstart-1))
+
   if [[ "$readstart" -ne 0 ]] ; then
     readjob=$(($i+$readstart-1))
     nodes=0
   else
     readjob=0
   fi
-  if [[ "$queue" == "krioukov_gpu" ]] ; then
-    ncores=48
-  elif [[ "$queue" == "ser-par-10g-3" ]] ; then
-    ncores=40
-  elif [[ "$queue" == "par-gpu" ]] ; then
-    ncores=32
-  elif [[ "$queue" == "par-gpu-2" ]] ; then
-    ncores=48
-  else
-    ncores=0
-  fi
+
   ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --energy '"$energy"' --link --verbose -y --print --gpu --core 1 --success 1000000' --queue $queue --nsamples $samples
 done
+
+setnextjob $(($job+1))

@@ -118,6 +118,30 @@ inline double v_prime_11332_0(const double &x, const double &u)
 	return u10 + x * (6.0 * u9 + x * (13.0 * u8 + x * (8.0 * u7 + x * (-14.0 * u6 + x * (-28.0 * u5 + x * (-14.0 * u4 + x * (8.0 * u3 + x * (13.0 * u2 + x * (6.0 * u + x)))))))));
 }
 
+//This function gives the indefinite integral form of the volume
+//Use volume = f(1.5) - f(-1.5) to calculate the volume
+inline double volume_77834_1(double x)
+{
+	#if DEBUG
+	assert (fabs(x) <= 1.5); 
+	#endif
+
+	double t1 = 4.0 * x;
+	double t2 = x * sqrt(1.0 + 4.0 * POW2(x, EXACT) / 3.0);
+	double t3 = 0.5 * sqrt(3.0) * asinh(2.0 * x / sqrt(3.0));
+
+	return t1 - t2 - t3;
+}
+
+inline double x_77834_1(const double x, const double rhs)
+{
+	#if DEBUG
+	assert (fabs(x) <= 1.5);
+	#endif
+
+	return volume_77834_1(x) - rhs;
+}
+
 //Returns eta Residual
 //Used in 3+1 K = 1 Asymmetric de Sitter Slab
 inline double solve_eta_12836_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
@@ -256,6 +280,17 @@ inline double solve_v_11332_0_bisec(const double &x, const double * const p1, co
 	#endif
 
 	return v_11332_0(x, p1[0], p1[1]);
+}
+
+//Returns x Residual in Bisection Algorithm
+//Used in 1+1 Minkowski Saucer (Symmetric)
+inline double solve_x_77834_1_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	#if DEBUG
+	assert (p1 != NULL);
+	#endif
+
+	return x_77834_1(x, p1[0]);
 }
 
 //=========================//
@@ -771,6 +806,20 @@ inline double isf_02(double *table, double size, double eta, double a, double al
 //=================//
 // Volume Formulae //
 //=================//
+
+//--------------------------------//
+// Volume in 1+1 Minkowski Saucer //
+//--------------------------------//
+
+//This function gives the boundary value eta(x)
+inline double eta_77834_1(double x)
+{
+	#if DEBUG
+	assert (fabs(x) <= 1.5);
+	#endif
+
+	return 2.0 - sqrt(4.0 * POW2(x, EXACT) / 3.0 + 1.0);
+}
 
 //---------------------------------//
 // Volume in 3+1 Flat FLRW Diamond //

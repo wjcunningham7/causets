@@ -14,7 +14,7 @@ import math
 import numpy as np
 import sys
 
-stdim = 4
+stdim = 2
 smeared = True
 symmetric = True
 

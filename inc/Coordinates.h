@@ -52,7 +52,7 @@ inline float get_azimuthal_angle(UGenerator &rng)
 }
 
 //Returns a radius distributed in r^(d-2)
-inline float get_radius(UGenerator &rng, const float &r_max, const int d)
+inline float get_radius(UGenerator &rng, const float r_max, const int d)
 {
 	return r_max * pow(rng(), 1.0 / (d - 1));
 }
@@ -103,7 +103,7 @@ inline float4 get_sph_d4(NGenerator &rng)
 
 //Returns (x,y,z) for a point uniformly
 //distributed inside a sphere of radius r_max
-inline float3 get_flat_d3(UGenerator &urng, NGenerator &nrng, const float &r_max)
+inline float3 get_flat_d3(UGenerator &urng, NGenerator &nrng, const float r_max)
 {
 	float r = get_radius(urng, r_max, 4);
 	float3 f = get_sph_d3(nrng);
@@ -119,7 +119,7 @@ inline float3 get_flat_d3(UGenerator &urng, NGenerator &nrng, const float &r_max
 // Asymmetric About Eta  //
 ///////////////////////////
 
-inline float get_2d_asym_flat_minkowski_diamond_u(UGenerator &rng, const double &xi)
+inline float get_2d_asym_flat_minkowski_diamond_u(UGenerator &rng, const double xi)
 {
 	return rng() * xi;
 }
@@ -128,13 +128,38 @@ inline float get_2d_asym_flat_minkowski_diamond_u(UGenerator &rng, const double 
 	get_2d_asym_flat_minkowski_diamond_u(rng, xi)
 
 //////////////////////////
+// 2-D Minkowski Saucer //
+// Flat Curvature       //
+// Symmetric About Eta  //
+//////////////////////////
+
+inline float get_2d_sym_flat_minkowski_saucer_eta(UGenerator &rng, const double x)
+{
+	return (2.0 * rng() - 1.0) * eta_77834_1(x);
+}
+
+inline float get_2d_sym_flat_minkowski_saucer_x(UGenerator &rng, const double vol, const double mu2)
+{
+	double x;
+	double rhs = vol * rng() + mu2;
+	if (!bisection(&solve_x_77834_1_bisec, &x, 2000, -1.5, 1.5, TOL, true, &rhs, NULL, NULL))
+		x = NAN;
+
+	#if DEBUG
+	assert (x == x);
+	#endif
+
+	return x;
+}
+
+//////////////////////////
 // 2-D De Sitter Slab   //
 // Spherical Foliation  //
 // Asymmetric About Eta //
 //////////////////////////
 
 //Returns a value for eta
-inline float get_2d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &eta0)
+inline float get_2d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double eta0)
 {
 	double eta = atan(rng() * tan(eta0));
 	if ((float)eta >= eta0)
@@ -157,7 +182,7 @@ inline float get_2d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &et
 /////////////////////////
 
 //Returns a value for eta
-inline float get_2d_sym_sph_deSitter_slab_eta(UGenerator &rng, const double &eta0)
+inline float get_2d_sym_sph_deSitter_slab_eta(UGenerator &rng, const double eta0)
 {
 	int flip = rng() < 0.5 ? 1 : -1;
 	return flip * get_2d_asym_sph_deSitter_slab_eta(rng, eta0);
@@ -184,13 +209,13 @@ inline float get_2d_asym_sph_deSitter_diamond_eta(UGenerator &rng)
 }
 
 //Returns a value for theta given eta
-inline float get_2d_asym_sph_deSitter_diamond_theta(UGenerator mrng, const float &eta)
+inline float get_2d_asym_sph_deSitter_diamond_theta(UGenerator mrng, const float eta)
 {
 	return 0.0f;
 }
 
 //Returns embedded spatial coordinates
-inline float2 get_2d_asym_sph_deSitter_diamond_emb(UGenerator &rng, const float &eta)
+inline float2 get_2d_asym_sph_deSitter_diamond_emb(UGenerator &rng, const float eta)
 {
 	float theta = get_2d_asym_sph_deSitter_diamond_theta(rng, eta);
 	return make_float2(cosf(theta), sinf(theta));
@@ -203,7 +228,7 @@ inline float2 get_2d_asym_sph_deSitter_diamond_emb(UGenerator &rng, const float 
 //////////////////////////
 
 //Returns a value for eta
-inline float get_4d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &zeta)
+inline float get_4d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double zeta)
 {
 	double eta;
 	double x = 0.2;
@@ -244,7 +269,7 @@ inline float get_4d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double &ze
 /////////////////////////
 
 //Returns a value for eta
-inline float get_4d_sym_sph_deSitter_slab_eta(UGenerator &rng, const double &zeta)
+inline float get_4d_sym_sph_deSitter_slab_eta(UGenerator &rng, const double zeta)
 {
 	int flip = rng() < 0.5 ? 1 : -1;
 	return flip * get_4d_asym_sph_deSitter_slab_eta(rng, zeta);
@@ -273,11 +298,10 @@ inline float get_4d_sym_sph_deSitter_slab_eta(UGenerator &rng, const double &zet
 ///////////////////////////
 
 //Returns a value for u
-inline float get_4d_asym_sph_deSitter_diamond_u(UGenerator &rng, const double &xi, const double &mu)
+inline float get_4d_asym_sph_deSitter_diamond_u(UGenerator &rng, const double xi, const double mu)
 {
 	double u = 0.3;
 	double rmu = rng() * mu;
-	//if (!newton(&solve_u_13348_0, &u, 1000, TOL, &rmu, NULL, NULL))
 	if (!bisection(&solve_u_13348_0_bisec, &u, 2000, 0.0, xi, TOL, true, &rmu, NULL, NULL)) 
 		u = NAN;
 
@@ -290,7 +314,7 @@ inline float get_4d_asym_sph_deSitter_diamond_u(UGenerator &rng, const double &x
 
 //Returns a value for v given u
 //This function can by OPTIMIZED by passing constants
-inline float get_4d_asym_sph_deSitter_diamond_v(UGenerator &rng, const double &u)
+inline float get_4d_asym_sph_deSitter_diamond_v(UGenerator &rng, const double u)
 {
 	double v = 0.05;
 	double p[2];
@@ -316,7 +340,7 @@ inline float get_4d_asym_sph_deSitter_diamond_v(UGenerator &rng, const double &u
 	get_azimuthal_angle(rng)
 
 //Returns the embedded spatial coordinates
-inline float4 get_4d_asym_sph_deSitter_diamond_emb(UGenerator &urng, NGenerator &nrng, const double &u, const double &v)
+inline float4 get_4d_asym_sph_deSitter_diamond_emb(UGenerator &urng, NGenerator &nrng, const double u, const double v)
 {
 	float theta1 = (u - v) / sqrt(2.0);
 	float3 f = get_sph_d3(nrng);
@@ -335,7 +359,7 @@ inline float4 get_4d_asym_sph_deSitter_diamond_emb(UGenerator &urng, NGenerator 
 //////////////////////////
 
 //Returns a value for eta
-inline float get_4d_asym_flat_deSitter_slab_eta(UGenerator &rng, const double &eta_min, const double &eta_max)
+inline float get_4d_asym_flat_deSitter_slab_eta(UGenerator &rng, const double eta_min, const double eta_max)
 {
 	return eta_min * pow(1.0 - rng() * (1.0 - POW3(eta_min / eta_max, EXACT)), -1.0 / 3.0);
 }
@@ -363,7 +387,7 @@ inline float get_4d_asym_flat_deSitter_slab_eta(UGenerator &rng, const double &e
 ///////////////////////////
 
 //Returns a value for u
-inline float get_4d_asym_flat_deSitter_diamond_u(UGenerator &rng, const double &xi, const double &mu)
+inline float get_4d_asym_flat_deSitter_diamond_u(UGenerator &rng, const double xi, const double mu)
 {
 	double x = -exp(-(mu * rng() + 1.0));
 	double w = gsl_sf_lambert_W0(x);
@@ -373,7 +397,7 @@ inline float get_4d_asym_flat_deSitter_diamond_u(UGenerator &rng, const double &
 
 //Returns a value for v given u
 //This function can by OPTIMIZED by passing constants
-inline float get_4d_asym_flat_deSitter_diamond_v(UGenerator &rng, const double &u, const double &xi)
+inline float get_4d_asym_flat_deSitter_diamond_v(UGenerator &rng, const double u, const double xi)
 {
 	double t1 = POW3(u, EXACT);
 	double t2 = -3.0 * POW2(u, EXACT) * xi;
@@ -409,7 +433,7 @@ inline float get_4d_asym_flat_deSitter_diamond_v(UGenerator &rng, const double &
 //////////////////////////
 
 //Returns a value for eta
-inline float get_4d_asym_flat_dust_slab_tau(UGenerator &rng, const double &tau0)
+inline float get_4d_asym_flat_dust_slab_tau(UGenerator &rng, const double tau0)
 {
 	return tau0 * pow(rng(), 1.0 / 3.0); 
 }
@@ -437,20 +461,19 @@ inline float get_4d_asym_flat_dust_slab_tau(UGenerator &rng, const double &tau0)
 //////////////////////////
 
 //Returns a value for u
-inline float get_4d_asym_flat_dust_diamond_u(UGenerator &rng, const double &xi)
+inline float get_4d_asym_flat_dust_diamond_u(UGenerator &rng, const double xi)
 {
 	return xi * pow(rng(), 1.0 / 12.0);
 }
 
 //Returns a value for v given u
 //This function can by OPTIMIZED by passing constants
-inline float get_4d_asym_flat_dust_diamond_v(UGenerator &rng, const double &u)
+inline float get_4d_asym_flat_dust_diamond_v(UGenerator &rng, const double u)
 {
 	double v = 0.2;
 	double p[2];
 	p[0] = u;
 	p[1] = rng();
-	//if (!newton(&solve_v_11332_0, &v, 1000, TOL, p, NULL, NULL))
 	if (!bisection(&solve_v_11332_0_bisec, &v, 2000, 0.0, u, TOL, true, p, NULL, NULL))
 		v = NAN;
 
@@ -480,7 +503,7 @@ inline float get_4d_asym_flat_dust_diamond_v(UGenerator &rng, const double &u)
 //////////////////////////
 
 //Returns a value for tau
-inline float get_4d_asym_sph_flrw_slab_tau(UGenerator &rng, const double &tau0)
+inline float get_4d_asym_sph_flrw_slab_tau(UGenerator &rng, const double tau0)
 {
 	double tau = 0.5;
 	double p[2];
@@ -553,7 +576,7 @@ inline float get_4d_asym_sph_flrw_slab_tau(UGenerator &rng, const double &tau0)
 //  due to the structure of inc/Operations.h,
 //  and because the kernel here is an integral rather
 //  than a closed-form expression
-inline float get_4d_asym_flat_flrw_diamond_tau(UGenerator &rng, IntData * const idata, double params[], const double &tau0, const double &tau_half, const double &lower_prob, const double &mu, const double &mu1)
+inline float get_4d_asym_flat_flrw_diamond_tau(UGenerator &rng, IntData * const idata, double params[], const double tau0, const double tau_half, const double lower_prob, const double mu, const double mu1)
 {
 	double p = rng();
 	double res = 1.0, tol = 1.0e-8, x0 = 0.0;
@@ -597,7 +620,7 @@ inline float get_4d_asym_flat_flrw_diamond_tau(UGenerator &rng, IntData * const 
 }
 
 //Returns a value for radius given tau
-inline float get_4d_asym_flat_flrw_diamond_radius(UGenerator &rng, const double &eta, const double &zeta)
+inline float get_4d_asym_flat_flrw_diamond_radius(UGenerator &rng, const double eta, const double zeta)
 {
 	double r, r_max;
 	if (eta < (HALF_PI - zeta) / 2.0)

@@ -8,23 +8,27 @@
 
 # Action Experiments
 
-source /home/$USER/.causet
+source /home/$USER/.queues
 
-spacetime=21028
+spacetime=77834
 nmin=1024
-nmax=262144
-nnum=25
+nmax=65536
+nnum=19
 age=1.00
+
 jobstart=$NEXT_JOB
 readstart=0
 samples=10
 queue="krioukov_gpu"
 exclude="compute-4-017"
 
-#rm -f causet.par
-#./etc/action/action_test $nmin $nmax $nnum
+host=$(bqueues -l $queue | awk '/HOSTS:/ {print $2}' | sed 's#/*$##')
+ncores=$(bhosts $host | awk 'NR==2 {print $4}')
+
+rm -f causet.par
+./etc/action/action_test $nmin $nmax $nnum
 readarray -t vars < causet.par
-#rm causet.par
+rm causet.par
 
 for i in $(seq ${#vars[@]}) ; do
   nodes=${vars[${i}-1]}
@@ -37,15 +41,7 @@ for i in $(seq ${#vars[@]}) ; do
     readjob=0
   fi
 
-  if [[ "$queue" == "krioukov_gpu" || "$queue" == "par-gpu-2" ]] ; then
-    ncores=48
-  elif [[ "$queue" == "par-gpu" ]] ; then
-    ncores=32
-  else
-    ncores=0
-  fi
-
-  ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --age '"$age"' --link --core 1 --gpu --verbose -y --action smeared --print' --queue $queue --nsamples $samples --exclude $exclude
+  ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --age '"$age"' --link --core 1 --verbose -y --action smeared --print' --queue $queue --nsamples $samples --exclude $exclude
 done
 
 setnextjob $(($job+1))

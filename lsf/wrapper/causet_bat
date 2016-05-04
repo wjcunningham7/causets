@@ -123,7 +123,7 @@ while true ; do
       echo "  -x, --exclude    exclude a certain host"
       echo ""
       echo "Report causet_bat bugs to w.cunningham@neu.edu"
-      echo "GitHub repository home page: <https://bitbucket.org/dk-lab/2015_code_causets>"
+      echo "Bitbucket repository home page: <https://bitbucket.org/dk-lab/2015_code_causets>"
       exit 0 ;;
     --) shift ; break ;;
     *) echo "Internal error!" ; exit 2 ;;

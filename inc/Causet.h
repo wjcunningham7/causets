@@ -6,6 +6,7 @@
 #endif
 
 //Core System Files
+//#include <algorithm>
 #include <cstring>
 #include <exception>
 #include <fstream>
@@ -14,14 +15,17 @@
 #include <inttypes.h>
 #include <iomanip>
 #include <iostream>
+//#include <iterator>
 #include <limits>
 #include <math.h>
+//#include <numeric>
 #include <sstream>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 //System Files for Parallel Acceleration
@@ -75,8 +79,8 @@
 //    http://complex.ffn.ub.es/~mbogunya/archivos_cms/files/srep00793-s1.pdf//
 //[3] Uniformly Distributed Random Unit Quaternions			    //
 //    mathproofs.blogspot.com/2005/05/uniformly-distributed-random-unit.html//
-//[4] Approximations for Elliptic Integrals
-//    www.jstor.org/stable/2004539
+//[4] Approximations for Elliptic Integrals				    //
+//    www.jstor.org/stable/2004539					    //
 //////////////////////////////////////////////////////////////////////////////
 
 //Bitsets
@@ -211,8 +215,10 @@ enum Manifold {
 enum Region {
 	RegionFirst	= ManifoldLast << 1,
 	SLAB		= RegionFirst,
-	DIAMOND		= SLAB << 1,
-	RegionLast	= DIAMOND
+	HALF_DIAMOND	= SLAB << 1,
+	DIAMOND		= HALF_DIAMOND << 1,
+	SAUCER		= DIAMOND << 1,
+	RegionLast	= SAUCER
 };
 
 //Spatial Curvature
@@ -232,7 +238,7 @@ enum Symmetry {
 };
 
 static const std::string manifoldNames[] = { "Minkowski", "Milne", "De Sitter", "Dust", "FLRW", "Hyperbolic" };
-static const std::string regionNames[] = { "Slab", "Diamond" };
+static const std::string regionNames[] = { "Slab", "Half-Diamond", "Diamond", "Saucer" };
 static const std::string curvatureNames[] = { "Flat", "Positive" };
 static const std::string symmetryNames[] = { "Asymmetric", "Symmetric" };
 
@@ -520,6 +526,9 @@ struct DVData {
 
 struct CausetMPI {
 	CausetMPI() : num_mpi_threads(1), rank(0), fail(0) {}
+
+	Bitvector adj_buf;		//Buffer used for adjacency matrix memory swaps
+
 	int num_mpi_threads;		//Number of MPI Threads
 	int rank;			//ID of this MPI Thread
 	int fail;			//Flag used to tell all nodes to return

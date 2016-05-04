@@ -527,7 +527,7 @@ bool nodesAreConnected_v2(const Bitvector &adj, const int &N_tar, int past_idx, 
 	#if DEBUG
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
-	assert (past_idx != future_idx);
+	//assert (past_idx != future_idx);
 	#endif
 
 	return (bool)adj[past_idx].read(future_idx);
@@ -742,7 +742,7 @@ void readDegrees(int * const &degrees, const int * const h_k, const size_t &offs
 
 //Data formatting used when reading output of
 //the adjacency list created by the GPU
-void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit)
+void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit, const bool &use_mpi)
 {
 	#if DEBUG
 	if (!use_bit)
@@ -752,7 +752,7 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &a
 	assert (*g_idx >= 0);
 	assert (x >= 0);
 	assert (y >= 0);
-	assert (x <= y);
+	//assert (x <= y);
 	#endif
 
 	unsigned int i, j;
@@ -765,7 +765,8 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &a
 					g_idx[0]++;
 				if (x*mthread_size+i < core_limit && y*mthread_size+j < core_limit) {
 					adj[x*mthread_size+i].set(y*mthread_size+j);
-					adj[y*mthread_size+j].set(x*mthread_size+i);
+					if (!use_mpi)
+						adj[y*mthread_size+j].set(x*mthread_size+i);
 				}
 			}
 		}
@@ -914,7 +915,6 @@ int printf_dbg(const char * format, ...)
 	return 0;
 }
 
-//MPI Print Variadic Function
 //Allows only the master process to print to stdout
 //If MPI is not enabled, rank == 0
 int printf_mpi(int rank, const char * format, ...)
@@ -931,6 +931,7 @@ int printf_mpi(int rank, const char * format, ...)
 	return retval;
 }
 
+//MPI Print Variadic Function
 bool checkMpiErrors(CausetMPI &cmpi)
 {
 	#ifdef MPI_ENABLED
@@ -943,4 +944,396 @@ bool checkMpiErrors(CausetMPI &cmpi)
 	#endif
 
 	return !!cmpi.fail;
+}
+
+void perm_to_binary(FastBitset &fb, std::vector<unsigned int> perm)
+{
+	#if DEBUG
+	assert (!(fb.size() % 2));
+	assert (!(perm.size() % 2));
+	#endif
+
+	for (uint64_t k = 0; k < perm.size(); k += 2) {
+		unsigned int i = perm[k];
+		unsigned int j = perm[k+1];
+
+		if (i > j) {
+			i ^= j;
+			j ^= i;
+			i ^= j;
+		}
+
+		//printf("Adding element at index (%d, %d)\n", i, j);
+		unsigned int do_map = i >= perm.size() >> 1;
+		i -= do_map * (((i - (perm.size() >> 1)) << 1) + 1);
+		j -= do_map * ((j - (perm.size() >> 1)) << 1);
+
+		//printf("Index mapped to (%d, %d)\n", i, j);
+		unsigned int m = i * (perm.size() - 1) + j - 1;
+		//printf("Linear Index: %d\n\n", m);
+		fb.set(m);
+	}
+}
+
+void binary_to_perm(std::vector<unsigned int> &perm, const FastBitset &fb, const unsigned int len)
+{
+	#if DEBUG
+	assert (!(perm.size() % 2));
+	assert (!(fb.size() % 2));
+	#endif
+
+	for (uint64_t k = 0; k < fb.size(); k++) {
+		if (!fb.read(k)) continue;
+
+		unsigned int i = k / (len - 1);
+		unsigned int j = k % (len - 1) + 1;
+
+		unsigned int do_map = i >= j;
+		i += do_map * ((((len >> 1) - i) << 1) - 1);
+		j += do_map * (((len >> 1) - j) << 1);
+
+		perm.push_back(i);
+		perm.push_back(j);
+	}
+}
+
+void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> perm)
+{
+	uint64_t len = static_cast<uint64_t>(perm.size()) * (perm.size() - 1) >> 1;
+	while (std::next_permutation(perm.begin(), perm.end())) {
+		FastBitset fb(len);
+		perm_to_binary(fb, perm);
+		bool ins = true;
+		for (std::unordered_set<FastBitset>::iterator fb0 = permutations.begin(); fb0 != permutations.end(); fb0++)
+			for (uint64_t i = 0; i < len; i++)
+				if (fb.read(i) & fb0->read(i))
+					ins = false;
+
+		if (ins) permutations.insert(fb);
+		/*std::pair<std::unordered_set<FastBitset>::iterator, bool> p = permutations.insert(fb);
+		if (p.second) {
+			printf("Successfully added element:\n");
+			for (size_t i = 0; i < perm.size(); i += 2)
+				printf("(%d, %d) ", perm[i], perm[i+1]);
+			printf("\n");
+			fb.printBitset();
+		} else
+			printf("Did not add element.\n");*/
+	}
+
+	//The first element will be the ordered one, so remove it
+
+	/*for (std::unordered_set<FastBitset>::iterator fb = permutations.begin(); fb != permutations.end(); fb++) {
+		std::vector<unsigned int> p;
+		binary_to_perm(p, *fb, 8);
+		for (size_t j = 0; j < p.size(); j += 2)
+			printf("(%d, %d) ", p[j], p[j+1]);
+		printf("\n");
+	}*/
+}
+
+void fill_mpi_similar(std::vector<std::vector<unsigned int> > &similar, std::vector<unsigned int> perm)
+{
+	uint64_t len = static_cast<uint64_t>(perm.size()) * (perm.size() - 1) >> 1;
+	FastBitset fb(len);
+	perm_to_binary(fb, perm);
+	similar.push_back(perm);
+
+	while (std::next_permutation(perm.begin(), perm.end())) {
+		FastBitset sim(len);
+		perm_to_binary(sim, perm);
+		if (fb == sim)
+			similar.push_back(perm);
+	}
+}
+
+void print_pairs(std::vector<unsigned int> vec)
+{
+	for (size_t i = 0; i < vec.size(); i += 2)
+		printf("(%d, %d) ", vec[i], vec[i+1]);
+	printf("\n");
+}
+
+void cyclesort(unsigned int &writes, std::vector<unsigned int> c, std::vector<std::pair<int,int> > *swaps)
+{
+	unsigned int it, p;
+	size_t len = c.size();
+	writes = 0;
+	for (size_t j = 0; j < len - 1; j++) {
+		it = c[j];
+		p = j;
+
+		for (unsigned int k = j + 1; k < len; k++)
+			if (c[k] < it)
+				p++;
+
+		if (j == p) continue;
+
+		//Swap
+		while (c[p] == it)
+			p++;
+		//printf("Copying spot [%d] to buffer\n", p);
+		//printf("Copying spot [%zd] to spot [%d]\n", j, p);
+		it ^= c[p];
+		c[p] ^= it;
+		it ^= c[p];
+		writes += 2;
+		if (swaps != NULL) {
+			swaps->push_back(std::make_pair(p, -1));
+			swaps->push_back(std::make_pair(j, p));
+		}
+		//print_pairs(c);
+
+		while (j != p) {
+			p = j;
+			for (size_t k = j + 1; k < len; k++)
+				if (c[k] < it)
+					p++;
+			
+			while (c[p] == it)
+				p++;
+			//printf("Copying buffer to spot [%d]\n", p);
+			it ^= c[p];
+			c[p] ^= it;
+			it ^= c[p];
+			//print_pairs(c);
+			writes++;
+			if (swaps != NULL)
+				swaps->push_back(std::make_pair(-1, p));
+		}
+	}
+}
+
+void relabel_vector(std::vector<unsigned int> &output, std::vector<unsigned int> input)
+{
+	#if DEBUG
+	assert (input.size() == output.size());
+	#endif
+
+	size_t len = input.size();
+	std::vector<unsigned int> out(len);
+
+	for (size_t i = 0; i < len; i++)
+		for (size_t j = 0; j < len; j++)
+			if (output[j] == input[i])
+				out[j] = i;
+
+	output = out;
+}
+
+void get_most_similar(std::vector<unsigned int> &sim, unsigned int &nsteps, std::vector<std::vector<unsigned int> > candidates, std::vector<unsigned int> current)
+{
+	unsigned int idx = candidates.size();
+	nsteps = 100000000;
+
+	for (size_t i = 0; i < candidates.size(); i++) {
+		size_t len = candidates[i].size();
+		std::vector<unsigned int> c(len);
+
+		/*printf("Current: ");
+		for (size_t j = 0; j < len; j += 2)
+			printf("(%d, %d) ", current[j], current[j+1]);
+		printf("\n");
+		
+		printf("First candidate: ");
+		for (size_t j = 0; j < len; j += 2)
+			printf("(%d, %d) ", candidates[i][j], candidates[i][j+1]);
+		printf("\n");*/
+
+		//Relabel
+		/*for (size_t j = 0; j < len; j++)
+			for (size_t k = 0; k < len; k++)
+				if (candidates[i][k] == current[j])
+					c[k] = j;*/
+		c = candidates[i];
+		relabel_vector(c, current);
+		
+		//printf("Relabeled permutation: ");
+		//print_pairs(candidates[i]);
+		/*for (size_t j = 0; j < len; j += 2)
+			printf("(%d, %d) ", c[j], c[j+1]);
+		printf("\n");*/
+
+		//Cycle Sort
+		//I/O: writes
+		//I: c
+
+		unsigned int writes;
+		//cyclesort(writes, candidates[i], NULL);
+		cyclesort(writes, c, NULL);
+		//printf("Configuration [%zd] requires %d memory transfers.\n", i, writes);
+		if (writes < nsteps) {
+			nsteps = writes;
+			idx = i;
+		}
+	}
+
+	sim = candidates[idx];
+}
+
+//NOTE: Add macro for MPI_UINT64_T to fastbitset
+void mpi_swaps(std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N_tar, const int num_mpi_threads, const int rank)
+{
+	int mpi_offset = N_tar / (num_mpi_threads << 1);
+	int cpy_offset = mpi_offset / num_mpi_threads;
+	int start = rank * cpy_offset;
+	int finish = start + cpy_offset;
+	MPI_Status status;
+
+	for (size_t i = 0; i < swaps.size(); i++) {
+	//for (size_t i = 0; i < 3; i++) {
+		int idx0 = std::get<0>(swaps[i]);
+		int idx1 = std::get<1>(swaps[i]);
+
+		/*printf_mpi(rank, "rank: 0\tidx0: %d\tidx1: %d\n", idx0, idx1);
+		fflush(stdout);
+		printf_mpi(rank - 1, "rank: 1\tidx0: %d\tidx1: %d\n", idx0, idx1);
+		fflush(stdout);*/
+		MPI_Barrier(MPI_COMM_WORLD);
+		if (idx0 != -1 && idx1 != -1) {
+			//if (rank << 1 != idx0 && (rank << 1) + 1 != idx0) break;
+			//if (rank << 1 != idx1 && (rank << 1) + 1 != idx1) break;
+			if (idx0 >> 1 == idx1 >> 1 && (rank<<1)+(idx0%2) != idx0) continue;
+		}
+
+		//printf_mpi(rank, "swap number: %d\n", i);
+		//if (!rank) fflush(stdout);
+		//MPI_Barrier(MPI_COMM_WORLD);
+		//printf_mpi(rank, "rank: 0\tidx0: %d\tidx1: %d\n", idx0, idx1);
+		//fflush(stdout);
+		//MPI_Barrier(MPI_COMM_WORLD);
+		//printf_mpi(rank - 1, "rank: 1\tidx0: %d\tidx1: %d\n", idx0, idx1);
+		//fflush(stdout);
+
+		if (idx0 == -1) {	//Copy buffer to idx1
+			int buf_offset = mpi_offset * (idx1 % 2);
+			start = rank * cpy_offset;
+			finish = start + cpy_offset;
+			//printf("rank [%d] start: %d\n", rank, start);
+			//printf("rank [%d] finish: %d\n", rank, finish);
+			//fflush(stdout);
+			//MPI_Barrier(MPI_COMM_WORLD);
+			for (int j = start; j < finish; j++) {
+				int loc_idx = j % cpy_offset;
+				for (int k = 0; k < num_mpi_threads; k++) {
+					int adj_idx = buf_offset + k * cpy_offset + loc_idx;
+					if ((rank<<1) + (idx1%2) == idx1) {
+						if (k == rank) {
+							//printf("Rank [%d] copying to adj row [%d] to from local buffer row [%d]\n", rank, adj_idx, loc_idx);
+							memcpy(adj[adj_idx].getAddress(), adj_buf[loc_idx].getAddress(), sizeof(BlockType) * adj_buf[loc_idx].getNumBlocks());
+						}
+						if (k == rank) continue;
+						//printf("Rank [%d] receiving adj row [%d] from rank [%d]\n", rank, adj_idx, k);
+						MPI_Recv(adj[adj_idx].getAddress(), adj[adj_idx].getNumBlocks(), MPI_UINT64_T, k, 0, MPI_COMM_WORLD, &status);
+					} else {
+						if ((k<<1)+(idx1%2)!=idx1) continue;
+						//printf("Rank [%d] sending [%d] to rank [%d]\n", rank, loc_idx, k);
+						MPI_Send(adj_buf[loc_idx].getAddress(), adj_buf[loc_idx].getNumBlocks(), MPI_UINT64_T, k, 0, MPI_COMM_WORLD);
+					}
+				}
+			}
+		} else if (idx1 == -1) {	//Copy idx0 to buffer
+			//int buf_offset = (mpi_offset >> 1) * (idx0 % 2);
+			int buf_offset = mpi_offset * (idx0 % 2);
+			start = rank * cpy_offset;
+			finish = start + cpy_offset;
+			//printf_mpi(rank, "buf_offset: %d\n", buf_offset);
+			//printf_mpi(rank, "cpy_offset: %d\n", cpy_offset);
+			//fflush(stdout);
+			//MPI_Barrier(MPI_COMM_WORLD);
+			//printf("rank [%d] start: %d\n", rank, start);
+			//printf("rank [%d] finish: %d\n", rank, finish);
+			//fflush(stdout);
+			//MPI_Barrier(MPI_COMM_WORLD);
+			for (int j = start; j < finish; j++) {
+				int loc_idx = j % cpy_offset;
+				for (int k = 0; k < num_mpi_threads; k++) {
+					int adj_idx = buf_offset + k * cpy_offset + loc_idx;
+					if ((rank<<1) + (idx0%2) == idx0) {
+						if (k == rank) {
+							//printf("Rank [%d] copying adj row [%d] to local buffer row [%d]\n", rank, adj_idx, loc_idx);
+							memcpy(adj_buf[loc_idx].getAddress(), adj[adj_idx].getAddress(), sizeof(BlockType) * adj[adj_idx].getNumBlocks());
+						} else {
+							//printf("Rank [%d] sending adj row [%d] to rank [%d]\n", rank, adj_idx, k);
+							MPI_Send(adj[adj_idx].getAddress(), adj[adj_idx].getNumBlocks(), MPI_UINT64_T, k, 0, MPI_COMM_WORLD);
+						}
+					//} else if ((rank<<1) + (idx0%2) != idx0) {
+					} else {
+						if ((k<<1)+(idx0%2)!=idx0) continue;
+						//printf("Rank [%d] receiving to local buffer [%d] from rank [%d]\n", rank, j % cpy_offset, k);
+						MPI_Recv(adj_buf[loc_idx].getAddress(), adj_buf[loc_idx].getNumBlocks(), MPI_UINT64_T, k, 0, MPI_COMM_WORLD, &status);
+					}
+				}
+			}
+
+			//fflush(stdout);
+			//sleep(1);
+			//MPI_Barrier(MPI_COMM_WORLD);
+
+			//Print buffer
+			/*printf_mpi(rank, "\nPrinting Buffers:\n");
+			if (!rank) fflush(stdout);
+			for (int j = 0; j < num_mpi_threads; j++) {
+				MPI_Barrier(MPI_COMM_WORLD);
+				if (j == rank) {
+					for (int k = 0; k < cpy_offset; k++) {
+						for (int l = 0; l < N_tar; l++)
+							printf("%" PRIu64 " ", adj_buf[k].read(l));
+						printf(" [%d]\n", rank);
+						fflush(stdout);
+					}
+					if (j != num_mpi_threads - 1) {
+						for (int k = 0; k < N_tar; k++)
+							printf("==");
+						printf("\n");
+						fflush(stdout);
+					}
+					sleep(1);
+				}
+			}
+			sleep(1);
+			printf_mpi(rank, "\n");
+			if (!rank) fflush(stdout);
+			MPI_Barrier(MPI_COMM_WORLD);*/
+		} else {
+			int buf_offset0 = mpi_offset * (idx0%2);
+			int buf_offset1 = mpi_offset * (idx1%2);
+			start = rank * mpi_offset;
+			finish = start + mpi_offset;
+			//printf("rank [%d] start: %d\n", rank, start);
+			//printf("rank [%d] finish: %d\n", rank, finish);
+			//fflush(stdout);
+			//MPI_Barrier(MPI_COMM_WORLD);
+			for (int j = start; j < finish; j++) {
+				int loc_idx = j % mpi_offset;
+				if (idx0>>1==idx1>>1) {
+					//printf("Rank [%d] copying adj row [%d] to adj row [%d]\n", rank, buf_offset0+loc_idx, buf_offset1+loc_idx);
+					memcpy(adj[buf_offset1+loc_idx].getAddress(), adj[buf_offset0+loc_idx].getAddress(), sizeof(BlockType) * adj[buf_offset0+loc_idx].getNumBlocks());
+				} else if ((rank<<1)+(idx0%2)==idx0) {
+					//printf("Rank [%d] sending adj row [%d] to rank [%d]\n", rank, buf_offset0+j%mpi_offset, idx1/2);
+					MPI_Send(adj[buf_offset0+loc_idx].getAddress(), adj[buf_offset0+loc_idx].getNumBlocks(), MPI_UINT64_T, idx1/2, 0, MPI_COMM_WORLD);
+				} else if ((rank<<1)+(idx1%2)==idx1) {
+					//printf("Rank [%d] receiving to adj row [%d] from rank [%d]\n", rank, buf_offset1+j%mpi_offset, idx0/2);
+					MPI_Recv(adj[buf_offset1+loc_idx].getAddress(), adj[buf_offset1+loc_idx].getNumBlocks(), MPI_UINT64_T, idx0/2, 0, MPI_COMM_WORLD, &status);
+				}
+			}
+		}
+
+		//MPI_Barrier(MPI_COMM_WORLD);
+		//printf_mpi(rank, "\n");
+		//fflush(stdout);
+		//sleep(1);
+		//MPI_Barrier(MPI_COMM_WORLD);
+		//break;
+	}
+}
+
+unsigned int loc_to_glob_idx(std::vector<unsigned int> config, unsigned int idx, const int N_tar, const int num_mpi_threads, const int rank)
+{
+	int mpi_offset = N_tar / (num_mpi_threads << 1);
+	int loc_idx = idx - (idx / mpi_offset) * mpi_offset;
+	int seq_idx = config[(rank << 1) + (idx / mpi_offset)];
+	int glob_idx = seq_idx * mpi_offset + loc_idx;
+
+	return glob_idx;
 }

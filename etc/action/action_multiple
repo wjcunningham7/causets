@@ -22,8 +22,8 @@ if not (stdim == 2 or stdim == 4):
 	sys.exit(1)
 
 # Range of job numbers (inclusive)
-jobStart = 980
-jobEnd = 981
+jobStart = 979
+jobEnd = 983
 njobs = jobEnd - jobStart + 1
 
 # Range of lk to use (inclusive)
@@ -32,8 +32,8 @@ lkmax = 10
 lkstep = 1
 nlk = (lkmax - lkmin + 1) / lkstep
 
-basedir = '/gss_gpfs_scratch/cunningham/'
-#basedir = '/krioukov/will/'
+#basedir = '/gss_gpfs_scratch/cunningham/'
+basedir = '/krioukov/will/'
 action = np.zeros((nlk, njobs))
 err = np.zeros((nlk, njobs))
 

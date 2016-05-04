@@ -1,0 +1,59 @@
+#!/bin/bash
+
+#BSUB -J CSET-1499
+#BSUB -o /gss_gpfs_scratch/cunningham/causet1499/causet1499.log
+#BSUB -e /gss_gpfs_scratch/cunningham/causet1499/causet1499.err
+#BSUB -q par-gpu
+#BSUB -n 160
+#BSUB -R "span[ptile=32] select[hname!='compute-4-017']"
+#BSUB -cwd /gss_gpfs_scratch/cunningham/causet1499
+#
+
+###########################
+#(C) Will Cunningham 2014 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# This is the LSF batch submission script for the CausalSet program
+# It is intended to be submitted to LSF via the 'causet_bat' script
+
+homedir=/home/cunningham.wi/projects/causets
+work=/gss_gpfs_scratch/cunningham/causet1499
+
+# Setup peripheral directories and copy necessary files, as well as the binary
+sed "s:@jobID@:1499:g;s:@readjobid@:0:g;s:@readgraphid@:0:g;s:@queue@:par-gpu:g" < $homedir/lsf/setup/causet_setup | source /dev/stdin
+
+# Do not edit below this
+
+cd $work
+tempfile1=hostlistrun
+tempfile2=hostlist-tcp
+echo $LSB_MCPU_HOSTS > $tempfile1
+declare -a hosts
+read -a hosts < ${tempfile1}
+for ((i=0; i<${#hosts[@]}; i += 2)) ;
+do
+	HOST=${hosts[$i]}
+	CORE=${hosts[(($i+1))]}
+#	echo $HOST:$CORE >> $tempfile2
+	echo $HOST 1 >> $tempfile2
+done
+
+# Do not edit above this
+
+# Set OpenMP environment variables
+export OMP_NUM_THREADS=32
+export OMP_SCHEDULE="dynamic"
+export OMP_NESTED=FALSE
+export OMP_STACKSIZE="20M"
+
+mpirun -np 5 -hostfile $tempfile2 -prot ./CausalSet_par-gpu --spacetime 82468 --nodes 1024 --age 0.5 --verbose -y --test --graph 0 > CausalSet_Job-1499_Sample-1.log
+wait
+
+# Do not edit below this
+
+#rm $work/$tempfile1
+#rm $work/$tempfile2
+
+# Do not edit above this

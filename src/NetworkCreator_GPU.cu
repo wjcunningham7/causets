@@ -6,8 +6,10 @@
 // Northeastern University //
 /////////////////////////////
 
-__global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float *z0, float *w1, float *x1, float *y1, float *z1, int *k_in, int *k_out, bool *edges, size_t size0, size_t size1, bool diag, bool compact)
+template<bool compact, bool diag, int stdim>
+__global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float *z0, float *w1, float *x1, float *y1, float *z1, int *k_in, int *k_out, bool *edges, size_t size0, size_t size1)
 {
+
 	__shared__ float shr_w1[THREAD_SIZE];
 	__shared__ float shr_x1[THREAD_SIZE];
 	__shared__ float shr_y1[THREAD_SIZE];
@@ -24,12 +26,15 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 
 	//Each thread compares 1 node in 'nodes0' to 'THREAD_SIZE' nodes in 'nodes1'
 	if (!tid) {
+		#pragma unroll
 		for (k = 0; k < THREAD_SIZE; k++) {
 			if (j * THREAD_SIZE + k < size1) {
-				shr_w1[k] = w1[j*THREAD_SIZE+k];
 				shr_x1[k] = x1[j*THREAD_SIZE+k];
 				shr_y1[k] = y1[j*THREAD_SIZE+k];
-				shr_z1[k] = z1[j*THREAD_SIZE+k];
+				if (stdim == 4) {
+					shr_w1[k] = w1[j*THREAD_SIZE+k];
+					shr_z1[k] = z1[j*THREAD_SIZE+k];
+				}
 			}
 		}
 	}
@@ -38,40 +43,57 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 	float dt[THREAD_SIZE];
 	float dx[THREAD_SIZE];
 
+	#pragma unroll
 	for (k = 0; k < THREAD_SIZE; k++) {
 		if ((!diag || i < j * THREAD_SIZE + k) && (i < size0 && j * THREAD_SIZE + k < size1)) {
 			//Identify nodes to compare
-			n0.w = w0[i];
 			n0.x = x0[i];
 			n0.y = y0[i];
-			n0.z = z0[i];
+			if (stdim == 4) {
+				n0.w = w0[i];
+				n0.z = z0[i];
+			}
 
-			n1.w = shr_w1[k];
 			n1.x = shr_x1[k];
 			n1.y = shr_y1[k];
-			n1.z = shr_z1[k];
+			if (stdim == 4) {
+				n1.w = shr_w1[k];
+				n1.z = shr_z1[k];
+			}
 
 			//Identify spacetime interval
-			dt[k] = n1.w - n0.w;
+			if (stdim == 2)
+				dt[k] = fabs(n1.x - n0.x);
+			else if (stdim == 4)
+				dt[k] = fabs(n1.w - n0.w);
 
 			if (compact) {
-				#if DIST_V2
-				dx[k] = acosf(sphProduct_GPU_v2(n0, n1));
-				#else
-				dx[k] = acosf(sphProduct_GPU_v1(n0, n1));
-				#endif
+				if (stdim == 2)
+					dx[k] = M_PI - fabs(M_PI - fabs(n1.y - n0.y));
+				else if (stdim == 4) {
+					#if DIST_V2
+					dx[k] = acosf(sphProduct_GPU_v2(n0, n1));
+					#else
+					dx[k] = acosf(sphProduct_GPU_v1(n0, n1));
+					#endif
+				}
 			} else {
-				#if DIST_V2
-				dx[k] = sqrtf(flatProduct_GPU_v2(n0, n1));
-				#else
-				dx[k] = sqrtf(flatProduct_GPU_v1(n0, n1));
-				#endif
+				if (stdim == 2)
+					dx[k] = fabs(n1.y - n0.y);
+				else if (stdim == 4) {
+					#if DIST_V2
+					dx[k] = sqrtf(flatProduct_GPU_v2(n0, n1));
+					#else
+					dx[k] = sqrtf(flatProduct_GPU_v1(n0, n1));
+					#endif
+				}
 			}
 		}
 	}
 
 	bool edge[THREAD_SIZE];
 	int out = 0;
+	#pragma unroll
 	for (k = 0; k < THREAD_SIZE; k++) {
 		//Mark if edge is present (register memory)
 		edge[k] = (!diag || i < j * THREAD_SIZE + k) && (i < size0 && j * THREAD_SIZE + k < size1) && dx[k] < dt[k];
@@ -94,6 +116,7 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 	//Global Memory Operations
 
 	//Write edges to global memory
+	#pragma unroll
 	for (k = 0; k < THREAD_SIZE; k++)
 		if ((!diag || i < j * THREAD_SIZE + k) && (i < size0 && j * THREAD_SIZE + k < size1))
 			edges[(i*THREAD_SIZE*gridDim.x)+(j*THREAD_SIZE)+k] = edge[k];
@@ -103,6 +126,7 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 
 	//Write in-degrees
 	if (!tid)
+		#pragma unroll
 		for (k = 0; k < THREAD_SIZE; k++)
 			if ((!diag || i < j * THREAD_SIZE + k) && (i < size0 && j * THREAD_SIZE + k < size1))
 				atomicAdd(&k_in[j*THREAD_SIZE+k], n[0][k]);
@@ -153,20 +177,22 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	#if EMBED_NODES
 	assert (nodes.crd->getDim() == 5);
 	assert (nodes.crd->v() != NULL);
 	#else
-	assert (nodes.crd->getDim() == 4);
+	//assert (nodes.crd->getDim() == 4);
 	#endif
 	assert (!nodes.crd->isNull());
-	assert (nodes.crd->w() != NULL);
 	assert (nodes.crd->x() != NULL);
 	assert (nodes.crd->y() != NULL);
-	assert (nodes.crd->z() != NULL);
+	if (get_stdim(spacetime) == 4) {
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->z() != NULL);
+	}
 	if (!use_bit) {
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
@@ -220,8 +246,16 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 
 	stopwatchStart(&sGenAdjList);
 	#if GEN_ADJ_LISTS_GPU_V2
-	if (!generateLists_v2(nodes, h_edges, adj, g_idx, spacetime, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, use_bit, verbose))
-		return false;
+	#ifdef MPI_ENABLED
+	if (cmpi.num_mpi_threads > 1) {
+		if (!generateLists_v3(nodes, adj, g_idx, spacetime, N_tar, group_size, cmpi, ca, use_bit, verbose))
+			return false;
+	} else
+	#endif
+	{
+		if (!generateLists_v2(nodes, h_edges, adj, g_idx, spacetime, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, use_bit, verbose))
+			return false;
+	}
 	#else
 	if (!generateLists_v1(nodes, h_edges, adj, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, compact, verbose))
 		return false;
@@ -285,7 +319,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 
 	//Identify Resulting Network Properties
 	stopwatchStart(&sProps);
-	if (!identifyListProperties(nodes, d_k_in, d_k_out, g_idx, N_tar, N_res, N_deg2, k_res, ca, verbose))
+	if (!identifyListProperties(nodes, d_k_in, d_k_out, g_idx, N_tar, N_res, N_deg2, k_res, cmpi, ca, verbose))
 		return false;
 	stopwatchStop(&sProps);	
 
@@ -308,15 +342,15 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 	stopwatchStop(&sLinkNodesGPU);
 
 	if (!bench) {
-		printf("\tCausets Successfully Connected.\n");
-		printf_cyan();
-		printf("\t\tUndirected Links:         %" PRId64 "\n", *g_idx);
-		printf("\t\tResulting Network Size:   %d\n", N_res);
-		printf("\t\tResulting Average Degree: %f\n", k_res);
-		printf("\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N_tar));
-		printf_red();
-		printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
-		printf_std();
+		printf_mpi(cmpi.rank, "\tCausets Successfully Connected.\n");
+		if (!cmpi.rank) printf_cyan();
+		printf_mpi(cmpi.rank, "\t\tUndirected Links:         %" PRId64 "\n", *g_idx);
+		printf_mpi(cmpi.rank, "\t\tResulting Network Size:   %d\n", N_res);
+		printf_mpi(cmpi.rank, "\t\tResulting Average Degree: %f\n", k_res);
+		printf_mpi(cmpi.rank, "\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N_tar));
+		if (!cmpi.rank) printf_red();
+		printf_mpi(cmpi.rank, "\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
+		if (!cmpi.rank) printf_std();
 		fflush(stdout);
 	}
 
@@ -324,8 +358,9 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 	//	return false;
 
 	//Print Results
-	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
-	if (!printEdgeLists(edges, *g_idx, "past-edges_GPU_v2.cset.dbg.dat", "future-edges_GPU_v2.cset.dbg.dat")) return false;
+	//if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v2.cset.dbg.dat", "out-degrees_GPU_v2.cset.dbg.dat")) return false;
+	//if (!printAdjMatrix(adj, N_tar, "adj_matrix_MPI_GPU1.cset.dbg.dat", cmpi.num_mpi_threads, cmpi.rank)) return false;
+	/*if (!printEdgeLists(edges, *g_idx, "past-edges_GPU_v2.cset.dbg.dat", "future-edges_GPU_v2.cset.dbg.dat")) return false;
 	if (!printEdgeListPointers(edges, N_tar, "past-edge-pointers_GPU_v2.cset.dbg.dat", "future-edge-pointers_GPU_v2.cset.dbg.dat")) return false;
 	printf_red();
 	printf("Check files now.\n");
@@ -339,14 +374,276 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 	ca->hostMemUsed -= sizeof(int64_t);
 
 	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sLinkNodesGPU.elapsedTime);
-		printf("\t\t\tAdjacency List Function Time: %5.6f sec\n", sGenAdjList.elapsedTime);
+		printf_mpi(cmpi.rank, "\t\tExecution Time: %5.6f sec\n", sLinkNodesGPU.elapsedTime);
+		printf_mpi(cmpi.rank, "\t\t\tAdjacency List Function Time: %5.6f sec\n", sGenAdjList.elapsedTime);
 		if (!use_bit) {
 			printf("\t\t\tDecode Lists Function Time: %5.6f sec\n", sDecodeLists.elapsedTime);
 			printf("\t\t\tScan Lists Function Time: %5.6f sec\n", sScanLists.elapsedTime);
 		}
 		fflush(stdout);
 	}
+
+	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
+	#endif
+
+	return true;
+}
+
+//Works with MPI, requires use_bit = true (adjacency matrix used) for now
+bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const int &group_size, CausetMPI &cmpi, CaResources * const ca, const bool &use_bit, const bool &verbose)
+{
+	#if DEBUG
+	//assert (nodes.crd->getDim() == 4);
+	assert (!nodes.crd->isNull());
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	if (get_stdim(spacetime) == 4) {
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->z() != NULL);
+	}
+	assert (nodes.k_in != NULL);
+	assert (nodes.k_out != NULL);
+	assert (g_idx != NULL);
+	assert (ca != NULL);
+	assert (N_tar > 0);
+	assert (group_size >= 1);
+	assert (use_bit);
+	#endif
+
+	#ifdef MPI_ENABLED
+	if (!cmpi.rank) printf_mag();
+	printf_mpi(cmpi.rank, "Using Version 3.\n");
+	if (!cmpi.rank) printf_std();
+	#endif
+
+	//CUDA Streams
+	CUstream stream [NBUFFERS];
+
+	//Arrays of Buffers
+	int *h_k_in[NBUFFERS];
+	int *h_k_out[NBUFFERS];
+	bool *h_edges[NBUFFERS];
+
+	CUdeviceptr d_w0[NBUFFERS];
+	CUdeviceptr d_x0[NBUFFERS];
+	CUdeviceptr d_y0[NBUFFERS];
+	CUdeviceptr d_z0[NBUFFERS];
+
+	CUdeviceptr d_w1[NBUFFERS];
+	CUdeviceptr d_x1[NBUFFERS];
+	CUdeviceptr d_y1[NBUFFERS];
+	CUdeviceptr d_z1[NBUFFERS];
+
+	CUdeviceptr d_k_in[NBUFFERS];
+	CUdeviceptr d_k_out[NBUFFERS];
+	CUdeviceptr d_edges[NBUFFERS];
+	
+	bool compact = get_curvature(spacetime) & POSITIVE;
+	int stdim = get_stdim(spacetime);
+	unsigned int i, j, k;
+
+	//Block groups
+	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
+	size_t mthread_size = mblock_size * BLOCK_SIZE;
+	size_t m_edges_size = mthread_size * mthread_size;
+	
+	//Create Streams
+	for (i = 0; i < NBUFFERS; i++)
+		checkCudaErrors(cuStreamCreate(&stream[i], CU_STREAM_NON_BLOCKING));
+
+	//Allocate Memory
+	for (i = 0; i < NBUFFERS; i++) {
+		checkCudaErrors(cuMemHostAlloc((void**)&h_k_in[i], sizeof(int) * mthread_size, CU_MEMHOSTALLOC_PORTABLE));
+		ca->hostMemUsed += sizeof(int) * mthread_size;
+
+		checkCudaErrors(cuMemHostAlloc((void**)&h_k_out[i], sizeof(int) * mthread_size, CU_MEMHOSTALLOC_PORTABLE));
+		ca->hostMemUsed += sizeof(int) * mthread_size;
+
+		checkCudaErrors(cuMemHostAlloc((void**)&h_edges[i], sizeof(bool) * m_edges_size, CU_MEMHOSTALLOC_PORTABLE));
+		ca->hostMemUsed += sizeof(bool) * m_edges_size;
+
+		checkCudaErrors(cuMemAlloc(&d_x0[i], sizeof(float) * mthread_size));
+		checkCudaErrors(cuMemAlloc(&d_y0[i], sizeof(float) * mthread_size));
+		if (stdim == 4) {
+			checkCudaErrors(cuMemAlloc(&d_w0[i], sizeof(float) * mthread_size));
+			checkCudaErrors(cuMemAlloc(&d_z0[i], sizeof(float) * mthread_size));
+		}
+		ca->devMemUsed += sizeof(float) * mthread_size * stdim;
+
+		checkCudaErrors(cuMemAlloc(&d_x1[i], sizeof(float) * mthread_size));
+		checkCudaErrors(cuMemAlloc(&d_y1[i], sizeof(float) * mthread_size));
+		if (stdim == 4) {
+			checkCudaErrors(cuMemAlloc(&d_w1[i], sizeof(float) * mthread_size));
+			checkCudaErrors(cuMemAlloc(&d_z1[i], sizeof(float) * mthread_size));
+		}
+		ca->devMemUsed += sizeof(float) * mthread_size * stdim;
+
+		checkCudaErrors(cuMemAlloc(&d_k_in[i], sizeof(int) * mthread_size));
+		ca->devMemUsed += sizeof(int) * mthread_size;
+
+		checkCudaErrors(cuMemAlloc(&d_k_out[i], sizeof(int) * mthread_size));
+		ca->devMemUsed += sizeof(int) * mthread_size;
+
+		checkCudaErrors(cuMemAlloc(&d_edges[i], sizeof(bool) * m_edges_size));
+		ca->devMemUsed += sizeof(bool) * m_edges_size;
+	}
+
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
+	if (verbose)
+		printMemUsed("for Generating Lists on GPU", ca->hostMemUsed, ca->devMemUsed, cmpi.rank);
+
+	//CUDA Grid Specifications
+	unsigned int gridx = static_cast<unsigned int>(ceil(static_cast<float>(mthread_size) / THREAD_SIZE));
+	unsigned int gridy = mblock_size;
+	dim3 threads_per_block(1, BLOCK_SIZE, 1);
+	dim3 blocks_per_grid(gridx, gridy, 1);
+
+	size_t final_size = N_tar - mthread_size * (group_size - 1);
+	size_t size0, size1;
+
+	int mpi_chunk = group_size / cmpi.num_mpi_threads;
+	int mpi_offset = mpi_chunk * cmpi.rank;
+
+	//Index 'i' marks the row and 'j' marks the column
+	int start = mpi_offset;
+	int finish = start + mpi_chunk;
+	for (i = start; i < finish; i++) {
+		for (j = 0; j < group_size / NBUFFERS; j++) {
+			for (k = 0; k < NBUFFERS; k++) {
+				size0 = (i < group_size - 1) ? mthread_size : final_size;
+				size1 = (j * NBUFFERS + k < group_size - 1) ? mthread_size : final_size;
+
+				//Clear Device Buffers
+				checkCudaErrors(cuMemsetD32Async(d_k_in[k], 0, mthread_size, stream[k]));
+				checkCudaErrors(cuMemsetD32Async(d_k_out[k], 0, mthread_size, stream[k]));
+				checkCudaErrors(cuMemsetD8Async(d_edges[k], 0, m_edges_size, stream[k]));					
+			
+				//Transfer Nodes to Device Buffers
+				checkCudaErrors(cuMemcpyHtoDAsync(d_x0[k], nodes.crd->x() + i * mthread_size, sizeof(float) * size0, stream[k]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_y0[k], nodes.crd->y() + i * mthread_size, sizeof(float) * size0, stream[k]));
+				if (stdim == 4) {
+					checkCudaErrors(cuMemcpyHtoDAsync(d_w0[k], nodes.crd->w() + i * mthread_size, sizeof(float) * size0, stream[k]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_z0[k], nodes.crd->z() + i * mthread_size, sizeof(float) * size0, stream[k]));
+				}
+
+				checkCudaErrors(cuMemcpyHtoDAsync(d_x1[k], nodes.crd->x() + (j * NBUFFERS + k) * mthread_size, sizeof(float) * size1, stream[k]));
+				checkCudaErrors(cuMemcpyHtoDAsync(d_y1[k], nodes.crd->y() + (j * NBUFFERS + k) * mthread_size, sizeof(float) * size1, stream[k]));
+				if (stdim == 4) {
+					checkCudaErrors(cuMemcpyHtoDAsync(d_w1[k], nodes.crd->w() + (j * NBUFFERS + k) * mthread_size, sizeof(float) * size1, stream[k]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_z1[k], nodes.crd->z() + (j * NBUFFERS + k) * mthread_size, sizeof(float) * size1, stream[k]));
+				}
+
+				//Execute Kernel
+				int flags = stdim | (int)compact;
+				switch (flags) {
+				case 2:
+					GenerateAdjacencyLists_v2<false, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
+					break;
+				case 3:
+					GenerateAdjacencyLists_v2<true, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
+					break;
+				case 4:
+					GenerateAdjacencyLists_v2<false, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
+					break;
+				case 5:
+					GenerateAdjacencyLists_v2<true, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
+					break;
+				default:
+					fprintf(stderr, "Invalid flag value: %d\n", flags);
+					return false;
+				}
+				getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
+
+				//Copy Memory to Host Buffers
+				checkCudaErrors(cuMemcpyDtoHAsync(h_k_in[k], d_k_in[k], sizeof(int) * size1, stream[k]));
+				checkCudaErrors(cuMemcpyDtoHAsync(h_k_out[k], d_k_out[k], sizeof(int) * size0, stream[k]));
+				checkCudaErrors(cuMemcpyDtoHAsync(h_edges[k], d_edges[k], sizeof(bool) * m_edges_size, stream[k]));
+
+				//Synchronize
+				checkCudaErrors(cuStreamSynchronize(stream[k]));
+
+				//Read Data from Buffers
+				readDegrees(nodes.k_in, h_k_in[k], (j * NBUFFERS + k) * mthread_size, size1);
+				readDegrees(nodes.k_out, h_k_out[k], i * mthread_size, size0);
+				readEdges(NULL, h_edges[k], adj, g_idx, N_tar, 0, mthread_size, size0, size1, i - start, j * NBUFFERS + k, true, true);
+			}
+		}
+	}
+
+	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Allreduce(MPI_IN_PLACE, nodes.k_in, N_tar, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+	MPI_Allreduce(MPI_IN_PLACE, nodes.k_out, N_tar, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+	MPI_Allreduce(MPI_IN_PLACE, g_idx, 1, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
+	*g_idx >>= 1;
+	#endif
+
+	//Free Buffers
+	for (i = 0; i < NBUFFERS; i++) {
+		cuMemFreeHost(h_k_in[i]);
+		h_k_in[i] = NULL;
+		ca->hostMemUsed -= sizeof(int) * mthread_size;
+
+		cuMemFreeHost(h_k_out[i]);
+		h_k_out[i] = NULL;
+		ca->hostMemUsed -= sizeof(int) * mthread_size;
+
+		cuMemFreeHost(h_edges[i]);
+		h_edges[i] = NULL;
+		ca->hostMemUsed -= sizeof(bool) * m_edges_size;
+
+		cuMemFree(d_x0[i]);
+		d_x0[i] = 0;
+
+		cuMemFree(d_y0[i]);
+		d_y0[i] = 0;
+
+		if (stdim == 4) {
+			cuMemFree(d_w0[i]);
+			d_w0[i] = 0;
+
+			cuMemFree(d_z0[i]);
+			d_z0[i] = 0;
+		}
+
+		ca->devMemUsed -= sizeof(float) * mthread_size * stdim;
+
+		cuMemFree(d_x1[i]);
+		d_x1[i] = 0;
+
+		cuMemFree(d_y1[i]);
+		d_y1[i] = 0;
+
+		if (stdim == 4) {
+			cuMemFree(d_w1[i]);
+			d_w1[i] = 0;
+
+			cuMemFree(d_z1[i]);
+			d_z1[i] = 0;
+		}
+
+		ca->devMemUsed -= sizeof(float) * mthread_size * stdim;
+
+		cuMemFree(d_k_in[i]);
+		d_k_in[i] = 0;
+		ca->devMemUsed -= sizeof(int) * mthread_size;
+
+		cuMemFree(d_k_out[i]);
+		d_k_out[i] = 0;
+		ca->devMemUsed -= sizeof(int) * mthread_size;
+
+		cuMemFree(d_edges[i]);
+		d_edges[i] = 0;
+		ca->devMemUsed -= sizeof(bool) * m_edges_size;
+	}
+
+	//Destroy Streams
+	for (i = 0; i < NBUFFERS; i++)
+		checkCudaErrors(cuStreamDestroy(stream[i]));
+
+	//Final Synchronization
+	checkCudaErrors(cuCtxSynchronize());
 
 	return true;
 }
@@ -355,12 +652,14 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
-	assert (nodes.crd->getDim() == 4);
+	//assert (nodes.crd->getDim() == 4);
 	assert (!nodes.crd->isNull());
-	assert (nodes.crd->w() != NULL);
 	assert (nodes.crd->x() != NULL);
 	assert (nodes.crd->y() != NULL);
-	assert (nodes.crd->z() != NULL);
+	if (get_stdim(spacetime) == 4) {
+		assert (nodes.crd->w() != NULL);
+		assert (nodes.crd->z() != NULL);
+	}
 	assert (nodes.k_in != NULL);
 	assert (nodes.k_out != NULL);
 	assert (g_idx != NULL);
@@ -369,6 +668,10 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	if (use_bit)
 		assert (core_edge_fraction == 1.0f);
+	#endif
+
+	#ifdef MPI_ENABLED
+	printf_dbg("Using Version 2.\n");
 	#endif
 
 	//CUDA Streams
@@ -394,10 +697,11 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	CUdeviceptr d_edges[NBUFFERS];
 
 	unsigned int core_limit = static_cast<unsigned int>(core_edge_fraction * N_tar);
+	unsigned int stdim = get_stdim(spacetime);
 	unsigned int i, j, m;
-	bool diag;
 
 	bool compact = get_curvature(spacetime) & POSITIVE;
+	bool diag;
 
 	//Thread blocks are grouped into "mega" blocks
 	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
@@ -419,17 +723,21 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 		checkCudaErrors(cuMemHostAlloc((void**)&h_edges[i], sizeof(bool) * m_edges_size, CU_MEMHOSTALLOC_PORTABLE));
 		ca->hostMemUsed += sizeof(bool) * m_edges_size;
 
-		checkCudaErrors(cuMemAlloc(&d_w0[i], sizeof(float) * mthread_size));
 		checkCudaErrors(cuMemAlloc(&d_x0[i], sizeof(float) * mthread_size));
 		checkCudaErrors(cuMemAlloc(&d_y0[i], sizeof(float) * mthread_size));
-		checkCudaErrors(cuMemAlloc(&d_z0[i], sizeof(float) * mthread_size));
-		ca->devMemUsed += sizeof(float) * mthread_size * 4;
+		if (stdim == 4) {
+			checkCudaErrors(cuMemAlloc(&d_w0[i], sizeof(float) * mthread_size));
+			checkCudaErrors(cuMemAlloc(&d_z0[i], sizeof(float) * mthread_size));
+		}
+		ca->devMemUsed += sizeof(float) * mthread_size * stdim;
 
-		checkCudaErrors(cuMemAlloc(&d_w1[i], sizeof(float) * mthread_size));
 		checkCudaErrors(cuMemAlloc(&d_x1[i], sizeof(float) * mthread_size));
 		checkCudaErrors(cuMemAlloc(&d_y1[i], sizeof(float) * mthread_size));
-		checkCudaErrors(cuMemAlloc(&d_z1[i], sizeof(float) * mthread_size));
-		ca->devMemUsed += sizeof(float) * mthread_size * 4;
+		if (stdim == 4) {
+			checkCudaErrors(cuMemAlloc(&d_w1[i], sizeof(float) * mthread_size));
+			checkCudaErrors(cuMemAlloc(&d_z1[i], sizeof(float) * mthread_size));
+		}
+		ca->devMemUsed += sizeof(float) * mthread_size * stdim;
 
 		checkCudaErrors(cuMemAlloc(&d_k_in[i], sizeof(int) * mthread_size));
 		ca->devMemUsed += sizeof(int) * mthread_size;
@@ -472,18 +780,52 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 				checkCudaErrors(cuMemsetD8Async(d_edges[m], 0, m_edges_size, stream[m]));					
 			
 				//Transfer Nodes to Device Buffers
-				checkCudaErrors(cuMemcpyHtoDAsync(d_w0[m], nodes.crd->w() + i * mthread_size, sizeof(float) * size0, stream[m]));
 				checkCudaErrors(cuMemcpyHtoDAsync(d_x0[m], nodes.crd->x() + i * mthread_size, sizeof(float) * size0, stream[m]));
 				checkCudaErrors(cuMemcpyHtoDAsync(d_y0[m], nodes.crd->y() + i * mthread_size, sizeof(float) * size0, stream[m]));
-				checkCudaErrors(cuMemcpyHtoDAsync(d_z0[m], nodes.crd->z() + i * mthread_size, sizeof(float) * size0, stream[m]));
+				if (stdim == 4) {
+					checkCudaErrors(cuMemcpyHtoDAsync(d_w0[m], nodes.crd->w() + i * mthread_size, sizeof(float) * size0, stream[m]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_z0[m], nodes.crd->z() + i * mthread_size, sizeof(float) * size0, stream[m]));
+				}
 
-				checkCudaErrors(cuMemcpyHtoDAsync(d_w1[m], nodes.crd->w() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
 				checkCudaErrors(cuMemcpyHtoDAsync(d_x1[m], nodes.crd->x() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
 				checkCudaErrors(cuMemcpyHtoDAsync(d_y1[m], nodes.crd->y() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
-				checkCudaErrors(cuMemcpyHtoDAsync(d_z1[m], nodes.crd->z() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
+				if (stdim == 4) {
+					checkCudaErrors(cuMemcpyHtoDAsync(d_w1[m], nodes.crd->w() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
+					checkCudaErrors(cuMemcpyHtoDAsync(d_z1[m], nodes.crd->z() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
+				}
 
 				//Execute Kernel
-				GenerateAdjacencyLists_v2<<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1, diag, compact);
+				int flags = ((int)diag << 4) | ((int)compact << 3) | stdim;
+				switch (flags) {
+				case 2:
+					GenerateAdjacencyLists_v2<false, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					break;
+				case 4:
+					GenerateAdjacencyLists_v2<false, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					break;
+				case 10:
+					GenerateAdjacencyLists_v2<true, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					break;
+				case 12:
+					GenerateAdjacencyLists_v2<true, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					break;
+				case 18:
+					GenerateAdjacencyLists_v2<false, true, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					break;
+				case 20:
+					GenerateAdjacencyLists_v2<false, true, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					break;
+				case 26:
+					GenerateAdjacencyLists_v2<true, true, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					break;
+				case 28:
+					GenerateAdjacencyLists_v2<true, true, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					break;
+				default:
+					fprintf(stderr, "Invalid flag value: %d\n", flags);
+					return false;
+				}
+
 				getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
 
 				//Copy Memory to Host Buffers
@@ -497,7 +839,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 				//Read Data from Buffers
 				readDegrees(nodes.k_in, h_k_in[m], (j * NBUFFERS + m) * mthread_size, size1);
 				readDegrees(nodes.k_out, h_k_out[m], i * mthread_size, size0);
-				readEdges(edges, h_edges[m], adj, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j*NBUFFERS+m, use_bit);
+				readEdges(edges, h_edges[m], adj, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j*NBUFFERS+m, use_bit, false);
 			}				
 		}
 	}
@@ -516,22 +858,21 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 		h_edges[i] = NULL;
 		ca->hostMemUsed -= sizeof(bool) * m_edges_size;
 
-		cuMemFree(d_w0[i]);
-		d_w0[i] = 0;
-
 		cuMemFree(d_x0[i]);
 		d_x0[i] = 0;
 
 		cuMemFree(d_y0[i]);
 		d_y0[i] = 0;
 
-		cuMemFree(d_z0[i]);
-		d_z0[i] = 0;
+		if (stdim == 4) {
+			cuMemFree(d_w0[i]);
+			d_w0[i] = 0;
 
-		ca->devMemUsed -= sizeof(float) * mthread_size * 4;
+			cuMemFree(d_z0[i]);
+			d_z0[i] = 0;
+		}
 
-		cuMemFree(d_w1[i]);
-		d_w1[i] = 0;
+		ca->devMemUsed -= sizeof(float) * mthread_size * stdim;
 
 		cuMemFree(d_x1[i]);
 		d_x1[i] = 0;
@@ -539,10 +880,15 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 		cuMemFree(d_y1[i]);
 		d_y1[i] = 0;
 
-		cuMemFree(d_z1[i]);
-		d_z1[i] = 0;
+		if (stdim == 4) {
+			cuMemFree(d_w1[i]);
+			d_w1[i] = 0;
 
-		ca->devMemUsed -= sizeof(float) * mthread_size * 4;
+			cuMemFree(d_z1[i]);
+			d_z1[i] = 0;
+		}
+
+		ca->devMemUsed -= sizeof(float) * mthread_size * stdim;
 
 		cuMemFree(d_k_in[i]);
 		d_k_in[i] = 0;
@@ -864,7 +1210,7 @@ bool scanLists(const Edge &edges, const CUdeviceptr &d_k_in, const CUdeviceptr d
 	return true;
 }
 
-bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const CUdeviceptr &d_k_out, const int64_t *g_idx, const int &N_tar, int &N_res, int &N_deg2, float &k_res, CaResources * const ca, const bool &verbose)
+bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const CUdeviceptr &d_k_out, const int64_t *g_idx, const int &N_tar, int &N_res, int &N_deg2, float &k_res, CausetMPI &cmpi, CaResources * const ca, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.k_in != NULL);
@@ -884,7 +1230,7 @@ bool identifyListProperties(const Node &nodes, const CUdeviceptr &d_k_in, const 
 	
 	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("for Identifying List Properties", ca->hostMemUsed, ca->devMemUsed, 0);
+		printMemUsed("for Identifying List Properties", ca->hostMemUsed, ca->devMemUsed, cmpi.rank);
 	
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_N_res, 0, 1));

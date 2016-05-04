@@ -1,0 +1,25 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Debugging MPI implementation
+
+spacetime=82468
+nodes=64
+age=0.5
+seed=1462078367
+
+source ~/.queues
+jobstart=$NEXT_JOB
+samples=1
+queue="krioukov_gpu"
+exclude="compute-4-017"
+
+host=$(bqueues -l $queue | awk '/HOSTS:/ {print $2}' | sed 's#/*$##')
+ncores=$(bhosts $host | awk 'NR==2 {print $4}')
+
+./lsf/wrapper/causet_bat --start $jobstart --ncores $ncores --mpi 2 --queue $queue --nsamples $samples --exclude $exclude --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --age '"$age"' --verbose -y --core 1 --link --action smeared --seed '"$seed"
