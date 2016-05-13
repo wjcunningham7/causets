@@ -1,29 +1,30 @@
 #!/usr/bin/env python
 
 ###########################
-#(C) Will Cunningham 2015 #
+#(C) Will Cunningham 2016 #
 #         DK Lab          #
 # Northeastern University #
 ###########################
 
-# Used to calculate greedy routing parameters for the flrw slab (constant k)
-
 import math
+import numpy as np
+from scipy.integrate import quad, dblquad
+from scipy.special import hyp2f1
 import sys
 
-k = 10
-tau0 = 1.2
-alpha = 6.5
-kappa = 2.82087259e-01
+if len(sys.argv) < 3:
+	sys.stdout.write('Arguments are [average degree] [tau0] [number of nodes]\n')
+	exit(1)
 
-omega = math.pow(math.tanh(1.5*tau0), 2)
+k = float(sys.argv[1])
+tau0 = float(sys.argv[2])
+n = int(sys.argv[3])
+
+def eta(tau):
+	return 2.0 * pow(math.sinh(1.5*tau), 1.0 / 3.0) * hyp2f1(1.0 / 6.0, 0.5, 7.0 / 6.0, -pow(math.sinh(1.5*tau), 2.0))
+
+kappa = 8.0 * math.pi * dblquad(lambda x, y: pow(math.sinh(1.5*x) * math.sinh(1.5*y), 2.0) * abs(pow(eta(x) - eta(y), 3.0)), 0, tau0, lambda x: 0, lambda x: tau0)[0] / (math.sinh(3.0 * tau0) - 3.0 * tau0)
 q = k / kappa
-n0 = (2*math.pi/9)*q*math.pow(alpha, 3)*(math.sinh(3*tau0)-3*tau0)
+alpha = pow(9.0 * n / (2.0 * math.pi * q * (math.sinh(3.0 * tau0) - 3.0 * tau0)), 1.0 / 3.0)
 
-n1 = 256 * int(math.floor(n0 / 256))
-alpha1 = pow(n1 / ((2*math.pi/9)*q*(math.sinh(3*tau0)-3*tau0)), 1.0/3.0)
-
-sys.stdout.write('omega: %e\n' % omega)
-sys.stdout.write('q:     %e\n' % q)
-sys.stdout.write('N:     %d\n' % n1)
-sys.stdout.write('alpha: %f\n' % alpha1)
+sys.stdout.write('spatial cutoff: %f\n' % alpha)

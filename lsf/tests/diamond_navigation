@@ -24,11 +24,11 @@ queue="par-gpu-2"
 host=$(bqueues -l $queue | awk '/HOSTS:/ {print $2}' | sed 's#/*$##')
 ncores=$(bhosts $host | awk 'NR==2 {print $4}')
 
-rm -f causet.par
-./etc/routing/gr_test_diamond_density $spacetime $density $energy_min $energy_max	//For constant k
-#./etc/routing/gr_test_diamond_degree $spacetime $degree					//For constant q
-readarray -t vars < causet.par
-rm causet.par
+rm -f $CAUSET_HOME_DIR/causet.par
+$CAUSET_HOME_DIR/etc/routing/gr_test_diamond_density $spacetime $density $energy_min $energy_max	//For constant k
+#$CAUSET_HOME_DIR/etc/routing/gr_test_diamond_degree $spacetime $degree					//For constant q
+readarray -t vars < $CAUSET_HOME_DIRcauset.par
+rm $CAUSET_HOME_DIRcauset.par
 
 for i in $(seq ${#vars[@]}) ; do
   energy=$(awk '{print $1}' <<< "${vars[${i}-1]}")
@@ -43,7 +43,7 @@ for i in $(seq ${#vars[@]}) ; do
     readjob=0
   fi
 
-  ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --energy '"$energy"' --link --verbose -y --print --gpu --core 1 --success 1000000' --queue $queue --nsamples $samples
+  $CAUSET_HOME_DIR/lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --energy '"$energy"' --link --verbose -y --print --gpu --core 1 --success 1000000' --queue $queue --nsamples $samples
 done
 
 setnextjob $(($job+1))

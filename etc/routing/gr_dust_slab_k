@@ -1,30 +1,26 @@
 #!/usr/bin/env python
 
 ###########################
-#(C) Will Cunningham 2015 #
+#(C) Will Cunningham 2016 #
 #         DK Lab          #
 # Northeastern University #
 ###########################
 
-# Used to calculate greedy routing parameters for the dust slab (constant k)
-
 import math
 import numpy as np
+from scipy.integrate import quad, dblquad
 import sys
 
-k = 10
-tau0 = 0.2154
-alpha = float(sys.argv[1])
-kappa = 3.16526029e-04
+if len(sys.argv) < 3:
+	sys.stdout.write('Arguments are [average degree] [tau0] [number of nodes]\n')
+	exit(1)
 
-omega = math.pow(math.tanh(1.5*tau0), 2)
+k = float(sys.argv[1])
+tau0 = float(sys.argv[2])
+n = int(sys.argv[3])
+
+kappa = 108 * math.pi * dblquad(lambda x, y: pow(x * y, 2.0) * abs(pow(pow(x, 1.0 / 3.0) - pow(y, 1.0 / 3.0), 3.0)), 0, tau0, lambda x: 0, lambda x: tau0)[0] / pow(tau0, 3.0)
 q = k / kappa
-n0 = math.pi * q * math.pow(alpha * tau0, 3)
+r = pow(n / (math.pi * q), 1.0 / 3.0) / tau0
 
-n1 = 256 * int(math.floor(n0 / 256))
-alpha1 = math.pow(n1 / (math.pi * q), 1.0 / 3.0) / tau0
-
-sys.stdout.write('omega: %e\n' % omega)
-sys.stdout.write('q:     %e\n' % q)
-sys.stdout.write('N:     %d\n' % n1)
-sys.stdout.write('alpha: %f\n' % alpha1)
+sys.stdout.write('spatial cutoff: %f\n' % r)

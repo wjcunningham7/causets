@@ -14,7 +14,7 @@
 
 #./lsf/tests/navigation
 
-./lsf/tests/action
+$CAUSET_HOME_DIR/lsf/tests/action
 
 #########################
 # GENERATE NEW NETWORKS #

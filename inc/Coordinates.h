@@ -133,7 +133,7 @@ inline float get_2d_asym_flat_minkowski_diamond_u(UGenerator &rng, const double 
 // Symmetric About Eta  //
 //////////////////////////
 
-inline float get_2d_sym_flat_minkowski_saucer_eta(UGenerator &rng, const double x)
+/*inline float get_2d_sym_flat_minkowski_saucer_eta(UGenerator &rng, const double x)
 {
 	return (2.0 * rng() - 1.0) * eta_77834_1(x);
 }
@@ -150,7 +150,7 @@ inline float get_2d_sym_flat_minkowski_saucer_x(UGenerator &rng, const double vo
 	#endif
 
 	return x;
-}
+}*/
 
 //////////////////////////
 // 2-D De Sitter Slab   //

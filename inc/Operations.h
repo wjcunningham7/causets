@@ -812,13 +812,21 @@ inline double isf_02(double *table, double size, double eta, double a, double al
 //--------------------------------//
 
 //This function gives the boundary value eta(x)
-inline double eta_77834_1(double x)
+inline double eta_77834_1(double x, double eta0)
 {
 	#if DEBUG
+	#if SPECIAL_SAUCER
 	assert (fabs(x) <= 1.5);
+	#else
+	assert (fabs(x) <= sqrt(eta0 * (2.0 - eta0)));
+	#endif
 	#endif
 
+	#if SPECIAL_SAUCER
 	return 2.0 - sqrt(4.0 * POW2(x, EXACT) / 3.0 + 1.0);
+	#else
+	return 1.0 - sqrt(POW2(x, EXACT) + POW2(1.0 - eta0, EXACT));
+	#endif
 }
 
 //---------------------------------//
@@ -1113,7 +1121,7 @@ inline double degreeFieldTheory(double eta, void *params)
 
 //Calculate the action from the abundancy intervals
 //The parameter 'lk' is taken to be expressed in units of the graph discreteness length 'l'
-inline double calcAction(const int * const cardinalities, const int stdim, const double &lk, const bool &smeared)
+inline double calcAction(const uint64_t * const cardinalities, const int stdim, const double &lk, const bool &smeared)
 {
 	#if DEBUG
 	assert (cardinalities != NULL);
@@ -1121,16 +1129,16 @@ inline double calcAction(const int * const cardinalities, const int stdim, const
 	assert (lk > 0.0);
 	#endif
 
-	double action = 0.0;
+	long double action = 0.0;
 
 	if (smeared) {
-		double epsilon = POW(lk, -stdim, STL);
-		double eps1 = epsilon / (1.0 - epsilon);
-		double ni;
-		int i;
+		long double epsilon = static_cast<long double>(POW(lk, -stdim, STL));
+		long double eps1 = epsilon / (1.0 - epsilon);
+		long double ni;
+		uint64_t i;
 
 		for (i = 0; i < cardinalities[0] - 3; i++) {
-			ni = static_cast<double>(cardinalities[i+1]);
+			ni = static_cast<long double>(cardinalities[i+1]);
 			if (stdim == 2)
 				action += ni * POW(1.0 - epsilon, i, STL) * (1.0 - 2.0 * eps1 * i + 0.5 * POW2(eps1, EXACT) * i * (i - 1.0));
 			else if (stdim == 4)
@@ -1154,7 +1162,7 @@ inline double calcAction(const int * const cardinalities, const int stdim, const
 			action = NAN;
 	}
 
-	return action;
+	return static_cast<double>(action);
 }
 
 #endif

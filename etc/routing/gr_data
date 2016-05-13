@@ -30,7 +30,7 @@ fi
 st=$4
 ver=$5
 
-homedir='/home/cunningham.wi/projects/causets'
+homedir=$CAUSET_HOME_DIR
 #basedir='/krioukov/will'
 basedir='/gss_gpfs_scratch/cunningham'
 

@@ -9,17 +9,19 @@
 # Debugging MPI implementation
 
 spacetime=82468
-nodes=64
+nodes=$((1024+256))
 age=0.5
 seed=1462078367
+mpi=0
 
-source ~/.queues
+source /home/$USER/.queues
 jobstart=$NEXT_JOB
+readstart=1640
 samples=1
-queue="krioukov_gpu"
+queue="par-gpu"
 exclude="compute-4-017"
 
 host=$(bqueues -l $queue | awk '/HOSTS:/ {print $2}' | sed 's#/*$##')
 ncores=$(bhosts $host | awk 'NR==2 {print $4}')
 
-./lsf/wrapper/causet_bat --start $jobstart --ncores $ncores --mpi 2 --queue $queue --nsamples $samples --exclude $exclude --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --age '"$age"' --verbose -y --core 1 --link --action smeared --seed '"$seed"
+$CAUSET_HOME_DIR/lsf/wrapper/causet_bat --start $jobstart --ncores $ncores --mpi $mpi --queue $queue --nsamples $samples --exclude $exclude --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --age '"$age"' --verbose -y --core 1 --relink --print --quiet-read --seed '"$seed" --readjob $readstart

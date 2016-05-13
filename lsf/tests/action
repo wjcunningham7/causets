@@ -8,27 +8,43 @@
 
 # Action Experiments
 
-source /home/$USER/.queues
+# GENERAL USE #
+# Use 'setnextjob' command
+# Set spacetime
+# Set age
+# Specify details of .par file
+# Choose 'readstart' and 'samples'
+# Choose 'queue' and 'mpi'
 
-spacetime=77834
+spacetime=82468 # Symmetric, Compact 3+1 de Sitter Slab
+#spacetime=77834 # Symmetric, Flat 1+1 Minkowski Saucer
+age=0.5
+makeparfile=false
+
 nmin=1024
-nmax=65536
-nnum=19
-age=1.00
+nmax=262144
+nnum=25
 
+source /home/$USER/.queues
 jobstart=$NEXT_JOB
 readstart=0
-samples=10
+samples=1
 queue="krioukov_gpu"
-exclude="compute-4-017"
+mpi=4
+#exclude="compute-4-017"
+exclude="none"
 
 host=$(bqueues -l $queue | awk '/HOSTS:/ {print $2}' | sed 's#/*$##')
 ncores=$(bhosts $host | awk 'NR==2 {print $4}')
 
-rm -f causet.par
-./etc/action/action_test $nmin $nmax $nnum
-readarray -t vars < causet.par
-rm causet.par
+if [[ $makeparfile == "true" ]] ; then
+  rm -f $CAUSET_HOME_DIR/causet.par
+  $CAUSET_HOME_DIR/etc/action/action_test $nmin $nmax $nnum
+fi
+readarray -t vars < $CAUSET_HOME_DIR/causet.par
+if [[ $makeparfile == "true" ]] ; then
+  rm $CAUSET_HOME_DIR/causet.par
+fi
 
 for i in $(seq ${#vars[@]}) ; do
   nodes=${vars[${i}-1]}
@@ -41,7 +57,7 @@ for i in $(seq ${#vars[@]}) ; do
     readjob=0
   fi
 
-  ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --age '"$age"' --link --core 1 --verbose -y --action smeared --print' --queue $queue --nsamples $samples --exclude $exclude
+  $CAUSET_HOME_DIR/lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --age '"$age"' --link --gpu --core 1 --verbose -y --action smeared --print' --queue $queue --nsamples $samples --exclude $exclude --mpi $mpi
 done
 
 setnextjob $(($job+1))

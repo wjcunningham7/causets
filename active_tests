@@ -1,0 +1,74 @@
+ACTION EXPERIMENTS:
+===================
+
+--------------
+DE SITTER SLAB
+--------------
+Jobs 1499-1500
+Spacetime = 82468
+Eta0 = 0.5
+Waiting for...NONE
+ > Job 1500 has incorrect results
+
+NAVIGABILITY EXPERIMENTS:
+=========================
+> Uses geodesic distances
+> Studies two success metrics
+> Considers all pairs
+
+---------------
+CONSTANT DEGREE
+---------------
+Jobs 1607-1617
+Manifold = De Sitter
+k = 10
+Spacetime = 41508
+Waiting for...ALL
+
+Jobs 1618-1628
+Manifold = De Sitter
+k = 15
+Spacetime = 41508
+Waiting for...ALL
+
+Jobs 1629-1639
+Manifold = De Sitter
+k = 20
+Spacetime = 41508
+Waiting for...ALL
+
+Jobs 1640-1650
+Manifold = Dust
+k = 10
+Spacetime = 41540
+Waiting for...ALL
+
+Jobs 1651-1661
+Manifold = Dust
+k = 15
+Spacetime = 41540
+Waiting for...ALL
+
+Jobs 1662-1672
+Manifold = Dust
+k = 20
+Spacetime = 41540
+Waiting for...ALL
+
+Jobs 1673-1683
+Manifold = FLRW
+k = 10
+Spacetime = 41604
+Waiting for...ALL
+
+Jobs 1684-1694
+Manifold = FLRW
+k = 15
+Spacetime = 41604
+Waiting for...ALL
+
+Jobs 1695-1705
+Manifold = FLRW
+k = 20
+Spacetime = 41604
+Waiting for...ALL

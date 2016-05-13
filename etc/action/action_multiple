@@ -13,17 +13,25 @@
 import glob
 import math
 import numpy as np
+import os
 import sys
 
-stdim = 4
+basedir = '/gss_gpfs_scratch/cunningham/'
+#basedir = '/krioukov/will/'
+
+if (len(sys.argv) < 3):
+	sys.stdout.write('Arguments are [jobstart] [jobend] [stdim].\n')
+	sys.exit(0)
+
+jobStart = int(sys.argv[1])
+jobEnd = int(sys.argv[2])
+stdim = int(sys.argv[3])
 
 if not (stdim == 2 or stdim == 4):
-	sys.stdout.write('Invalid parameter: [stdim]');
+	sys.stdout.write('Invalid parameter: [stdim]\n');
 	sys.exit(1)
 
 # Range of job numbers (inclusive)
-jobStart = 979
-jobEnd = 983
 njobs = jobEnd - jobStart + 1
 
 # Range of lk to use (inclusive)
@@ -32,8 +40,6 @@ lkmax = 10
 lkstep = 1
 nlk = (lkmax - lkmin + 1) / lkstep
 
-#basedir = '/gss_gpfs_scratch/cunningham/'
-basedir = '/krioukov/will/'
 action = np.zeros((nlk, njobs))
 err = np.zeros((nlk, njobs))
 
@@ -82,7 +88,7 @@ for lk in range(lkmin, lkmax + lkstep, lkstep):
 		action[int((lk-lkmin)/lkstep)][int(job-jobStart)] = np.mean(a)
 		err[int((lk-lkmin)/lkstep)][int(job-jobStart)] = np.std(a) / math.sqrt(len(files))
 
-basedir = '/home/cunningham.wi/projects/causets/'
+basedir = os.environ['CAUSET_HOME_DIR']
 
 if stdim == 2:
 	filename = 'd2_'
@@ -90,8 +96,8 @@ elif stdim == 4:
 	filename = 'd4_'
 filename += 'smeared'
 
-f = open(basedir + 'action_' + filename + '.cset.act.ref', 'a')
-g = open(basedir + 'stderr_' + filename + '.cset.act.ref', 'a')
+f = open(basedir + '/action_' + filename + '.cset.act.ref', 'a')
+g = open(basedir + '/stderr_' + filename + '.cset.act.ref', 'a')
 for i in range(nlk):
 	for j in range(njobs):
 		f.write(str(action[i][j]) + ' ')

@@ -94,16 +94,18 @@ if [ @readjobid@ -ne 0 ] ; then
       if [ ! -f ${posfile} ] ; then
         echo "Node position file ${posfile} does not exist!"
         exit 7
+      else
+        cp $posfile $work/dat/pos
       fi
 
       edgfile=$dir4/${graphs[$i]}.cset.edg.dat
-      if [ ! -f ${edgfile} ] ; then
-        echo "Edge list file ${edgfile} does not exist!"
-        exit 8
+      #if [ ! -f ${edgfile} ] ; then
+      #  echo "Edge list file ${edgfile} does not exist!"
+      #  exit 8
+      #fi
+      if [ -f ${edgfile} ] ; then
+        cp $edgfile $work/dat/edg
       fi
-
-      cp $posfile $work/dat/pos
-      cp $edgfile $work/dat/edg
     done
   else
     posfile=$dir3/@readgraphid@.cset.pos.dat

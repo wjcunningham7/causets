@@ -21,7 +21,7 @@ omin=$3
 omax=$4
 step=0.01
 
-basedir=./etc/routing
+basedir=$CAUSET_HOME_DIR/etc/routing
 if [[ "$st" == 43044 ]] ; then
   scr=$basedir/gr_ds_diamond_q
 elif [[ "$st" == 43076 ]] ; then
@@ -31,5 +31,5 @@ elif [[ "$st" == 43140 ]] ; then
 fi
 
 for i in $(seq ${omin} ${step} ${omax}) ; do
-  echo "$i $($scr $q $i | awk '/n:/ {print $2}')" >> causet.par
+  echo "$i $($scr $q $i | awk '/n:/ {print $2}')" >> $CAUSET_HOME_DIR/causet.par
 done

@@ -108,6 +108,7 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 	int stride;
 	for (stride = 1; stride < BLOCK_SIZE; stride <<= 1) {
 		if (!(tid % (stride << 1)))
+			#pragma unroll
 			for (k = 0; k < THREAD_SIZE; k++)
 				n[tid][k] += n[tid+stride][k];
 		__syncthreads();
@@ -347,7 +348,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 		printf_mpi(cmpi.rank, "\t\tUndirected Links:         %" PRId64 "\n", *g_idx);
 		printf_mpi(cmpi.rank, "\t\tResulting Network Size:   %d\n", N_res);
 		printf_mpi(cmpi.rank, "\t\tResulting Average Degree: %f\n", k_res);
-		printf_mpi(cmpi.rank, "\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N_tar));
+		printf_mpi(cmpi.rank, "\t\t    Incl. Isolated Nodes: %f\n", k_res * ((float)N_res / N_tar));
 		if (!cmpi.rank) printf_red();
 		printf_mpi(cmpi.rank, "\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
 		if (!cmpi.rank) printf_std();
@@ -444,10 +445,14 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 	unsigned int i, j, k;
 
 	//Block groups
+	//mblock_size = # thread blocks per group
 	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
 	size_t mthread_size = mblock_size * BLOCK_SIZE;
+	mthread_size = adj.size() < mthread_size ? adj.size() : mthread_size;
+
+	//m_edges_size = total # threads per group
 	size_t m_edges_size = mthread_size * mthread_size;
-	
+
 	//Create Streams
 	for (i = 0; i < NBUFFERS; i++)
 		checkCudaErrors(cuStreamCreate(&stream[i], CU_STREAM_NON_BLOCKING));
@@ -499,20 +504,50 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 	dim3 threads_per_block(1, BLOCK_SIZE, 1);
 	dim3 blocks_per_grid(gridx, gridy, 1);
 
+	/*printf_mpi(cmpi.rank, "group_size: %d\n", group_size);
+	printf_mpi(cmpi.rank, "mblock_size: %zd\n", mblock_size);
+	printf_mpi(cmpi.rank, "mthread_size: %zd\n", mthread_size);
+	printf_mpi(cmpi.rank, "gridx: %u\n", gridx);
+	printf_mpi(cmpi.rank, "gridy: %u\n", gridy);
+	fflush(stdout);*/
+
 	size_t final_size = N_tar - mthread_size * (group_size - 1);
 	size_t size0, size1;
 
 	int mpi_chunk = group_size / cmpi.num_mpi_threads;
 	int mpi_offset = mpi_chunk * cmpi.rank;
 
+	size_t core_limit = mthread_size * mpi_chunk;
+	size_t final_limit = (mpi_chunk - 1) * mthread_size + final_size;
+	size_t limit;
+
+	/*printf_mpi(cmpi.rank, "mpi_chunk: %d\n", mpi_chunk);
+	printf_mpi(cmpi.rank, "final_size: %zd\n", final_size);
+	printf_mpi(cmpi.rank, "core_limit: %zd\n", core_limit);
+	printf_mpi(cmpi.rank, "final_limit: %zd\n", final_limit);
+
+	sleep(1);
+	MPI_Barrier(MPI_COMM_WORLD);*/
+
 	//Index 'i' marks the row and 'j' marks the column
 	int start = mpi_offset;
 	int finish = start + mpi_chunk;
+	//DEBUG
+	//start = finish - 1;
 	for (i = start; i < finish; i++) {
 		for (j = 0; j < group_size / NBUFFERS; j++) {
 			for (k = 0; k < NBUFFERS; k++) {
+				/*printf("rank[%d] reporting at index [%d, %d, %d] (Point 1)\n", cmpi.rank, i - mpi_offset, j, k);
+				if (i >= group_size - 1) printf("Using final_size for row!\n");
+				if (j * NBUFFERS + k >= group_size - 1) printf("Using final_size for column!\n");
+				fflush(stdout); sleep(1);
+				MPI_Barrier(MPI_COMM_WORLD);*/
+
 				size0 = (i < group_size - 1) ? mthread_size : final_size;
 				size1 = (j * NBUFFERS + k < group_size - 1) ? mthread_size : final_size;
+				limit = (size0 == mthread_size) ? core_limit : final_limit;
+
+				//if (size0 == 0 || size1 == 0) continue;
 
 				//Clear Device Buffers
 				checkCudaErrors(cuMemsetD32Async(d_k_in[k], 0, mthread_size, stream[k]));
@@ -533,6 +568,10 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 					checkCudaErrors(cuMemcpyHtoDAsync(d_w1[k], nodes.crd->w() + (j * NBUFFERS + k) * mthread_size, sizeof(float) * size1, stream[k]));
 					checkCudaErrors(cuMemcpyHtoDAsync(d_z1[k], nodes.crd->z() + (j * NBUFFERS + k) * mthread_size, sizeof(float) * size1, stream[k]));
 				}
+
+				/*printf("rank[%d] reporting at index [%d, %d, %d] (Point 2)\n", cmpi.rank, i - mpi_offset, j, k);
+				fflush(stdout); sleep(1);
+				MPI_Barrier(MPI_COMM_WORLD);*/
 
 				//Execute Kernel
 				int flags = stdim | (int)compact;
@@ -555,6 +594,10 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 				}
 				getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
 
+				/*printf("rank[%d] reporting at index [%d, %d, %d] (Point 3)\n", cmpi.rank, i - mpi_offset, j, k);
+				fflush(stdout); sleep(1);
+				MPI_Barrier(MPI_COMM_WORLD);*/
+
 				//Copy Memory to Host Buffers
 				checkCudaErrors(cuMemcpyDtoHAsync(h_k_in[k], d_k_in[k], sizeof(int) * size1, stream[k]));
 				checkCudaErrors(cuMemcpyDtoHAsync(h_k_out[k], d_k_out[k], sizeof(int) * size0, stream[k]));
@@ -563,10 +606,20 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 				//Synchronize
 				checkCudaErrors(cuStreamSynchronize(stream[k]));
 
+				/*printf("rank[%d] reporting at index [%d, %d, %d] (Point 4)\n", cmpi.rank, i - mpi_offset, j, k);
+				fflush(stdout); sleep(1);
+				MPI_Barrier(MPI_COMM_WORLD);*/
+
 				//Read Data from Buffers
 				readDegrees(nodes.k_in, h_k_in[k], (j * NBUFFERS + k) * mthread_size, size1);
 				readDegrees(nodes.k_out, h_k_out[k], i * mthread_size, size0);
-				readEdges(NULL, h_edges[k], adj, g_idx, N_tar, 0, mthread_size, size0, size1, i - start, j * NBUFFERS + k, true, true);
+				readEdges(NULL, h_edges[k], adj, g_idx, limit, N_tar, 0, mthread_size, size0, size1, i - start, j * NBUFFERS + k, true, true);
+
+				/*printf("rank[%d] reporting at index [%d, %d, %d] (Point 5)\n", cmpi.rank, i - start, j, k);
+				fflush(stdout); sleep(1);
+				MPI_Barrier(MPI_COMM_WORLD);
+				printf_mpi(cmpi.rank, "\n");
+				fflush(stdout); sleep(1);*/
 			}
 		}
 	}
@@ -576,7 +629,8 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 	MPI_Allreduce(MPI_IN_PLACE, nodes.k_in, N_tar, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 	MPI_Allreduce(MPI_IN_PLACE, nodes.k_out, N_tar, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 	MPI_Allreduce(MPI_IN_PLACE, g_idx, 1, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
-	*g_idx >>= 1;
+	if (cmpi.num_mpi_threads > 1)
+		*g_idx >>= 1;
 	#endif
 
 	//Free Buffers
@@ -839,7 +893,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 				//Read Data from Buffers
 				readDegrees(nodes.k_in, h_k_in[m], (j * NBUFFERS + m) * mthread_size, size1);
 				readDegrees(nodes.k_out, h_k_out[m], i * mthread_size, size0);
-				readEdges(edges, h_edges[m], adj, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j*NBUFFERS+m, use_bit, false);
+				readEdges(edges, h_edges[m], adj, g_idx, core_limit, core_limit, d_edges_size, mthread_size, size0, size1, i, j*NBUFFERS+m, use_bit, false);
 			}				
 		}
 	}

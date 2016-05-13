@@ -864,7 +864,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 			//Transfer data from buffers
 			readDegrees(nodes.k_in, h_k_in, j * mthread_size, size1);
 			readDegrees(nodes.k_out, h_k_out, i * mthread_size, size0);
-			readEdges(edges, h_edges, adj, g_idx, core_limit, d_edges_size, mthread_size, size0, size1, i, j, use_bit, false);
+			readEdges(edges, h_edges, adj, g_idx, core_limit, core_limit, d_edges_size, mthread_size, size0, size1, i, j, use_bit, false);
 
 			//Clear Device Memory
 			checkCudaErrors(cuMemsetD32(d_k_in, 0, mthread_size));
@@ -2336,7 +2336,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
 //Uses geodesic distances
-bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success, bool &past_horizon)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success, bool &success2, bool &past_horizon)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -2423,7 +2423,8 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 
 	if (dist + 1.0 > INF) {
 		past_horizon = true;
-		return true;
+		success2 = false;
+		//return true;
 	}
 
 	if (TRAV_DEBUG) {
@@ -2606,13 +2607,14 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 	}
 
 	success = false;
+	success2 = false;
 	return true;
 }
 
 //Measure Causal Set Action
 //O(N*k^2*ln(k)) Efficiency (Linked)
 //O(N^2*k) Efficiency (No Links)
-bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -2671,11 +2673,11 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 
 	//Allocate memory for cardinality data
 	try {
-		cardinalities = (int*)malloc(sizeof(int) * max_cardinality);
+		cardinalities = (uint64_t*)malloc(sizeof(uint64_t) * max_cardinality);
 		if (cardinalities == NULL)
 			throw std::bad_alloc();
-		memset(cardinalities, 0, sizeof(int) * max_cardinality);
-		ca->hostMemUsed += sizeof(int) * max_cardinality;
+		memset(cardinalities, 0, sizeof(uint64_t) * max_cardinality);
+		ca->hostMemUsed += sizeof(uint64_t) * max_cardinality;
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -2746,6 +2748,7 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 	//action = static_cast<float>(cardinalities[0] - cardinalities[1] + 9 * cardinalities[2] - 16 * cardinalities[3] + 8 * cardinalities[4]);
 	//action *= 4.0f / sqrtf(6.0f);
 	action = calcAction(cardinalities, get_stdim(spacetime), lk, smeared);
+	assert (action == action);
 	
 	ActionExit:
 	stopwatchStop(&sMeasureAction);
@@ -2757,7 +2760,7 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 		printf("\t\tCausal Set Action: %f\n", action);
 		if (max_cardinality < 10)
 			for (i = 0; i < max_cardinality; i++)
-				printf("\t\t\tN%d: %d\n", i, cardinalities[i]);
+				printf("\t\t\tN%d: %" PRIu64 "\n", i, cardinalities[i]);
 		printf_std();
 		fflush(stdout);
 	}
@@ -2772,7 +2775,7 @@ bool measureAction_v1(int *& cardinalities, float &action, const Node &nodes, co
 
 //Measure Causal Set Action
 //Algorithm has been parallelized on the CPU
-bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -2840,13 +2843,13 @@ bool measureAction_v2(int *& cardinalities, float &action, const Node &nodes, co
 
 	//Allocate memory for cardinality measurements
 	try {
-		cardinalities = (int*)malloc(sizeof(int) * max_cardinality * omp_get_max_threads());
+		cardinalities = (uint64_t*)malloc(sizeof(uint64_t) * max_cardinality * omp_get_max_threads());
 		if (cardinalities == NULL) {
 			cmpi.fail = 1;
 			goto ActPoint;
 		}
-		memset(cardinalities, 0, sizeof(int) * max_cardinality * omp_get_max_threads());
-		ca->hostMemUsed += sizeof(int) * max_cardinality * omp_get_max_threads();
+		memset(cardinalities, 0, sizeof(uint64_t) * max_cardinality * omp_get_max_threads());
+		ca->hostMemUsed += sizeof(uint64_t) * max_cardinality * omp_get_max_threads();
 
 		ActPoint:
 		if (checkMpiErrors(cmpi)) {
@@ -3017,8 +3020,13 @@ bool validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
 		break;
 	case (2 | MINKOWSKI | SAUCER | FLAT | SYMMETRIC):
+		#if SPECIAL_SAUCER
 		if (!(nodes.crd->x(i) > -1.0 && nodes.crd->x(i) < 1.0)) return false;
 		if (!(nodes.crd->y(i) > -1.5 && nodes.crd->y(i) < 1.5)) return false;
+		#else
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
+		#endif
 		break;
 	case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;

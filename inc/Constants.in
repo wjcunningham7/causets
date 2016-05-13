@@ -36,7 +36,7 @@
 
 #define SR_RANDOM true	//Pick random pairs when calculating success ratio
 
-#define TRAVERSE_V2 true	//Version 2 (and 3) uses spatial distances rather than geodesics
+#define TRAVERSE_V2 false	//Version 2 (and 3) uses spatial distances rather than geodesics
 
 #define ACTION_V2 true		//Version 2 uses OpenMP, Version 3 uses minimal bitwise optimizations
 
@@ -45,6 +45,8 @@
 
 #define GEODESIC_UPPER 1.05	//Boundary between Region II and Region III approximations
 				//Should be greater than 1.0
+
+#define SAUCER_SPECIAL false	//The special saucer has surfaces which intersect at right angles
 
 //Debugging Flags
 #define DEBUG false	//Determines whether unit testing is in effect

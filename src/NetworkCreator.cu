@@ -52,10 +52,12 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 	//Suppress queries if MPI is enabled
 	#ifdef MPI_ENABLED
-	if (network_properties->flags.verbose)
-		network_properties->flags.yes = true;
-	network_properties->flags.use_bit = true;
-	network_properties->core_edge_fraction = 1.0;
+	if (network_properties->cmpi.num_mpi_threads > 1) {
+		if (network_properties->flags.verbose)
+			network_properties->flags.yes = true;
+		network_properties->flags.use_bit = true;
+		network_properties->core_edge_fraction = 1.0;
+	}
 	#endif
 
 	//If a graph ID has been provided, warn user
@@ -128,9 +130,11 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 		//Default constraints
 		if (get_manifold(spacetime) & MINKOWSKI) {
+			#if SPECIAL_SAUCER
 			if (get_region(spacetime) & SAUCER)
 				network_properties->tau0 = network_properties->eta0 = 1.0;
 			else
+			#endif
 				network_properties->eta0 = network_properties->tau0;
 			eta0 = network_properties->eta0;
 			network_properties->zeta = HALF_PI - eta0;
@@ -196,10 +200,16 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		{
 			//A guess here...
 			network_properties->k_tar = network_properties->N_tar / 2.0;
+			#if SPECIAL_SAUCER
 			double volume = volume_77834_1(1.5) - volume_77834_1(-1.5);
+			network_properties->r_max = 1.5;
+			#else
+			double beta = 1.0 - eta0;
+			double volume = 2.0 * (sqrt(1.0 - POW2(beta, EXACT)) - POW2(beta, EXACT) * log((1.0 + sqrt(1.0 - POW2(beta, EXACT))) / beta));
+			network_properties->r_max = sqrt(1.0 - POW2(beta, EXACT));
+			#endif
 			network_properties->delta = static_cast<double>(network_properties->N_tar) / volume;
 			network_properties->a = 1.0;
-			network_properties->r_max = 1.5;
 			break;
 		}
 		case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
@@ -443,7 +453,13 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			if (!rank) printf_cyan();
 			printf_mpi(rank, "\t > Manifold:\t\t\t%s\n", manifoldNames[(unsigned int)(log2((float)get_manifold(spacetime) / ManifoldFirst))].c_str());
 			printf_mpi(rank, "\t > Spacetime Dimension:\t\t%d+1\n", get_stdim(spacetime) - 1);
-			printf_mpi(rank, "\t > Region:\t\t\t%s\n", regionNames[(unsigned int)(log2((float)get_region(spacetime) / RegionFirst))].c_str());
+			printf_mpi(rank, "\t > Region:\t\t\t%s", regionNames[(unsigned int)(log2((float)get_region(spacetime) / RegionFirst))].c_str());
+			#ifdef SPECIAL_SAUCER
+			if (get_manifold(spacetime) & MINKOWSKI && get_region(spacetime) & SAUCER)
+				printf_mpi(rank, " (Special)\n");
+			else
+			#endif
+				printf_mpi(rank, "\n");
 			printf_mpi(rank, "\t > Curvature:\t\t\t%s\n", curvatureNames[(unsigned int)(log2((float)get_curvature(spacetime) / CurvatureFirst))].c_str());
 			printf_mpi(rank, "\t > Temporal Symmetry:\t\t%s\n", symmetryNames[(unsigned int)(log2((float)get_symmetry(spacetime) / SymmetryFirst))].c_str());
 			printf_mpi(rank, "\t > Spacetime ID:\t\t%u\n", network_properties->spacetime);
@@ -1006,7 +1022,11 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int 
 				ca->hostMemUsed += sizeof(int64_t) * N_tar;
 			}
 
-			int length = ceil(static_cast<int>(N_tar * core_edge_fraction) / cmpi.num_mpi_threads);
+			int length = static_cast<int>(ceil(static_cast<float>(static_cast<int>(N_tar * core_edge_fraction)) / cmpi.num_mpi_threads));
+			int n = static_cast<unsigned int>(POW2(cmpi.num_mpi_threads, EXACT)) << 1;
+			if (length % n)
+				length += n - (length % n);
+			//printf("adj length: %d\n", length);
 			adj.reserve(length);
 			for (int i = 0; i < length; i++) {
 				FastBitset fb(static_cast<uint64_t>(core_edge_fraction * N_tar));
@@ -1016,7 +1036,7 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int 
 
 			#ifdef MPI_ENABLED
 			if (cmpi.num_mpi_threads > 1) {
-				int buflen = ceil(static_cast<int>(N_tar * core_edge_fraction) / (2.0 * POW2(cmpi.num_mpi_threads, EXACT)));
+				int buflen = length / (cmpi.num_mpi_threads << 1);
 				cmpi.adj_buf.reserve(buflen);
 				for (int i = 0; i < buflen; i++) {
 					FastBitset fb(static_cast<uint64_t>(core_edge_fraction * N_tar));
@@ -1118,6 +1138,8 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	bool use_rejection = false;
 	if (DEBUG_DIAMOND && get_region(spacetime) & DIAMOND)
 		use_rejection = true;
+	if (get_region(spacetime) & SAUCER)
+		use_rejection = true;
 
 	//Initialize GSL integration structure
 	//There is one 'workspace' per OpenMP thread to avoid
@@ -1203,10 +1225,17 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		while (i < N_tar) {
 			switch (spacetime) {
 			case (2 | MINKOWSKI | SAUCER | FLAT | SYMMETRIC):
+				#if SPECIAL_SAUCER
 				nodes.crd->x(i) = 3.0 * urng() - 1.5;
 				nodes.crd->y(i) = 2.0 * urng() - 1.0;
-				if (nodes.crd->x(i) > eta_77834_1(nodes.crd->y(i)))
+				if (nodes.crd->x(i) > eta_77834_1(nodes.crd->y(i), eta0))
 					continue;
+				#else
+				nodes.crd->x(i) = (2.0 * urng() - 1.0) * eta0;
+				nodes.crd->y(i) = (2.0 * urng() - 1.0) * r_max;
+				if (nodes.crd->x(i) > eta_77834_1(nodes.crd->y(i), eta0))
+					continue;
+				#endif
 				break;
 			case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 				#if EMBED_NODES
@@ -1349,8 +1378,10 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 					nodes.crd->y(i) = (u - v) / sqrt(2.0);
 					break;
 				case (2 | MINKOWSKI | SAUCER | FLAT | SYMMETRIC):
-					nodes.crd->y(i) = get_2d_sym_flat_minkowski_saucer_x(urng, mu, mu2);
-					nodes.crd->x(i) = get_2d_sym_flat_minkowski_saucer_eta(urng, nodes.crd->y(i));
+					fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
+					assert (false);
+					//nodes.crd->y(i) = get_2d_sym_flat_minkowski_saucer_x(urng, mu, mu2);
+					//nodes.crd->x(i) = get_2d_sym_flat_minkowski_saucer_eta(urng, nodes.crd->y(i));
 					break;
 				case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 					nodes.crd->x(i) = get_2d_asym_sph_deSitter_slab_eta(urng, eta0);
@@ -1693,11 +1724,11 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 	assert (use_bit);
 	#endif
 
-	#ifdef MPI_ENABLED
+	//#ifdef MPI_ENABLED
 	if (!cmpi.rank) printf_mag();
 	printf_mpi(cmpi.rank, "Using Version 2.\n");
 	if (!cmpi.rank) printf_std();
-	#endif
+	//#endif
 
 	int64_t idx = 0;
 	int rank = cmpi.rank;
@@ -1723,13 +1754,6 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 		//printf_mpi(rank - 1, "i: %d\tj: %d\t", i, j);
 		bool related = nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, NULL);
 		//printf_mpi(rank - 1, "related: %d\n", (int)related);
-
-		/*if (i == 3 && j == 2) related = true;
-		if (i == 2 && j == 3) related = true;
-		if (i == 5 && j == 4) related = true;
-		if (i == 4 && j == 5) related = true;
-		if (i == 7 && j == 1) related = true;
-		if (i == 1 && j == 7) related = true;*/
 
 		if (related) {
 			#ifdef _OPENMP
@@ -1795,7 +1819,7 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 		printf_mpi(rank, "\t\tUndirected Links:         %" PRIu64 "\n", idx);
 		printf_mpi(rank, "\t\tResulting Network Size:   %d\n", N_res);
 		printf_mpi(rank, "\t\tResulting Average Degree: %f\n", k_res);
-		printf_mpi(rank, "\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N_tar));
+		printf_mpi(rank, "\t\t    Incl. Isolated Nodes: %f\n", k_res * ((float)N_res / N_tar));
 		if (!rank) printf_red();
 		printf_mpi(rank, "\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
 		if (!rank) printf_std();
@@ -1866,9 +1890,9 @@ bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spa
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	#endif
 
-	#ifdef MPI_ENABLED
+	//#ifdef MPI_ENABLED
 	printf_dbg("Using Version 1.\n");
-	#endif
+	//#endif
 
 	uint64_t future_idx = 0;
 	uint64_t past_idx = 0;
@@ -2006,7 +2030,7 @@ bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spa
 		printf("\t\tUndirected Links:         %" PRIu64 "\n", future_idx);
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
-		printf("\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N_tar));
+		printf("\t\t    Incl. Isolated Nodes: %f\n", k_res * ((float)N_res / N_tar));
 		printf_red();
 		printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
 		printf_std();

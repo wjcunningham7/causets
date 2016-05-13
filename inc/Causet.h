@@ -6,7 +6,6 @@
 #endif
 
 //Core System Files
-//#include <algorithm>
 #include <cstring>
 #include <exception>
 #include <fstream>
@@ -15,10 +14,9 @@
 #include <inttypes.h>
 #include <iomanip>
 #include <iostream>
-//#include <iterator>
 #include <limits>
 #include <math.h>
-//#include <numeric>
+#include <pthread.h>
 #include <sstream>
 #include <stdarg.h>
 #include <stddef.h>
@@ -45,6 +43,7 @@
 #endif
 
 //Other System Files
+#include <boost/functional/hash/hash.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/poisson_distribution.hpp>
@@ -524,10 +523,16 @@ struct DVData {
 	double norm;			//Normalization constant
 };
 
+enum CausetSpinlock {
+	UNLOCKED,
+	LOCKED
+};
+
 struct CausetMPI {
-	CausetMPI() : num_mpi_threads(1), rank(0), fail(0) {}
+	CausetMPI() : lock(UNLOCKED), num_mpi_threads(1), rank(0), fail(0) {}
 
 	Bitvector adj_buf;		//Buffer used for adjacency matrix memory swaps
+	CausetSpinlock lock;		//Spinlock for shared resources
 
 	int num_mpi_threads;		//Number of MPI Threads
 	int rank;			//ID of this MPI Thread
@@ -614,7 +619,7 @@ struct NetworkProperties {
 
 //Measured values of the network
 struct NetworkObservables {
-	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), evd(EVData()), success_ratio(0.0), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0), dvd(DVData()), cardinalities(NULL), action(0.0f) {}
+	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), evd(EVData()), success_ratio(0.0), success_ratio2(0.0), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0), dvd(DVData()), cardinalities(NULL), action(0.0f) {}
 	
 	int N_res;			//Resulting Number of Connected Nodes
 	float k_res;			//Resulting Average Degree
@@ -629,7 +634,8 @@ struct NetworkObservables {
 
 	EVData evd;			//Embedding Validation Data
 
-	float success_ratio;		//Success Ratio
+	float success_ratio;		//Success Ratio (type 1 - all pairs which are geodesically connected are considered)
+	float success_ratio2;		//Success Ratio (type 2 - pairs which are geodesically disconnected, but have neighbors which are connected, are considered here)
 
 	int *in_degree_field;		//In-Degree Field Measurements
 	float avg_idf;			//Average In-Degree Field Value
@@ -639,7 +645,7 @@ struct NetworkObservables {
 
 	DVData dvd;			//Distance Validation Data
 
-	int *cardinalities;		//M-Element Inclusive-Order-Interval Cardinalities
+	uint64_t *cardinalities;	//M-Element Inclusive-Order-Interval Cardinalities
 	float action;			//Action
 };
 

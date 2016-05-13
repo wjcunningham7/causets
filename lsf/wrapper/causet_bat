@@ -166,7 +166,7 @@ for (( i=${istart}; i<${njobs}+${istart}; i++ )) ; do
     echo "Invalid option: jobid equals readjobid!"
     exit 3;
   fi
-  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%totalcores%:$totalcores:g;s:%mpinodes%:$mpinodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%usempi%:$usempi:g;s:%waitfor%:$waitfor:g;s:%exclhost%:$exclude:g" < lsf/batch/causet_lsf | bsub
+  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%totalcores%:$totalcores:g;s:%mpinodes%:$mpinodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%usempi%:$usempi:g;s:%waitfor%:$waitfor:g;s:%exclhost%:$exclude:g" < $CAUSET_HOME_DIR/lsf/batch/causet_lsf | bsub
   sleep 1
 done
 

@@ -10,13 +10,12 @@
 
 set -eu -o pipefail
 
-start=984
-end=1002
+start=1499
+end=1506
 
-homedir=/home/cunningham.wi/projects/causets
 basedir=/gss_gpfs_scratch/cunningham
 
-sourcefile=$homedir/etc/action/action_single
+sourcefile=$CAUSET_HOME_DIR/etc/action/action_single
 dest=etc
 
 for i in $(seq $start $end) ; do

@@ -21,14 +21,15 @@ degree=$3
 spacetime=$4
 version=$5
 
-declare -a times=(0.01 0.0278 0.0774 0.2154 0.5995 1.6681 4.6416)
+declare -a tau
 declare -a nodes
 declare -a alpha
 declare -a densities
-declare -a success err
+declare -a success1 err1
+declare -a success2 err2
 
 basedir='/gss_gpfs_scratch/cunningham'
-homedir='/home/cunningham.wi/projects/causets'
+homedir=$CAUSET_HOME_DIR
 
 if [[ ! -d $basedir ]] ; then
   echo "Base directory does not exist!"
@@ -65,18 +66,23 @@ for i in $(seq $jobstart $jobend) ; do
 
   logfile=$dir/CausalSet_Job-${i}_Sample-1.log
 
+  tau+=($(awk '/Max. Rescaled Time:/ {print $5}' $logfile))
   nodes+=($(awk '/Number of Nodes:/ {print $6}' $logfile))
-  alpha+=($(awk '/Spatial Scaling:/ {print $4}' $logfile))
+  #alpha+=($(awk '/Spatial Scaling:/ {print $4}' $logfile))
+  alpha+=($(awk '/Spatial Cutoff:/ {print $4}' $logfile))
   densities+=($(awk '/Node Density:/ {print $4}' $logfile))
-  s=($(./etc/success | awk '/Success Ratio:/ {print $3, $5}'))
-  success+=(${s[0]})
-  err+=(${s[1]})
+  s1=($(./etc/success 1 | awk '/Success Ratio:/ {print $3, $5}'))
+  success1+=(${s1[0]})
+  err1+=(${s1[1]})
+  s2=($(./etc/success 2 | awk '/Success Ratio:/ {print $3, $5}'))
+  success2+=(${s2[0]})
+  err2+=(${s2[1]})
 done
 
 outfile=$homedir/navigation_k-${degree}_${spacetime}_${version}.cset.suc.raw
-echo "Job Time Nodes Cutoff Density Success Error" >> $outfile
+echo "Job Time Nodes Cutoff Density Success1 Error1 Success2 Error2" >> $outfile
 njobs=$(($jobend-$jobstart+1))
 for (( i=0 ; i<$njobs ; i++ )) ; do
   job=$(($i+$jobstart))
-  echo "$job ${times[$i]} ${nodes[$i]} ${alpha[$i]} ${densities[$i]} ${success[$i]} ${err[$i]}" >> $outfile
+  echo "$job ${tau[$i]} ${nodes[$i]} ${alpha[$i]} ${densities[$i]} ${success1[$i]} ${err1[$i]} ${success2[$i]} ${err2[$i]}" >> $outfile
 done

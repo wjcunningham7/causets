@@ -12,23 +12,24 @@
 set -eu -o pipefail
 
 # Spacetime ID
-id=11300
+id=41508
 
 # Version
-ver=0
+ver=1
 
 # Other relevant parameters
 n=20480		# Number of nodes
+platform=par-gpu-2
 
 # Range of times
 tmin=0.01
-tmax=2.00
+tmax=4.75
 tstep=0.01
 
 for i in $(seq ${tmin} ${tstep} ${tmax}) ; do
-  echo "$i $(./bin/CausalSet --spacetime $id --nodes $n --age $i --link --gpu --core 1 | awk '/rad:/ {print $2}')" >> /tmp/adeg.tmp
+  echo "$i $($CAUSET_HOME_DIR/bin/CausalSet_${platform} --spacetime $id --nodes $n --age $i --slice 5.0 --link --gpu --core 1 | awk '/rad:/ {print $2}')" >> /tmp/adeg.tmp
 done
 
 cp /tmp/adeg.tmp .
-#etc/degtable $id $ver
-#mv /tmp/adeg.tmp etc/tables/adeg_${id}_${ver}.tmp
+etc/degtable $id $ver
+mv /tmp/adeg.tmp $CAUSET_HOME_DIR/etc/tables/adeg_${id}_${ver}.tmp

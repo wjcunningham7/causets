@@ -742,7 +742,7 @@ void readDegrees(int * const &degrees, const int * const h_k, const size_t &offs
 
 //Data formatting used when reading output of
 //the adjacency list created by the GPU
-void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit, const bool &use_mpi)
+void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &core_limit_row, const unsigned int &core_limit_col, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit, const bool &use_mpi)
 {
 	#if DEBUG
 	if (!use_bit)
@@ -755,6 +755,9 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &a
 	//assert (x <= y);
 	#endif
 
+	//printf("x: %d\tsize0: %zd\n", x, size0);
+	//printf("I have a bitvector of length %zd\n", adj.size());
+
 	unsigned int i, j;
 	for (i = 0; i < size0; i++) {
 		for (j = 0; j < size1; j++) {
@@ -763,7 +766,7 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &a
 					edges[g_idx[0]++] = (static_cast<uint64_t>(x*mthread_size+i)) << 32 | (static_cast<uint64_t>(y*mthread_size+j));
 				else
 					g_idx[0]++;
-				if (x*mthread_size+i < core_limit && y*mthread_size+j < core_limit) {
+				if (x*mthread_size+i < core_limit_row && y*mthread_size+j < core_limit_col) {
 					adj[x*mthread_size+i].set(y*mthread_size+j);
 					if (!use_mpi)
 						adj[y*mthread_size+j].set(x*mthread_size+i);
@@ -931,6 +934,45 @@ int printf_mpi(int rank, const char * format, ...)
 	return retval;
 }
 
+MPI_Request* sendSignal(const int signal, const int rank, const int num_mpi_threads)
+{
+	MPI_Request *req = (MPI_Request*)malloc(sizeof(MPI_Request) * num_mpi_threads);;
+	for (int i = 0; i < num_mpi_threads; i++) {
+		if (signal != 1 && i == rank) continue;
+		//if (i == rank) continue;
+		MPI_Isend((void*)&signal, 1, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req[i]);
+	}
+
+	return req;
+}
+
+MPI_Request* requestLock(CausetSpinlock * const lock, const int rank, const int num_mpi_threads)
+{
+	MPI_Request *req;
+	//int success;
+	//lock[rank] = LOCKED;
+	printf("Rank [%d] is sending signal 0 to other ranks.\n", rank);
+	req = sendSignal(0, rank, num_mpi_threads);
+	/*for (unsigned int i = 0; i < num_mpi_threads; i++) {
+		if (i == rank) continue;
+		MPI_Isend(lock, num_mpi_threads, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req[1]);
+		MPI_Irecv(&success, 1, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req[2]);
+	}*/
+	//MPI_Request r;
+	//req[1] = r;
+	//req[2] = r;
+	//lock[rank] = UNLOCKED;
+
+	return req;
+}
+
+void requestUnlock(CausetSpinlock * const lock, const int rank, const int num_mpi_threads)
+{
+	CausetSpinlock req_lock = UNLOCKED;
+	sendSignal(1, rank, num_mpi_threads);
+	MPI_Bcast(&req_lock, 1, MPI_INT, rank, MPI_COMM_WORLD);
+}
+
 //MPI Print Variadic Function
 bool checkMpiErrors(CausetMPI &cmpi)
 {
@@ -997,6 +1039,25 @@ void binary_to_perm(std::vector<unsigned int> &perm, const FastBitset &fb, const
 	}
 }
 
+void init_mpi_permutations_v2(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> perm)
+{
+	uint64_t len = static_cast<uint64_t>(perm.size()) * (perm.size() - 1) >> 1;
+	while (std::next_permutation(perm.begin(), perm.end())) {
+		FastBitset fb(len);
+		perm_to_binary(fb, perm);
+
+		bool ins = true;
+		for (std::unordered_set<FastBitset>::iterator fb0 = permutations.begin(); fb0 != permutations.end(); fb0++)
+			for (uint64_t i = 0; i < len; i++)
+				if (fb.read(i) & fb0->read(i))
+					ins = false;
+
+		if (ins) {
+			//
+		}		
+	}
+}
+
 void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> perm)
 {
 	uint64_t len = static_cast<uint64_t>(perm.size()) * (perm.size() - 1) >> 1;
@@ -1030,6 +1091,27 @@ void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::ve
 			printf("(%d, %d) ", p[j], p[j+1]);
 		printf("\n");
 	}*/
+}
+
+void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, std::vector<unsigned int> current, int nbuf)
+{
+	#if DEBUG
+	assert (nbuf > 0 && !(nbuf % 2));
+	#endif
+
+	for (size_t k = 0; k < current.size(); k += 2) {
+		unsigned int i = current[k];
+		unsigned int j = current[k+1];
+
+		for (unsigned int m = 0; m < nbuf; m++) {
+			if (m == i || m == j) continue;
+			pairs.insert(std::make_pair(std::min(i, m), std::max(i, m)));
+			pairs.insert(std::make_pair(std::min(j, m), std::max(j, m)));
+		}
+	}
+
+	for (size_t k = 0; k < current.size(); k += 2)
+		pairs.erase(std::make_pair(k, k+1));
 }
 
 void fill_mpi_similar(std::vector<std::vector<unsigned int> > &similar, std::vector<unsigned int> perm)
@@ -1171,6 +1253,7 @@ void get_most_similar(std::vector<unsigned int> &sim, unsigned int &nsteps, std:
 	sim = candidates[idx];
 }
 
+#ifdef MPI_ENABLED
 //NOTE: Add macro for MPI_UINT64_T to fastbitset
 void mpi_swaps(std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N_tar, const int num_mpi_threads, const int rank)
 {
@@ -1327,6 +1410,7 @@ void mpi_swaps(std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector
 		//break;
 	}
 }
+#endif
 
 unsigned int loc_to_glob_idx(std::vector<unsigned int> config, unsigned int idx, const int N_tar, const int num_mpi_threads, const int rank)
 {

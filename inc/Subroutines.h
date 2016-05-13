@@ -10,6 +10,23 @@
 // Northeastern University //
 /////////////////////////////
 
+//Hashing function for std::pair<int,int>
+namespace std
+{
+	template<>
+	class hash<std::pair<int,int> >
+	{
+	public:
+		size_t operator()(std::pair<int,int> const& p) const
+		{
+			size_t seed = 0;
+			boost::hash_combine(seed, (size_t)std::get<0>(p));
+			boost::hash_combine(seed, (size_t)std::get<1>(p));
+			return seed;
+		}
+	};
+};
+
 //Lookup Table (Linear Interpolation w/ Table)
 bool getLookupTable(const char *filename, double **lt, long *size);
 
@@ -52,7 +69,7 @@ void causet_intersection(int &elements, const int * const past_edges, const int 
 //Format Partial Adjacency Matrix Data
 void readDegrees(int * const &degrees, const int * const h_k, const size_t &offset, const size_t &size);
 
-void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &core_limit, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit, const bool &use_mpi);
+void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &core_limit_row, const unsigned int &core_limit_col, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit, const bool &use_mpi);
 
 void remakeAdjMatrix(bool * const adj0, bool * const adj1, const int * const k_in, const int * const k_out, const int * const past_edges, const int * const future_edges, const int64_t * const past_edge_row_start, const int64_t * const future_edge_row_start, int * const idx_buf0, int * const idx_buf1, const int &N_tar, const int &i, const int &j, const int64_t &l);
 
@@ -66,6 +83,12 @@ int printf_dbg(const char * format, ...);
 
 int printf_mpi(int rank, const char * format, ...);
 
+MPI_Request* sendSignal(const int signal, const int rank, const int num_mpi_threads);
+
+MPI_Request* requestLock(CausetSpinlock * const lock, const int rank, const int num_mpi_threads);
+
+void requestUnlock(CausetSpinlock * const lock, const int rank, const int num_mpi_threads);
+
 //Check for MPI Errors
 bool checkMpiErrors(CausetMPI &cmpi);
 
@@ -74,6 +97,8 @@ void perm_to_binary(FastBitset &fb, std::vector<unsigned int> perm);
 void binary_to_perm(std::vector<unsigned int> &perm, const FastBitset &fb, const unsigned int len);
 
 void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> perm);
+
+void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, std::vector<unsigned int> current, int nbuf);
 
 void fill_mpi_similar(std::vector<std::vector<unsigned int> > &similar, std::vector<unsigned int> perm);
 
@@ -85,7 +110,9 @@ void relabel_vector(std::vector<unsigned int> &output, std::vector<unsigned int>
 
 void get_most_similar(std::vector<unsigned int> &sim, unsigned int &nsteps, std::vector<std::vector<unsigned int> > candidates, std::vector<unsigned int> current);
 
+#ifdef MPI_ENABLED
 void mpi_swaps(std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N_tar, const int num_mpi_threads, const int rank);
+#endif
 
 unsigned int loc_to_glob_idx(std::vector<unsigned int> config, unsigned int idx, const int N_tar, const int num_mpi_threads, const int rank);
 

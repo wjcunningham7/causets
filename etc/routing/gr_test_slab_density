@@ -20,7 +20,7 @@ q=$2
 
 energies=(0.73 0.75 0.77 0.78 0.8 0.82 0.83 0.85 0.86 0.875 0.88 0.89 0.9 0.91 0.92 0.93 0.94 0.95 0.96 0.97 0.975 0.98 0.985 0.99 0.993)
 
-basedir=./etc/routing
+basedir=$CAUSET_HOME_DIR/etc/routing
 if [[ "$st" == 41508 ]] ; then
   scr=$basedir/gr_ds_slab_q
 elif [[ "$st" == 41540 ]] ; then
@@ -30,5 +30,5 @@ elif [[ "$st" == 41604 ]] ; then
 fi
 
 for i in ${energies[@]} ; do
-  echo "$i $($scr $q $i | awk '{print $2}' | sed ':a;N;$!ba;s/\n/ /g')" >> causet.par
+  echo "$i $($scr $q $i | awk '{print $2}' | sed ':a;N;$!ba;s/\n/ /g')" >> $CAUSET_HOME_DIR/causet.par
 done

@@ -18,7 +18,7 @@
 # This is the LSF batch submission script for the CausalSet program
 # It is intended to be submitted to LSF via the 'causet_bat' script
 
-homedir=/home/cunningham.wi/projects/causets
+homedir=$CAUSET_HOME_DIR
 work=/gss_gpfs_scratch/cunningham/causet%jobID%
 usempi=%usempi%
 if [[ %readjobid% -ne 0 && %readgraphid% -eq 0 ]] ; then

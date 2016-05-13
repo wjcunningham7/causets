@@ -42,7 +42,7 @@ NVCC 		?= %NVCC%
 
 INCD 		 = -I $(INCDIR) -I $(LOCAL_DIR)/include/
 CUDA_INCD	 = %CUDA_INCD%
-LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas
+LIBS		 = -L $(LOCAL_DIR)/lib64 -lstdc++ -lpthread -lm -lgsl -lgslcblas -lpthread
 LOCAL_LIBS	 = -lnint -lprintcolor
 CUDA_LIBS	 = %CUDA_LIBS%
 
@@ -59,7 +59,7 @@ NVCCFLAGS 	:= %NVCC_FLAGS%
 
 USE_AVX2	:= %AVX%
 USE_OMP		:= 1
-USE_MPI		:= 0
+USE_MPI		:= 1
 
 ifneq ($(USE_OMP), 0)
 CXXFLAGS += -fopenmp

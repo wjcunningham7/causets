@@ -2,13 +2,20 @@
 
 set -eu -o pipefail
 
+if [[ -z "$CAUSET_HOME_DIR" ]] ; then
+  echo "Using $PWD as your project directory."
+  echo "Adding this variable to your .bashrc file."
+  echo "export CAUSET_HOME_DIR=$PWD" >> /home/$USER/.bashrc
+  source /home/$USER/.bashrc
+fi
+
 if [[ -z "$CAUSET_LOCAL_DIR" ]] ; then
-  echo "Using $PWD/local as your local directory."
+  echo "Using $CAUSET_HOME_DIR/local as your local directory."
   echo "Adding this variable to your .bashrc file."
   mkdir -p local
-  CAUSET_LOCAL_DIR=$PWD/local
+  CAUSET_LOCAL_DIR=$CAUSET_HOME_DIR/local
   echo "export CAUSET_LOCAL_DIR=$CAUSET_LOCAL_DIR" >> /home/$USER/.bashrc
-  source ~/.bashrc
+  source /home/$USER/.bashrc
 fi
 
 PLATFORM=""
@@ -16,33 +23,33 @@ if [[ "$#" -eq 1 ]] ; then
   PLATFORM="_$1"
 fi
 
-cd opt/printcolor
+cd $CAUSET_HOME_DIR/opt/printcolor
 make; make install; make clean
 
-cd ../nintlib
+cd $CAUSET_HOME_DIR/opt/nintlib
 make; make install; make clean
 
 # Remote project locations
 FASTMATH_BB="git@bitbucket.org:dk-lab/2015_code_fastmath.git"
 
 if [[ -z "$FAST_LOCAL_DIR" ]] ; then
-  export "FAST_LOCAL_DIR=$COSMIC_LOCAL_DIR" >> /home/$USER/.bashrc
+  export "FAST_LOCAL_DIR=$CAUSET_LOCAL_DIR" >> /home/$USER/.bashrc
+  source /home/$USER/.bashrc
 fi
 
-cd ../../
-if [[ ! -d "opt/fastmath" ]] ; then
-  git clone $FASTMATH_BB opt/fastmath
+if [[ ! -d "$CAUSET_HOME_DIR/opt/fastmath" ]] ; then
+  git clone $FASTMATH_BB $CAUSET_HOME_DIR/opt/fastmath
   echo "Run one more time."
   exit 1
 fi
 
-if [[ ! -d "opt/fastmath" ]] ; then
+if [[ ! -d "$CAUSET_HOME_DIR/opt/fastmath" ]] ; then
   echo "Something went wrong with git..."
   exit 2
 fi
-cd opt/fastmath
+cd $CAUSET_HOME_DIR/opt/fastmath
 ./INSTALL
-cd ../../
+cd $CAUSET_HOME_DIR
 
 AVX=0
 if [[ $(cat /proc/cpuinfo | grep avx2 | wc -l) -ne 0 ]] ; then
@@ -68,7 +75,7 @@ if [[ $(lspci | grep NVIDIA | wc -l) -ne 0 ]] ; then
 
   GLOB_MEM_MIB=$(nvidia-smi -q | grep -A3 "FB Memory Usage" | awk '/Total/ {print $3}')
   GLOB_MEM_BYTES=$(($(echo "scale=8; $GLOB_MEM_MIB * 1.049 / 1000" | bc | awk '{printf("%d\n", $1)}') * 1000000000))
-  sed "s:%GLOB_MEM%:$GLOB_MEM_BYTES:g" < inc/Constants.in > inc/Constants.h
+  sed "s:%GLOB_MEM%:$GLOB_MEM_BYTES:g" < $CAUSET_HOME_DIR/inc/Constants.in > $CAUSET_HOME_DIR/inc/Constants.h
   echo "Use 'make gpu' to compile with GPU features enabled."
   echo "NOTE: If your graphics card does not have Compute Capability 3.5, you must edit the -arch flag in the Makefile!"
 else
@@ -79,10 +86,11 @@ else
   CUDA_LIBS=""
   NVCC_FLAGS=""
   GPU_TARGET=""
-  sed "s:%GLOB_MEM%:0:g" < inc/Constants.in > inc/Constants.h
+  sed "s:%GLOB_MEM%:0:g" < $CAUSET_HOME_DIR/inc/Constants.in > $CAUSET_HOME_DIR/inc/Constants.h
 fi
 
-sed "s:%CUDA_HOME%:$CUDA_HOME:g;s:%CUDA_SDK_PATH%:$CUDA_SDK_PATH:g;s:%NVCC%:$NVCC:g;s:%CUDA_INCD%:$CUDA_INCD:g;s:%CUDA_LIBS%:$CUDA_LIBS:g;s:%NVCC_FLAGS%:$NVCC_FLAGS:g;s:%GPU_TARGET%:$GPU_TARGET:g;s:%AVX%:$AVX:g;s:%AVX_FLAGS%:$AVX_FLAGS:g;s:%PLATFORM%:$PLATFORM:g" < Makefile.in > Makefile
+sed "s:%CUDA_HOME%:$CUDA_HOME:g;s:%CUDA_SDK_PATH%:$CUDA_SDK_PATH:g;s:%NVCC%:$NVCC:g;s:%CUDA_INCD%:$CUDA_INCD:g;s:%CUDA_LIBS%:$CUDA_LIBS:g;s:%NVCC_FLAGS%:$NVCC_FLAGS:g;s:%GPU_TARGET%:$GPU_TARGET:g;s:%AVX%:$AVX:g;s:%AVX_FLAGS%:$AVX_FLAGS:g;s:%PLATFORM%:$PLATFORM:g" < $CAUSET_HOME_DIR/Makefile.in > $CAUSET_HOME_DIR/Makefile
 
-./etc/mkdat
+$CAUSET_HOME_DIR/etc/mkdat
+cd $CAUSET_HOME_DIR
 make clean

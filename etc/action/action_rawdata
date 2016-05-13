@@ -6,25 +6,24 @@
 # Northeastern University #
 ###########################
 
-# Generate a raw data table for a constant-density routing experiment
+# Generate a raw data table for an action experiment
 
-set -u -o pipefail
+set -eu -o pipefail
 
 if [[ "$#" -lt 5 ]] ; then
-  echo "Arguments are [jobstart] [jobend] [density] [spacetime] [version]."
+  echo "Arguments are [jobstart] [jobend] [100*eta0] [spacetime] [version]."
   exit 1
 fi
 
 jobstart=$1
 jobend=$2
-density=$3
+eta0=$3
 spacetime=$4
 version=$5
 
-declare -a energies=(0.73 0.75 0.77 0.78 0.8 0.82 0.83 0.85 0.86 0.875 0.88 0.89 0.9 0.91 0.92 0.93 0.94 0.95 0.96 0.97 0.975 0.98 0.985 0.99 0.993)
 declare -a nodes
-declare -a degrees
-declare -a success err
+declare -a degrees kerr
+declare -a sigma serr
 
 basedir='/gss_gpfs_scratch/cunningham'
 homedir=$CAUSET_HOME_DIR
@@ -35,13 +34,12 @@ if [[ ! -d $basedir ]] ; then
 fi
 
 for i in $(seq $jobstart $jobend) ; do
-  dir=$basedir/causet${i}
+  dir=$basedir/causet$i
   if [[ ! -d $dir ]] ; then
     echo "Could not find directory: $dir"
     exit 3
   fi
 
-  cd $dir
   if [[ ! -e $dir/causet${i}.err ]] ; then
     echo "It appears job $i is still running."
     exit 4
@@ -49,7 +47,7 @@ for i in $(seq $jobstart $jobend) ; do
 
   if [[ -s $dir/causet${i}.err ]] ; then
     echo "Error detected in job $i"
-    echo "--------------------------"
+    echo "------------------------"
     cat $dir/causet${i}.err
     echo -e "\nContinue? [y/n]"
     read response
@@ -65,18 +63,22 @@ for i in $(seq $jobstart $jobend) ; do
   fi
 
   logfile=$dir/CausalSet_Job-${i}_Sample-1.log
+  stdim=$(($(awk -F '[\t+]' '/Spacetime Dimension:/ {print $4}' $logfile)+1))
 
+  cd $dir
   nodes+=($(awk '/Number of Nodes:/ {print $6}' $logfile))
-  degrees+=($(./etc/degrees | awk '/Average Degrees:/ {print $3}'))
-  s=($(./etc/success | awk '/Success Ratio:/ {print $3, $5}'))
-  success+=(${s[0]})
-  err+=(${s[1]})
+  k=($(./etc/degrees | awk '/Average/ {print $3}'))
+  degrees+=(${k[0]})
+  kerr+=(${k[1]})
+  s=($(./etc/action_single $stdim | awk '/Average Action:/ {print $3, $5}'))
+  sigma+=(${s[0]})
+  serr+=(${s[1]})
 done
 
-outfile=$homedir/navigation_q-${density}_${spacetime}_${version}.cset.suc.raw
-echo "Job Energy Nodes Degree Success Error" >> $outfile
+outfile=$homedir/action_eta-${eta0}_${spacetime}_${version}.cset.act.raw
+echo "Job Nodes Degree Error Action Error" >> $outfile
 njobs=$(($jobend-$jobstart+1))
 for (( i=0 ; i<$njobs ; i++ )) ; do
   job=$(($i+$jobstart))
-  echo "$job ${energies[$i]} ${nodes[$i]} ${degrees[$i]} ${success[$i]} ${err[$i]}" >> $outfile
+  echo "$job ${nodes[$i]} ${degrees[$i]} ${kerr[$i]} ${sigma[$i]} ${serr[$i]}" >> $outfile
 done

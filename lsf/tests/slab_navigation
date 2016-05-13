@@ -20,7 +20,7 @@ set -eu -o pipefail
 
 spacetime=41604
 #density=90
-degree=10
+degree=20
 
 if [[ "$spacetime" -eq 41508 ]] ; then
   spacecut="slice"
@@ -36,9 +36,9 @@ else
   timecut=age
 fi
 
-source ~/.queues
+source /home/$USER/.queues
 jobstart=$NEXT_JOB
-readstart=190
+readstart=0
 samples=10
 queue="par-gpu-2"
 exclude="compute-4-017"
@@ -49,16 +49,17 @@ ncores=$(bhosts $host | awk 'NR==2 {print $4}')
 makeparfile=false
 
 if [[ $makeparfile == "true" ]] ; then
-  rm -f causet.par
+  rm -f $CAUSET_HOME_DIR/causet.par
   if [[ "$timecut" == "energy" ]] ; then
-    ./etc/routing/gr_test_slab_density $spacetime $density
+    $CAUSET_HOME_DIR/etc/routing/gr_test_slab_density $spacetime $density
   else
-    ./etc/routing/gr_test_slab_degree $spacetime $degree
+    $CAUSET_HOME_DIR/etc/routing/gr_test_slab_degree $spacetime $degree 0.01 1.99 11
   fi
+  exit 1
 fi
-readarray -t vars < causet.par
+readarray -t vars < $CAUSET_HOME_DIR/causet.par
 if [[ $makeparfile == "true" ]] ; then
-  rm causet.par
+  rm $CAUSET_HOME_DIR/causet.par
 fi
 
 for i in $(seq ${#vars[@]}) ; do
@@ -91,7 +92,7 @@ for i in $(seq ${#vars[@]}) ; do
     link=link
   fi
 
-  ./lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' --gpu --verbose -y --quiet-read --print --success 1000000' --queue $queue --nsamples $samples --exclude $exclude
+  $CAUSET_HOME_DIR/lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' --gpu --verbose -y --print --success 10000000' --queue $queue --nsamples $samples --exclude $exclude
 done
 
 setnextjob $(($job+1))

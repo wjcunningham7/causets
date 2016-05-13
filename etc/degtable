@@ -9,14 +9,16 @@
 # Takes the output of etc/mkdeg and writes to binary
 # This should only be called from etc/mkdeg and not by itself
 
-import sys
 from array import array
+import os
+import sys
 
 stid = sys.argv[1]
 ver = sys.argv[2]
 
+basedir = os.environ['CAUSET_HOME_DIR']
 infile = open('/tmp/adeg.tmp', 'r')
-outfile = open('etc/tables/average_degree_' + stid + '_' + ver + '_table.cset.bin', 'wb')
+outfile = open(basedir + 'etc/tables/average_degree_' + stid + '_' + ver + '_table.cset.bin', 'wb')
 data = array('d')
 
 lines = infile.readlines()
