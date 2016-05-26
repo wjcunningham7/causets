@@ -612,7 +612,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 					goto InitExit;
 				}
 				#else
-				if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto InitExit;
 				}
@@ -849,14 +849,14 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 	if (network->network_properties.flags.calc_action) {
 		for (i = 0; i <= nb; i++) {
 			#ifdef MPI_ENABLED
-			//if (network->network_properties.cmpi.num_mpi_threads > 1) {
+			if (network->network_properties.cmpi.num_mpi_threads > 1) {
 				if (!measureAction_v5(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto MeasureExit;
 				}
-			//} else
+			} else
 			#endif
-			/*{
+			{
 			#if ACTION_V2
 			if (network->network_properties.flags.use_bit && (network->network_properties.flags.link || network->network_properties.flags.relink)) {
 				if (!measureAction_v3(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
@@ -873,7 +873,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				goto MeasureExit;
 			}
 			#endif
-			}*/
+			}
 		}
 
 		if (nb)
@@ -1172,7 +1172,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 					goto LoadPoint2;
 				}
 				#else
-				if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.compact, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto LoadPoint2;
 				}

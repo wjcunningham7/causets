@@ -105,7 +105,7 @@ OBJS		:= $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.o, $(SOURCES))
 # Phony Targets #
 #################
 
-.PHONY : check-env cpu gpu link linkgpu bin fortran fortran1 fortran2 dirs objdir bindir clean cleanall cleanbin cleanobj cleanlog cleanscratch cleandata
+.PHONY : check-env platform cpu gpu link linkgpu bin fortran fortran1 fortran2 dirs objdir bindir clean cleanall cleanbin cleanobj cleanlog cleanscratch cleandata
 
 ###################################
 # Top-Level Compilation Sequences #
@@ -126,6 +126,9 @@ check-env :
 		echo "LOCAL_DIR not set!"; \
 		exit 1; \
 	fi
+
+platform :
+	@ echo "%PLATFORM%"
 
 ######################
 # Source Compilation #

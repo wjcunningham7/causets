@@ -258,7 +258,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 			return false;
 	}
 	#else
-	if (!generateLists_v1(nodes, h_edges, adj, g_idx, N_tar, core_edge_fraction, d_edges_size, group_size, ca, compact, verbose))
+	if (!generateLists_v1(nodes, h_edges, adj, g_idx, spacetime, N_tar, core_edge_fraction, d_edges_size, group_size, ca, use_bit, verbose))
 		return false;
 	#endif
 	stopwatchStop(&sGenAdjList);

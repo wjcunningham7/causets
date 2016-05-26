@@ -1226,14 +1226,14 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			switch (spacetime) {
 			case (2 | MINKOWSKI | SAUCER | FLAT | SYMMETRIC):
 				#if SPECIAL_SAUCER
-				nodes.crd->x(i) = 3.0 * urng() - 1.5;
-				nodes.crd->y(i) = 2.0 * urng() - 1.0;
-				if (nodes.crd->x(i) > eta_77834_1(nodes.crd->y(i), eta0))
+				nodes.crd->x(i) = 2.0 * urng() - 1.0;
+				nodes.crd->y(i) = 3.0 * urng() - 1.5;
+				if (fabs(nodes.crd->x(i)) > eta_77834_1(nodes.crd->y(i), eta0))
 					continue;
 				#else
 				nodes.crd->x(i) = (2.0 * urng() - 1.0) * eta0;
 				nodes.crd->y(i) = (2.0 * urng() - 1.0) * r_max;
-				if (nodes.crd->x(i) > eta_77834_1(nodes.crd->y(i), eta0))
+				if (fabs(nodes.crd->x(i)) > eta_77834_1(nodes.crd->y(i), eta0))
 					continue;
 				#endif
 				break;

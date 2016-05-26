@@ -1263,15 +1263,17 @@ void mpi_swaps(std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector
 	int finish = start + cpy_offset;
 	MPI_Status status;
 
+	/*MPI_Barrier(MPI_COMM_WORLD);
+	printf("Rank [%d] beginning mpi_swaps.\n", rank);
+	fflush(stdout); sleep(1);
+	MPI_Barrier(MPI_COMM_WORLD);*/
+
 	for (size_t i = 0; i < swaps.size(); i++) {
-	//for (size_t i = 0; i < 3; i++) {
 		int idx0 = std::get<0>(swaps[i]);
 		int idx1 = std::get<1>(swaps[i]);
 
-		/*printf_mpi(rank, "rank: 0\tidx0: %d\tidx1: %d\n", idx0, idx1);
-		fflush(stdout);
-		printf_mpi(rank - 1, "rank: 1\tidx0: %d\tidx1: %d\n", idx0, idx1);
-		fflush(stdout);*/
+		//printf("Rank [%d] identified swap [%d->%d].\n", rank, idx0, idx1);
+		//fflush(stdout); sleep(1);
 		MPI_Barrier(MPI_COMM_WORLD);
 		if (idx0 != -1 && idx1 != -1) {
 			//if (rank << 1 != idx0 && (rank << 1) + 1 != idx0) break;
@@ -1409,6 +1411,10 @@ void mpi_swaps(std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector
 		//MPI_Barrier(MPI_COMM_WORLD);
 		//break;
 	}
+
+	/*printf("Rank [%d] finished mpi_swaps.\n", rank);
+	fflush(stdout); sleep(1);
+	MPI_Barrier(MPI_COMM_WORLD);*/
 }
 #endif
 
