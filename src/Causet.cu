@@ -850,9 +850,17 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 		for (i = 0; i <= nb; i++) {
 			#ifdef MPI_ENABLED
 			if (network->network_properties.cmpi.num_mpi_threads > 1) {
-				if (!measureAction_v5(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-					network->network_properties.cmpi.fail = 1;
-					goto MeasureExit;
+				if (network->network_properties.N_tar >= ACTION_MPI_V5) {
+				//if (network->network_properties.N_tar >= 131072) {
+					if (!measureAction_v5(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+						network->network_properties.cmpi.fail = 1;
+						goto MeasureExit;
+					}
+				} else {
+					if (!measureAction_v4(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+						network->network_properties.cmpi.fail = 1;
+						goto MeasureExit;
+					}
 				}
 			} else
 			#endif

@@ -202,6 +202,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->k_tar = network_properties->N_tar / 2.0;
 			#if SPECIAL_SAUCER
 			double volume = volume_77834_1(1.5) - volume_77834_1(-1.5);
+			//printf_dbg("volume: %f\n", volume);
 			network_properties->r_max = 1.5;
 			#else
 			double beta = 1.0 - eta0;
@@ -209,6 +210,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->r_max = sqrt(1.0 - POW2(beta, EXACT));
 			#endif
 			network_properties->delta = static_cast<double>(network_properties->N_tar) / volume;
+			//printf_dbg("delta: %f\n", network_properties->delta);
 			network_properties->a = 1.0;
 			break;
 		}
@@ -454,7 +456,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			printf_mpi(rank, "\t > Manifold:\t\t\t%s\n", manifoldNames[(unsigned int)(log2((float)get_manifold(spacetime) / ManifoldFirst))].c_str());
 			printf_mpi(rank, "\t > Spacetime Dimension:\t\t%d+1\n", get_stdim(spacetime) - 1);
 			printf_mpi(rank, "\t > Region:\t\t\t%s", regionNames[(unsigned int)(log2((float)get_region(spacetime) / RegionFirst))].c_str());
-			#ifdef SPECIAL_SAUCER
+			#if SPECIAL_SAUCER
 			if (get_manifold(spacetime) & MINKOWSKI && get_region(spacetime) & SAUCER)
 				printf_mpi(rank, " (Special)\n");
 			else
@@ -1726,7 +1728,7 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 
 	//#ifdef MPI_ENABLED
 	if (!cmpi.rank) printf_mag();
-	printf_mpi(cmpi.rank, "Using Version 2.\n");
+	printf_mpi(cmpi.rank, "Using Version 2 (linkNodes).\n");
 	if (!cmpi.rank) printf_std();
 	//#endif
 
@@ -1891,7 +1893,7 @@ bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spa
 	#endif
 
 	//#ifdef MPI_ENABLED
-	printf_dbg("Using Version 1.\n");
+	printf_dbg("Using Version 1 (linkNodes).\n");
 	//#endif
 
 	uint64_t future_idx = 0;

@@ -934,30 +934,65 @@ int printf_mpi(int rank, const char * format, ...)
 	return retval;
 }
 
+void printCardinalities(const uint64_t * const cardinalities, unsigned int Nc, unsigned int nthreads, unsigned int idx0, unsigned int idx1, unsigned int version)
+{
+	#if DEBUG
+	assert (cardinalities != NULL);
+	assert (Nc > 0);
+	assert (nthreads >= 1);
+	assert (idx0 != idx1);
+	#endif
+
+	if (idx0 > idx1) {
+		idx0 ^= idx1;
+		idx1 ^= idx0;
+		idx0 ^= idx1;
+	}
+
+	std::ofstream os;
+	char filename[80];
+	strcpy(filename, "cards_");
+	strcat(filename, std::to_string(idx0).c_str());
+	strcat(filename, std::to_string(idx1).c_str());
+	strcat(filename, "-v");
+	strcat(filename, std::to_string(version).c_str());
+	strcat(filename, ".cset.dbg.dat");
+
+	os.open(filename);
+	for (int i = 0; i < Nc; i++) {
+		int sum = 0;
+		for (int j = 0; j < nthreads; j++)
+			sum += cardinalities[j*Nc+i];
+		os << sum << std::endl;
+	}
+
+	os.flush();
+	os.close();
+}
+
 MPI_Request* sendSignal(const int signal, const int rank, const int num_mpi_threads)
 {
 	MPI_Request *req = (MPI_Request*)malloc(sizeof(MPI_Request) * num_mpi_threads);;
 	for (int i = 0; i < num_mpi_threads; i++) {
 		if (signal != 1 && i == rank) continue;
-		//if (i == rank) continue;
 		MPI_Isend((void*)&signal, 1, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req[i]);
 	}
 
 	return req;
 }
 
-MPI_Request* requestLock(CausetSpinlock * const lock, const int rank, const int num_mpi_threads)
+/*MPI_Request* requestLock(CausetSpinlock * const lock, const int rank, const int num_mpi_threads)
 {
 	MPI_Request *req;
 	//int success;
 	//lock[rank] = LOCKED;
 	printf("Rank [%d] is sending signal 0 to other ranks.\n", rank);
 	req = sendSignal(0, rank, num_mpi_threads);
-	/*for (unsigned int i = 0; i < num_mpi_threads; i++) {
-		if (i == rank) continue;
-		MPI_Isend(lock, num_mpi_threads, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req[1]);
-		MPI_Irecv(&success, 1, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req[2]);
-	}*/
+	//for (unsigned int i = 0; i < num_mpi_threads; i++) {
+	//	if (i == rank) continue;
+	//	MPI_Isend(lock, num_mpi_threads, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req[1]);
+	//	MPI_Irecv(&success, 1, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req[2]);
+	//}
 	//MPI_Request r;
 	//req[1] = r;
 	//req[2] = r;
@@ -971,7 +1006,7 @@ void requestUnlock(CausetSpinlock * const lock, const int rank, const int num_mp
 	CausetSpinlock req_lock = UNLOCKED;
 	sendSignal(1, rank, num_mpi_threads);
 	MPI_Bcast(&req_lock, 1, MPI_INT, rank, MPI_COMM_WORLD);
-}
+}*/
 
 //MPI Print Variadic Function
 bool checkMpiErrors(CausetMPI &cmpi)

@@ -76,7 +76,15 @@ for i in $(seq $jobstart $jobend) ; do
 done
 
 outfile=$homedir/action_eta-${eta0}_${spacetime}_${version}.cset.act.raw
-echo "Job Nodes Degree Error Action Error" >> $outfile
+if [[ ! -e $outfile ]] ; then
+  echo "Job Nodes Degree Error Action Error" >> $outfile
+else
+  echo "Output file already exists. Continue? [y/n]"
+  read response
+  if [[ "$response" != "y" ]] ; then
+    exit 7
+  fi
+fi
 njobs=$(($jobend-$jobstart+1))
 for (( i=0 ; i<$njobs ; i++ )) ; do
   job=$(($i+$jobstart))

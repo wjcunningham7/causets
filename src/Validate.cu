@@ -2659,7 +2659,7 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	#endif
 
-	printf_dbg("Using Version 1.\n");
+	printf_dbg("Using Version 1 (measureAction).\n");
 
 	double lk = 2.0;
 	bool smeared = max_cardinality == N_tar - 1;
@@ -2677,7 +2677,7 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 		if (cardinalities == NULL)
 			throw std::bad_alloc();
 		memset(cardinalities, 0, sizeof(uint64_t) * max_cardinality);
-		ca->hostMemUsed += sizeof(uint64_t) * max_cardinality;
+		ca->hostMemUsed += sizeof(uint64_t) * max_cardinality * omp_get_max_threads();
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -2822,7 +2822,7 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 	assert (edge_buffer > 0.0f);
 	#endif
 
-	printf_dbg("Using Version 2.\n");
+	printf_dbg("Using Version 2 (measureAction).\n");
 
 	int n = N_tar + N_tar % 2;
 	uint64_t npairs = static_cast<uint64_t>(n) * (n - 1) / 2;

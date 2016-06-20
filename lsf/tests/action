@@ -16,9 +16,11 @@
 # Choose 'readstart' and 'samples'
 # Choose 'queue' and 'mpi'
 
-spacetime=82468 # Symmetric, Compact 3+1 de Sitter Slab
-#spacetime=77834 # Symmetric, Flat 1+1 Minkowski Saucer
-age=0.5
+set -eu -o pipefail
+
+#spacetime=82468 # Symmetric, Compact 3+1 de Sitter Slab
+spacetime=77834 # Symmetric, Flat 1+1 Minkowski Saucer
+age=0.8
 makeparfile=false
 
 nmin=1024
@@ -28,9 +30,9 @@ nnum=25
 source /home/$USER/.queues
 jobstart=$NEXT_JOB
 readstart=0
-samples=1
-queue="krioukov_gpu"
-mpi=4
+samples=10
+queue="par-gpu-2"
+mpi=0
 #exclude="compute-4-017"
 exclude="none"
 
@@ -40,6 +42,7 @@ ncores=$(bhosts $host | awk 'NR==2 {print $4}')
 if [[ $makeparfile == "true" ]] ; then
   rm -f $CAUSET_HOME_DIR/causet.par
   $CAUSET_HOME_DIR/etc/action/action_test $nmin $nmax $nnum
+  exit 1
 fi
 readarray -t vars < $CAUSET_HOME_DIR/causet.par
 if [[ $makeparfile == "true" ]] ; then
@@ -47,8 +50,13 @@ if [[ $makeparfile == "true" ]] ; then
 fi
 
 for i in $(seq ${#vars[@]}) ; do
-  nodes=${vars[${i}-1]}
   job=$(($i+$jobstart-1))
+  var=(${vars[${i}-1]})
+  if [[ ${var:0:1} == "#" ]] ; then
+    continue
+  fi
+
+  nodes=$var
 
   if [[ "$readstart" -ne 0 ]] ; then
     readjob=$(($i+$readstart-1))

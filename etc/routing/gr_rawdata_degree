@@ -51,6 +51,7 @@ for i in $(seq $jobstart $jobend) ; do
 
   if [[ -s $dir/causet${i}.err ]] ; then
     echo "Error detected in job $i"
+    cat $dir/causet${i}.err
     echo "Continue? [y/n]"
     read response
     if [[ "$response" != "y" ]] ; then
@@ -59,8 +60,9 @@ for i in $(seq $jobstart $jobend) ; do
   fi
 
   nsamples=$(ls $dir/dat/*.cset.out 2> /dev/null | wc -l)
-  if [[ $nsamples -eq 0 ]] ; then
-    echo "No data found!"
+  if [[ $nsamples -lt 10 ]] ; then
+    #echo "No data found!"
+    echo "Fewer than 10 samples found."
     exit 4
   fi
 
@@ -68,8 +70,8 @@ for i in $(seq $jobstart $jobend) ; do
 
   tau+=($(awk '/Max. Rescaled Time:/ {print $5}' $logfile))
   nodes+=($(awk '/Number of Nodes:/ {print $6}' $logfile))
-  #alpha+=($(awk '/Spatial Scaling:/ {print $4}' $logfile))
-  alpha+=($(awk '/Spatial Cutoff:/ {print $4}' $logfile))
+  alpha+=($(awk '/Spatial Scaling:/ {print $4}' $logfile))
+  #alpha+=($(awk '/Spatial Cutoff:/ {print $4}' $logfile))
   densities+=($(awk '/Node Density:/ {print $4}' $logfile))
   s1=($(./etc/success 1 | awk '/Success Ratio:/ {print $3, $5}'))
   success1+=(${s1[0]})

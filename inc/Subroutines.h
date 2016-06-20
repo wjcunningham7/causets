@@ -83,6 +83,8 @@ int printf_dbg(const char * format, ...);
 
 int printf_mpi(int rank, const char * format, ...);
 
+void printCardinalities(const uint64_t * const cardinalities, unsigned int Nc, unsigned int nthreads, unsigned int idx0, unsigned int idx1, unsigned int version);
+
 MPI_Request* sendSignal(const int signal, const int rank, const int num_mpi_threads);
 
 MPI_Request* requestLock(CausetSpinlock * const lock, const int rank, const int num_mpi_threads);

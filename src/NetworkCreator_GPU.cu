@@ -414,7 +414,7 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 
 	#ifdef MPI_ENABLED
 	if (!cmpi.rank) printf_mag();
-	printf_mpi(cmpi.rank, "Using Version 3.\n");
+	printf_mpi(cmpi.rank, "Using Version 3 (linkNodesGPU).\n");
 	if (!cmpi.rank) printf_std();
 	#endif
 
@@ -725,7 +725,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	#endif
 
 	#ifdef MPI_ENABLED
-	printf_dbg("Using Version 2.\n");
+	printf_dbg("Using Version 2 (linkNodesGPU).\n");
 	#endif
 
 	//CUDA Streams

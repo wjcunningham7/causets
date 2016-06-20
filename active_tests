@@ -1,6 +1,37 @@
 ACTION EXPERIMENTS:
 ===================
 
+------------------------
+MINKOWSKI SPECIAL SAUCER
+------------------------
+Jobs 984-1002,1501-1506
+Spacetime = 77834
+Eta0 = 1.0 (Special Saucer)
+Waiting for...NONE
+
+----------------
+MINKOWSKI SAUCER
+----------------
+Jobs 1507-1531
+Spacetime = 77834
+Eta0 = 0.2
+Waiting for...NONE
+
+Jobs 1532-1556
+Spacetime = 77834
+Eta0 = 0.4
+Waiting for...NONE
+
+Jobs 1557-1581
+Spacetime = 77834
+Eta0 = 0.6
+Waiting for...NONE
+
+Jobs 1582-1606
+Spacetime = 77834
+Eta0 = 0.8
+Waiting for...NONE
+
 --------------
 DE SITTER SLAB
 --------------
@@ -8,10 +39,9 @@ Jobs 1499-1500
 Spacetime = 82468
 Eta0 = 0.5
 Waiting for...NONE
- > Job 1500 has incorrect results
 
-NAVIGABILITY EXPERIMENTS:
-=========================
+NAVIGABILITY EXPERIMENTS:  COMPLETED
+====================================
 > Uses geodesic distances
 > Studies two success metrics
 > Considers all pairs
@@ -23,52 +53,52 @@ Jobs 1607-1617
 Manifold = De Sitter
 k = 10
 Spacetime = 41508
-Waiting for...ALL
+Waiting for...NONE
 
 Jobs 1618-1628
 Manifold = De Sitter
 k = 15
 Spacetime = 41508
-Waiting for...ALL
+Waiting for...NONE
 
 Jobs 1629-1639
 Manifold = De Sitter
 k = 20
 Spacetime = 41508
-Waiting for...ALL
+Waiting for...NONE
 
 Jobs 1640-1650
 Manifold = Dust
 k = 10
 Spacetime = 41540
-Waiting for...ALL
+Waiting for...NONE
 
 Jobs 1651-1661
 Manifold = Dust
 k = 15
 Spacetime = 41540
-Waiting for...ALL
+Waiting for...NONE
 
 Jobs 1662-1672
 Manifold = Dust
 k = 20
 Spacetime = 41540
-Waiting for...ALL
+Waiting for...NONE
 
 Jobs 1673-1683
 Manifold = FLRW
 k = 10
 Spacetime = 41604
-Waiting for...ALL
+Waiting for...NONE
 
 Jobs 1684-1694
 Manifold = FLRW
 k = 15
 Spacetime = 41604
-Waiting for...ALL
+Waiting for...NONE
 
 Jobs 1695-1705
 Manifold = FLRW
 k = 20
 Spacetime = 41604
-Waiting for...ALL
+Waiting for...NONE

@@ -10,7 +10,7 @@
 
 set -eu -o pipefail
 
-constq=true  #if false, constk=true
+constq=false  #if false, constk=true
 if [[ "$#" -lt 5 ]] ; then
   if [[ "$constq" == "true" ]] ; then
     echo "Arguments are [jobstart] [jobend] [density] [spacetime] [version]."
@@ -33,6 +33,7 @@ ver=$5
 homedir=$CAUSET_HOME_DIR
 #basedir='/krioukov/will'
 basedir='/gss_gpfs_scratch/cunningham'
+postfix='geo_all'
 
 for i in $(seq ${jobstart} ${jobend}) ; do
   dir="$basedir/causet${i}"
@@ -44,16 +45,22 @@ for i in $(seq ${jobstart} ${jobend}) ; do
   else
     density=$(cat $logfile | awk '/Node Density/ {print $4}')
   fi
-  success=$(etc/success | awk '/Success Ratio/')
-  IFS=' ' read -r -a vals <<< "$success"
-  sval=${vals[2]}
-  serr=${vals[4]}
+  success1=$(etc/success 1 | awk '/Success Ratio/')
+  IFS=' ' read -r -a vals1 <<< "$success1"
+  s1val=${vals1[2]}
+  s1err=${vals1[4]}
+  success2=$(etc/success 2 | awk '/Success Ratio/')
+  IFS=' ' read -r -a vals2 <<< "$success2"
+  s2val=${vals2[2]}
+  s2err=${vals2[4]}
 
   if [[ "$constq" == true ]] ; then
-    echo "$tau $degrees" >> $homedir/gr_degrees_q-${q}_${st}_${ver}.cset.dat.ref
-    echo "$tau $sval $serr" >> $homedir/gr_success_q-${q}_${st}_${ver}.cset.dat.ref
+    echo "$tau $degrees" >> $homedir/gr_degrees_q-${q}_${st}_${ver}_${postfix}.cset.dat.ref
+    echo "$tau $s1val $s1err" >> $homedir/gr_success1_q-${q}_${st}_${ver}_${postfix}.cset.dat.ref
+    echo "$tau $s2val $s2err" >> $homedir/gr_success2_q-${q}_${st}_${ver}_${postfix}.cset.dat.ref
   else
-    echo "$tau $density" >> $homedir/gr_density_k-${k}_${st}_${ver}.cset.dat.ref
-    echo "$tau $sval $serr" >> $homedir/gr_success_k-${k}_${st}_${ver}.cset.dat.ref
+    echo "$tau $density" >> $homedir/gr_density_k-${k}_${st}_${ver}_${postfix}.cset.dat.ref
+    echo "$tau $s1val $s1err" >> $homedir/gr_success1_k-${k}_${st}_${ver}_${postfix}.cset.dat.ref
+    echo "$tau $s2val $s2err" >> $homedir/gr_success2_k-${k}_${st}_${ver}_${postfix}.cset.dat.ref
   fi
 done

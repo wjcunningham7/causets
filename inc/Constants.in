@@ -40,16 +40,18 @@
 
 #define ACTION_V2 true		//Version 2 uses OpenMP, Version 3 uses minimal bitwise optimizations
 
+#define ACTION_MPI_V5 262144	//Size limit which determines which MPI algorithm is used
+
 #define GEODESIC_LOWER 0.95	//Boundary between Region I and Region II approximations
 				//Should be less than 1.0
 
 #define GEODESIC_UPPER 1.05	//Boundary between Region II and Region III approximations
 				//Should be greater than 1.0
 
-#define SAUCER_SPECIAL false	//The special saucer has surfaces which intersect at right angles
+#define SPECIAL_SAUCER false	//The special saucer has surfaces which intersect at right angles
 
 //Debugging Flags
-#define DEBUG false	//Determines whether unit testing is in effect
+#define DEBUG true	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements
 
 #define NPRINT 1000	//Used for debugging statements inside loops

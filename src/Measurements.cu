@@ -1045,8 +1045,11 @@ bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &
 
 void* actionKernel(void *params)
 {
+	bool ACTION_DEBUG = false;
+
 	action_params *p = (action_params*)params;
-	printf("Rank [%d] is executing the action kernel.\n", p->rank);
+	if (ACTION_DEBUG)
+		printf("Rank [%d] is executing the action kernel.\n", p->rank);
 	unsigned int nthreads = omp_get_max_threads();
 	#ifdef AVX2_ENABLED
 	nthreads >>= 1;
@@ -1084,7 +1087,8 @@ void* actionKernel(void *params)
 		p->workspace[0][tid].partial_intersection(p->adj[0][j], glob_i, length);
 		p->cardinalities[tid*(p->N_tar-1)+p->workspace[0][tid].partial_count(glob_i, length)+1]++;
 	}
-	printf("Rank [%d] has completed the action kernel.\n", p->rank);
+	if (ACTION_DEBUG)
+		printf("Rank [%d] has completed the action kernel.\n", p->rank);
 
 	p->busy[0] = false;
 	pthread_exit(NULL);
@@ -1108,13 +1112,16 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 	#ifdef MPI_ENABLED
 	if (!cmpi.rank) printf_mag();
-	printf_mpi(cmpi.rank, "Using Version 5.\n");
+	printf_mpi(cmpi.rank, "Using Version 5 (measureAction).\n");
 	if (!cmpi.rank) printf_std();
 	fflush(stdout); sleep(1);
 	MPI_Barrier(MPI_COMM_WORLD);
 	#else
-	printf_dbg("Using Version 5.\n");
+	printf_dbg("Using Version 5 (measureAction).\n");
 	#endif
+
+	static const bool ACTION_DEBUG = false;
+	static const bool ACTION_DEBUG_VERBOSE = false;
 
 	Bitvector workspace;
 	uint64_t clone_length = adj[0].getNumBlocks();
@@ -1194,7 +1201,9 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	std::unordered_set<FastBitset> permutations;
 	init_mpi_permutations(permutations, current);
 
-	//DEBUG
+	//printCardinalities(cardinalities, N_tar - 1, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
+
+	//Construct set of pairs
 	int pair[2];
 	std::unordered_set<std::pair<int,int> > new_pairs;
 	init_mpi_pairs(new_pairs, current, nbuf);
@@ -1222,15 +1231,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	if (!rank) print_pairs(current);
 	fflush(stdout);
 
-	//Construct set of pairs
-	/*int pair[2];
-	std::unordered_set<std::pair<int,int> > new_pairs;
-	init_mpi_pairs(new_pairs, current, nbuf);
-	MPI_Barrier(MPI_COMM_WORLD);*/
-
-	//MPI_Request *reqs;
 	MPI_Request req;
-	//MPI_Status statuses[4];
 	MPI_Status status;
 	CausetSpinlock lock[cmpi.num_mpi_threads];
 	memset(lock, 0, sizeof(CausetSpinlock) * cmpi.num_mpi_threads);
@@ -1275,14 +1276,20 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		if (!p.busy[0] && !waiting) {
 			if (new_pairs.find(std::make_pair(std::min(current[rank<<1], current[(rank<<1)+1]), std::max(current[rank<<1], current[(rank<<1)+1]))) != new_pairs.end() && std::find(avail.begin(), avail.end(), current[rank<<1]) == avail.end() && std::find(avail.begin(), avail.end(), current[(rank<<1)+1]) == avail.end()) {
 				p.busy[0] = true;
-				printf_red();
-				printf("Rank [%d] master thread is creating a slave.\n", rank);
-				printf_std();
-				fflush(stdout); sleep(1);
+				if (ACTION_DEBUG) {
+					printf_red();
+					printf("Rank [%d] master thread is creating a slave.\n", rank);
+					printf_std();
+					fflush(stdout); sleep(1);
+				}
+				sleep(2);
+				//printf("Rank [%d] operating on [%d] and [%d]\n", rank, current[rank<<1], current[(rank<<1)+1]);
+				//memset(cardinalities, 0, sizeof(uint64_t) * (N_tar - 1) * omp_get_max_threads());	//DEBUG
 				pthread_create(&thread, &attr, actionKernel, (void*)&p);
 			} else {
 				waiting = true;
-				printf("Rank [%d] in SPIN state.\n", rank);
+				if (ACTION_DEBUG)
+					printf("Rank [%d] in SPIN state.\n", rank);
 			}
 		}
 
@@ -1293,16 +1300,33 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			MPI_Irecv(&signal, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &req);
 			int recv = 0;
 			while ((p.busy[0] || waiting) && !recv) {
-				//printf("Rank [%d] waiting for message.\n", rank);
-				MPI_Test(&req, &recv, &status);
-				sleep(1);
+				if (p.busy[0]) {
+					if (ACTION_DEBUG) {
+						printf("Rank [%d] waiting for message (TEST).\n", rank);
+						fflush(stdout); sleep(1);
+					}
+					MPI_Test(&req, &recv, &status);
+					sleep(1);
+				} else {
+					if (ACTION_DEBUG) {
+						printf("Rank [%d] waiting for message (WAIT).\n", rank);
+						fflush(stdout); sleep(1);
+					}
+					MPI_Wait(&req, &status);
+					recv = 1;
+				}
 			}
 
 			//This occurs when 'busy' has just been set to false in the previous loop
 			//We will attempt to obtain the lock and then go into the waiting state
 			if (!p.busy[0] && !recv) {
 				MPI_Cancel(&req);
-				if (cmpi.lock == UNLOCKED) {
+				MPI_Request_free(&req);
+				if (cmpi.lock == UNLOCKED && lockcnt == 0) {
+					if (ACTION_DEBUG_VERBOSE) {
+						printf("Rank [%d] will send a lock signal and wait.\n", rank);
+						fflush(stdout);
+					}
 					sendSignal(1, rank, cmpi.num_mpi_threads);
 					lock[rank] = LOCKED;
 				}
@@ -1313,8 +1337,10 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			if (!p.busy[0]) waiting = true;
 
 			int source = status.MPI_SOURCE;
-			printf("Rank [%d] received the signal [%d] from rank [%d]\n", rank, signal, source);
-			fflush(stdout); sleep(1);
+			if (ACTION_DEBUG) {
+				printf("Rank [%d] received the signal [%d] from rank [%d]\n", rank, signal, source);
+				fflush(stdout); sleep(1);
+			}
 
 			int first = 0;
 			switch (signal) {
@@ -1324,24 +1350,37 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 				cmpi.lock = UNLOCKED;
 				lock[source] = UNLOCKED;
-				if (std::find(avail.begin(), avail.end(), current[rank<<1]) != avail.end() && std::find(avail.begin(), avail.end(), current[(rank<<1)+1]) != avail.end())
+				//If the current elements are available, wait for something else to happen - otherwise they will be added and a trade will be attempted
+				if (std::find(avail.begin(), avail.end(), current[rank<<1]) != avail.end() && std::find(avail.begin(), avail.end(), current[(rank<<1)+1]) != avail.end()) {
+					if (ACTION_DEBUG_VERBOSE)
+						printf("Rank [%d] WAITING.\n", rank);
 					waiting = true;
-				else
+				} else {
+					if (ACTION_DEBUG_VERBOSE)
+						printf("Rank [%d] NOT WAITING.\n", rank);
 					waiting = false;
+				}
 				lockcnt = 0;
 				MPI_Barrier(MPI_COMM_WORLD);
+				//This is the final exit sequence from the outer loop
 				if (new_pairs.size() == 0) {
 					pair[0] = pair[1] = 0;
 					waiting = false;
 					break;
 				}
 				if (rank << 1 == pair[0] || (rank << 1) + 1 == pair[0] || rank << 1 == pair[1] || (rank << 1) + 1 == pair[1]) {
+					//This will go to the beginning of the outer loop, where new slaves may be created
+					//This is the element which matches the master of this unlock operation when a trade has occurred
 					waiting = false;
+					if (ACTION_DEBUG_VERBOSE)
+						printf("Rank [%d] NOT WAITING, RESETTING.\n", rank);
 					break;
 				} else {
 					pair[0] = -1;
 					pair[1] = -1;
 				}
+				if (ACTION_DEBUG_VERBOSE)
+					printf("Rank [%d] CONTINUING.\n", rank);
 				continue;
 			case 1:
 				//Lock
@@ -1356,20 +1395,29 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 				}
 				if (lockcnt == 0) lockmax = success;
 				lockcnt++;
-				//printf("Rank [%d] identified %d locks requested.\n", rank, success);
-				//printf("Rank [%d] has a lock-count of [%d].\n", rank, lockcnt);
-				//printf("Rank [%d] identified first as [%d]\n", rank, first);
+				if (ACTION_DEBUG_VERBOSE) {
+					printf("Rank [%d] identified %d locks requested.\n", rank, success);
+					printf("Rank [%d] has a lock-count of [%d].\n", rank, lockcnt);
+					printf("Rank [%d] identified first as [%d]\n", rank, first);
+				}
 				for (int i = 0; i < cmpi.num_mpi_threads; i++) {
 					if (success > 1 && i != first) {
-						lock[i] = UNLOCKED;
-						//printf("Rank [%d] unlocked the lock in rank [%d]\n", rank, i);
+						lock[i] = UNLOCKED;	//This array indicates the owner of the spinlock
+						if (ACTION_DEBUG_VERBOSE)
+							printf("Rank [%d] unlocked the lock in rank [%d]\n", rank, i);
 					}
 					if (i == rank && lock[i] == UNLOCKED)
-						cmpi.lock = LOCKED;
+						cmpi.lock = LOCKED;	//This indicates this thread's lock state
 				}
 
-				//printf("Locks in rank [%d]: (%d, %d, %d, %d)\n", rank, lock[0], lock[1], lock[2], lock[3]);
-				//fflush(stdout); sleep(1);
+				if (ACTION_DEBUG_VERBOSE) {
+					printf("Locks in rank [%d]: (%d, %d, %d, %d)\n", rank, lock[0], lock[1], lock[2], lock[3]);
+					fflush(stdout); sleep(1);
+				}
+				if (!p.busy[0] && !waiting) {
+					waiting = true;
+					continue;
+				}
 				if (lockcnt == lockmax && cmpi.lock == UNLOCKED) waiting = false;
 				break;
 			case 2:
@@ -1382,8 +1430,15 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 				MPI_Bcast(&size, 1, MPI_INT, source, MPI_COMM_WORLD);
 				avail.resize(size);
 				MPI_Bcast(&avail.front(), avail.size(), MPI_INT, source, MPI_COMM_WORLD);
-				//printf("Rank [%d] has updated the list of available trades.\n", rank);
-				//printf("Rank [%d] sees: %d and %d\n", rank, avail[0], avail[1]);
+				if (ACTION_DEBUG_VERBOSE) {
+					printf("Rank [%d] has updated the list of available trades.\n", rank);
+					//printf("Rank [%d] sees: %d and %d\n", rank, avail[0], avail[1]);
+					printf("Rank [%d] sees: (", rank);
+					for (int i = 0; i < size; i++)
+						printf("%d, ", avail[i]);
+					printf(")\n");
+				}
+				if (!p.busy[0]) waiting = true;
 				break;
 			case 3:
 				//Update list of unused pairs
@@ -1395,10 +1450,13 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 				new_pairs.erase(std::make_pair(std::min(pair[0], pair[1]), std::max(pair[0], pair[1])));
 				pair[0] = -1;
 				pair[1] = -1;
-				//printf("Rank [%d] has updated the list of new pairs.\n", rank);
-				//if (rank == 1)
-				//	for (std::unordered_set<std::pair<int,int> >::iterator it = new_pairs.begin(); it != new_pairs.end(); it++)
-				//		printf("(%d, %d)\n", std::get<0>(*it), std::get<1>(*it));
+				if (ACTION_DEBUG_VERBOSE) {
+					printf("Rank [%d] has updated the list of new pairs.\n", rank);
+					if (rank == 1)
+						for (std::unordered_set<std::pair<int,int> >::iterator it = new_pairs.begin(); it != new_pairs.end(); it++)
+							printf("(%d, %d)\n", std::get<0>(*it), std::get<1>(*it));
+				}
+				if (!p.busy[0]) waiting = true;
 				break;
 			case 4:
 				//Memory exchange
@@ -1417,25 +1475,29 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 				current[pair[0]] ^= current[pair[1]];
 				current[pair[1]] ^= current[pair[0]];
 				current[pair[0]] ^= current[pair[1]];
+				if (!p.busy[0]) waiting = true;
 				break;
 			}
-			if (!waiting) break;
+			if (!waiting && !p.busy[0]) break;
 		}
-		//printf("Rank [%d] has exited the loop.\n", rank);
 
 		if (pair[0] != -1 && pair[1] != -1) continue;
 
-		printf_mag();
-		printf("Rank [%d] has locked the spinlock.\n", rank);
-		printf_std();
-		fflush(stdout); sleep(1);
+		if (ACTION_DEBUG) {
+			printf_mag();
+			printf("Rank [%d] has locked the spinlock.\n", rank);
+			printf_std();
+			fflush(stdout); sleep(1);
+		}
 		avail.push_back(current[rank<<1]);
 		avail.push_back(current[(rank<<1)+1]);
-		/*printf("The master made available: %d and %d\n", avail[avail.size() - 2], avail[avail.size() - 1]);
-		printf("Available elements: (");
-		for (int i = 0; i < avail.size(); i++)
-			printf("%d, ", avail[i]);
-		printf(")\n");*/
+		if (ACTION_DEBUG_VERBOSE) {
+			printf("The master made available: %d and %d\n", avail[avail.size() - 2], avail[avail.size() - 1]);
+			printf("Available elements: (");
+			for (int i = 0; i < avail.size(); i++)
+				printf("%d, ", avail[i]);
+			printf(")\n");
+		}
 		int avail_size = avail.size();
 
 		sendSignal(2, rank, cmpi.num_mpi_threads);
@@ -1444,10 +1506,14 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 		pair[0] = current[rank<<1];
 		pair[1] = current[(rank<<1)+1];
-		//printf("The master removed %d and %d from new_pairs.\n", pair[0], pair[1]);
+		if (ACTION_DEBUG_VERBOSE)
+			printf("The master removed %d and %d from new_pairs.\n", pair[0], pair[1]);
 		new_pairs.erase(std::make_pair(std::min(pair[0], pair[1]), std::max(pair[0], pair[1])));
-		for (std::unordered_set<std::pair<int,int> >::iterator it = new_pairs.begin(); it != new_pairs.end(); it++)
-			printf("(%d, %d)\n", std::get<0>(*it), std::get<1>(*it));
+		if (ACTION_DEBUG) {
+			for (std::unordered_set<std::pair<int,int> >::iterator it = new_pairs.begin(); it != new_pairs.end(); it++)
+				printf("(%d, %d)\n", std::get<0>(*it), std::get<1>(*it));
+		}
+		//printCardinalities(cardinalities, N_tar - 1, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
 
 		sendSignal(3, rank, cmpi.num_mpi_threads);
 		MPI_Bcast(pair, 2, MPI_INT, rank, MPI_COMM_WORLD);
@@ -1465,7 +1531,8 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		}
 
 		if (swap != std::make_pair(-1,-1)) {
-			//printf("Identified a swap: (%d, %d)\n", std::get<0>(swap), std::get<1>(swap));
+			if (ACTION_DEBUG_VERBOSE)
+				printf("Identified a swap: (%d, %d)\n", std::get<0>(swap), std::get<1>(swap));
 			for (int i = 0; i < nbuf; i++)
 				if (std::get<0>(swap) == current[i])
 					swaps.push_back(std::make_pair(i, -1));
@@ -1477,9 +1544,9 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			pair[0] = std::get<0>(swaps[0]);
 			pair[1] = std::get<1>(swaps[1]);
 			swaps.insert(swaps.begin()+1, std::make_pair(pair[1], pair[0]));
-			//printf("Pair indices: (%d, %d)\n", pair[0], pair[1]);
+			if (ACTION_DEBUG_VERBOSE)
+				printf("Pair indices: (%d, %d)\n", pair[0], pair[1]);
 			MPI_Bcast(pair, 2, MPI_INT, rank, MPI_COMM_WORLD);
-			//printf("Successful broadcast!\n");
 
 			mpi_swaps(swaps, adj, cmpi.adj_buf, N_tar, cmpi.num_mpi_threads, rank);
 			MPI_Barrier(MPI_COMM_WORLD);
@@ -1509,11 +1576,13 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 				avail.push_back(current[r1<<1]);
 				avail.push_back(current[(r1<<1)+1]);
 			}
-			/*printf("The master updated avail to (");
-			for (int i = 0; i < avail.size(); i++) {
-				printf("%d, ", avail[i]);
+			if (ACTION_DEBUG_VERBOSE) {
+				printf("The master updated avail to (");
+				for (int i = 0; i < avail.size(); i++) {
+					printf("%d, ", avail[i]);
+				}
+				printf(")\n");
 			}
-			printf(")\n");*/
 
 			avail_size = avail.size();
 			sendSignal(2, rank, cmpi.num_mpi_threads);
@@ -1529,12 +1598,14 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		sendSignal(0, rank, cmpi.num_mpi_threads);
 		MPI_Barrier(MPI_COMM_WORLD);
 		lock[rank] = UNLOCKED;
-		if (waiting)
-			printf("Rank [%d] in SPIN state.\n", rank);
-		printf_mag();
-		printf("Rank [%d] has unlocked the spinlock.\n", rank);
-		printf_std();
-		fflush(stdout); sleep(1);
+		if (ACTION_DEBUG) {
+			if (waiting)
+				printf("Rank [%d] in SPIN state.\n", rank);
+			printf_mag();
+			printf("Rank [%d] has unlocked the spinlock.\n", rank);
+			printf_std();
+			fflush(stdout); sleep(1);
+		}
 		MPI_Barrier(MPI_COMM_WORLD);
 	}
 
@@ -1555,7 +1626,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	#endif
 
 	//OpenMP Reduction
-	for (int i = 0; i < omp_get_max_threads(); i++)
+	for (int i = 1; i < omp_get_max_threads(); i++)
 		for (int j = 0; j < N_tar - 1; j++)
 			cardinalities[j] += cardinalities[i*(N_tar-1)+j];
 
@@ -1609,12 +1680,12 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 	#ifdef MPI_ENABLED
 	if (!cmpi.rank) printf_mag();
-	printf_mpi(cmpi.rank, "Using Version 4.\n");
+	printf_mpi(cmpi.rank, "Using Version 4 (measureAction).\n");
 	if (!cmpi.rank) printf_std();
 	fflush(stdout); sleep(1);
 	MPI_Barrier(MPI_COMM_WORLD);
 	#else
-	printf_dbg("Using Version 4.\n");
+	printf_dbg("Using Version 4 (measureAction).\n");
 	#endif
 
 	static const bool ACTION_DEBUG = true;
@@ -1670,23 +1741,9 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		#endif
 	}
 
-	//fflush(stdout);
-	//sleep(1);
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
 	#endif
-	//printf("Rank [%d] Reporting!\n", cmpi.rank);
-	//printChk();
-
-	//DEBUG
-	/*int length = N_tar / cmpi.num_mpi_threads;
-	Bitvector adj_test;
-	adj_test.reserve(length);
-	for (int i = 0; i < length; i++) {
-		FastBitset fb((uint64_t)length);
-		adj_test.push_back(fb);
-	}*/
-	//END DEBUG
 
 	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
@@ -1699,10 +1756,8 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	nthreads >>= 1;
 	#endif
 
-	//printf_mpi(cmpi.rank, "npairs: %" PRIu64 "\n", npairs);
-	//uint64_t np = 0;
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 64) if (npairs > 10000) num_threads (nthreads) //reduction (+ : np)
+	#pragma omp parallel for schedule (dynamic, 64) if (npairs > 10000) num_threads (nthreads)
 	#endif
 	for (uint64_t k = 0; k < npairs; k++) {
 		unsigned int tid = omp_get_thread_num();
@@ -1720,10 +1775,6 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		//printf("Rank [%d] is examining [%" PRIu64 " - %" PRIu64 "]\n", cmpi.rank, glob_i, glob_j);
 		if (!nodesAreConnected_v2(adj, N_tar, static_cast<int>(i), static_cast<int>(glob_j))) continue;
 		//printf("Nodes are connected!\n");
-		//np++;
-
-		//DEBUG
-		//adj_test[i].set(glob_j);
 
 		uint64_t length = glob_j - glob_i + 1;
 		adj[i].clone(workspace[tid], 0ULL, clone_length);
@@ -1734,17 +1785,12 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		//cardinalities[tid*(N_tar-1)+workspace[tid].partial_count(glob_i, length)+1]++;
 		cardinalities[tid*(N_tar-1)+cnt+1]++;
 	}
-	//printf("rank [%d] says np = %" PRIu64 "\n", cmpi.rank, np);
-	/*sleep(1);
-	MPI_Barrier(MPI_COMM_WORLD);
-	printf("Rank [%d] Reporting!\n", cmpi.rank);
-	printChk();*/
-	//fflush(stdout); sleep(1);
+
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
 	#endif
 
-	//goto DebugPoint;
+	//printCardinalities(cardinalities, N_tar - 1, nthreads, current[cmpi.rank<<1], current[(cmpi.rank<<1)+1], 4);
 
 	//MPI Swaps
 	#ifdef MPI_ENABLED
@@ -1780,15 +1826,15 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 		std::vector<std::vector<unsigned int> > similar;
 		fill_mpi_similar(similar, next);
-		/*printf_mpi(cmpi.rank, "Similar Configurations:\n");
-		for (size_t i = 0; i < similar.size(); i++) {
-			for (size_t j = 0; j < similar[i].size(); j += 2)
-				printf_mpi(cmpi.rank, "(%d, %d) ", similar[i][j], similar[i][j+1]);
-			printf_mpi(cmpi.rank, "\n");
-		}
-		printf_mpi(cmpi.rank, "\n");
-		fflush(stdout); sleep(1);
-		MPI_Barrier(MPI_COMM_WORLD);*/
+		//printf_mpi(cmpi.rank, "Similar Configurations:\n");
+		//for (size_t i = 0; i < similar.size(); i++) {
+		//	for (size_t j = 0; j < similar[i].size(); j += 2)
+		//		printf_mpi(cmpi.rank, "(%d, %d) ", similar[i][j], similar[i][j+1]);
+		//	printf_mpi(cmpi.rank, "\n");
+		//}
+		//printf_mpi(cmpi.rank, "\n");
+		//fflush(stdout); sleep(1);
+		//MPI_Barrier(MPI_COMM_WORLD);
 
 		unsigned int min_steps;
 		get_most_similar(next, min_steps, similar, current);
@@ -1801,25 +1847,25 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		}
 
 		relabel_vector(current, next);
-		/*printf("Relabeled current vector: ");
-		for (size_t i = 0; i < current.size(); i += 2)
-			printf("(%d, %d) ", current[i], current[i+1]);
-		printf("\n\n");*/
+		//printf("Relabeled current vector: ");
+		//for (size_t i = 0; i < current.size(); i += 2)
+		//	printf("(%d, %d) ", current[i], current[i+1]);
+		//printf("\n\n");
 	
 		std::vector<std::pair<int,int> > swaps;
 		cyclesort(min_steps, current, &swaps);
-		/*printf_mpi(cmpi.rank, "Sequence of Swaps:\n");
-		for (size_t i = 0; i < swaps.size(); i++)
-			printf_mpi(cmpi.rank, "[%d] --> [%d]\n", std::get<0>(swaps[i]), std::get<1>(swaps[i]));
-		printf_mpi(cmpi.rank, "\n");
-		if (!cmpi.rank) fflush(stdout);
-		MPI_Barrier(MPI_COMM_WORLD);*/
+		//printf_mpi(cmpi.rank, "Sequence of Swaps:\n");
+		//for (size_t i = 0; i < swaps.size(); i++)
+		//	printf_mpi(cmpi.rank, "[%d] --> [%d]\n", std::get<0>(swaps[i]), std::get<1>(swaps[i]));
+		//printf_mpi(cmpi.rank, "\n");
+		//if (!cmpi.rank) fflush(stdout);
+		//MPI_Barrier(MPI_COMM_WORLD);
 
-		/*printAdjMatrix(adj, N_tar, "adj_matrix.cset.dbg.dat", cmpi.num_mpi_threads, cmpi.rank);
-		sleep(1);
-		printf_mpi(cmpi.rank, "\n");
-		if (!cmpi.rank) fflush(stdout);
-		sleep(1);*/
+		//printAdjMatrix(adj, N_tar, "adj_matrix.cset.dbg.dat", cmpi.num_mpi_threads, cmpi.rank);
+		//sleep(1);
+		//printf_mpi(cmpi.rank, "\n");
+		//if (!cmpi.rank) fflush(stdout);
+		//sleep(1);
 		printf_mpi(cmpi.rank, "Preparing memory exchange...");
 		fflush(stdout); sleep(1);
 		mpi_swaps(swaps, adj, cmpi.adj_buf, N_tar, cmpi.num_mpi_threads, cmpi.rank);
@@ -1827,16 +1873,15 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		printf_mpi(cmpi.rank, "completed!\n");
 		fflush(stdout); sleep(1);
 		current = next;
-		/*printf_mpi(cmpi.rank, "\n");
-		if (!cmpi.rank) fflush(stdout);
-		sleep(1);
-		printAdjMatrix(adj, N_tar, "adj_matrix2.cset.dbg.dat", cmpi.num_mpi_threads, cmpi.rank);*/
+		//printf_mpi(cmpi.rank, "\n");
+		//if (!cmpi.rank) fflush(stdout);
+		//sleep(1);
+		//printAdjMatrix(adj, N_tar, "adj_matrix2.cset.dbg.dat", cmpi.num_mpi_threads, cmpi.rank);
 
 		//Compare pairs between the two buffers
-		//printf_mpi(cmpi.rank, "npairs: %" PRIu64 "\n", npairs);
-		//np = 0;
+		//memset(cardinalities, 0, sizeof(uint64_t) * (N_tar - 1) * omp_get_max_threads());	//DEBUG
 		#ifdef _OPENMP
-		#pragma omp parallel for schedule (dynamic, 64) if (npairs > 10000) num_threads (nthreads) //reduction (+ : np)
+		#pragma omp parallel for schedule (dynamic, 64) if (npairs > 10000) num_threads (nthreads)
 		#endif
 		for (uint64_t k = 0; k < npairs; k++) {
 			unsigned int tid = omp_get_thread_num();
@@ -1862,11 +1907,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 			//printf("Rank [%d] is examining [%" PRIu64 " - %" PRIu64 "]\n", cmpi.rank, glob_i, glob_j);
 			if (!nodesAreConnected_v2(adj, N_tar, static_cast<int>(i), static_cast<int>(glob_j))) continue;
-			//np++;
 			//printf("Nodes are connected!\n");
-
-			//DEBUG
-			//adj_test[i].set(glob_j);
 
 			uint64_t length = glob_j - glob_i + 1;
 			adj[i].clone(workspace[tid], 0ULL, clone_length);
@@ -1877,9 +1918,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			//cardinalities[tid*(N_tar-1)+workspace[tid].partial_count(glob_i, length)+1]++;
 			cardinalities[tid*(N_tar-1)+cnt+1]++;
 		}
-		//printf("rank [%d] says np = %" PRIu64 "\n", cmpi.rank, np);
-		//fflush(stdout); sleep(1);
-		//MPI_Barrier(MPI_COMM_WORLD);
+		//printCardinalities(cardinalities, N_tar - 1, nthreads, current[cmpi.rank<<1], current[(cmpi.rank<<1)+1], 4);
 		permutations.erase(permutations.begin());
 	}
 
@@ -1893,18 +1932,16 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		std::vector<std::pair<int,int> > swaps;
 		unsigned int min_steps;
 		cyclesort(min_steps, current, &swaps);
-		/*printf_mpi(cmpi.rank, "Sequence of Swaps:\n");
-		for (size_t i = 0; i < swaps.size(); i++)
-			printf_mpi(cmpi.rank, "[%d] --> [%d]\n", std::get<0>(swaps[i]), std::get<1>(swaps[i]));
-		printf_mpi(cmpi.rank, "\n");
-		if (!cmpi.rank) fflush(stdout);
-		sleep(1);
-		MPI_Barrier(MPI_COMM_WORLD);*/
+		//printf_mpi(cmpi.rank, "Sequence of Swaps:\n");
+		//for (size_t i = 0; i < swaps.size(); i++)
+		//	printf_mpi(cmpi.rank, "[%d] --> [%d]\n", std::get<0>(swaps[i]), std::get<1>(swaps[i]));
+		//printf_mpi(cmpi.rank, "\n");
+		//if (!cmpi.rank) fflush(stdout);
+		//sleep(1);
+		//MPI_Barrier(MPI_COMM_WORLD);
 		mpi_swaps(swaps, adj, cmpi.adj_buf, N_tar, cmpi.num_mpi_threads, cmpi.rank);
 	}
 	#endif
-
-	//DebugPoint:
 
 	//Reduction for OpenMP
 	for (int i = 1; i < omp_get_max_threads(); i++)
@@ -1917,11 +1954,6 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	#endif
 	//The first element will be N_tar
 	cardinalities[0] = N_tar;
-
-	/*for (int i = 0; i < N_tar - 1; i++)
-		printf("N[%d] = %d (rank [%d])\n", i, cardinalities[i], cmpi.rank);
-	fflush(stdout); sleep(1);
-	MPI_Barrier(MPI_COMM_WORLD);*/
 
 	//Free Workspace
 	ca->hostMemUsed -= sizeof(BlockType) * clone_length * omp_get_max_threads();
@@ -1947,12 +1979,6 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		fflush(stdout);
 	}
 
-	/*fflush(stdout);
-	sleep(1);
-	MPI_Barrier(MPI_COMM_WORLD);
-	printf("Rank [%d] Reporting!\n", cmpi.rank);
-	printChk();*/
-
 	return true;
 }
 
@@ -1971,7 +1997,7 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	assert (use_bit);
 	#endif
 
-	printf_dbg("Using Version 3.\n");
+	printf_dbg("Using Version 3 (measureAction).\n");
 
 	Bitvector workspace;
 	int n = N_tar + N_tar % 2;
