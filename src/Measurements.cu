@@ -1116,16 +1116,15 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	if (!cmpi.rank) printf_std();
 	fflush(stdout); sleep(1);
 	MPI_Barrier(MPI_COMM_WORLD);
+	static const bool ACTION_DEBUG = false;
+	static const bool ACTION_DEBUG_VERBOSE = false;
+	unsigned int nbuf = cmpi.num_mpi_threads << 1;
 	#else
 	printf_dbg("Using Version 5 (measureAction).\n");
 	#endif
 
-	static const bool ACTION_DEBUG = false;
-	static const bool ACTION_DEBUG_VERBOSE = false;
-
 	Bitvector workspace;
 	uint64_t clone_length = adj[0].getNumBlocks();
-	unsigned int nbuf = cmpi.num_mpi_threads << 1;
 	int rank = cmpi.rank;
 	double lk = 2.0;
 

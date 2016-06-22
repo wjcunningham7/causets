@@ -50,7 +50,8 @@ set -eu -o pipefail
 # These are experimental parameters #
 #####################################
 
-platform=krioukov_gpu
+#platform=_krioukov_gpu
+platform=""
 #spacetime=82468 # 3+1 de Sitter Slab
 spacetime=77834 # 1+1 Minkowski Saucer
 age=0.4
@@ -61,8 +62,8 @@ np=4
 makenew=true
 
 if [[ "$makenew" == "true" ]] ; then
-  mpirun -np $np -prot -hostfile $CAUSET_HOME_DIR/hostfile \
-  $CAUSET_HOME_DIR/bin/CausalSet_${platform} --spacetime $spacetime --nodes $num --age $age --verbose -y --link --gpu --action smeared --core 1 #--print
+  #mpirun -np $np -prot -hostfile $CAUSET_HOME_DIR/hostfile \
+  $CAUSET_HOME_DIR/bin/CausalSet${platform} --spacetime $spacetime --nodes $num --age $age --verbose -y --link --gpu --action smeared --core 1 #--print
 else
   graphs=($(awk '{print $1}' $CAUSET_HOME_DIR/etc/data_keys.cset.key))
   graph=${graphs[${#graphs[@]}-1]}

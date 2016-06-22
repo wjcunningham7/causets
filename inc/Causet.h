@@ -54,10 +54,10 @@
 #include <sys/io.h>
 
 //Custom System Files
-#include <fastmath/FastBitset.h>
-#include <fastmath/FastMath.h>
-#include <fastmath/FastNumInt.h>
-#include <fastmath/stopwatch.h>
+#include <fastmath/inc/FastBitset.h>
+#include <fastmath/inc/FastMath.h>
+#include <fastmath/inc/FastNumInt.h>
+#include <fastmath/inc/stopwatch.h>
 #include <printcolor/printcolor.h>
 
 //Local Files

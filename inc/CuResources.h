@@ -13,7 +13,8 @@
 #include <drvapi_error_string.h>
 #endif
 
-#include <fastmath/stopwatch.h>
+#include <fastmath/inc/stopwatch.h>
+#include "config.h"
 #include "Subroutines.h"
 
 #define CU_DEBUG false

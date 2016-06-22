@@ -970,6 +970,7 @@ void printCardinalities(const uint64_t * const cardinalities, unsigned int Nc, u
 	os.close();
 }
 
+#ifdef MPI_ENABLED
 MPI_Request* sendSignal(const int signal, const int rank, const int num_mpi_threads)
 {
 	MPI_Request *req = (MPI_Request*)malloc(sizeof(MPI_Request) * num_mpi_threads);;
@@ -980,33 +981,7 @@ MPI_Request* sendSignal(const int signal, const int rank, const int num_mpi_thre
 
 	return req;
 }
-
-/*MPI_Request* requestLock(CausetSpinlock * const lock, const int rank, const int num_mpi_threads)
-{
-	MPI_Request *req;
-	//int success;
-	//lock[rank] = LOCKED;
-	printf("Rank [%d] is sending signal 0 to other ranks.\n", rank);
-	req = sendSignal(0, rank, num_mpi_threads);
-	//for (unsigned int i = 0; i < num_mpi_threads; i++) {
-	//	if (i == rank) continue;
-	//	MPI_Isend(lock, num_mpi_threads, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req[1]);
-	//	MPI_Irecv(&success, 1, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req[2]);
-	//}
-	//MPI_Request r;
-	//req[1] = r;
-	//req[2] = r;
-	//lock[rank] = UNLOCKED;
-
-	return req;
-}
-
-void requestUnlock(CausetSpinlock * const lock, const int rank, const int num_mpi_threads)
-{
-	CausetSpinlock req_lock = UNLOCKED;
-	sendSignal(1, rank, num_mpi_threads);
-	MPI_Bcast(&req_lock, 1, MPI_INT, rank, MPI_COMM_WORLD);
-}*/
+#endif
 
 //MPI Print Variadic Function
 bool checkMpiErrors(CausetMPI &cmpi)
