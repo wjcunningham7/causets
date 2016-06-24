@@ -14,10 +14,6 @@
    */
 #define HAVE_BOOST_FUNCTIONAL_HASH_HASH_HPP 1
 
-/* Define to 1 if you have the <boost/math/special_functions/gamma.hpp> header
-   file. */
-#define HAVE_BOOST_MATH_SPECIAL_FUNCTIONS_GAMMA_HPP 1
-
 /* Define to 1 if you have the <boost/random/mersenne_twister.hpp> header
    file. */
 #define HAVE_BOOST_RANDOM_MERSENNE_TWISTER_HPP 1
@@ -208,6 +204,9 @@
 
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
+
+/* Define to 1 if you have the <sys/io.h> header file. */
+#define HAVE_SYS_IO_H 1
 
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #define HAVE_SYS_STAT_H 1

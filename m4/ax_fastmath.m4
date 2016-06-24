@@ -40,7 +40,7 @@ if [[[ $VALID_FASTMATH == "yes" ]]] ; then
   LDFLAGS="$LDFLAGS $FASTMATH_LDFLAGS"
 
   AC_CHECK_HEADER([FastMath.h],, AC_MSG_WARN([Could not find FastMath.h]); VALID_FASTMATH=no, [#include <FastMath.h>])
-  AC_CHECK_HEADER([nint.hpp],, AC_MSG_WARN([Could not find nint.hpp]); VALID_FASTMATH=no, [#include <nint.hpp>])
+  AC_CHECK_HEADER([nint.h],, AC_MSG_WARN([Could not find nint.h]); VALID_FASTMATH=no, [#include <nint.h>])
   AC_CHECK_HEADER([FastNumInt.h],, AC_MSG_WARN([Could not find FastNumInt.h]); VALID_FASTMATH=no, [#include <FastNumInt.h>])
   AC_CHECK_HEADER([FastBitset.h],, AC_MSG_WARN([Could not find FastBitset.h]); VALID_FASTMATH=no, [#include <FastBitset.h>])
   AC_CHECK_HEADER([stopwatch.h],, AC_MSG_WARN([Could not find stopwatch.h]); VALID_FASTMATH=no, [#include <stopwatch.h>])

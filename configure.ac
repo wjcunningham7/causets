@@ -16,7 +16,6 @@ fi
 
 AC_PROG_CC
 AC_PROG_CXX
-AX_PROG_MPICXX([$MPI_HOME])
 AC_PROG_RANLIB
 
 AC_LANG_PUSH([C++])
@@ -42,7 +41,7 @@ AC_CHECK_FILES([src/autocorr2.cu src/Causet.cu src/CuResources.cu src/Measuremen
 AC_CHECK_FILES([inc/autocorr2.h inc/Causet.h inc/Constants.h inc/Coordinates.h inc/CuResources.h inc/Geodesics.h inc/Measurements.h inc/NetworkCreator.h inc/Operations.h inc/Subroutines.h inc/Validate.h],, AC_MSG_ERROR([Could not find CausalSet header files.]))
 
 AC_CHECK_HEADERS([cassert cmath cstring exception fstream getopt.h inttypes.h iomanip iostream limits math.h pthread.h sstream stdarg.h stddef.h stdint.h stdio.h string sys/io.h unordered_set vector],, AC_MSG_ERROR([Could not find C++ header file.]))
-AC_CHECK_HEADERS([boost/functional/hash/hash.hpp boost/random/mersenne_twister.hpp boost/random/normal_distribution.hpp boost/random/poisson_distribution.hpp boost/random/uniform_real.hpp boost/random/variate_generator.hpp boost/unordered_map.hpp boost/math/special_functions/gamma.hpp],, AC_MSG_ERROR([Could not find Boost header file.]))
+AC_CHECK_HEADERS([boost/functional/hash/hash.hpp boost/random/mersenne_twister.hpp boost/random/normal_distribution.hpp boost/random/poisson_distribution.hpp boost/random/uniform_real.hpp boost/random/variate_generator.hpp boost/unordered_map.hpp],, AC_MSG_ERROR([Could not find Boost header file.]))
 AC_CHECK_HEADER([gsl/gsl_sf_lambert.h],, AC_MSG_ERROR([Could not find GSL header file.]))
 
 if [[[ "$CUDA_ENABLED" == "yes" ]]] ; then
@@ -74,6 +73,7 @@ dnl echo "LDFLAGS:      "$LDFLAGS
 dnl echo "CUDA_LDFLAGS: "$CUDA_LDFLAGS
 dnl echo "FAST_LDFLAGS: "$FASTMATH_LDFLAGS
 
+AX_PROG_MPICXX([$MPI_HOME])
 BINARY_NAME=CausalSet$PLATFORM
 if [[[ "$CUDA_ENABLED" == "yes" ]]] ; then
 COMPILE_STR="$NVCC -dc $CUDA_FLAGS $FASTMATH_FLAGS -Xcompiler '$AVXFLAGS $ARCHFLAGS $OPENMP_CXXFLAGS $MPI_FLAGS'"
@@ -81,7 +81,7 @@ LINK_STR="$NVCC src/*.o -dlink $CUDA_FLAGS -o src/linked.o"
 BIN_STR="$CXX src/*.o $LDFLAGS $CUDA_LDFLAGS $FASTMATH_LDFLAGS -o bin/$BINARY_NAME"
 else
 COMPILE_STR="$CXX -c $CXXFLAGS $FASTMATH_FLAGS $AVXFLAGS $ARCHFLAGS $OPENMP_CXXFLAGS $MPI_FLAGS"
-LNK_STR="$CXX src/*.o $LDFLAGS $FASTMATH_LDFLAGS -o bin/$BINARY_NAME"
+LNK_STR="$CXX src/*.o $OPENMP_CXXFLAGS $LDFLAGS $FASTMATH_LDFLAGS -o bin/$BINARY_NAME"
 BIN_STR=""
 fi
 AC_SUBST([COMPILE_STR], [$COMPILE_STR])

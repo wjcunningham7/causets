@@ -13,10 +13,6 @@
    */
 #undef HAVE_BOOST_FUNCTIONAL_HASH_HASH_HPP
 
-/* Define to 1 if you have the <boost/math/special_functions/gamma.hpp> header
-   file. */
-#undef HAVE_BOOST_MATH_SPECIAL_FUNCTIONS_GAMMA_HPP
-
 /* Define to 1 if you have the <boost/random/mersenne_twister.hpp> header
    file. */
 #undef HAVE_BOOST_RANDOM_MERSENNE_TWISTER_HPP
