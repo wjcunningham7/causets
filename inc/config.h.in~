@@ -1,13 +1,7 @@
 /* inc/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* GPU architecture passed to nvcc with -arch flag. */
-#undef CUDA_ARCH
-
-/* CUDA installation directory. */
-#undef CUDA_HOME
-
-/* CUDA SDK directory. */
-#undef CUDA_SDK_PATH
+/* GPU global memory size (in bytes) */
+#undef GLOB_MEM
 
 /* Define if avx2 instructions are supported */
 #undef HAVE_AVX2_INSTRUCTIONS
@@ -15,17 +9,222 @@
 /* Defined if the requested minimum BOOST version is satisfied */
 #undef HAVE_BOOST
 
-/* Cuda is detected and will be enabled. */
-#undef HAVE_CUDA_INSTRUCTIONS
+/* Define to 1 if you have the <boost/functional/hash/hash.hpp> header file.
+   */
+#undef HAVE_BOOST_FUNCTIONAL_HASH_HASH_HPP
+
+/* Define to 1 if you have the <boost/math/special_functions/gamma.hpp> header
+   file. */
+#undef HAVE_BOOST_MATH_SPECIAL_FUNCTIONS_GAMMA_HPP
+
+/* Define to 1 if you have the <boost/random/mersenne_twister.hpp> header
+   file. */
+#undef HAVE_BOOST_RANDOM_MERSENNE_TWISTER_HPP
+
+/* Define to 1 if you have the <boost/random/normal_distribution.hpp> header
+   file. */
+#undef HAVE_BOOST_RANDOM_NORMAL_DISTRIBUTION_HPP
+
+/* Define to 1 if you have the <boost/random/poisson_distribution.hpp> header
+   file. */
+#undef HAVE_BOOST_RANDOM_POISSON_DISTRIBUTION_HPP
+
+/* Define to 1 if you have the <boost/random/uniform_real.hpp> header file. */
+#undef HAVE_BOOST_RANDOM_UNIFORM_REAL_HPP
+
+/* Define to 1 if you have the <boost/random/variate_generator.hpp> header
+   file. */
+#undef HAVE_BOOST_RANDOM_VARIATE_GENERATOR_HPP
+
+/* Define to 1 if you have the <boost/unordered_map.hpp> header file. */
+#undef HAVE_BOOST_UNORDERED_MAP_HPP
+
+/* Define to 1 if you have the <cassert> header file. */
+#undef HAVE_CASSERT
+
+/* Define to 1 if you have the <cmath> header file. */
+#undef HAVE_CMATH
+
+/* Define to 1 if you have the <cstring> header file. */
+#undef HAVE_CSTRING
 
 /* define if the compiler supports basic C++11 syntax */
 #undef HAVE_CXX11
 
+/* Define to 1 if you have the <exception> header file. */
+#undef HAVE_EXCEPTION
+
+/* Define to 1 if you have the <fstream> header file. */
+#undef HAVE_FSTREAM
+
+/* Define to 1 if you have the <getopt.h> header file. */
+#undef HAVE_GETOPT_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_AUTOCORR2_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_CAUSET_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_CONSTANTS_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_COORDINATES_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_CURESOURCES_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_GEODESICS_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_MEASUREMENTS_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_NETWORKCREATOR_GPU_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_NETWORKCREATOR_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_OPERATIONS_GPU_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_OPERATIONS_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_SUBROUTINES_GPU_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_SUBROUTINES_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_INC_VALIDATE_H
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the <iomanip> header file. */
+#undef HAVE_IOMANIP
+
+/* Define to 1 if you have the <iostream> header file. */
+#undef HAVE_IOSTREAM
+
+/* Define to 1 if you have the `cuda' library (-lcuda). */
+#undef HAVE_LIBCUDA
+
+/* Define to 1 if you have the `cudart' library (-lcudart). */
+#undef HAVE_LIBCUDART
+
+/* Define to 1 if you have the `gsl' library (-lgsl). */
+#undef HAVE_LIBGSL
+
+/* Define to 1 if you have the `gslcblas' library (-lgslcblas). */
+#undef HAVE_LIBGSLCBLAS
+
+/* Define to 1 if you have the `m' library (-lm). */
+#undef HAVE_LIBM
+
+/* Define to 1 if you have the `pthread' library (-lpthread). */
+#undef HAVE_LIBPTHREAD
+
+/* Define to 1 if you have the `stdc++' library (-lstdc++). */
+#undef HAVE_LIBSTDC__
+
+/* Define to 1 if you have the <limits> header file. */
+#undef HAVE_LIMITS
+
+/* Define to 1 if your system has a GNU libc compatible `malloc' function, and
+   to 0 otherwise. */
+#undef HAVE_MALLOC
+
+/* Define to 1 if you have the <math.h> header file. */
+#undef HAVE_MATH_H
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
 /* Define if popcnt instructions are supported */
 #undef HAVE_POPCNT_INSTRUCTIONS
 
-/* Path for nvcc compiler. */
-#undef NVCC
+/* Define to 1 if you have the <pthread.h> header file. */
+#undef HAVE_PTHREAD_H
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_SRC_AUTOCORR2_CU
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_SRC_CAUSET_CU
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_SRC_CURESOURCES_CU
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_SRC_MEASUREMENTS_CU
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_SRC_NETWORKCREATOR_CU
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_SRC_NETWORKCREATOR_GPU_CU
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_SRC_OPERATIONS_GPU_CU
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_SRC_SUBROUTINES_CU
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_SRC_SUBROUTINES_GPU_CU
+
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE_SRC_VALIDATE_CU
+
+/* Define to 1 if you have the <sstream> header file. */
+#undef HAVE_SSTREAM
+
+/* Define to 1 if you have the <stdarg.h> header file. */
+#undef HAVE_STDARG_H
+
+/* Define to 1 if you have the <stddef.h> header file. */
+#undef HAVE_STDDEF_H
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdio.h> header file. */
+#undef HAVE_STDIO_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <string> header file. */
+#undef HAVE_STRING
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the <sys/io.h> header file. */
+#undef HAVE_SYS_IO_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the <unordered_set> header file. */
+#undef HAVE_UNORDERED_SET
+
+/* Define to 1 if you have the <vector> header file. */
+#undef HAVE_VECTOR
 
 /* Name of package */
 #undef PACKAGE
@@ -45,5 +244,40 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
 /* Version number of package */
 #undef VERSION
+
+/* Define for Solaris 2.5.1 so the uint64_t typedef from <sys/synch.h>,
+   <pthread.h>, or <semaphore.h> is not used. If the typedef were allowed, the
+   #define below would cause a syntax error. */
+#undef _UINT64_T
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#undef const
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif
+
+/* Define to the type of a signed integer type of width exactly 64 bits if
+   such a type exists and the standard includes do not define it. */
+#undef int64_t
+
+/* Define to rpl_malloc if the replacement function should be used. */
+#undef malloc
+
+/* Define to `unsigned int' if <sys/types.h> does not define. */
+#undef size_t
+
+/* Define to the type of an unsigned integer type of width exactly 64 bits if
+   such a type exists and the standard includes do not define it. */
+#undef uint64_t
+
+/* Define to empty if the keyword `volatile' does not work. Warning: valid
+   code using `volatile' can become incorrect without. Disable with care. */
+#undef volatile

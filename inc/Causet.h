@@ -54,11 +54,11 @@
 #include <sys/io.h>
 
 //Custom System Files
-#include <fastmath/inc/FastBitset.h>
-#include <fastmath/inc/FastMath.h>
-#include <fastmath/inc/FastNumInt.h>
-#include <fastmath/inc/stopwatch.h>
-#include <printcolor/printcolor.h>
+#include <FastBitset.h>
+#include <FastMath.h>
+#include <FastNumInt.h>
+#include <stopwatch.h>
+#include <printcolor.h>
 
 //Local Files
 #include "autocorr2.h"

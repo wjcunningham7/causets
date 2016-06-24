@@ -38,11 +38,17 @@ subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+	$(top_srcdir)/m4/ax_check_cuda.m4 \
+	$(top_srcdir)/m4/ax_compare_version.m4 \
 	$(top_srcdir)/m4/ax_compiler_vendor.m4 \
+	$(top_srcdir)/m4/ax_compiler_version.m4 \
 	$(top_srcdir)/m4/ax_cxx_compile_stdcxx.m4 \
+	$(top_srcdir)/m4/ax_fastmath.m4 \
 	$(top_srcdir)/m4/ax_gcc_archflag.m4 \
 	$(top_srcdir)/m4/ax_gcc_x86_cpu_supports.m4 \
-	$(top_srcdir)/m4/ax_gcc_x86_cpuid.m4 $(top_srcdir)/m4/boost.m4 \
+	$(top_srcdir)/m4/ax_gcc_x86_cpuid.m4 \
+	$(top_srcdir)/m4/ax_platform.m4 \
+	$(top_srcdir)/m4/ax_prog_mpicxx.m4 $(top_srcdir)/m4/boost.m4 \
 	$(top_srcdir)/m4/gsl.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -53,34 +59,47 @@ CONFIG_CLEAN_VPATH_FILES =
 LIBRARIES = $(noinst_LIBRARIES)
 AR = ar
 ARFLAGS = cru
-__top_builddir__bin_libcauset_a_AR = $(AR) $(ARFLAGS)
-__top_builddir__bin_libcauset_a_LIBADD =
-am___top_builddir__bin_libcauset_a_OBJECTS = autocorr2.$(OBJEXT) \
-	CuResources.$(OBJEXT) Causet.$(OBJEXT) \
-	Subroutines_GPU.$(OBJEXT) Subroutines.$(OBJEXT) \
-	Operations_GPU.$(OBJEXT) NetworkCreator_GPU.$(OBJEXT) \
-	Validate.$(OBJEXT) NetworkCreator.$(OBJEXT) \
-	Measurements.$(OBJEXT)
-__top_builddir__bin_libcauset_a_OBJECTS =  \
-	$(am___top_builddir__bin_libcauset_a_OBJECTS)
-am__dirstamp = $(am__leading_dot)dirstamp
+libcauset_a_AR = $(AR) $(ARFLAGS)
+libcauset_a_LIBADD =
+am__libcauset_a_SOURCES_DIST = autocorr2.cu CuResources.cu Causet.cu \
+	Subroutines.cu Validate.cu NetworkCreator.cu Measurements.cu \
+	Subroutines_GPU.cu Operations_GPU.cu NetworkCreator_GPU.cu
+@USE_GPU_FALSE@am_libcauset_a_OBJECTS = autocorr2.$(OBJEXT) \
+@USE_GPU_FALSE@	CuResources.$(OBJEXT) Causet.$(OBJEXT) \
+@USE_GPU_FALSE@	Subroutines.$(OBJEXT) Validate.$(OBJEXT) \
+@USE_GPU_FALSE@	NetworkCreator.$(OBJEXT) Measurements.$(OBJEXT)
+@USE_GPU_TRUE@am_libcauset_a_OBJECTS = autocorr2.$(OBJEXT) \
+@USE_GPU_TRUE@	CuResources.$(OBJEXT) Causet.$(OBJEXT) \
+@USE_GPU_TRUE@	Subroutines_GPU.$(OBJEXT) Subroutines.$(OBJEXT) \
+@USE_GPU_TRUE@	Operations_GPU.$(OBJEXT) \
+@USE_GPU_TRUE@	NetworkCreator_GPU.$(OBJEXT) Validate.$(OBJEXT) \
+@USE_GPU_TRUE@	NetworkCreator.$(OBJEXT) Measurements.$(OBJEXT)
+libcauset_a_OBJECTS = $(am_libcauset_a_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/inc
-SOURCES = $(__top_builddir__bin_libcauset_a_SOURCES)
-DIST_SOURCES = $(__top_builddir__bin_libcauset_a_SOURCES)
+SOURCES = $(libcauset_a_SOURCES)
+DIST_SOURCES = $(am__libcauset_a_SOURCES_DIST)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
+ARCHFLAGS = @ARCHFLAGS@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
+BINARY_NAME = @BINARY_NAME@
+BIN_STR = @BIN_STR@
 BOOST_CPPFLAGS = @BOOST_CPPFLAGS@
 BOOST_ROOT = @BOOST_ROOT@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+COMPILE_STR = @COMPILE_STR@
+CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CUDA_ENABLED = @CUDA_ENABLED@
+CUDA_FLAGS = @CUDA_FLAGS@
 CUDA_HOME = @CUDA_HOME@
+CUDA_LDFLAGS = @CUDA_LDFLAGS@
 CUDA_SDK_PATH = @CUDA_SDK_PATH@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
@@ -93,7 +112,11 @@ DISTCHECK_CONFIGURE_FLAGS = @DISTCHECK_CONFIGURE_FLAGS@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
+EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+FASTMATH_ENABLED = @FASTMATH_ENABLED@
+FASTMATH_FLAGS = @FASTMATH_FLAGS@
+FASTMATH_LDFLAGS = @FASTMATH_LDFLAGS@
 GREP = @GREP@
 GSL_CFLAGS = @GSL_CFLAGS@
 GSL_CONFIG = @GSL_CONFIG@
@@ -107,11 +130,13 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
+LNK_STR = @LNK_STR@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
+MPI_ENABLED = @MPI_ENABLED@
+MPI_FLAGS = @MPI_FLAGS@
 NVCC = @NVCC@
-NVCCFLAGS = @NVCCFLAGS@
 OBJEXT = @OBJEXT@
 OPENMP_CXXFLAGS = @OPENMP_CXXFLAGS@
 PACKAGE = @PACKAGE@
@@ -121,6 +146,7 @@ PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PLATFORM = @PLATFORM@
 PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
 SED = @SED@
@@ -182,15 +208,10 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 ACLOCAL_AMFLAGS = -I m4 --install
 SUFFIXES = .cu
-INCD = -I $(top_builddir)/inc -I $(top_builddir)/opt -I $(top_builddir)/opt/fastmath/inc -I $(top_builddir)/opt/fastmath/opt
-CUDA_INCD = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include
-#LIBS = -lstdc++ -lpthread -lm -lgsl -lgslcblas
-#LOCAL_LIBS = -L $(top_builddir)/opt/fastmath/lib -lfastmath -L $(top_builddir)/opt/printcolor -lprintcolor
-#CUDA_LIBS = -L $(CUDA_HOME)/lib64 -L $(CUDA_SDK_PATH)/common/lib -lcuda -lcudart
-
-# bin_PROGRAMS = $(top_builddir)/bin/CausalSet
-noinst_LIBRARIES = $(top_builddir)/bin/libcauset.a
-__top_builddir__bin_libcauset_a_SOURCES = autocorr2.cu CuResources.cu Causet.cu Subroutines_GPU.cu Subroutines.cu Operations_GPU.cu NetworkCreator_GPU.cu Validate.cu NetworkCreator.cu Measurements.cu
+INCD = -I $(top_builddir)/inc -I $(top_builddir)/printcolor
+noinst_LIBRARIES = libcauset.a
+@USE_GPU_FALSE@libcauset_a_SOURCES = autocorr2.cu CuResources.cu Causet.cu Subroutines.cu Validate.cu NetworkCreator.cu Measurements.cu
+@USE_GPU_TRUE@libcauset_a_SOURCES = autocorr2.cu CuResources.cu Causet.cu Subroutines_GPU.cu Subroutines.cu Operations_GPU.cu NetworkCreator_GPU.cu Validate.cu NetworkCreator.cu Measurements.cu
 all: all-am
 
 .SUFFIXES:
@@ -228,13 +249,10 @@ $(am__aclocal_m4_deps):
 
 clean-noinstLIBRARIES:
 	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
-$(top_builddir)/bin/$(am__dirstamp):
-	@$(MKDIR_P) $(top_builddir)/bin
-	@: > $(top_builddir)/bin/$(am__dirstamp)
-$(top_builddir)/bin/libcauset.a: $(__top_builddir__bin_libcauset_a_OBJECTS) $(__top_builddir__bin_libcauset_a_DEPENDENCIES) $(top_builddir)/bin/$(am__dirstamp)
-	-rm -f $(top_builddir)/bin/libcauset.a
-	$(__top_builddir__bin_libcauset_a_AR) $(top_builddir)/bin/libcauset.a $(__top_builddir__bin_libcauset_a_OBJECTS) $(__top_builddir__bin_libcauset_a_LIBADD)
-	$(RANLIB) $(top_builddir)/bin/libcauset.a
+libcauset.a: $(libcauset_a_OBJECTS) $(libcauset_a_DEPENDENCIES) 
+	-rm -f libcauset.a
+	$(libcauset_a_AR) libcauset.a $(libcauset_a_OBJECTS) $(libcauset_a_LIBADD)
+	$(RANLIB) libcauset.a
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -303,7 +321,6 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
-	-test -z "$(top_builddir)/bin/$(am__dirstamp)" || rm -f $(top_builddir)/bin/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -388,18 +405,9 @@ uninstall-am:
 	mostlyclean-compile mostlyclean-generic pdf pdf-am ps ps-am \
 	uninstall uninstall-am
 
-#__top_builddir__bin_CausalSet_LDADD = $(LIBS) $(LOCAL_LIBS) $(CUDA_LIBS)
 
 .cu.$(OBJEXT):
-	$(NVCC) $(NVCCFLAGS) -dc $(INCD) $(CUDA_INCD) -o $@ $<
-
-#all: tar1 tar2
-
-#tar1:
-#	@echo "tar1"
-
-#tar2:
-#	@echo "tar2"
+	$(COMPILE_STR) $(INCD) -o $@ $<
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

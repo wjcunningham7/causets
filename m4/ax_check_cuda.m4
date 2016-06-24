@@ -1,124 +1,128 @@
-##### 
-#
-# SYNOPSIS
-#
-# AX_CHECK_CUDA
-#
-# DESCRIPTION
-#
-# Figures out if CUDA Driver API/nvcc is available, i.e. existence of:
-# 	cuda.h
-#   libcuda.so
-#   nvcc
-#
-# If something isn't found, fails straight away.
-#
-# Locations of these are included in 
-#   CUDA_CFLAGS and 
-#   CUDA_LDFLAGS.
-# Path to nvcc is included as
-#   NVCC_PATH
-# in config.h
-# 
-# The author is personally using CUDA such that the .cu code is generated
-# at runtime, so don't expect any automake magic to exist for compile time
-# compilation of .cu files.
-#
-# LICENCE
-# Public domain
-#
-# AUTHOR
-# wili
-#
-##### 
+AC_DEFUN([AX_CHECK_CUDA],
+[
+AC_PROVIDE([AX_CHECK_CUDA])
+AC_REQUIRE([AC_PROG_SED])
+AC_REQUIRE([AC_PROG_GREP])
+AC_REQUIRE([AC_PROG_AWK])
 
-AC_DEFUN([AX_CHECK_CUDA], [
+AC_ARG_WITH([cuda], AS_HELP_STRING([--with-cuda=PREFIX], [Prefix of your CUDA installation]),
+  [cuda_prefix=$with_cuda],
+  [ if [[[ "$#" -ge 1 && "$1" != "" ]]] ; then
+      cuda_prefix="$1"
+    else
+      cuda_prefix=$(which nvcc | sed "s/\/bin\/nvcc//")
+    fi
+  ])
 
-# Provide your CUDA path with this		
-AC_ARG_WITH(cuda, [  --with-cuda=PREFIX      Prefix of your CUDA installation], [cuda_prefix=$withval], [cuda_prefix="/usr/local/cuda"])
-
-# Setting the prefix to the default if only --with-cuda was given
-if test "$cuda_prefix" == "yes"; then
-	if test "$withval" == "yes"; then
-		cuda_prefix="/usr/local/cuda"
-	fi
-fi
-
-# Checking for nvcc
-AC_MSG_CHECKING([nvcc in $cuda_prefix/bin])
-if test -x "$cuda_prefix/bin/nvcc"; then
-	AC_MSG_RESULT([found])
-	AC_DEFINE_UNQUOTED([NVCC_PATH], ["$cuda_prefix/bin/nvcc"], [Path to nvcc binary])
-	# We need to add the CUDA search directories for header and lib searches
-
-	CUDA_CFLAGS=""
-
-	# Saving the current flags
-	ax_save_CFLAGS="${CFLAGS}"
-	ax_save_LDFLAGS="${LDFLAGS}"
-
-	# Announcing the new variables
-	AC_SUBST([CUDA_CFLAGS])
-	AC_SUBST([CUDA_LDFLAGS])
-	AC_SUBST([NVCC],[$cuda_prefix/bin/nvcc])
-	AC_CHECK_FILE([$cuda_prefix/lib64],[lib64_found=yes],[lib64_found=no])
-	if test "x$lib64_found" = xno ; then
-		AC_CHECK_FILE([$cuda_prefix/lib],[lib32_found=yes],[lib32_found=no])
-		if test "x$lib32_found" = xyes ; then
-			AC_SUBST([CUDA_LIBDIR],[$cuda_prefix/lib])
-		else
-			AC_MSG_WARN([Couldn't find cuda lib directory])
-			VALID_CUDA=no
-		fi
-	else
-		AC_CHECK_SIZEOF([long])
-		if test "x$ac_cv_sizeof_long" = "x8" ; then
-			AC_SUBST([CUDA_LIBDIR],[$cuda_prefix/lib64])
-			CUDA_CFLAGS+=" -m64"
-		elif test "x$ac_cv_sizeof_long" = "x4" ; then
-			AC_CHECK_FILE([$cuda_prefix/lib32],[lib32_found=yes],[lib32_found=no])
-			if test "x$lib32_found" = xyes ; then
-				AC_SUBST([CUDA_LIBDIR],[$cuda_prefix/lib])
-				CUDA_CFLAGS+=" -m32"
-			else
-				AC_MSG_WARN([Couldn't find cuda lib directory])
-				VALID_CUDA=no
-			fi
-		else
-			AC_MSG_ERROR([Could not determine size of long variable type])
-		fi
-	fi
-
-	if test "x$VALID_CUDA" != xno ; then
-		CUDA_CFLAGS+=" -I$cuda_prefix/include"
-		CFLAGS="$CUDA_CFLAGS $CFLAGS"
-		CUDA_LDFLAGS="-L$CUDA_LIBDIR"
-		LDFLAGS="$CUDA_LDFLAGS $LDFLAGS"
-
-		# And the header and the lib
-		AC_CHECK_HEADER([cuda.h], [],
-			AC_MSG_WARN([Couldn't find cuda.h])
-			VALID_CUDA=no
-			,[#include <cuda.h>])
-		if test "x$VALID_CUDA" != "xno" ; then
-			AC_CHECK_LIB([cuda], [cuInit], [VALID_CUDA=yes], AC_MSG_WARN([Couldn't find libcuda]
-			VALID_CUDA=no))
-		fi
-	fi
-	# Returning to the original flags
-	CFLAGS=${ax_save_CFLAGS}
-	LDFLAGS=${ax_save_LDFLAGS}
+if [[[ $cuda_prefix != "" ]]] ; then
+  AC_MSG_CHECKING([nvcc in $cuda_prefix/bin])
+  if [[[ -e $cuda_prefix/bin/nvcc ]]] ; then
+    AC_MSG_RESULT([found])
+    CUDA_HOME=$cuda_prefix
+    NVCC=$cuda_prefix/bin/nvcc
+    VALID_CUDA=yes
+  else
+    AC_MSG_RESULT([not found!])
+    AC_MSG_WARN([nvcc was not found in $cuda_prefix/bin])
+    VALID_CUDA=no
+  fi
 else
-	AC_MSG_RESULT([not found!])
-	AC_MSG_WARN([nvcc was not found in $cuda_prefix/bin])
-	VALID_CUDA=no
+  AC_MSG_WARN([Could not find installation directory for CUDA.])
+  VALID_CUDA=no
 fi
 
-if test "x$enable_cuda" = xyes && test x$VALID_CUDA = xyes ; then 
-	AC_MSG_NOTICE([Building with CUDA bindings])
-elif test "x$enable_cuda" = xyes && test x$VALID_CUDA = xno ; then 
-	AC_MSG_ERROR([Cannot build CUDA bindings. Check errors])
+AC_ARG_WITH([cuda-sdk], AS_HELP_STRING([--with-cuda-sdk=PREFIX], [Prefix of your CUDA SDK installation]),
+  [cuda_sdk_prefix=$with_cuda_sdk],
+  [ if [[[ "$#" -ge 2 && "$2" != "" ]]] ; then
+      cuda_sdk_prefix="$2"
+    else
+      cuda_sdk_prefix=$cuda_prefix/samples
+    fi
+  ])
+
+if [[[ $VALID_CUDA == "yes" && $cuda_sdk_prefix != "" ]]] ; then
+  AC_MSG_CHECKING([CUDA SDK in $cuda_sdk_prefix])
+  if [[[ -d $cuda_sdk_prefix ]]] ; then
+    AC_MSG_RESULT([found])
+    CUDA_SDK_PATH=$cuda_sdk_prefix
+  else
+    AC_MSG_RESULT([not found!])
+    AC_MSG_WARN([CUDA SDK was not found in $cuda_sdk_prefix])
+    VALID_CUDA=no
+  fi
+else
+  AC_MSG_WARN([Could not find installation directory for CUDA SDK.])
+  VALID_CUDA=no
 fi
 
+AC_MSG_CHECKING([CUDA Toolkit version])
+ax_cuda_version=$(nvcc --version | awk -F "[[, ]]" 'NR==4 {print [$]6}')
+AC_MSG_RESULT([$ax_cuda_version])
+AX_COMPARE_VERSION([$ax_cuda_version], [ge], [7.5],, AC_MSG_WARN([CUDA Toolkit must be at least version 7.5]); VALID_CUDA=no)
 
+AC_ARG_WITH([cuda-arch], AS_HELP_STRING([--with-cuda-arch=ARCH], [CUDA Compute Capability (default sm_30)]),
+  [cuda_arch=$with_cuda_arch],
+  [ if [[[ "$#" -ge 3 && "$3" != "" ]]] ; then
+      cuda_arch="$3"
+    else
+      cuda_arch="sm_30"
+    fi
+  ])
+
+AC_ARG_WITH([nvidia-smi], AS_HELP_STRING([--with-nvidia-smi=PREFIX], [Prefix of the nvidia-smi command]),
+  [nvidia_smi_prefix=$with_nvidia_smi],
+  [nvidia_smi_prefix=$(which nvidia-smi | sed "s/\/nvidia-smi//")])
+
+if [[[ $VALID_CUDA == "yes" && $nvidia_smi_prefix != "" ]]] ; then
+  AC_MSG_CHECKING([size of global GPU memory])
+  glob_mem_mib=$($nvidia_smi_prefix/nvidia-smi -q | grep -A3 "FB Memory Usage" | awk '/Total/ {print [$]3}')
+  glob_mem_bytes=$(($(echo "scale=8; $glob_mem_mib * 1.049 / 1000" | bc | awk '{printf("%d\n", [$]1)}') * 1000000000))
+  glob_mem_gb=$(($glob_mem_bytes/1000000000))
+  AC_MSG_RESULT([$glob_mem_gb GB])
+else
+  AC_MSG_WARN([Could not find the location of nvidia-smi.])
+  VALID_CUDA=no
+fi
+
+AC_ARG_ENABLE([cuda], AS_HELP_STRING([--enable-cuda], [Enable CUDA capabilities (default no)]), [USE_CUDA=$enable_cuda], [USE_CUDA=no])
+
+if [[[ $VALID_CUDA == "yes" && $USE_CUDA == "yes" ]]] ; then
+  CUDA_INCLUDE="-I $CUDA_HOME/include -I $CUDA_SDK_PATH/common/inc"
+  CUDA_LDFLAGS="-L $CUDA_HOME/lib64 -L $CUDA_SDK_PATH/common/lib -lcuda -lcudart"
+
+  cxx_flags=$CXXFLAGS
+  ld_flags=$LDFLAGS
+
+  CXXFLAGS="$CXXFLAGS $CUDA_INCLUDE"
+  LDFLAGS="$LDFLAGS $CUDA_LDFLAGS"
+  AC_CHECK_HEADER([cuda.h],, AC_MSG_WARN([Could not find cuda.h]); VALID_CUDA=no, [#include <cuda.h>])
+  AC_CHECK_LIB([cuda], [cuInit],, AC_MSG_WARN([Could not find libcuda]); VALID_CUDA=no)
+  AC_CHECK_LIB([cudart], [cudaGetDevice],, AC_MSG_WARN([Could not find libcudart]); VALID_CUDA=no)
+  LIBS=""
+
+  CXXFLAGS=$cxx_flags
+  LDFLAGS=$ld_flags
+fi
+
+AC_MSG_CHECKING([if CUDA will be used])
+if [[[ $VALID_CUDA == "yes" && $USE_CUDA == "yes" ]]] ; then
+  AC_MSG_RESULT([yes])
+  AC_SUBST([CUDA_HOME], [$CUDA_HOME])
+  AC_SUBST([CUDA_SDK_PATH], [$CUDA_SDK_PATH])
+  AC_SUBST([NVCC], [$NVCC])
+
+  CUDA_FLAGS="$CUDA_INCLUDE -O3 -G -g -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED -arch=$cuda_arch --std=c++11 -DBOOST_NO_FENV_H"
+  AC_SUBST([CUDA_FLAGS], [$CUDA_FLAGS])
+  AC_SUBST([CUDA_LDFLAGS], [$CUDA_LDFLAGS])
+  AC_SUBST([CUDA_ENABLED], [yes])
+  AC_DEFINE_UNQUOTED([GLOB_MEM], [$glob_mem_bytes], [GPU global memory size (in bytes)])
+else
+  AC_MSG_RESULT([no])
+  AC_SUBST([CUDA_ENABLED], [no])
+fi
+
+if [[[ $USE_CUDA == "yes" && $VALID_CUDA == "no" ]]] ; then
+  AC_MSG_ERROR([Could not properly enable CUDA.])
+fi
 ])
+

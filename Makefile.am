@@ -1,28 +1,40 @@
 AUTOMAKE_OPTIONS = foreign
 ACLOCAL_AMFLAGS = -I m4 --install
 
-SUBDIRS = src
+SUBDIRS = printcolor inc src
 
-INCD = -I $(top_builddir)/inc -I $(top_builddir)/opt -I $(top_builddir)/opt/fastmath/inc -I $(top_builddir)/opt/fastmath/opt
-CUDA_INCD = -I $(CUDA_SDK_PATH)/common/inc -I $(CUDA_HOME)/include
+INCD = -I $(top_builddir)/inc -I $(top_builddir)/printcolor
+LIBD = -L $(top_builddir)/printcolor -lprintcolor
 
-LIBS = -lstdc++ -lpthread -lm -lgsl -lgslcblas
-LOCAL_LIBS = -L $(top_builddir)/opt/fastmath/lib -lfastmath -L $(top_builddir)/opt/printcolor -lprintcolor
-CUDA_LIBS = -L $(CUDA_HOME)/lib64 -L $(CUDA_SDK_PATH)/common/lib -lcuda -lcudart
+if USE_GPU
+LNK_STRING = $(LNK_STR)
+BIN_STRING = $(BIN_STR) $(INCD) $(LIBD)
+else
+LNK_STRING = $(LNK_STR) $(INCD) $(LIBD)
+BIN_STRING = $(BIN_STR)
+endif
 
-.PHONY: $(SUBDIRS) linkgpu all cleanobj
+.PHONY: link all dirs cleanbin
 
-$(SURDIRS):
-	$(MAKE) --directory $@
-	
-linkgpu:
-	@rm -f obj/linked.o
-	$(NVCC) $(NVCCFLAGS) -dlink obj/*.o -o obj/linked.o
+all: dirs link
 
-all: $(SUBDIRS) cleanobj linkgpu
-	$(CXX) obj/*.o -o bin/CausalSet $(INCD) $(INCD_CUDA) $(LIBS) $(LOCAL_LIBS) $(CUDA_LIBS)
+dirs:
+	@mkdir -p $(top_builddir)/bin
 
-cleanobj:
-	@mkdir -p obj
-	mv src/*.o obj/
-	@rm -f src/*.a
+link:
+	@rm -f $(top_builddir)/src/linked.o
+	$(LNK_STRING)
+	$(BIN_STRING)
+
+cleanbin:
+	rm -rf $(top_builddir)/bin
+
+install-exec-hook:
+	@mkdir -p $(prefix)/bin
+	cp $(top_builddir)/bin/$(BINARY_NAME)* $(prefix)/bin
+	cp -r $(top_builddir)/etc $(prefix)
+	@./$(top_builddir)/etc/mkdat $(prefix)
+	cp test README $(prefix)
+
+uninstall-hook:
+	rm $(prefix)/bin/$(BINARY_NAME)*

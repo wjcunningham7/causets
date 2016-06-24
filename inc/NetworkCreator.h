@@ -1,7 +1,7 @@
 #ifndef NETWORK_CREATOR_H_
 #define NETWORK_CREATOR_H_
 
-#include <fastmath/inc/FastNumInt.h>
+#include <FastNumInt.h>
 
 #include "Coordinates.h"
 #ifdef CUDA_ENABLED
