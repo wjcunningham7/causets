@@ -45,6 +45,9 @@ void swap(uint64_t *edges, const int64_t i, const int64_t j);
 
 void swap(const int * const *& list0, const int * const *& list1, int64_t &idx0, int64_t &idx1, int64_t &max0, int64_t &max1);
 
+//Cyclesort Algorithm
+void cyclesort(unsigned int &writes, std::vector<unsigned int> elements, std::vector<std::pair<int,int> > *swaps);
+
 //Bisection Algorithm
 bool bisection(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const float * const p2, const int * const p3);
 
@@ -83,37 +86,31 @@ int printf_dbg(const char * format, ...);
 
 int printf_mpi(int rank, const char * format, ...);
 
-void printCardinalities(const uint64_t * const cardinalities, unsigned int Nc, unsigned int nthreads, unsigned int idx0, unsigned int idx1, unsigned int version);
-
-#ifdef MPI_ENABLED
-MPI_Request* sendSignal(const int signal, const int rank, const int num_mpi_threads);
-#endif
-
 //Check for MPI Errors
 bool checkMpiErrors(CausetMPI &cmpi);
 
-void perm_to_binary(FastBitset &fb, std::vector<unsigned int> perm);
+//MPI Trading: Permutation Algorithms
+void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> elements);
+
+void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::vector<unsigned int> elements);
+
+void fill_mpi_similar(std::vector<std::vector<unsigned int> > &similar, std::vector<unsigned int> elements);
+
+void get_most_similar(std::vector<unsigned int> &sim, unsigned int &nsteps, const std::vector<std::vector<unsigned int> > candidates, const std::vector<unsigned int> elements);
+
+void relabel_vector(std::vector<unsigned int> &output, const std::vector<unsigned int> input);
+
+void perm_to_binary(FastBitset &fb, const std::vector<unsigned int> perm);
 
 void binary_to_perm(std::vector<unsigned int> &perm, const FastBitset &fb, const unsigned int len);
 
-void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> perm);
+unsigned int loc_to_glob_idx(std::vector<unsigned int> perm, const unsigned int idx, const int N_tar, const int num_mpi_threads, const int rank);
 
-void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, std::vector<unsigned int> current, int nbuf);
-
-void fill_mpi_similar(std::vector<std::vector<unsigned int> > &similar, std::vector<unsigned int> perm);
-
-void print_pairs(std::vector<unsigned int> vec);
-
-void cyclesort(unsigned int &writes, std::vector<unsigned int> c, std::vector<std::pair<int,int> > *swaps);
-
-void relabel_vector(std::vector<unsigned int> &output, std::vector<unsigned int> input);
-
-void get_most_similar(std::vector<unsigned int> &sim, unsigned int &nsteps, std::vector<std::vector<unsigned int> > candidates, std::vector<unsigned int> current);
-
+//MPI Trading: Signals and Swaps
 #ifdef MPI_ENABLED
-void mpi_swaps(std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N_tar, const int num_mpi_threads, const int rank);
-#endif
+void mpi_swaps(const std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N_tar, const int num_mpi_threads, const int rank);
 
-unsigned int loc_to_glob_idx(std::vector<unsigned int> config, unsigned int idx, const int N_tar, const int num_mpi_threads, const int rank);
+void sendSignal(const MPISignal signal, const int rank, const int num_mpi_threads);
+#endif
 
 #endif

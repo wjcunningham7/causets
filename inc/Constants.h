@@ -7,9 +7,6 @@
 // Northeastern University //
 /////////////////////////////
 
-//Version
-//#define VERSION 1
-
 //Numerical Constants
 #define TOL (1e-28)	//Zero
 
@@ -24,11 +21,17 @@
 			//in computationally intensive subroutines
 
 #define USE_GSL true	//Use GNU Scientific Library for numerical integration
+			//If this is false, in some places series approximations will be used
 
 #define EMBED_NODES false	//Embed spatial coordinates in a higher dimension
-				//For flat space this means use Cartesian coordinates
+				//For flat space this means use Cartesian coordinates (not spherical)
 
 #define DIST_V2 true	//Use factored (v2) or expanded (v1) distance formulae
+			//Version 2 uses fewer operations, and is faster
+
+#define SPECIAL_SAUCER false	//The special saucer has surfaces which intersect at right angles
+
+#define HYPERBOLIC_NONUNIFORM true	//If true, a growing hyperbolic network will be generated
 
 #define VE_RANDOM true	//Pick random pairs when performing embedding validation test
 
@@ -36,9 +39,15 @@
 
 #define SR_RANDOM true	//Pick random pairs when calculating success ratio
 
-#define TRAVERSE_V2 false	//Version 2 (and 3) uses spatial distances rather than geodesics
+#define VP_RANDOM true	//Pick random pairs when calculating vector products
+
+#define TRAVERSE_V2 true	//Version 2 (and 3) uses spatial distances rather than geodesics
+
+#define TRAVERSE_VECPROD true	//Use inner products of the embedded nodes
 
 #define ACTION_V2 true		//Version 2 uses OpenMP, Version 3 uses minimal bitwise optimizations
+				//If false, version 1 is used, with no parallelization
+				//If MPI is enabled, this flag is ignored
 
 #define ACTION_MPI_V5 262144	//Size limit which determines which MPI algorithm is used
 
@@ -48,11 +57,11 @@
 #define GEODESIC_UPPER 1.05	//Boundary between Region II and Region III approximations
 				//Should be greater than 1.0
 
-#define SPECIAL_SAUCER false	//The special saucer has surfaces which intersect at right angles
-
 //Debugging Flags
 #define DEBUG true	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements
+			//In general it should be set to true since there
+			//is a minimal performance difference
 
 #define NPRINT 1000	//Used for debugging statements inside loops
 
@@ -63,6 +72,7 @@
 
 //CUDA Flags
 #define GPU_MIN 384	//Minimum number of nodes needed for GPU linking
+			//Maybe this can be changed, but it probably shouldn't be...
 
 #define BLOCK_SIZE 128	//Number of threads per block
 			//This value is dependent on the GPU architecture
@@ -78,11 +88,17 @@
 
 //Options for GPU Algorithms
 //See src/NetworkCreator_GPU.cu
-#define LINK_NODES_GPU_V2 true
+#define LINK_NODES_GPU_V2 true		//Version 2 finds multiple links per thread
+					//It can also handle larger graphs than version 1
+					//There's no reason to set this to false
 
-#define GEN_ADJ_LISTS_GPU_V2 true
+#define GEN_ADJ_LISTS_GPU_V2 true	//Version 2 performs fewer operations and has
+					//been optimized to a higher degree
+					//It also supports MPI and asyncrhonous operations
+					//This can safely be set to false if MPI is not used
 
-#define DECODE_LISTS_GPU_V2 true
+#define DECODE_LISTS_GPU_V2 true	//Deprecated mostly since decoding is done on the CPU
+					//Version 2 can handle larger graphs
 
 #endif
 

@@ -221,6 +221,31 @@ inline float2 get_2d_asym_sph_deSitter_diamond_emb(UGenerator &rng, const float 
 	return make_float2(cosf(theta), sinf(theta));
 }
 
+/////////////////////////
+// 2-D Hyperbolic Slab //
+// Spherical Foliation //
+// Asymmetric About R  //
+/////////////////////////
+
+//Returns a value for radius
+inline float get_2d_asym_sph_hyperbolic_slab_radius(UGenerator &rng, const double r_max, const double zeta)
+{
+	return zeta * acosh(rng() * (cosh(r_max / zeta) - 1.0f) + 1.0f);
+}
+
+//Non-Uniform Radial Distribution
+//Use this for a Growing H2 Model
+inline float get_2d_asym_sph_hyperbolic_slab_nonuniform_radius(UGenerator &rng, const double r_max, const double zeta)
+{
+	//double gamma = rng() * (cosh(r_max / (2.0 * zeta)) - 1.0) + 1.0;
+	//return zeta * acosh(POW2(gamma) + sqrt(POW2(gamma) - 1.0));
+	return 4.0 * zeta * asinh(sqrt(rng() * POW2(sinh(r_max / (4.0 * zeta)))));
+}
+
+//Returns a value for theta
+#define get_2d_asym_sph_hyperbolic_slab_theta(rng) \
+	get_azimuthal_angle(rng)
+
 //////////////////////////
 // 4-D De Sitter Slab   //
 // Spherical Foliation  //

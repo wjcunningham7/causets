@@ -163,7 +163,9 @@ void printChk()
 {
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
+	#endif
 	printf("CHECKPOINT\n");
+	#ifdef MPI_ENABLED
 	MPI_Finalize();
 	#endif
 	exit(99);

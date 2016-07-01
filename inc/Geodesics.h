@@ -1905,7 +1905,6 @@ inline double distanceEmb(const float4 &node_a, const float &tau_a, const float4
 }
 
 //Returns the hyperbolic distance between two nodes in 2D
-//O(xxx) Efficiency (revise this)
 inline double distanceH(const float2 &hc_a, const float2 &hc_b, const unsigned int &spacetime, const double &zeta)
 {
 	#if DEBUG
@@ -1917,8 +1916,7 @@ inline double distanceH(const float2 &hc_a, const float2 &hc_b, const unsigned i
 	if (hc_a.x == hc_b.x && hc_a.y == hc_b.y)
 		return 0.0f;
 
-	double dtheta = M_PI - ABS(M_PI - ABS(hc_a.y - hc_b.y, STL), STL);
-	double distance = ACOSH(COSH(zeta * hc_a.x, APPROX ? FAST : STL) * COSH(zeta * hc_b.x, APPROX ? FAST : STL) - SINH(zeta * hc_a.x, APPROX ? FAST : STL) * SINH(zeta * hc_b.x, APPROX ? FAST : STL) * COS(dtheta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) / zeta;
+	double distance = ACOSH(COSH(hc_a.x / zeta, APPROX ? FAST : STL) * COSH(hc_b.x / zeta, APPROX ? FAST : STL) - SINH(hc_a.x / zeta, APPROX ? FAST : STL) * SINH(hc_b.x / zeta, APPROX ? FAST : STL) * COS(hc_a.y - hc_b.y, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION) * zeta;
 
 	return distance;
 }

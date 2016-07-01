@@ -283,3 +283,4 @@ emb --> confusion matrix for embedding of 3+1 DS with matter
  tn --> true  negatives (d_eta d_theta)
  fp --> false positives (d_eta d_theta)
 ref --> refined data (created with scripts found in ../etc)
+vpd --> vector products for each pair of nodes

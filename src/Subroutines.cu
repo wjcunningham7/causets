@@ -246,6 +246,7 @@ void quicksort(Node &nodes, const unsigned int &spacetime, int low, int high)
 }
 
 //Sort edge list
+//O(N*log(N)) Efficiency
 void quicksort(uint64_t *edges, int64_t low, int64_t high)
 {
 	#if DEBUG
@@ -358,6 +359,57 @@ void swap(const int * const *& list0, const int * const *& list1, int64_t &idx0,
 	max0 ^= max1;
 	max1 ^= max0;
 	max0 ^= max1;
+}
+
+//Cyclesort
+//Comparison sort which performs minimum swaps
+//This algorithm returns the number of writes, and the sequence
+//of swaps if a non-null vector is passed as the third argument
+//NOTE: It is important the integers in 'elements' are unique for this to work
+//O(N^2) Efficiency
+void cyclesort(unsigned int &writes, std::vector<unsigned int> elements, std::vector<std::pair<int,int> > *swaps)
+{
+	unsigned int it, p;
+	size_t len = elements.size();
+	writes = 0;
+	for (size_t j = 0; j < len - 1; j++) {
+		it = elements[j];
+		p = j;
+
+		for (unsigned int k = j + 1; k < len; k++)
+			if (elements[k] < it)
+				p++;
+
+		if (j == p) continue;
+
+		//Swap
+		while (elements[p] == it)
+			p++;
+		it ^= elements[p];
+		elements[p] ^= it;
+		it ^= elements[p];
+		writes += 2;
+		if (swaps != NULL) {
+			swaps->push_back(std::make_pair(p, -1));
+			swaps->push_back(std::make_pair(j, p));
+		}
+
+		while (j != p) {
+			p = j;
+			for (size_t k = j + 1; k < len; k++)
+				if (elements[k] < it)
+					p++;
+			
+			while (elements[p] == it)
+				p++;
+			it ^= elements[p];
+			elements[p] ^= it;
+			it ^= elements[p];
+			writes++;
+			if (swaps != NULL)
+				swaps->push_back(std::make_pair(-1, p));
+		}
+	}
 }
 
 //Bisection Method
@@ -476,7 +528,7 @@ bool newton(double (*solve)(const double &x, const double * const p1, const floa
 //Returns true if two nodes are causally connected
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
-//O(k) Efficiency for Adjacency List
+//O(<k>) Efficiency for Adjacency List
 bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int64_t * const future_edge_row_start, const Bitvector &adj, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
 {
 	#if DEBUG
@@ -521,7 +573,7 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 //Returns true if two nodes are causally connected
 //Note: past_idx must be less than future_idx
-//O(1) Efficiency for Adjacency Matrix
+//O(1) Efficiency
 bool nodesAreConnected_v2(const Bitvector &adj, const int &N_tar, int past_idx, int future_idx)
 {
 	#if DEBUG
@@ -534,6 +586,7 @@ bool nodesAreConnected_v2(const Bitvector &adj, const int &N_tar, int past_idx, 
 }
 
 //Breadth First Search
+//O(N+E) Efficiency
 void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements)
 {
 	#if DEBUG
@@ -569,6 +622,7 @@ void bfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 
 //Breadth First Search
 //Uses adjacency matrix only
+//O(N+E) Efficiency
 void bfsearch_v2(const Node &nodes, const Bitvector &adj, const int &N_tar, const int index, const int id, int &elements)
 {
 	#if DEBUG
@@ -588,6 +642,8 @@ void bfsearch_v2(const Node &nodes, const Bitvector &adj, const int &N_tar, cons
 			bfsearch_v2(nodes, adj, N_tar, i, id, elements);
 }
 
+//Modification of v1 which eliminates swaps
+//O(k*log(k)) Efficiency
 void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int64_t &pstart, const int64_t &fstart, bool &too_many)
 {
 	#if DEBUG
@@ -606,43 +662,33 @@ void causet_intersection_v2(int &elements, const int * const past_edges, const i
 		return;
 	}
 
-	//int larger = k_i > k_o ? k_i : k_o;
-	//int smaller = k_i <= k_o ? k_i : k_o;
+	int64_t idx0 = pstart;	//Index of past neighbors of 'future element j'
+	int64_t idx1 = fstart;	//Index of future neighbors of 'past element i'
+	int64_t max0 = idx0 + k_i;
+	int64_t max1 = idx1 + k_o;
 
-	//if (larger + smaller > smaller * LOG(larger, APPROX ? FAST : STL)) {
-		//Binary search
-	//} else {
-		int64_t idx0 = pstart;	//Index of past neighbors of 'future element j'
-		int64_t idx1 = fstart;	//Index of future neighbors of 'past element i'
-		int64_t max0 = idx0 + k_i;
-		int64_t max1 = idx1 + k_o;
+	while (idx0 < max0 && idx1 < max1 && !too_many) {
+		if (past_edges[idx0] > future_edges[idx1])
+			idx1++;
+		else if (past_edges[idx0] < future_edges[idx1])
+			idx0++;
+		else {
+			elements++;
 
-		while (idx0 < max0 && idx1 < max1 && !too_many) {
-			if (past_edges[idx0] > future_edges[idx1])
-				idx1++;
-			else if (past_edges[idx0] < future_edges[idx1])
-				idx0++;
-			else {
-				elements++;
-
-				if (elements >= max_cardinality - 1) {
-					too_many = true;
-					//printChk();
-					break;
-				}
-
-				idx0++;
-				idx1++;
+			if (elements >= max_cardinality - 1) {
+				too_many = true;
+				break;
 			}
-		}
-	//}
 
-	//printf("(%d - %d):\t%d\n", past_edges[pstart], future_edges[fstart], elements);
+			idx0++;
+			idx1++;
+		}
+	}
 }
 
 //Intersection of Sorted Lists
 //Used to find the cardinality of an interval
-//Complexity: O(k*log(k))
+//O(k*log(k)) Efficiency
 void causet_intersection(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int64_t &pstart, const int64_t &fstart, bool &too_many)
 {
 	#if DEBUG
@@ -675,55 +721,26 @@ void causet_intersection(int &elements, const int * const past_edges, const int 
 	const int * const * primary = &past_edges;
 	const int * const * secondary = &future_edges;
 
-	/*printf("Future Edge List:\n");
-	for (int i = 0; i < k_o; i++)
-		printf("\t%d\n", (*secondary)[i+fstart]);
-	printf("Past Edge List:\n");
-	for (int i = 0; i < k_i; i++)
-		printf("\t%d\n", (*primary)[i+pstart]);*/
-
-	//printf("idx0: %d\tidx1: %d\n", idx0, idx1);
-
 	while (idx0 < max0 && idx1 < max1) {
 		if ((*secondary)[idx1] > (*primary)[idx0])
 			swap(primary, secondary, idx0, idx1, max0, max1);
-
-		/*if (*primary == past_edges)
-			printf("Primary: PAST\n");
-		else if (*primary == future_edges)
-			printf("Primary: FUTURE\n");
-		if (*secondary == past_edges)
-			printf("Secondary: PAST\n");
-		else if (*secondary == future_edges)
-			printf("Secondary: FUTURE\n");*/
 
 		while (idx1 < max1 && (*secondary)[idx1] < (*primary)[idx0])
 			idx1++;
 
 		if (idx1 == max1)
-			//continue;
 			break;
 
-		//printf("idx0: %d\tidx1: %d\n", idx0, idx1);
-
 		if ((*primary)[idx0] == (*secondary)[idx1]) {
-			//printf_red();
-			//printf("Element Found!\n");
-			//printf_std();
 			elements++;
 			if (elements >= max_cardinality - 1) {
 				too_many = true;
-				//printf("TOO MANY!\n");
 				return;
 			}
 			idx0++;
 			idx1++;
 		}
 	}
-
-	/*printf_red();
-	printf("Found %d Elements.\n", elements);
-	printf_std();*/
 }
 
 //Data formatting used when reading the degree
@@ -918,6 +935,7 @@ int printf_dbg(const char * format, ...)
 	return 0;
 }
 
+//MPI Print Variadic Function
 //Allows only the master process to print to stdout
 //If MPI is not enabled, rank == 0
 int printf_mpi(int rank, const char * format, ...)
@@ -934,56 +952,7 @@ int printf_mpi(int rank, const char * format, ...)
 	return retval;
 }
 
-void printCardinalities(const uint64_t * const cardinalities, unsigned int Nc, unsigned int nthreads, unsigned int idx0, unsigned int idx1, unsigned int version)
-{
-	#if DEBUG
-	assert (cardinalities != NULL);
-	assert (Nc > 0);
-	assert (nthreads >= 1);
-	assert (idx0 != idx1);
-	#endif
-
-	if (idx0 > idx1) {
-		idx0 ^= idx1;
-		idx1 ^= idx0;
-		idx0 ^= idx1;
-	}
-
-	std::ofstream os;
-	char filename[80];
-	strcpy(filename, "cards_");
-	strcat(filename, std::to_string(idx0).c_str());
-	strcat(filename, std::to_string(idx1).c_str());
-	strcat(filename, "-v");
-	strcat(filename, std::to_string(version).c_str());
-	strcat(filename, ".cset.dbg.dat");
-
-	os.open(filename);
-	for (int i = 0; i < Nc; i++) {
-		int sum = 0;
-		for (int j = 0; j < nthreads; j++)
-			sum += cardinalities[j*Nc+i];
-		os << sum << std::endl;
-	}
-
-	os.flush();
-	os.close();
-}
-
-#ifdef MPI_ENABLED
-MPI_Request* sendSignal(const int signal, const int rank, const int num_mpi_threads)
-{
-	MPI_Request *req = (MPI_Request*)malloc(sizeof(MPI_Request) * num_mpi_threads);;
-	for (int i = 0; i < num_mpi_threads; i++) {
-		if (signal != 1 && i == rank) continue;
-		MPI_Isend((void*)&signal, 1, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req[i]);
-	}
-
-	return req;
-}
-#endif
-
-//MPI Print Variadic Function
+//Update all processes regarding failure status
 bool checkMpiErrors(CausetMPI &cmpi)
 {
 	#ifdef MPI_ENABLED
@@ -998,205 +967,137 @@ bool checkMpiErrors(CausetMPI &cmpi)
 	return !!cmpi.fail;
 }
 
-void perm_to_binary(FastBitset &fb, std::vector<unsigned int> perm)
+//Enumerate permutations of the unique integers stored in 'elements'
+//Permutations are saved as binary strings
+//The goal is to find all permutations of 2 unlabeled elements in 'elements.size()/2' unlabeled bins
+// > swapping two elements in the same bin is not a unique permutation
+// > swapping two bins is not a unique permutation
+// > swapping two elements in different bins is a unique permutation
+void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> elements)
 {
 	#if DEBUG
-	assert (!(fb.size() % 2));
-	assert (!(perm.size() % 2));
+	assert (elements.size() > 0);
 	#endif
 
-	for (uint64_t k = 0; k < perm.size(); k += 2) {
-		unsigned int i = perm[k];
-		unsigned int j = perm[k+1];
+	//Ensure output is empty to begin
+	permutations.clear();
+	permutations.swap(permutations);
 
-		if (i > j) {
-			i ^= j;
-			j ^= i;
-			i ^= j;
-		}
-
-		//printf("Adding element at index (%d, %d)\n", i, j);
-		unsigned int do_map = i >= perm.size() >> 1;
-		i -= do_map * (((i - (perm.size() >> 1)) << 1) + 1);
-		j -= do_map * ((j - (perm.size() >> 1)) << 1);
-
-		//printf("Index mapped to (%d, %d)\n", i, j);
-		unsigned int m = i * (perm.size() - 1) + j - 1;
-		//printf("Linear Index: %d\n\n", m);
-		fb.set(m);
-	}
-}
-
-void binary_to_perm(std::vector<unsigned int> &perm, const FastBitset &fb, const unsigned int len)
-{
-	#if DEBUG
-	assert (!(perm.size() % 2));
-	assert (!(fb.size() % 2));
-	#endif
-
-	for (uint64_t k = 0; k < fb.size(); k++) {
-		if (!fb.read(k)) continue;
-
-		unsigned int i = k / (len - 1);
-		unsigned int j = k % (len - 1) + 1;
-
-		unsigned int do_map = i >= j;
-		i += do_map * ((((len >> 1) - i) << 1) - 1);
-		j += do_map * (((len >> 1) - j) << 1);
-
-		perm.push_back(i);
-		perm.push_back(j);
-	}
-}
-
-void init_mpi_permutations_v2(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> perm)
-{
-	uint64_t len = static_cast<uint64_t>(perm.size()) * (perm.size() - 1) >> 1;
-	while (std::next_permutation(perm.begin(), perm.end())) {
+	//This is the length of the binary string
+	uint64_t len = static_cast<uint64_t>(elements.size()) * (elements.size() - 1) >> 1;
+	while (std::next_permutation(elements.begin(), elements.end())) {
 		FastBitset fb(len);
-		perm_to_binary(fb, perm);
+		perm_to_binary(fb, elements);
+		bool insert = true;
 
-		bool ins = true;
+		//Check if a similar element has already been added
+		//Unique binary strings will be completely orthogonal
 		for (std::unordered_set<FastBitset>::iterator fb0 = permutations.begin(); fb0 != permutations.end(); fb0++)
 			for (uint64_t i = 0; i < len; i++)
 				if (fb.read(i) & fb0->read(i))
-					ins = false;
+					insert = false;
 
-		if (ins) {
-			//
-		}		
+		if (insert) permutations.insert(fb);
 	}
 }
 
-void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> perm)
-{
-	uint64_t len = static_cast<uint64_t>(perm.size()) * (perm.size() - 1) >> 1;
-	while (std::next_permutation(perm.begin(), perm.end())) {
-		FastBitset fb(len);
-		perm_to_binary(fb, perm);
-		bool ins = true;
-		for (std::unordered_set<FastBitset>::iterator fb0 = permutations.begin(); fb0 != permutations.end(); fb0++)
-			for (uint64_t i = 0; i < len; i++)
-				if (fb.read(i) & fb0->read(i))
-					ins = false;
-
-		if (ins) permutations.insert(fb);
-		/*std::pair<std::unordered_set<FastBitset>::iterator, bool> p = permutations.insert(fb);
-		if (p.second) {
-			printf("Successfully added element:\n");
-			for (size_t i = 0; i < perm.size(); i += 2)
-				printf("(%d, %d) ", perm[i], perm[i+1]);
-			printf("\n");
-			fb.printBitset();
-		} else
-			printf("Did not add element.\n");*/
-	}
-
-	//The first element will be the ordered one, so remove it
-
-	/*for (std::unordered_set<FastBitset>::iterator fb = permutations.begin(); fb != permutations.end(); fb++) {
-		std::vector<unsigned int> p;
-		binary_to_perm(p, *fb, 8);
-		for (size_t j = 0; j < p.size(); j += 2)
-			printf("(%d, %d) ", p[j], p[j+1]);
-		printf("\n");
-	}*/
-}
-
-void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, std::vector<unsigned int> current, int nbuf)
+//Enumerate all unique pairs, assuming the first element is smaller
+//The ordered pairs are not included (e.g. (0,1) (2,3), etc.) 
+//The variable 'nbuf' should be twice the number of computers used
+//'Elements' is given as a sequence of natural numbers beginning at zero
+void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::vector<unsigned int> elements)
 {
 	#if DEBUG
-	assert (nbuf > 0 && !(nbuf % 2));
+	assert (elements.size() > 0 && !(elements.size() % 2));
 	#endif
 
-	for (size_t k = 0; k < current.size(); k += 2) {
-		unsigned int i = current[k];
-		unsigned int j = current[k+1];
+	//Ensure output is empty
+	pairs.clear();
+	pairs.swap(pairs);
 
-		for (unsigned int m = 0; m < nbuf; m++) {
+	for (size_t k = 0; k < elements.size(); k += 2) {
+		//Elements are understood to be stored in pairs
+		unsigned int i = elements[k];
+		unsigned int j = elements[k+1];
+
+		for (unsigned int m = 0; m < elements.size(); m++) {
 			if (m == i || m == j) continue;
 			pairs.insert(std::make_pair(std::min(i, m), std::max(i, m)));
 			pairs.insert(std::make_pair(std::min(j, m), std::max(j, m)));
 		}
 	}
 
-	for (size_t k = 0; k < current.size(); k += 2)
+	//Remove the ordered pairs
+	for (size_t k = 0; k < elements.size(); k += 2)
 		pairs.erase(std::make_pair(k, k+1));
 }
 
-void fill_mpi_similar(std::vector<std::vector<unsigned int> > &similar, std::vector<unsigned int> perm)
+//Saves all permutations which are recognized as non-unique by
+//the subroutine 'init_mpi_permutations'
+void fill_mpi_similar(std::vector<std::vector<unsigned int> > &similar, std::vector<unsigned int> elements)
 {
-	uint64_t len = static_cast<uint64_t>(perm.size()) * (perm.size() - 1) >> 1;
+	#if DEBUG
+	assert (elements.size() > 0);
+	#endif
+
+	//Ensure output is empty
+	similar.clear();
+	similar.swap(similar);
+
+	//Translate initial elements to a binary string
+	uint64_t len = static_cast<uint64_t>(elements.size()) * (elements.size() - 1) >> 1;
 	FastBitset fb(len);
-	perm_to_binary(fb, perm);
-	similar.push_back(perm);
+	perm_to_binary(fb, elements);
+	similar.push_back(elements);
 
-	while (std::next_permutation(perm.begin(), perm.end())) {
+	//Compare each permutation's binary string to the original permutation's string
+	while (std::next_permutation(elements.begin(), elements.end())) {
 		FastBitset sim(len);
-		perm_to_binary(sim, perm);
+		perm_to_binary(sim, elements);
+		//If their binary string is equal, they are the same permutation
 		if (fb == sim)
-			similar.push_back(perm);
+			similar.push_back(elements);
 	}
 }
 
-void print_pairs(std::vector<unsigned int> vec)
+//Use the cyclesort algorithm to determine which permutation is "most similar" to
+//the original, thereby minimizing the number of swaps done using MPI
+void get_most_similar(std::vector<unsigned int> &sim, unsigned int &nsteps, const std::vector<std::vector<unsigned int> > candidates, const std::vector<unsigned int> elements)
 {
-	for (size_t i = 0; i < vec.size(); i += 2)
-		printf("(%d, %d) ", vec[i], vec[i+1]);
-	printf("\n");
-}
+	#if DEBUG
+	assert (candidates.size() > 0);
+	assert (elements.size() > 0);
+	#endif
 
-void cyclesort(unsigned int &writes, std::vector<unsigned int> c, std::vector<std::pair<int,int> > *swaps)
-{
-	unsigned int it, p;
-	size_t len = c.size();
-	writes = 0;
-	for (size_t j = 0; j < len - 1; j++) {
-		it = c[j];
-		p = j;
+	unsigned int idx = 0;
+	nsteps = 100000000;	//Taken to be integer-infinity
 
-		for (unsigned int k = j + 1; k < len; k++)
-			if (c[k] < it)
-				p++;
+	//Check each candidate
+	for (size_t i = 0; i < candidates.size(); i++) {
+		size_t len = candidates[i].size();
+		std::vector<unsigned int> c(len);
 
-		if (j == p) continue;
-
-		//Swap
-		while (c[p] == it)
-			p++;
-		//printf("Copying spot [%d] to buffer\n", p);
-		//printf("Copying spot [%zd] to spot [%d]\n", j, p);
-		it ^= c[p];
-		c[p] ^= it;
-		it ^= c[p];
-		writes += 2;
-		if (swaps != NULL) {
-			swaps->push_back(std::make_pair(p, -1));
-			swaps->push_back(std::make_pair(j, p));
-		}
-		//print_pairs(c);
-
-		while (j != p) {
-			p = j;
-			for (size_t k = j + 1; k < len; k++)
-				if (c[k] < it)
-					p++;
-			
-			while (c[p] == it)
-				p++;
-			//printf("Copying buffer to spot [%d]\n", p);
-			it ^= c[p];
-			c[p] ^= it;
-			it ^= c[p];
-			//print_pairs(c);
-			writes++;
-			if (swaps != NULL)
-				swaps->push_back(std::make_pair(-1, p));
+		//Create a local copy of the candidate, and relabel
+		//it so when sorted, it will equal 'elements'
+		c = candidates[i];
+		relabel_vector(c, elements);
+		
+		unsigned int writes;
+		//Perform cyclesort, record number of writes
+		cyclesort(writes, c, NULL);
+		if (writes < nsteps) {
+			//Save minimum
+			nsteps = writes;
+			idx = i;
 		}
 	}
+
+	sim = candidates[idx];
 }
 
-void relabel_vector(std::vector<unsigned int> &output, std::vector<unsigned int> input)
+//Relabel the output vector so when sorted the elements will equal the input
+//This allows a set of numbers to be 'sorted' to a permutation other than the truly sorted one
+void relabel_vector(std::vector<unsigned int> &output, const std::vector<unsigned int> input)
 {
 	#if DEBUG
 	assert (input.size() == output.size());
@@ -1208,232 +1109,222 @@ void relabel_vector(std::vector<unsigned int> &output, std::vector<unsigned int>
 	for (size_t i = 0; i < len; i++)
 		for (size_t j = 0; j < len; j++)
 			if (output[j] == input[i])
+				//Save the index of the element rather than the element itself
 				out[j] = i;
 
 	output = out;
 }
 
-void get_most_similar(std::vector<unsigned int> &sim, unsigned int &nsteps, std::vector<std::vector<unsigned int> > candidates, std::vector<unsigned int> current)
+//Generate a binary string from a set of unique integers
+//This is used to identify which permutations are equal
+//Recall, we wish to identify all unique permutations of 2 unlabeled elements in '2N'
+//unlabeled bins, where 'N' is the number of computers we have
+void perm_to_binary(FastBitset &fb, const std::vector<unsigned int> perm)
 {
-	unsigned int idx = candidates.size();
-	nsteps = 100000000;
+	#if DEBUG
+	assert (!(fb.size() % 2));
+	assert (!(perm.size() % 2));
+	#endif
 
-	for (size_t i = 0; i < candidates.size(); i++) {
-		size_t len = candidates[i].size();
-		std::vector<unsigned int> c(len);
+	for (uint64_t k = 0; k < perm.size(); k += 2) {
+		//Group numbers into pairs (2 unlabeled elements)
+		unsigned int i = perm[k];
+		unsigned int j = perm[k+1];
 
-		/*printf("Current: ");
-		for (size_t j = 0; j < len; j += 2)
-			printf("(%d, %d) ", current[j], current[j+1]);
-		printf("\n");
-		
-		printf("First candidate: ");
-		for (size_t j = 0; j < len; j += 2)
-			printf("(%d, %d) ", candidates[i][j], candidates[i][j+1]);
-		printf("\n");*/
-
-		//Relabel
-		/*for (size_t j = 0; j < len; j++)
-			for (size_t k = 0; k < len; k++)
-				if (candidates[i][k] == current[j])
-					c[k] = j;*/
-		c = candidates[i];
-		relabel_vector(c, current);
-		
-		//printf("Relabeled permutation: ");
-		//print_pairs(candidates[i]);
-		/*for (size_t j = 0; j < len; j += 2)
-			printf("(%d, %d) ", c[j], c[j+1]);
-		printf("\n");*/
-
-		//Cycle Sort
-		//I/O: writes
-		//I: c
-
-		unsigned int writes;
-		//cyclesort(writes, candidates[i], NULL);
-		cyclesort(writes, c, NULL);
-		//printf("Configuration [%zd] requires %d memory transfers.\n", i, writes);
-		if (writes < nsteps) {
-			nsteps = writes;
-			idx = i;
+		//Swap them if the first is larger
+		if (i > j) {
+			i ^= j;
+			j ^= i;
+			i ^= j;
 		}
-	}
 
-	sim = candidates[idx];
+		//This (i,j) is a row/column of a matrix
+		//We wish to transform this into a 1-D index
+		//identified with elements in an upper-triangular matrix
+		unsigned int do_map = i >= perm.size() >> 1;
+		i -= do_map * (((i - (perm.size() >> 1)) << 1) + 1);
+		j -= do_map * ((j - (perm.size() >> 1)) << 1);
+
+		//This transformed linear index is stored in 'm'
+		unsigned int m = i * (perm.size() - 1) + j - 1;
+		fb.set(m);
+	}
 }
 
-#ifdef MPI_ENABLED
-//NOTE: Add macro for MPI_UINT64_T to fastbitset
-void mpi_swaps(std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N_tar, const int num_mpi_threads, const int rank)
+//The inverse operation of perm_to_binary
+void binary_to_perm(std::vector<unsigned int> &perm, const FastBitset &fb, const unsigned int len)
 {
-	int mpi_offset = N_tar / (num_mpi_threads << 1);
-	int cpy_offset = mpi_offset / num_mpi_threads;
-	int start = rank * cpy_offset;
-	int finish = start + cpy_offset;
-	MPI_Status status;
+	#if DEBUG
+	assert (!(perm.size() % 2));
+	assert (!(fb.size() % 2));
+	#endif
 
-	/*MPI_Barrier(MPI_COMM_WORLD);
-	printf("Rank [%d] beginning mpi_swaps.\n", rank);
-	fflush(stdout); sleep(1);
-	MPI_Barrier(MPI_COMM_WORLD);*/
+	//Transform each set bit to an (i,j) pair
+	for (uint64_t k = 0; k < fb.size(); k++) {
+		if (!fb.read(k)) continue;
 
-	for (size_t i = 0; i < swaps.size(); i++) {
-		int idx0 = std::get<0>(swaps[i]);
-		int idx1 = std::get<1>(swaps[i]);
+		unsigned int i = k / (len - 1);
+		unsigned int j = k % (len - 1) + 1;
 
-		//printf("Rank [%d] identified swap [%d->%d].\n", rank, idx0, idx1);
-		//fflush(stdout); sleep(1);
-		MPI_Barrier(MPI_COMM_WORLD);
-		if (idx0 != -1 && idx1 != -1) {
-			//if (rank << 1 != idx0 && (rank << 1) + 1 != idx0) break;
-			//if (rank << 1 != idx1 && (rank << 1) + 1 != idx1) break;
-			if (idx0 >> 1 == idx1 >> 1 && (rank<<1)+(idx0%2) != idx0) continue;
-		}
+		unsigned int do_map = i >= j;
+		i += do_map * ((((len >> 1) - i) << 1) - 1);
+		j += do_map * (((len >> 1) - j) << 1);
 
-		//printf_mpi(rank, "swap number: %d\n", i);
-		//if (!rank) fflush(stdout);
-		//MPI_Barrier(MPI_COMM_WORLD);
-		//printf_mpi(rank, "rank: 0\tidx0: %d\tidx1: %d\n", idx0, idx1);
-		//fflush(stdout);
-		//MPI_Barrier(MPI_COMM_WORLD);
-		//printf_mpi(rank - 1, "rank: 1\tidx0: %d\tidx1: %d\n", idx0, idx1);
-		//fflush(stdout);
-
-		if (idx0 == -1) {	//Copy buffer to idx1
-			int buf_offset = mpi_offset * (idx1 % 2);
-			start = rank * cpy_offset;
-			finish = start + cpy_offset;
-			//printf("rank [%d] start: %d\n", rank, start);
-			//printf("rank [%d] finish: %d\n", rank, finish);
-			//fflush(stdout);
-			//MPI_Barrier(MPI_COMM_WORLD);
-			for (int j = start; j < finish; j++) {
-				int loc_idx = j % cpy_offset;
-				for (int k = 0; k < num_mpi_threads; k++) {
-					int adj_idx = buf_offset + k * cpy_offset + loc_idx;
-					if ((rank<<1) + (idx1%2) == idx1) {
-						if (k == rank) {
-							//printf("Rank [%d] copying to adj row [%d] to from local buffer row [%d]\n", rank, adj_idx, loc_idx);
-							memcpy(adj[adj_idx].getAddress(), adj_buf[loc_idx].getAddress(), sizeof(BlockType) * adj_buf[loc_idx].getNumBlocks());
-						}
-						if (k == rank) continue;
-						//printf("Rank [%d] receiving adj row [%d] from rank [%d]\n", rank, adj_idx, k);
-						MPI_Recv(adj[adj_idx].getAddress(), adj[adj_idx].getNumBlocks(), MPI_UINT64_T, k, 0, MPI_COMM_WORLD, &status);
-					} else {
-						if ((k<<1)+(idx1%2)!=idx1) continue;
-						//printf("Rank [%d] sending [%d] to rank [%d]\n", rank, loc_idx, k);
-						MPI_Send(adj_buf[loc_idx].getAddress(), adj_buf[loc_idx].getNumBlocks(), MPI_UINT64_T, k, 0, MPI_COMM_WORLD);
-					}
-				}
-			}
-		} else if (idx1 == -1) {	//Copy idx0 to buffer
-			//int buf_offset = (mpi_offset >> 1) * (idx0 % 2);
-			int buf_offset = mpi_offset * (idx0 % 2);
-			start = rank * cpy_offset;
-			finish = start + cpy_offset;
-			//printf_mpi(rank, "buf_offset: %d\n", buf_offset);
-			//printf_mpi(rank, "cpy_offset: %d\n", cpy_offset);
-			//fflush(stdout);
-			//MPI_Barrier(MPI_COMM_WORLD);
-			//printf("rank [%d] start: %d\n", rank, start);
-			//printf("rank [%d] finish: %d\n", rank, finish);
-			//fflush(stdout);
-			//MPI_Barrier(MPI_COMM_WORLD);
-			for (int j = start; j < finish; j++) {
-				int loc_idx = j % cpy_offset;
-				for (int k = 0; k < num_mpi_threads; k++) {
-					int adj_idx = buf_offset + k * cpy_offset + loc_idx;
-					if ((rank<<1) + (idx0%2) == idx0) {
-						if (k == rank) {
-							//printf("Rank [%d] copying adj row [%d] to local buffer row [%d]\n", rank, adj_idx, loc_idx);
-							memcpy(adj_buf[loc_idx].getAddress(), adj[adj_idx].getAddress(), sizeof(BlockType) * adj[adj_idx].getNumBlocks());
-						} else {
-							//printf("Rank [%d] sending adj row [%d] to rank [%d]\n", rank, adj_idx, k);
-							MPI_Send(adj[adj_idx].getAddress(), adj[adj_idx].getNumBlocks(), MPI_UINT64_T, k, 0, MPI_COMM_WORLD);
-						}
-					//} else if ((rank<<1) + (idx0%2) != idx0) {
-					} else {
-						if ((k<<1)+(idx0%2)!=idx0) continue;
-						//printf("Rank [%d] receiving to local buffer [%d] from rank [%d]\n", rank, j % cpy_offset, k);
-						MPI_Recv(adj_buf[loc_idx].getAddress(), adj_buf[loc_idx].getNumBlocks(), MPI_UINT64_T, k, 0, MPI_COMM_WORLD, &status);
-					}
-				}
-			}
-
-			//fflush(stdout);
-			//sleep(1);
-			//MPI_Barrier(MPI_COMM_WORLD);
-
-			//Print buffer
-			/*printf_mpi(rank, "\nPrinting Buffers:\n");
-			if (!rank) fflush(stdout);
-			for (int j = 0; j < num_mpi_threads; j++) {
-				MPI_Barrier(MPI_COMM_WORLD);
-				if (j == rank) {
-					for (int k = 0; k < cpy_offset; k++) {
-						for (int l = 0; l < N_tar; l++)
-							printf("%" PRIu64 " ", adj_buf[k].read(l));
-						printf(" [%d]\n", rank);
-						fflush(stdout);
-					}
-					if (j != num_mpi_threads - 1) {
-						for (int k = 0; k < N_tar; k++)
-							printf("==");
-						printf("\n");
-						fflush(stdout);
-					}
-					sleep(1);
-				}
-			}
-			sleep(1);
-			printf_mpi(rank, "\n");
-			if (!rank) fflush(stdout);
-			MPI_Barrier(MPI_COMM_WORLD);*/
-		} else {
-			int buf_offset0 = mpi_offset * (idx0%2);
-			int buf_offset1 = mpi_offset * (idx1%2);
-			start = rank * mpi_offset;
-			finish = start + mpi_offset;
-			//printf("rank [%d] start: %d\n", rank, start);
-			//printf("rank [%d] finish: %d\n", rank, finish);
-			//fflush(stdout);
-			//MPI_Barrier(MPI_COMM_WORLD);
-			for (int j = start; j < finish; j++) {
-				int loc_idx = j % mpi_offset;
-				if (idx0>>1==idx1>>1) {
-					//printf("Rank [%d] copying adj row [%d] to adj row [%d]\n", rank, buf_offset0+loc_idx, buf_offset1+loc_idx);
-					memcpy(adj[buf_offset1+loc_idx].getAddress(), adj[buf_offset0+loc_idx].getAddress(), sizeof(BlockType) * adj[buf_offset0+loc_idx].getNumBlocks());
-				} else if ((rank<<1)+(idx0%2)==idx0) {
-					//printf("Rank [%d] sending adj row [%d] to rank [%d]\n", rank, buf_offset0+j%mpi_offset, idx1/2);
-					MPI_Send(adj[buf_offset0+loc_idx].getAddress(), adj[buf_offset0+loc_idx].getNumBlocks(), MPI_UINT64_T, idx1/2, 0, MPI_COMM_WORLD);
-				} else if ((rank<<1)+(idx1%2)==idx1) {
-					//printf("Rank [%d] receiving to adj row [%d] from rank [%d]\n", rank, buf_offset1+j%mpi_offset, idx0/2);
-					MPI_Recv(adj[buf_offset1+loc_idx].getAddress(), adj[buf_offset1+loc_idx].getNumBlocks(), MPI_UINT64_T, idx0/2, 0, MPI_COMM_WORLD, &status);
-				}
-			}
-		}
-
-		//MPI_Barrier(MPI_COMM_WORLD);
-		//printf_mpi(rank, "\n");
-		//fflush(stdout);
-		//sleep(1);
-		//MPI_Barrier(MPI_COMM_WORLD);
-		//break;
+		//These (i,j) pairs are the pair associated with the permutation
+		perm.push_back(i);
+		perm.push_back(j);
 	}
-
-	/*printf("Rank [%d] finished mpi_swaps.\n", rank);
-	fflush(stdout); sleep(1);
-	MPI_Barrier(MPI_COMM_WORLD);*/
 }
-#endif
 
-unsigned int loc_to_glob_idx(std::vector<unsigned int> config, unsigned int idx, const int N_tar, const int num_mpi_threads, const int rank)
+//When the adjacency matrix is broken across computers, local indices refer to those within
+//the sub-matrix stored in a particular buffer. When these buffers are shuffled, this subroutine will
+//return the global index, with respect to the whole unshuffled matrix, provided the current permutation
+unsigned int loc_to_glob_idx(std::vector<unsigned int> perm, const unsigned int idx, const int N_tar, const int num_mpi_threads, const int rank)
 {
+	#if DEBUG
+	assert (idx < (unsigned int)N_tar);
+	assert (N_tar > 0);
+	assert (num_mpi_threads > 1);
+	assert (rank >= 0);
+	#endif
+
+	//The number of rows in a single buffer (two buffers per computer)
 	int mpi_offset = N_tar / (num_mpi_threads << 1);
+	//Index local to a single buffer, whereas idx spans two buffers
 	int loc_idx = idx - (idx / mpi_offset) * mpi_offset;
-	int seq_idx = config[(rank << 1) + (idx / mpi_offset)];
+	//The sequence index - i.e. which buffer loc_idx belongs to
+	int seq_idx = perm[(rank << 1) + (idx / mpi_offset)];
+	//The original global index, spanning [0, N_tar)
 	int glob_idx = seq_idx * mpi_offset + loc_idx;
 
 	return glob_idx;
 }
+
+#ifdef MPI_ENABLED
+//Perform MPI trades across multiple computers
+//When a swap is performed, the memory in one buffer is scattered to all other computers
+//because the temporary storage is split across all computers. Then, the second buffer is moved to
+//the first buffer. Finally, the temporary storage is moved back to the second buffer. The index
+//used for "storage" is '-1'. The list of swaps needed is stored in 'swaps', and this variable
+//is populated using the 'cyclesort' algorithm.
+void mpi_swaps(const std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N_tar, const int num_mpi_threads, const int rank)
+{
+	#if DEBUG
+	assert (swaps.size() > 0);
+	assert (adj.size() > 0);
+	assert (adj_buf.size() > 0);
+	assert (N_tar > 0);
+	assert (num_mpi_threads > 1);
+	assert (rank >= 0);
+	#endif
+
+	//Number of rows per buffer
+	int mpi_offset = N_tar / (num_mpi_threads << 1);
+	//Number of rows per temporary buffer
+	int cpy_offset = mpi_offset / num_mpi_threads;
+
+	int loc_idx;
+	int start, finish;
+	MPI_Status status;
+
+	//Perform all swaps requested
+	for (size_t i = 0; i < swaps.size(); i++) {
+		//The two swap indices
+		int idx0 = std::get<0>(swaps[i]);
+		int idx1 = std::get<1>(swaps[i]);
+
+		MPI_Barrier(MPI_COMM_WORLD);
+		//If this is a simple trade from one computer to a second, computers not involved
+		//can continue to the next iteration and wait at the barrier
+		if (idx0 != -1 && idx1 != -1 && idx0 >> 1 == idx1 >> 1 && (rank << 1) + (idx0 % 2) != idx0)
+			continue;
+
+		if (idx0 == -1) {	//Copy buffer to idx1
+			//Distinguish between two local buffers
+			int buf_offset = mpi_offset * (idx1 % 2);
+			//Range of rows which will be copied
+			start = rank * cpy_offset;
+			finish = start + cpy_offset;
+			//Iterate over all rows
+			for (int j = start; j < finish; j++) {
+				//Index internal to a temporary storage buffer
+				loc_idx = j % cpy_offset;
+				//All MPI processes have work to do
+				for (int k = 0; k < num_mpi_threads; k++) {
+					//Index of the row being addressed
+					int adj_idx = buf_offset + k * cpy_offset + loc_idx;
+					if ((rank << 1) + (idx1 % 2) == idx1) {	//Receiving data to buffer idx1
+						if (k == rank)
+							//Copy local buffer row 'loc_idx' to adj row 'adj_idx'
+							memcpy(adj[adj_idx].getAddress(), adj_buf[loc_idx].getAddress(), sizeof(BlockType) * adj_buf[loc_idx].getNumBlocks());
+						else
+							//Receive foreign buffer in rank 'k' to adj row 'adj_idx'
+							MPI_Recv(adj[adj_idx].getAddress(), adj[adj_idx].getNumBlocks(), BlockTypeMPI, k, 0, MPI_COMM_WORLD, &status);
+					} else if ((k << 1) + (idx1 % 2) == idx1)	//Sending data to buffer idx1
+						//Send local buffer row 'loc_idx' to foreign buffer in rank 'k'
+						MPI_Send(adj_buf[loc_idx].getAddress(), adj_buf[loc_idx].getNumBlocks(), BlockTypeMPI, k, 0, MPI_COMM_WORLD);
+				}
+			}
+		} else if (idx1 == -1) {	//Copy idx0 to buffer
+			//Distinguish between two local buffers
+			int buf_offset = mpi_offset * (idx0 % 2);
+			//Range of rows which will be copied
+			start = rank * cpy_offset;
+			finish = start + cpy_offset;
+			//Iterate over all rows
+			for (int j = start; j < finish; j++) {
+				//Index internal to a temporary storage buffer
+				loc_idx = j % cpy_offset;
+				//All MPI processes have work to do
+				for (int k = 0; k < num_mpi_threads; k++) {
+					//Index of the row being addressed
+					int adj_idx = buf_offset + k * cpy_offset + loc_idx;
+					if ((rank << 1) + (idx0 % 2) == idx0) {	//Sending data to buffer idx0
+						if (k == rank)
+							//Copy adj row 'adj_idx' to local buffer row 'loc_idx'
+							memcpy(adj_buf[loc_idx].getAddress(), adj[adj_idx].getAddress(), sizeof(BlockType) * adj[adj_idx].getNumBlocks());
+						else
+							//Send adj row 'adj_idx' to foreign buffer in rank 'k'
+							MPI_Send(adj[adj_idx].getAddress(), adj[adj_idx].getNumBlocks(), BlockTypeMPI, k, 0, MPI_COMM_WORLD);
+					} else if ((k << 1) + (idx0 % 2) == idx0)	//Receiving data to buffer idx0
+						//Receive foreign buffer in rank 'k' to local buffer row 'loc_idx'
+						MPI_Recv(adj_buf[loc_idx].getAddress(), adj_buf[loc_idx].getNumBlocks(), BlockTypeMPI, k, 0, MPI_COMM_WORLD, &status);
+				}
+			}
+		} else {	//Copy from idx0 to idx1
+			//Distinguish between two local buffers
+			int buf_offset0 = mpi_offset * (idx0 % 2);
+			int buf_offset1 = mpi_offset * (idx1 % 2);
+			//Range of rows which will be copied
+			start = rank * mpi_offset;
+			finish = start + mpi_offset;
+			//Iterate over all rows
+			for (int j = start; j < finish; j++) {
+				//Index internal to a temporary storage buffer
+				loc_idx = j % mpi_offset;
+				if (idx0 >> 1 == idx1 >> 1)	//Sending data to buffer idx1, both on same computer
+					//Copy adj row 'buf_offset0 + loc_idx' to adj row 'buf_offset1 + loc_idx'
+					memcpy(adj[buf_offset1+loc_idx].getAddress(), adj[buf_offset0+loc_idx].getAddress(), sizeof(BlockType) * adj[buf_offset0+loc_idx].getNumBlocks());
+				else if ((rank << 1) + (idx0 % 2) == idx0)	//Send data to buffer idx1
+					//Send adj row 'buf_offset0 + loc_idx' to foreign rank 'idx1 / 2'
+					MPI_Send(adj[buf_offset0+loc_idx].getAddress(), adj[buf_offset0+loc_idx].getNumBlocks(), BlockTypeMPI, idx1 / 2, 0, MPI_COMM_WORLD);
+				else if ((rank << 1) + (idx1 % 2) == idx1)	//Receive data to buffer idx1
+					//Receive adj row 'buf_offset1 + loc_idx' from foreign rank 'idx0 / 2'
+					MPI_Recv(adj[buf_offset1+loc_idx].getAddress(), adj[buf_offset1+loc_idx].getNumBlocks(), BlockTypeMPI, idx0 / 2, 0, MPI_COMM_WORLD, &status);
+			}
+		}
+	}
+}
+
+//Send a signal to all MPI nodes, indicating which action is requested
+void sendSignal(const MPISignal signal, const int rank, const int num_mpi_threads)
+{
+	MPI_Request req;
+	for (int i = 0; i < num_mpi_threads; i++) {
+		//Don't send a signal to yourself, unless it's a lock request to the spinlock
+		if (signal != REQUEST_LOCK && i == rank) continue;
+		//Make sure it's an asynchronous call to avoid blocking
+		MPI_Isend((void*)&signal, 1, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &req);
+	}
+}
+#endif

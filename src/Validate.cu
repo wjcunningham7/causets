@@ -294,6 +294,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 	assert (edges.future_edge_row_start != NULL);
 	assert (ca != NULL);
 
+	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
@@ -669,6 +670,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	assert (edges != NULL);
 	assert (g_idx != NULL);
 	assert (ca != NULL);
+	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
 	assert (N_tar > 0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	if (use_bit)
@@ -818,28 +820,28 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 			int flags = ((int)diag << 4) | ((int)compact << 3) | stdim;
 			switch (flags) {
 			case 2:
-				GenerateAdjacencyLists_v2<false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 4:
-				GenerateAdjacencyLists_v2<false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 10:
-				GenerateAdjacencyLists_v2<true, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 12:
-				GenerateAdjacencyLists_v2<true, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 18:
-				GenerateAdjacencyLists_v2<false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 20:
-				GenerateAdjacencyLists_v2<false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 26:
-				GenerateAdjacencyLists_v2<true, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 28:
-				GenerateAdjacencyLists_v2<true, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			default:
 				fprintf(stderr, "Invalid flag value: %d\n", flags);
@@ -3058,6 +3060,11 @@ bool validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
 		assert (false);
 		break;
+	case (2 | HYPERBOLIC | SLAB | POSITIVE | ASYMMETRIC):
+		if (!(nodes.id.tau[i] > 0.0 & nodes.id.tau[i] <= tau0)) return false;
+		if (!(nodes.crd->x(i) > 0.0 && nodes.crd->x(i) <= r_max)) return false;
+		if (!(nodes.crd->y(i) > 0.0 && nodes.crd->y(i) < TWO_PI)) return false;
+		break;
 	case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -3192,4 +3199,47 @@ bool validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 	}
 
 	return true;
+}
+
+void printCardinalities(const uint64_t * const cardinalities, unsigned int Nc, unsigned int nthreads, unsigned int idx0, unsigned int idx1, unsigned int version)
+{
+	#if DEBUG
+	assert (cardinalities != NULL);
+	assert (Nc > 0);
+	assert (nthreads >= 1);
+	assert (idx0 != idx1);
+	#endif
+
+	if (idx0 > idx1) {
+		idx0 ^= idx1;
+		idx1 ^= idx0;
+		idx0 ^= idx1;
+	}
+
+	std::ofstream os;
+	char filename[80];
+	strcpy(filename, "cards_");
+	strcat(filename, std::to_string(idx0).c_str());
+	strcat(filename, std::to_string(idx1).c_str());
+	strcat(filename, "-v");
+	strcat(filename, std::to_string(version).c_str());
+	strcat(filename, ".cset.dbg.dat");
+
+	os.open(filename);
+	for (unsigned int i = 0; i < Nc; i++) {
+		int sum = 0;
+		for (unsigned int j = 0; j < nthreads; j++)
+			sum += cardinalities[j*Nc+i];
+		os << sum << std::endl;
+	}
+
+	os.flush();
+	os.close();
+}
+
+void print_pairs(std::vector<unsigned int> vec)
+{
+	for (size_t i = 0; i < vec.size(); i += 2)
+		printf("(%d, %d) ", vec[i], vec[i+1]);
+	printf("\n");
 }

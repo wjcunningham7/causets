@@ -3,7 +3,13 @@ AC_DEFUN([AX_PLATFORM],
 AC_PROVIDE([AX_PLATFORM])
 
 AC_ARG_WITH([platform], AS_HELP_STRING([--with-platform=PLATFORM], [Name of the platform added to the binary name]),
-  [platform=$with_platform], [platform=""])
+  [platform=$with_platform],
+  [ if [[[ "$#" -ge 1 && "$1" != "" ]]] ; then
+      platform="$1"
+    else
+      platform=""
+    fi
+  ])
 
 AC_MSG_CHECKING([platform])
 if [[[ $platform != "" ]]] ; then

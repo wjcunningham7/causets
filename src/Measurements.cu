@@ -25,6 +25,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 
 	stopwatchStart(&sMeasureClustering);
 
+	//Allocate memory for clustering coefficients
 	try {
 		clustering = (float*)malloc(sizeof(float) * N_tar);
 		if (clustering == NULL)
@@ -45,9 +46,8 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 	//k represents the third node in the triplet
 	//j and k are not interchanging or else the number of triangles would be doubly counted
 
-
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 1) reduction(+ : c_avg)
+	#pragma omp parallel for schedule (dynamic, 1) reduction(+ : c_avg) if (N_tar > 10000)
 	#endif
 	for (int i = 0; i < N_tar; i++) {
 		//printf("\nNode %d:\n", i);
@@ -63,6 +63,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 		}
 
 		#if DEBUG
+		//Sanity checks
 		assert (!(edges.past_edge_row_start[i] == -1 && nodes.k_in[i] > 0));
 		assert (!(edges.past_edge_row_start[i] != -1 && nodes.k_in[i] == 0));
 		assert (!(edges.future_edge_row_start[i] == -1 && nodes.k_out[i] > 0));
@@ -100,6 +101,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 		#if DEBUG
 		assert (c_max > 0.0f);
 		#endif
+		//Normalization
 		c_i = c_i / c_max;
 		#if DEBUG
 		assert (c_i <= 1.0f);
@@ -150,7 +152,9 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 
 //Calculates the number of connected components in the graph
 //as well as the size of the giant connected component
-//Efficiency: O(xxx)
+//Note: While this subroutine supports MPI, it does not break up the problem across
+//the MPI processes - it simply shares the results from process 0
+//O(N+E) Efficiency
 bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitvector &adj, const int &N_tar, CausetMPI &cmpi, int &N_cc, int &N_gcc, CaResources * const ca, Stopwatch &sMeasureConnectedComponents, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
@@ -171,6 +175,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitvector 
 	stopwatchStart(&sMeasureConnectedComponents);
 
 	try {
+		//Allocate space for component labels
 		nodes.cc_id = (int*)malloc(sizeof(int) * N_tar);
 		if (nodes.cc_id == NULL) {
 			cmpi.fail = 1;
@@ -195,21 +200,26 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitvector 
 	if (verbose)
 		printMemUsed("to Measure Components", ca->hostMemUsed, ca->devMemUsed, rank);
 
-	if (!rank) {
+	if (!rank) {	//Only process 0 does work
 		for (i = 0; i < N_tar; i++) {
 			elements = 0;
+			//Execute B.F. search if the node is not isolated
 			if (!nodes.cc_id[i] && (nodes.k_in[i] + nodes.k_out[i]) > 0) {
 				if (!use_bit)
 					bfsearch(nodes, edges, i, ++N_cc, elements);
 				else
+					//Version 2 uses only the adjacency matrix (no sparse lists)
 					bfsearch_v2(nodes, adj, N_tar, i, ++N_cc, elements);
 			}
+
+			//Check if this is the giant component
 			if (elements > N_gcc)
 				N_gcc = elements;
 		}
 	}
 
 	#ifdef MPI_ENABLED
+	//Share the results across MPI processes
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Bcast(nodes.cc_id, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&N_cc, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -241,7 +251,10 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitvector 
 }
 
 //Calculates the Success Ratio using N_sr Unique Pairs of Nodes
-//O(xxx) Efficiency (revise this)
+//Calculate the success ratio using a greedy routing algorithm
+//If TRAVERSE_V2 is false, it will use geodesic distances to route; otherwise
+//it will use spatial distances.
+//O(d*N^2) Efficiency, where d is the stretch
 bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &adj, float &success_ratio, float &success_ratio2, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const long double &N_sr, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
@@ -254,7 +267,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 
 	if (get_stdim(spacetime) == 2) {
 		assert (nodes.crd->getDim() == 2);
-		assert (false);	//No distance algorithms written for 1+1
+		assert (TRAVERSE_V2 && use_bit && TRAVERSE_VECPROD);
 	} else if (get_stdim(spacetime) == 4) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
@@ -282,6 +295,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 
 	static const bool SR_DEBUG = false;
 
+	//If we aren't studying all pairs, figure out how many
 	int n = N_tar + N_tar % 2;
 	uint64_t max_pairs = static_cast<uint64_t>(n) * (n - 1) / 2;
 	#if !SR_RANDOM
@@ -301,6 +315,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 	stopwatchStart(&sMeasureSuccessRatio);
 
 	try {
+		//Keep track of nodes already visited to avoid cycles
 		used = (bool*)malloc(u_size);
 		if (used == NULL) {
 			cmpi.fail = 1;
@@ -334,12 +349,15 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 	unsigned int nthreads = omp_get_max_threads();
 	#if TRAVERSE_V2
 	if (use_bit) {
+		//In this case, traversePath_v3() is used, and we
+		//will use nested OpenMP parallelization
 		omp_set_nested(1);
-		nthreads >>= 1;
+		nthreads >>= 2;
 	}
 	#endif
 	#pragma omp parallel reduction (+ : n_trav, n_succ, n_succ2) if (finish - start > 1000) num_threads (nthreads)
 	{
+	//Use independent RNG engines
 	Engine eng(seed ^ omp_get_thread_num());
 	UDistribution dst(0.0, 1.0);
 	UGenerator rng(eng, dst);
@@ -359,16 +377,12 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 		int i = static_cast<int>(vec_idx / (n - 1));
 		int j = static_cast<int>(vec_idx % (n - 1) + 1);
 		int do_map = i >= j;
-
-		if (j < n >> 1) {
-			i = i + do_map * ((((n >> 1) - i) << 1) - 1);
-			j = j + do_map * (((n >> 1) - j) << 1);
-		}
+		i += do_map * ((((n >> 1) - i) << 1) - 1);
+		j += do_map * (((n >> 1) - j) << 1);
 
 		if (j == N_tar) continue;
 
 		if (SR_DEBUG) {
-			//printf("k: %" PRIu64 "    \ti: %d    \tj: %d    \t", k, i, j);
 			printf("i: %d    \tj: %d    \t", i, j);
 			fflush(stdout);
 		}
@@ -456,9 +470,24 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 
 	if (!bench) {
 		printf_mpi(rank, "\tCalculated Success Ratio.\n");
+		#if !TRAVERSE_V2
+		printf_mpi(rank, "\t\tUsed Geodesic Routing.\n");
+		#else
+		if (!use_bit) {
+		printf_mpi(rank, "\t\tUsed Spatial Routing (v2).\n");
+		} else {
+			#if !TRAVERSE_VECPROD
+			printf_mpi(rank, "\t\tUsed Spatial Routing (v3).\n");
+			#else
+			printf_mpi(rank, "\t\tUsed Vector Product Routing.\n");
+			#endif
+		}
+		#endif
 		if (!rank) printf_cyan();
 		printf_mpi(rank, "\t\tSuccess Ratio (Type 1): %f\n", success_ratio);
+		#if !TRAVERSE_V2
 		printf_mpi(rank, "\t\tSuccess Ratio (Type 2): %f\n", success_ratio2);
+		#endif
 		printf_mpi(rank, "\t\tTraversed Pairs: %" PRIu64 "\n", n_trav);
 		if (!rank) printf_std();
 		fflush(stdout);
@@ -580,12 +609,6 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitvector &adj,
 		//(2) Check minimal past relations
 		for (m = 0; m < nodes.k_in[loc]; m++) {
 			idx_a = edges.past_edges[edges.past_edge_row_start[loc]+m];
-			/*if (TRAV_DEBUG) {
-				printf_cyan();
-				printf("\tConsidering past neighbor %d.\n", idx_a);
-				printf_std();
-				fflush(stdout);
-			}*/
 
 			//Continue if not a minimal element
 			if (!!nodes.k_in[idx_a])
@@ -609,12 +632,6 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitvector &adj,
 		//(3) Check maximal future relations
 		for (m = 0; m < nodes.k_out[loc]; m++) {
 			idx_a = edges.future_edges[edges.future_edge_row_start[loc]+m];
-			/*if (TRAV_DEBUG) {
-				printf_cyan();
-				printf("\tConsidering future neighbor %d.\n", idx_a);
-				printf_std();
-				fflush(stdout);
-			}*/
 
 			//Continue if not a maximal element
 			if (!!nodes.k_out[idx_a])
@@ -714,7 +731,7 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 
 	static const bool TRAV_DEBUG = false;
 
-	uint64_t row;//, block;
+	uint64_t row;
 	double dist;
 	int next;
 
@@ -731,8 +748,8 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 	bool retval = true;
 	while (loc != dest) {
 		next = loc;
-		row = static_cast<uint64_t>(loc) * N_tar;
-		//block = static_cast<uint64_t>(ceil(static_cast<long double>(row + 1ULL) / (sizeof(BlockType) * CHAR_BIT))) - 1ULL;
+		//row = static_cast<uint64_t>(loc) * N_tar;
+		row = loc;
 		dist = INF;
 		min_dist = INF;
 		used[loc] = true;
@@ -755,25 +772,26 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 		#pragma omp parallel for firstprivate (dist) schedule (dynamic, 4) num_threads(4)
 		#endif
 		for (int m = 0; m < N_tar; m++) {
-			//Continue if 'loc' is not connected to anything in the whole block
-			/*if (!(m % (sizeof(BlockType) * CHAR_BIT))) {
-				if (!adj.readBlock(block + m / (sizeof(BlockType) * CHAR_BIT)))
-					continue;
-			}*/
-
 			//Continue if 'loc' is not connected to 'm'
 			if (!adj[row].read(m))
 				continue;
 
+			//Otherwise find the minimal/maximal element closest to the destination
+			#if TRAVERSE_VECPROD
+			if (get_manifold(spacetime) & DE_SITTER)
+				deSitterInnerProduct(nodes, spacetime, N_tar, m, dest, &dist);
+			else if (get_manifold(spacetime) & HYPERBOLIC)
+				nodesAreRelatedHyperbolic(nodes, spacetime, N_tar, zeta, r_max, m, dest, &dist);
+			#else
 			//Continue if not a minimal/maximal element
 			if ((m < loc && !!nodes.k_in[m]) || (m > loc && !!nodes.k_out[m]))
 				continue;
 
-			//Otherwise find the minimal/maximal element closest to the destination
 			if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW))
 				nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, m, dest, &dist);
 			else if (get_manifold(spacetime) & HYPERBOLIC)
 				dist = distanceH(nodes.crd->getFloat2(m), nodes.crd->getFloat2(dest), spacetime, zeta);
+			#endif
 			else
 				#ifdef _OPENMP
 				#pragma omp critical
@@ -1068,7 +1086,7 @@ void* actionKernel(void *params)
 		uint64_t glob_i = loc_to_glob_idx(p->current[0], i, p->N_tar, p->num_mpi_threads, p->rank);
 		uint64_t glob_j = loc_to_glob_idx(p->current[0], j, p->N_tar, p->num_mpi_threads, p->rank);
 		if (glob_i == glob_j) continue;
-		if (glob_i >= p->N_tar || glob_j >= p->N_tar) continue;
+		if (glob_i >= static_cast<uint64_t>(p->N_tar) || glob_j >= static_cast<uint64_t>(p->N_tar)) continue;
 
 		if (glob_i > glob_j) {
 			glob_i ^= glob_j;
@@ -1180,7 +1198,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		uint64_t glob_j = j + cmpi.rank * N_eff;
 
 		if (glob_i == glob_j) continue;
-		if (glob_i >= N_tar || glob_j >= N_tar) continue;
+		if (glob_i >= static_cast<uint64_t>(N_tar) || glob_j >= static_cast<uint64_t>(N_tar)) continue;
 		if (!nodesAreConnected_v2(adj, N_tar, static_cast<int>(i), static_cast<int>(glob_j))) continue;
 
 		uint64_t length = glob_j - glob_i + 1;
@@ -1200,12 +1218,10 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	std::unordered_set<FastBitset> permutations;
 	init_mpi_permutations(permutations, current);
 
-	//printCardinalities(cardinalities, N_tar - 1, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
-
 	//Construct set of pairs
 	int pair[2];
 	std::unordered_set<std::pair<int,int> > new_pairs;
-	init_mpi_pairs(new_pairs, current, nbuf);
+	init_mpi_pairs(new_pairs, current);
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	std::vector<unsigned int> next;
@@ -1268,7 +1284,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-	int lockcnt, lockmax;
+	int lockcnt = -1, lockmax = -1;
 	while (new_pairs.size() > 0) {
 		std::vector<std::pair<int,int> > swaps;
 		std::pair<int,int> swap = std::make_pair(-1,-1);
@@ -1283,7 +1299,6 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 				}
 				sleep(2);
 				//printf("Rank [%d] operating on [%d] and [%d]\n", rank, current[rank<<1], current[(rank<<1)+1]);
-				//memset(cardinalities, 0, sizeof(uint64_t) * (N_tar - 1) * omp_get_max_threads());	//DEBUG
 				pthread_create(&thread, &attr, actionKernel, (void*)&p);
 			} else {
 				waiting = true;
@@ -1326,7 +1341,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 						printf("Rank [%d] will send a lock signal and wait.\n", rank);
 						fflush(stdout);
 					}
-					sendSignal(1, rank, cmpi.num_mpi_threads);
+					sendSignal(REQUEST_LOCK, rank, cmpi.num_mpi_threads);
 					lock[rank] = LOCKED;
 				}
 				waiting = true;
@@ -1343,7 +1358,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 			int first = 0;
 			switch (signal) {
-			case 0:
+			case REQUEST_UNLOCK:
 				//Unlock
 				MPI_Barrier(MPI_COMM_WORLD);
 
@@ -1381,7 +1396,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 				if (ACTION_DEBUG_VERBOSE)
 					printf("Rank [%d] CONTINUING.\n", rank);
 				continue;
-			case 1:
+			case REQUEST_LOCK:
 				//Lock
 				MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, lock, 1, MPI_INT, MPI_COMM_WORLD);
 				success = 0;
@@ -1419,7 +1434,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 				}
 				if (lockcnt == lockmax && cmpi.lock == UNLOCKED) waiting = false;
 				break;
-			case 2:
+			case REQUEST_UPDATE_AVAIL:
 				//Update list of available trades
 				if (cmpi.lock == UNLOCKED) {
 					printf("ERROR (2)\n");
@@ -1439,7 +1454,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 				}
 				if (!p.busy[0]) waiting = true;
 				break;
-			case 3:
+			case REQUEST_UPDATE_NEW:
 				//Update list of unused pairs
 				if (cmpi.lock == UNLOCKED) {
 					printf("ERROR (3)\n");
@@ -1457,7 +1472,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 				}
 				if (!p.busy[0]) waiting = true;
 				break;
-			case 4:
+			case REQUEST_EXCHANGE:
 				//Memory exchange
 				if (cmpi.lock == UNLOCKED) {
 					printf("ERROR (4)\n");
@@ -1493,13 +1508,13 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		if (ACTION_DEBUG_VERBOSE) {
 			printf("The master made available: %d and %d\n", avail[avail.size() - 2], avail[avail.size() - 1]);
 			printf("Available elements: (");
-			for (int i = 0; i < avail.size(); i++)
+			for (size_t i = 0; i < avail.size(); i++)
 				printf("%d, ", avail[i]);
 			printf(")\n");
 		}
 		int avail_size = avail.size();
 
-		sendSignal(2, rank, cmpi.num_mpi_threads);
+		sendSignal(REQUEST_UPDATE_AVAIL, rank, cmpi.num_mpi_threads);
 		MPI_Bcast(&avail_size, 1, MPI_INT, rank, MPI_COMM_WORLD);
 		MPI_Bcast(&avail.front(), avail.size(), MPI_INT, rank, MPI_COMM_WORLD);
 
@@ -1514,10 +1529,10 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		}
 		//printCardinalities(cardinalities, N_tar - 1, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
 
-		sendSignal(3, rank, cmpi.num_mpi_threads);
+		sendSignal(REQUEST_UPDATE_NEW, rank, cmpi.num_mpi_threads);
 		MPI_Bcast(pair, 2, MPI_INT, rank, MPI_COMM_WORLD);
 
-		for (int i = 0; i < avail.size(); i++) {
+		for (size_t i = 0; i < avail.size(); i++) {
 			if (avail[i] == pair[0] || avail[i] == pair[1]) continue;
 			if (new_pairs.find(std::make_pair(std::min(avail[i], pair[0]), std::max(avail[i], pair[0]))) != new_pairs.end()) {
 				swap = std::make_pair(std::min(avail[i], pair[1]), std::max(avail[i], pair[1]));
@@ -1532,14 +1547,14 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		if (swap != std::make_pair(-1,-1)) {
 			if (ACTION_DEBUG_VERBOSE)
 				printf("Identified a swap: (%d, %d)\n", std::get<0>(swap), std::get<1>(swap));
-			for (int i = 0; i < nbuf; i++)
-				if (std::get<0>(swap) == current[i])
+			for (int i = 0; i < static_cast<int>(nbuf); i++)
+				if (std::get<0>(swap) == static_cast<int>(current[i]))
 					swaps.push_back(std::make_pair(i, -1));
-			for (int i = 0; i < nbuf; i++)
-				if (std::get<1>(swap) == current[i])
+			for (int i = 0; i < static_cast<int>(nbuf); i++)
+				if (std::get<1>(swap) == static_cast<int>(current[i]))
 					swaps.push_back(std::make_pair(-1, i));
 
-			sendSignal(4, rank, cmpi.num_mpi_threads);
+			sendSignal(REQUEST_EXCHANGE, rank, cmpi.num_mpi_threads);
 			pair[0] = std::get<0>(swaps[0]);
 			pair[1] = std::get<1>(swaps[1]);
 			swaps.insert(swaps.begin()+1, std::make_pair(pair[1], pair[0]));
@@ -1561,8 +1576,8 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 			int r0 = pair[0] >> 1;
 			int r1 = pair[1] >> 1;
-			for (int i = 0; i < avail.size(); i++) {
-				if (avail[i] == current[r0<<1] || avail[i] == current[(r0<<1)+1] || avail[i] == current[r1<<1] || avail[i] == current[(r1<<1)+1]) {
+			for (size_t i = 0; i < avail.size(); i++) {
+				if (avail[i] == static_cast<int>(current[r0<<1]) || avail[i] == static_cast<int>(current[(r0<<1)+1]) || avail[i] == static_cast<int>(current[r1<<1]) || avail[i] == static_cast<int>(current[(r1<<1)+1])) {
 					avail.erase(avail.begin()+i);
 					i--;
 				}
@@ -1577,14 +1592,14 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			}
 			if (ACTION_DEBUG_VERBOSE) {
 				printf("The master updated avail to (");
-				for (int i = 0; i < avail.size(); i++) {
+				for (size_t i = 0; i < avail.size(); i++) {
 					printf("%d, ", avail[i]);
 				}
 				printf(")\n");
 			}
 
 			avail_size = avail.size();
-			sendSignal(2, rank, cmpi.num_mpi_threads);
+			sendSignal(REQUEST_UPDATE_AVAIL, rank, cmpi.num_mpi_threads);
 			MPI_Bcast(&avail_size, 1, MPI_INT, rank, MPI_COMM_WORLD);
 			MPI_Bcast(&avail.front(), avail.size(), MPI_INT, rank, MPI_COMM_WORLD);
 		} else {
@@ -1594,7 +1609,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		}
 
 		//Unlock
-		sendSignal(0, rank, cmpi.num_mpi_threads);
+		sendSignal(REQUEST_UNLOCK, rank, cmpi.num_mpi_threads);
 		MPI_Barrier(MPI_COMM_WORLD);
 		lock[rank] = UNLOCKED;
 		if (ACTION_DEBUG) {
@@ -1770,7 +1785,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		uint64_t glob_i = i + cmpi.rank * N_eff;
 		uint64_t glob_j = j + cmpi.rank * N_eff;
 		if (glob_i == glob_j) continue;
-		if (glob_i >= N_tar || glob_j >= N_tar) continue;
+		if (glob_i >= static_cast<uint64_t>(N_tar) || glob_j >= static_cast<uint64_t>(N_tar)) continue;
 		//printf("Rank [%d] is examining [%" PRIu64 " - %" PRIu64 "]\n", cmpi.rank, glob_i, glob_j);
 		if (!nodesAreConnected_v2(adj, N_tar, static_cast<int>(i), static_cast<int>(glob_j))) continue;
 		//printf("Nodes are connected!\n");
@@ -1780,7 +1795,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		workspace[tid].partial_intersection(adj[j], glob_i, length);
 		uint64_t cnt = workspace[tid].partial_count(glob_i, length);
 		if (ACTION_DEBUG_VERBOSE)
-			printf("\tCounted [%" PRIu64 "] elements in the interval [%d - %d]\n", cnt, glob_i, glob_j);
+			printf("\tCounted [%" PRIu64 "] elements in the interval [%" PRIu64 " - %" PRIu64 "]\n", cnt, glob_i, glob_j);
 		//cardinalities[tid*(N_tar-1)+workspace[tid].partial_count(glob_i, length)+1]++;
 		cardinalities[tid*(N_tar-1)+cnt+1]++;
 	}
@@ -1892,7 +1907,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			uint64_t glob_i = loc_to_glob_idx(next, i, N_tar, cmpi.num_mpi_threads, cmpi.rank);
 			uint64_t glob_j = loc_to_glob_idx(next, j, N_tar, cmpi.num_mpi_threads, cmpi.rank);
 			if (glob_i == glob_j) continue;
-			if (glob_i >= N_tar || glob_j >= N_tar) continue;
+			if (glob_i >= static_cast<uint64_t>(N_tar) || glob_j >= static_cast<uint64_t>(N_tar)) continue;
 
 			if (glob_i > glob_j) {
 				glob_i ^= glob_j;
@@ -1913,7 +1928,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			workspace[tid].partial_intersection(adj[j], glob_i, length);
 			uint64_t cnt = workspace[tid].partial_count(glob_i, length);
 			if (ACTION_DEBUG_VERBOSE)
-				printf("\tCounted [%" PRIu64 "] elements in the interval [%d - %d]\n", cnt, glob_i, glob_j);
+				printf("\tCounted [%" PRIu64 "] elements in the interval [%" PRIu64 " - %" PRIu64 "]\n", cnt, glob_i, glob_j);
 			//cardinalities[tid*(N_tar-1)+workspace[tid].partial_count(glob_i, length)+1]++;
 			cardinalities[tid*(N_tar-1)+cnt+1]++;
 		}
@@ -2087,6 +2102,94 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 	if (verbose) {
 		printf("\t\tExecution Time: %5.6f sec\n", sMeasureAction.elapsedTime);
+		fflush(stdout);
+	}
+
+	return true;
+}
+
+bool measureVecprod(float *& vecprods, const Node &nodes, const int spacetime, const int N_tar, const long double N_vp, const double a, const double zeta, const double r_max, const double tau0, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureVecprod, const bool verbose, const bool bench)
+{
+	#if DEBUG
+	assert (get_stdim(spacetime) == 2);
+	assert (get_manifold(spacetime) & (DE_SITTER | HYPERBOLIC));
+	assert (get_curvature(spacetime) & POSITIVE);
+	assert (N_tar > 0);
+	assert (N_vp > 0 && N_vp <= ((uint64_t)N_tar * (N_tar - 1)) >> 1);
+	assert (zeta > 0.0);
+	if (get_manifold(spacetime) & DE_SITTER) {
+		assert (a > 0.0);
+		assert (zeta < HALF_PI);
+	}
+	#endif
+
+	stopwatchStart(&sMeasureVecprod);
+
+	//Allocate memory for vector product measurements
+	int n = N_tar + N_tar % 2;
+	uint64_t max_pairs = static_cast<uint64_t>(n) * (n - 1) / 2;
+	#if !VP_RANDOM
+	uint64_t stride = static_cast<uint64_t>(max_pairs / N_vp);
+	#endif
+	uint64_t npairs = static_cast<uint64_t>(N_vp);
+	try {
+		vecprods = (float*)malloc(sizeof(float) * npairs);
+		if (vecprods == NULL)
+			throw std::bad_alloc();
+		memset(vecprods, 0, sizeof(float) * npairs);
+		ca->hostMemUsed += sizeof(float) * npairs;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	}
+
+	float ds_norm = 1.0 / cosh(2.0 * tau0);
+	float h_norm = 1.0 / cosh(2.0 * r_max / zeta);
+	float norm = get_manifold(spacetime) & DE_SITTER ? ds_norm : h_norm;
+
+	#ifdef _OPENMP
+	unsigned int seed = static_cast<unsigned int>(mrng.rng() * 4000000000);
+	#pragma omp parallel if (npairs > 10000)
+	{
+	Engine eng(seed ^ omp_get_thread_num());
+	UDistribution dst(0.0, 1.0);
+	UGenerator rng(eng, dst);
+	#pragma omp for schedule (dynamic, 32)
+	#else
+	UGenerator &rng = mrng.rng;
+	#endif
+	for (uint64_t k = 0; k < npairs; k++) {
+		uint64_t vec_idx;
+		#if VP_RANDOM
+		vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
+		#else
+		vec_idx = k * stride;
+		#endif
+		int i = static_cast<int>(vec_idx / (n - 1));
+		int j = static_cast<int>(vec_idx % (n - 1) + 1);
+		int do_map = i >= j;
+		i += do_map * ((((n >> 1) - i) << 1) - 1);
+		j += do_map * (((n >> 1) - j) << 1);
+		if (j == N_tar) continue;
+
+		float sinh_ab = sinh(nodes.id.tau[i]) * sinh(nodes.id.tau[j]);
+		float cosh_ab = cosh(nodes.id.tau[i]) * cosh(nodes.id.tau[j]);
+		float theta_ab = cos(nodes.crd->y(i) - nodes.crd->y(j));
+		vecprods[k] = (cosh_ab - sinh_ab * theta_ab) * norm;
+	}
+	#ifdef _OPENMP
+	}
+	#endif
+
+	stopwatchStop(&sMeasureVecprod);
+
+	if (!bench) {
+		printf("\tCalculated Vector Products.\n");
+		fflush(stdout);
+	}
+
+	if (verbose) {
+		printf("\t\tExecution Time: %5.6f sec\n", sMeasureVecprod.elapsedTime);
 		fflush(stdout);
 	}
 

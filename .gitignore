@@ -2,6 +2,7 @@ dat/**
 bin/*
 core*
 etc/tables/*
+etc/*.key
 
 # Autoconf files
 autom4te.cache/**
@@ -23,6 +24,8 @@ src/.deps/**
 src/.dirstamp
 src/Makefile
 src/Makefile.in
+src/*.o
+src/*.a
 inc/config.h*
 inc/Makefile
 inc/Makefile.in

@@ -12,10 +12,10 @@
 set -eu -o pipefail
 
 # Spacetime ID
-id=41508
+id=49922
 
 # Version
-ver=1
+ver="1_1"
 
 # Other relevant parameters
 n=20480		# Number of nodes

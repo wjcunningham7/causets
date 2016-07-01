@@ -6,7 +6,7 @@
 // Northeastern University //
 /////////////////////////////
 
-template<bool compact, bool diag, int stdim>
+template<bool compact, bool hyp, bool diag, int stdim>
 __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float *z0, float *w1, float *x1, float *y1, float *z1, int *k_in, int *k_out, bool *edges, size_t size0, size_t size1)
 {
 
@@ -62,30 +62,35 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 			}
 
 			//Identify spacetime interval
-			if (stdim == 2)
-				dt[k] = fabs(n1.x - n0.x);
-			else if (stdim == 4)
-				dt[k] = fabs(n1.w - n0.w);
-
-			if (compact) {
-				if (stdim == 2)
-					dx[k] = M_PI - fabs(M_PI - fabs(n1.y - n0.y));
-				else if (stdim == 4) {
-					#if DIST_V2
-					dx[k] = acosf(sphProduct_GPU_v2(n0, n1));
-					#else
-					dx[k] = acosf(sphProduct_GPU_v1(n0, n1));
-					#endif
-				}
+			if (hyp) {
+				dt[k] = max(n0.x, n1.x);
+				dx[k] = acosh(cosh(n0.x) * cosh(n1.x) - sinh(n0.x) * sinh(n1.x) * cos(n0.y - n1.y));
 			} else {
 				if (stdim == 2)
-					dx[k] = fabs(n1.y - n0.y);
-				else if (stdim == 4) {
-					#if DIST_V2
-					dx[k] = sqrtf(flatProduct_GPU_v2(n0, n1));
-					#else
-					dx[k] = sqrtf(flatProduct_GPU_v1(n0, n1));
-					#endif
+					dt[k] = fabs(n1.x - n0.x);
+				else if (stdim == 4)
+					dt[k] = fabs(n1.w - n0.w);
+
+				if (compact) {
+					if (stdim == 2)
+						dx[k] = M_PI - fabs(M_PI - fabs(n1.y - n0.y));
+					else if (stdim == 4) {
+						#if DIST_V2
+						dx[k] = acosf(sphProduct_GPU_v2(n0, n1));
+						#else
+						dx[k] = acosf(sphProduct_GPU_v1(n0, n1));
+						#endif
+					}
+				} else {
+					if (stdim == 2)
+						dx[k] = fabs(n1.y - n0.y);
+					else if (stdim == 4) {
+						#if DIST_V2
+						dx[k] = sqrtf(flatProduct_GPU_v2(n0, n1));
+						#else
+						dx[k] = sqrtf(flatProduct_GPU_v1(n0, n1));
+						#endif
+					}
 				}
 			}
 		}
@@ -264,7 +269,6 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 	stopwatchStop(&sGenAdjList);
 
 	//printf_dbg("Number of Links: %" PRId64 "\n", *g_idx);
-	//printChk();
 
 	if (!use_bit) {
 		try {
@@ -407,16 +411,15 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 	assert (nodes.k_out != NULL);
 	assert (g_idx != NULL);
 	assert (ca != NULL);
+	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
 	assert (N_tar > 0);
 	assert (group_size >= 1);
 	assert (use_bit);
 	#endif
 
-	#ifdef MPI_ENABLED
 	if (!cmpi.rank) printf_mag();
 	printf_mpi(cmpi.rank, "Using Version 3 (linkNodesGPU).\n");
 	if (!cmpi.rank) printf_std();
-	#endif
 
 	//CUDA Streams
 	CUstream stream [NBUFFERS];
@@ -532,22 +535,12 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 	//Index 'i' marks the row and 'j' marks the column
 	int start = mpi_offset;
 	int finish = start + mpi_chunk;
-	//DEBUG
-	//start = finish - 1;
 	for (i = start; i < finish; i++) {
 		for (j = 0; j < group_size / NBUFFERS; j++) {
 			for (k = 0; k < NBUFFERS; k++) {
-				/*printf("rank[%d] reporting at index [%d, %d, %d] (Point 1)\n", cmpi.rank, i - mpi_offset, j, k);
-				if (i >= group_size - 1) printf("Using final_size for row!\n");
-				if (j * NBUFFERS + k >= group_size - 1) printf("Using final_size for column!\n");
-				fflush(stdout); sleep(1);
-				MPI_Barrier(MPI_COMM_WORLD);*/
-
 				size0 = (i < group_size - 1) ? mthread_size : final_size;
 				size1 = (j * NBUFFERS + k < group_size - 1) ? mthread_size : final_size;
 				limit = (size0 == mthread_size) ? core_limit : final_limit;
-
-				//if (size0 == 0 || size1 == 0) continue;
 
 				//Clear Device Buffers
 				checkCudaErrors(cuMemsetD32Async(d_k_in[k], 0, mthread_size, stream[k]));
@@ -569,34 +562,26 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 					checkCudaErrors(cuMemcpyHtoDAsync(d_z1[k], nodes.crd->z() + (j * NBUFFERS + k) * mthread_size, sizeof(float) * size1, stream[k]));
 				}
 
-				/*printf("rank[%d] reporting at index [%d, %d, %d] (Point 2)\n", cmpi.rank, i - mpi_offset, j, k);
-				fflush(stdout); sleep(1);
-				MPI_Barrier(MPI_COMM_WORLD);*/
-
 				//Execute Kernel
 				int flags = stdim | (int)compact;
 				switch (flags) {
 				case 2:
-					GenerateAdjacencyLists_v2<false, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
+					GenerateAdjacencyLists_v2<false, false, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
 					break;
 				case 3:
-					GenerateAdjacencyLists_v2<true, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
+					GenerateAdjacencyLists_v2<true, false, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
 					break;
 				case 4:
-					GenerateAdjacencyLists_v2<false, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
+					GenerateAdjacencyLists_v2<false, false, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
 					break;
 				case 5:
-					GenerateAdjacencyLists_v2<true, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
+					GenerateAdjacencyLists_v2<true, false, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[k]>>>((float*)d_w0[k], (float*)d_x0[k], (float*)d_y0[k], (float*)d_z0[k], (float*)d_w1[k], (float*)d_x1[k], (float*)d_y1[k], (float*)d_z1[k], (int*)d_k_in[k], (int*)d_k_out[k], (bool*)d_edges[k], size0, size1);
 					break;
 				default:
 					fprintf(stderr, "Invalid flag value: %d\n", flags);
 					return false;
 				}
 				getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists_v2' Failed to Execute!\n");
-
-				/*printf("rank[%d] reporting at index [%d, %d, %d] (Point 3)\n", cmpi.rank, i - mpi_offset, j, k);
-				fflush(stdout); sleep(1);
-				MPI_Barrier(MPI_COMM_WORLD);*/
 
 				//Copy Memory to Host Buffers
 				checkCudaErrors(cuMemcpyDtoHAsync(h_k_in[k], d_k_in[k], sizeof(int) * size1, stream[k]));
@@ -606,20 +591,10 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 				//Synchronize
 				checkCudaErrors(cuStreamSynchronize(stream[k]));
 
-				/*printf("rank[%d] reporting at index [%d, %d, %d] (Point 4)\n", cmpi.rank, i - mpi_offset, j, k);
-				fflush(stdout); sleep(1);
-				MPI_Barrier(MPI_COMM_WORLD);*/
-
 				//Read Data from Buffers
 				readDegrees(nodes.k_in, h_k_in[k], (j * NBUFFERS + k) * mthread_size, size1);
 				readDegrees(nodes.k_out, h_k_out[k], i * mthread_size, size0);
 				readEdges(NULL, h_edges[k], adj, g_idx, limit, N_tar, 0, mthread_size, size0, size1, i - start, j * NBUFFERS + k, true, true);
-
-				/*printf("rank[%d] reporting at index [%d, %d, %d] (Point 5)\n", cmpi.rank, i - start, j, k);
-				fflush(stdout); sleep(1);
-				MPI_Barrier(MPI_COMM_WORLD);
-				printf_mpi(cmpi.rank, "\n");
-				fflush(stdout); sleep(1);*/
 			}
 		}
 	}
@@ -706,7 +681,6 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
-	//assert (nodes.crd->getDim() == 4);
 	assert (!nodes.crd->isNull());
 	assert (nodes.crd->x() != NULL);
 	assert (nodes.crd->y() != NULL);
@@ -754,6 +728,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	unsigned int stdim = get_stdim(spacetime);
 	unsigned int i, j, m;
 
+	bool hyp = get_manifold(spacetime) & HYPERBOLIC;
 	bool compact = get_curvature(spacetime) & POSITIVE;
 	bool diag;
 
@@ -834,14 +809,20 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 				checkCudaErrors(cuMemsetD8Async(d_edges[m], 0, m_edges_size, stream[m]));					
 			
 				//Transfer Nodes to Device Buffers
-				checkCudaErrors(cuMemcpyHtoDAsync(d_x0[m], nodes.crd->x() + i * mthread_size, sizeof(float) * size0, stream[m]));
+				if (hyp)
+					checkCudaErrors(cuMemcpyHtoDAsync(d_x0[m], nodes.id.tau + i * mthread_size, sizeof(float) * size0, stream[m]));
+				else
+					checkCudaErrors(cuMemcpyHtoDAsync(d_x0[m], nodes.crd->x() + i * mthread_size, sizeof(float) * size0, stream[m]));
 				checkCudaErrors(cuMemcpyHtoDAsync(d_y0[m], nodes.crd->y() + i * mthread_size, sizeof(float) * size0, stream[m]));
 				if (stdim == 4) {
 					checkCudaErrors(cuMemcpyHtoDAsync(d_w0[m], nodes.crd->w() + i * mthread_size, sizeof(float) * size0, stream[m]));
 					checkCudaErrors(cuMemcpyHtoDAsync(d_z0[m], nodes.crd->z() + i * mthread_size, sizeof(float) * size0, stream[m]));
 				}
 
-				checkCudaErrors(cuMemcpyHtoDAsync(d_x1[m], nodes.crd->x() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
+				if (hyp)
+					checkCudaErrors(cuMemcpyHtoDAsync(d_x1[m], nodes.id.tau + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
+				else
+					checkCudaErrors(cuMemcpyHtoDAsync(d_x1[m], nodes.crd->x() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
 				checkCudaErrors(cuMemcpyHtoDAsync(d_y1[m], nodes.crd->y() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
 				if (stdim == 4) {
 					checkCudaErrors(cuMemcpyHtoDAsync(d_w1[m], nodes.crd->w() + (j * NBUFFERS + m) * mthread_size, sizeof(float) * size1, stream[m]));
@@ -849,32 +830,56 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 				}
 
 				//Execute Kernel
-				int flags = ((int)diag << 4) | ((int)compact << 3) | stdim;
+				int flags = ((int)hyp << 5) | ((int)diag << 4) | ((int)compact << 3) | stdim;
 				switch (flags) {
 				case 2:
-					GenerateAdjacencyLists_v2<false, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					GenerateAdjacencyLists_v2<false, false, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
 					break;
 				case 4:
-					GenerateAdjacencyLists_v2<false, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					GenerateAdjacencyLists_v2<false, false, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
 					break;
 				case 10:
-					GenerateAdjacencyLists_v2<true, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					GenerateAdjacencyLists_v2<true, false, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
 					break;
 				case 12:
-					GenerateAdjacencyLists_v2<true, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					GenerateAdjacencyLists_v2<true, false, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
 					break;
 				case 18:
-					GenerateAdjacencyLists_v2<false, true, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					GenerateAdjacencyLists_v2<false, false, true, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
 					break;
 				case 20:
-					GenerateAdjacencyLists_v2<false, true, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					GenerateAdjacencyLists_v2<false, false, true, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
 					break;
 				case 26:
-					GenerateAdjacencyLists_v2<true, true, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					GenerateAdjacencyLists_v2<true, false, true, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
 					break;
 				case 28:
-					GenerateAdjacencyLists_v2<true, true, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					GenerateAdjacencyLists_v2<true, false, true, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
 					break;
+				//case 34:
+				//	GenerateAdjacencyLists_v2<false, true, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+				//	break;
+				//case 36:
+				//	GenerateAdjacencyLists_v2<false, true, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+				//	break;
+				case 42:
+					GenerateAdjacencyLists_v2<true, true, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					break;
+				//case 44:
+				//	GenerateAdjacencyLists_v2<true, true, false, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+				//	break;
+				//case 50:
+				//	GenerateAdjacencyLists_v2<false, true, true, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+				//	break;
+				//case 52:
+				//	GenerateAdjacencyLists_v2<false, true, true, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+				//	break;
+				case 58:
+					GenerateAdjacencyLists_v2<true, true, true, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+					break;
+				//case 60:
+				//	GenerateAdjacencyLists_v2<true, true, true, 4><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1);
+				//	break;
 				default:
 					fprintf(stderr, "Invalid flag value: %d\n", flags);
 					return false;

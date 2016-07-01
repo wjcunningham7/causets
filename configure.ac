@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([CausalSet], [1], [w.cunningham@northeastern.edu])
+AC_INIT([CausalSet], [1.1], [w.cunningham@northeastern.edu])
 AM_INIT_AUTOMAKE
 
 if [[ -e /home/$USER/.causet ]] ; then
@@ -77,8 +77,8 @@ AX_PROG_MPICXX([$MPI_HOME])
 BINARY_NAME=CausalSet$PLATFORM
 if [[[ "$CUDA_ENABLED" == "yes" ]]] ; then
 COMPILE_STR="$NVCC -dc $CUDA_FLAGS $FASTMATH_FLAGS -Xcompiler '$AVXFLAGS $ARCHFLAGS $OPENMP_CXXFLAGS $MPI_FLAGS'"
-LINK_STR="$NVCC src/*.o -dlink $CUDA_FLAGS -o src/linked.o"
-BIN_STR="$CXX src/*.o $LDFLAGS $CUDA_LDFLAGS $FASTMATH_LDFLAGS -o bin/$BINARY_NAME"
+LNK_STR="$NVCC src/*.o -dlink $CUDA_FLAGS -o src/linked.o"
+BIN_STR="$CXX src/*.o $OPENMP_CXXFLAGS $LDFLAGS $CUDA_LDFLAGS $FASTMATH_LDFLAGS -o bin/$BINARY_NAME"
 else
 COMPILE_STR="$CXX -c $CXXFLAGS $FASTMATH_FLAGS $AVXFLAGS $ARCHFLAGS $OPENMP_CXXFLAGS $MPI_FLAGS"
 LNK_STR="$CXX src/*.o $OPENMP_CXXFLAGS $LDFLAGS $FASTMATH_LDFLAGS -o bin/$BINARY_NAME"

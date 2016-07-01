@@ -33,3 +33,4 @@ mkdir -p $basedir/dat/odd
 mkdir -p $basedir/dat/odf
 mkdir -p $basedir/dat/pos
 mkdir -p $basedir/dat/ref
+mkdir -p $basedir/dat/vpd

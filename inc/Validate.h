@@ -59,4 +59,8 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 
 bool validateCoordinates(const Node &nodes, const unsigned int &spacetime, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const int &i);
 
+void printCardinalities(const uint64_t * const cardinalities, unsigned int Nc, unsigned int nthreads, unsigned int idx0, unsigned int idx1, unsigned int version);
+
+void print_pairs(std::vector<unsigned int> vec);
+
 #endif

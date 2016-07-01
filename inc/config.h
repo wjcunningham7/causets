@@ -2,7 +2,7 @@
 /* inc/config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* GPU global memory size (in bytes) */
-/* #undef GLOB_MEM */
+#define GLOB_MEM 5000000000
 
 /* Define if avx2 instructions are supported */
 #define HAVE_AVX2_INSTRUCTIONS 1
@@ -79,19 +79,19 @@
 #define HAVE_INC_MEASUREMENTS_H 1
 
 /* Define to 1 if you have the file `AC_File'. */
-/* #undef HAVE_INC_NETWORKCREATOR_GPU_H */
+#define HAVE_INC_NETWORKCREATOR_GPU_H 1
 
 /* Define to 1 if you have the file `AC_File'. */
 #define HAVE_INC_NETWORKCREATOR_H 1
 
 /* Define to 1 if you have the file `AC_File'. */
-/* #undef HAVE_INC_OPERATIONS_GPU_H */
+#define HAVE_INC_OPERATIONS_GPU_H 1
 
 /* Define to 1 if you have the file `AC_File'. */
 #define HAVE_INC_OPERATIONS_H 1
 
 /* Define to 1 if you have the file `AC_File'. */
-/* #undef HAVE_INC_SUBROUTINES_GPU_H */
+#define HAVE_INC_SUBROUTINES_GPU_H 1
 
 /* Define to 1 if you have the file `AC_File'. */
 #define HAVE_INC_SUBROUTINES_H 1
@@ -109,10 +109,10 @@
 #define HAVE_IOSTREAM 1
 
 /* Define to 1 if you have the `cuda' library (-lcuda). */
-/* #undef HAVE_LIBCUDA */
+#define HAVE_LIBCUDA 1
 
 /* Define to 1 if you have the `cudart' library (-lcudart). */
-/* #undef HAVE_LIBCUDART */
+#define HAVE_LIBCUDART 1
 
 /* Define to 1 if you have the `gsl' library (-lgsl). */
 #define HAVE_LIBGSL 1
@@ -164,16 +164,16 @@
 #define HAVE_SRC_NETWORKCREATOR_CU 1
 
 /* Define to 1 if you have the file `AC_File'. */
-/* #undef HAVE_SRC_NETWORKCREATOR_GPU_CU */
+#define HAVE_SRC_NETWORKCREATOR_GPU_CU 1
 
 /* Define to 1 if you have the file `AC_File'. */
-/* #undef HAVE_SRC_OPERATIONS_GPU_CU */
+#define HAVE_SRC_OPERATIONS_GPU_CU 1
 
 /* Define to 1 if you have the file `AC_File'. */
 #define HAVE_SRC_SUBROUTINES_CU 1
 
 /* Define to 1 if you have the file `AC_File'. */
-/* #undef HAVE_SRC_SUBROUTINES_GPU_CU */
+#define HAVE_SRC_SUBROUTINES_GPU_CU 1
 
 /* Define to 1 if you have the file `AC_File'. */
 #define HAVE_SRC_VALIDATE_CU 1
@@ -233,19 +233,19 @@
 #define PACKAGE_NAME "CausalSet"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "CausalSet 1"
+#define PACKAGE_STRING "CausalSet 1.1"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "causalset"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1"
+#define PACKAGE_VERSION "1.1"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "1"
+#define VERSION "1.1"
 
 /* Define for Solaris 2.5.1 so the uint64_t typedef from <sys/synch.h>,
    <pthread.h>, or <semaphore.h> is not used. If the typedef were allowed, the

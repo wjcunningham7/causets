@@ -386,12 +386,13 @@ inline float flatEmbProduct(const float5 &sc0, const float5 &sc1)
 	return POW2(sc0.x - sc1.x, EXACT) + POW2(sc0.y - sc1.y, EXACT) + POW2(sc0.z - sc1.z, EXACT);
 }
 
-//=========================//
-// Node Relation Algorithm //
-//=========================//
+//==========================//
+// Node Relation Algorithms //
+//==========================//
 
 //Assumes coordinates have been temporally ordered
-inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx, double *omega12)
+//Used for relations in Lorentzian spaces
+inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const int N_tar, const double a, const double zeta, const double zeta1, const double r_max, const double alpha, int past_idx, int future_idx, double *omega12)
 {
 	#if DEBUG
 	assert (!c->isNull());
@@ -527,6 +528,80 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int &spacetime, const
 		return true;
 	else
 		return false;
+}
+
+//Assumes coordinates have been temporally ordered
+//Used for relations in Hyperbolic spaces
+inline bool nodesAreRelatedHyperbolic(const Node &nodes, const unsigned int spacetime, const int N_tar, const double zeta, const double r_max, int past_idx, int future_idx, double *product)
+{
+	#if DEBUG
+	assert (!nodes.crd->isNull());
+	assert (get_stdim(spacetime) == 2);
+	assert (get_manifold(spacetime) & HYPERBOLIC);
+	assert (get_curvature(spacetime) & POSITIVE);
+
+	assert (nodes.crd->getDim() == 2);
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	assert (nodes.id.tau != NULL);
+
+	assert (N_tar > 0);
+	assert (zeta > 0.0);
+	assert (r_max > 0.0);
+	assert (past_idx >= 0 && past_idx < N_tar);
+	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (past_idx != future_idx);
+	#endif
+
+	float inner_product = 0.0f;//, max_z0 = 0.0f;
+
+	if (future_idx < past_idx) {
+		//Bitwise swap
+		past_idx ^= future_idx;
+		future_idx ^= past_idx;
+		past_idx ^= future_idx;
+	}
+
+	//Normalized Inner Product
+	inner_product = cosh(nodes.id.tau[past_idx]) * cosh(nodes.id.tau[future_idx]) - sinh(nodes.id.tau[past_idx]) * sinh(nodes.id.tau[future_idx]) * cos(nodes.crd->y(past_idx) - nodes.crd->y(future_idx));
+	//printf("inner product: %f\n", inner_product);
+	//printf("distance: %f\n", acosh(inner_product));
+	//printf("radius: %f\n", nodes.id.tau[future_idx]);
+
+	//Maximum z0 in Embedding
+	//max_z0 = cosh(nodes.id.tau[future_idx]);
+
+	if (product != NULL)
+		*product = inner_product;
+
+	//if (inner_product < max_z0)
+	if (acosh(inner_product) < nodes.id.tau[future_idx])
+		return true;
+	else
+		return false;
+}
+
+inline void deSitterInnerProduct(const Node &nodes, const unsigned int spacetime, const unsigned int N_tar, int past_idx, int future_idx, double *product)
+{
+	#if DEBUG
+	assert (!nodes.crd->isNull());
+	assert (get_stdim(spacetime) == 2);
+	assert (get_manifold(spacetime) & DE_SITTER);
+	assert (get_curvature(spacetime) & POSITIVE);
+
+	assert (nodes.crd->getDim() == 2);
+	assert (nodes.crd->x() != NULL);
+	assert (nodes.crd->y() != NULL);
+	assert (nodes.id.tau != NULL);
+	assert (product != NULL);
+
+	assert (N_tar > 0);
+	assert (past_idx >= 0 && past_idx < N_tar);
+	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (past_idx != future_idx);
+	#endif
+
+	*product = sinh(nodes.id.tau[past_idx]) * sinh(nodes.id.tau[future_idx]) - cosh(nodes.id.tau[past_idx]) * cosh(nodes.id.tau[future_idx]) * cos(nodes.crd->y(past_idx) - nodes.crd->y(future_idx));
 }
 
 //Check if point is inside asymmetric diamond
