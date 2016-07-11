@@ -532,7 +532,7 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const 
 
 //Assumes coordinates have been temporally ordered
 //Used for relations in Hyperbolic spaces
-inline bool nodesAreRelatedHyperbolic(const Node &nodes, const unsigned int spacetime, const int N_tar, const double zeta, const double r_max, int past_idx, int future_idx, double *product)
+inline bool nodesAreRelatedHyperbolic(const Node &nodes, const unsigned int spacetime, const int N_tar, const double zeta, const double r_max, const bool link_epso, int past_idx, int future_idx, double *product)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -553,7 +553,7 @@ inline bool nodesAreRelatedHyperbolic(const Node &nodes, const unsigned int spac
 	assert (past_idx != future_idx);
 	#endif
 
-	float inner_product = 0.0f;//, max_z0 = 0.0f;
+	float inner_product = 0.0f, max_r = 0.0f;
 
 	if (future_idx < past_idx) {
 		//Bitwise swap
@@ -564,24 +564,25 @@ inline bool nodesAreRelatedHyperbolic(const Node &nodes, const unsigned int spac
 
 	//Normalized Inner Product
 	inner_product = cosh(nodes.id.tau[past_idx]) * cosh(nodes.id.tau[future_idx]) - sinh(nodes.id.tau[past_idx]) * sinh(nodes.id.tau[future_idx]) * cos(nodes.crd->y(past_idx) - nodes.crd->y(future_idx));
-	//printf("inner product: %f\n", inner_product);
-	//printf("distance: %f\n", acosh(inner_product));
-	//printf("radius: %f\n", nodes.id.tau[future_idx]);
-
-	//Maximum z0 in Embedding
-	//max_z0 = cosh(nodes.id.tau[future_idx]);
 
 	if (product != NULL)
 		*product = inner_product;
+	
+	if (link_epso) {
+		double m = 5.0;
+		double R_i = nodes.id.tau[future_idx] + 2.0 * log(m * M_PI / nodes.id.tau[future_idx]);
+		double R_j = nodes.id.tau[past_idx] + 2.0 * log(m * M_PI / nodes.id.tau[past_idx]);
+		max_r = std::max(R_i, R_j);
+	} else
+		max_r = nodes.id.tau[future_idx];
 
-	//if (inner_product < max_z0)
-	if (acosh(inner_product) < nodes.id.tau[future_idx])
+	if (acosh(inner_product) < max_r)
 		return true;
 	else
 		return false;
 }
 
-inline void deSitterInnerProduct(const Node &nodes, const unsigned int spacetime, const unsigned int N_tar, int past_idx, int future_idx, double *product)
+inline void deSitterInnerProduct(const Node &nodes, const unsigned int spacetime, const int N_tar, int past_idx, int future_idx, double *product)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());

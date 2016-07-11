@@ -138,9 +138,11 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "gen-flrw-table", no_argument,	NULL,  0  },
 		{ "gpu", 	no_argument, 		NULL,  0  },
 		{ "graph",	required_argument,	NULL, 'g' },
+		{ "growing",	no_argument,		NULL,  0  },
 		{ "help", 	no_argument,		NULL, 'h' },
 		{ "quiet-read",	no_argument,		NULL,  0  },
 		{ "link",	no_argument,		NULL,  0  },
+		{ "link-epso",	no_argument,		NULL,  0  },
 		{ "manifold",	required_argument,	NULL, 'm' },
 		{ "print", 	no_argument, 		NULL,  0  },
 		{ "print-edges",no_argument,		NULL,  0  },
@@ -152,7 +154,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "relink",	no_argument,		NULL,  0  },
 		{ "seed",	required_argument,	NULL, 's' },
 		{ "spacetime",	required_argument,	NULL,  0  },
+		{ "split-action", required_argument,	NULL,  0  },
 		{ "stdim",	required_argument,	NULL,  0  },
+		{ "strict-routing", no_argument,	NULL,  0  },
 		{ "success",	required_argument,	NULL, 'S' },
 		{ "symmetry",	required_argument,	NULL,  0  },
 		{ "test",	no_argument,		NULL,  0  },
@@ -331,9 +335,15 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					#ifndef CUDA_ENABLED
 					throw CausetException("Recompile with 'make gpu' to use the --gpu flag!\n");
 					#endif
-				} else if (!strcmp("link", longOpts[longIndex].name))
+				} else if (!strcmp("growing", longOpts[longIndex].name))
+					//Use growing H2 model
+					network_properties.flags.growing = true;
+				else if (!strcmp("link", longOpts[longIndex].name))
 					//Flag for Reading Nodes (and not links) and Re-Linking
 					network_properties.flags.link = true;
+				else if (!strcmp("link-epso", longOpts[longIndex].name))
+					//Use EPSO for linking threshold in H2 model
+					network_properties.flags.link_epso = true;
 				else if (!strcmp("nopos", longOpts[longIndex].name))
 					//Flag to Skip Node Generation/Reading
 					network_properties.flags.no_pos = true;
@@ -354,16 +364,22 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				else if (!strcmp("relink", longOpts[longIndex].name))
 					//Flag for Reading Nodes (and not links) and Re-Linking
 					network_properties.flags.relink = true;
-				else if (!strcmp("spacetime", longOpts[longIndex].name)) {
+				else if (!strcmp("spacetime", longOpts[longIndex].name))
 					//Spacetime ID
 					network_properties.spacetime = atoi(optarg);
-				} else if (!strcmp("stdim", longOpts[longIndex].name)) {
+				else if (!strcmp("split-action", longOpts[longIndex].name))
+					//Perform only part of the action calculation
+					network_properties.split_action = atoi(optarg);
+				else if (!strcmp("stdim", longOpts[longIndex].name)) {
 					//Spacetime dimensions (2 or 4 right now)
 					if (atoi(optarg) == 2 || atoi(optarg) == 4)
 						network_properties.spacetime |= atoi(optarg);
 					else
 						throw CausetException("Invalid argument for 'stdim' parameter!\n");
-				} else if (!strcmp("symmetry", longOpts[longIndex].name)) {
+				} else if (!strcmp("strict-routing", longOpts[longIndex].name))
+					//Use strict routing protocol
+					network_properties.flags.strict_routing = true;
+				else if (!strcmp("symmetry", longOpts[longIndex].name)) {
 					//Symmetric about temporal axis
 					if (!strcmp(optarg, "symmetric"))
 						network_properties.spacetime |= SYMMETRIC;
@@ -393,7 +409,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "Copyright (C) 2013-2016 Will Cunningham\n");
 				printf_mpi(rank, "Platform: Redhat Linux x86 64-bit Kernel\n");
 				printf_mpi(rank, "Developed for use with NVIDIA K20m GPU\n");
-				printf_mpi(rank, "Version 0.3\n");
+				printf_mpi(rank, "Version %s\n", VERSION);
 				printf_mpi(rank, "See doc/VERSION for supported spacetimes\n");
 				#ifdef MPI_ENABLED
 				MPI_Abort(MPI_COMM_WORLD, 0);
@@ -430,8 +446,10 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --gpu\t\tUse GPU Acceleration\n");
 				#endif
 				printf_mpi(rank, "  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
+				printf_mpi(rank, "      --growing\t\tUse Growing H2 Model\n");
 				printf_mpi(rank, "  -h, --help\t\tDisplay This Menu\n");
 				printf_mpi(rank, "      --link\t\tLink Nodes to Create Graph\n");
+				printf_mpi(rank, "      --link-epso\tLink Nodes using EPSO Rule\n");
 				printf_mpi(rank, "  -m, --manifold\tManifold\t\t\t\"desitter\", \"dust\",\n");
 				printf_mpi(rank, "\t\t\t\t\t\t\t\"flrw\", \"hyperbolic\"\n");
 				printf_mpi(rank, "  -n, --nodes\t\tNumber of Nodes\t\t\t1000, 10000, 100000\n");
@@ -448,7 +466,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.01, 10000\n");
 				printf_mpi(rank, "  -s, --seed\t\tRandom Seed\t\t\t18100\n");
 				printf_mpi(rank, "      --spacetime\tSpacetime ID\t\t\tSee doc/VERSION\n");
+				printf_mpi(rank, "      --split-action\tComputers Used for Action\t4\n");
 				printf_mpi(rank, "      --stdim\t\tSpacetime Dimensions\t\t2 or 4\n");
+				printf_mpi(rank, "      --strict-routing\tUse Strict Routing Protocol\n");
 				printf_mpi(rank, "      --symmetry\tTemporal Symmetry\t\t\"symmetric\", \"asymmetric\"\n");
 				printf_mpi(rank, "      --test\t\tTest Parameters Only\n");
 				printf_mpi(rank, "  -V, --vecprod\t\tCalculate Vector Products\t0.01, 10000\n");
@@ -572,7 +592,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	int high = network->network_properties.N_tar - 1;
 
 	for (i = 0; i <= nb; i++) {
-		if (!generateNodes(network->nodes, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.a, network->network_properties.eta0, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.cmpi, network->network_properties.mrng, cp->sGenerateNodes, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+		if (!generateNodes(network->nodes, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.a, network->network_properties.eta0, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.cmpi, network->network_properties.mrng, cp->sGenerateNodes, network->network_properties.flags.growing, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 			network->network_properties.cmpi.fail = 1;
 			goto InitExit;
 		}
@@ -617,12 +637,12 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 			#ifdef CUDA_ENABLED
 			if (network->network_properties.flags.use_gpu && network->network_properties.N_tar >= GPU_MIN) {
 				#if LINK_NODES_GPU_V2
-				if (!linkNodesGPU_v2(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sLinkNodes, ctx, network->network_properties.flags.decode_cpu, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!linkNodesGPU_v2(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sLinkNodes, ctx, network->network_properties.flags.decode_cpu, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto InitExit;
 				}
 				#else
-				if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.link_epso, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto InitExit;
 				}
@@ -632,14 +652,14 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 			{
 				#ifdef MPI_ENABLED
 				if (network->network_properties.cmpi.num_mpi_threads > 1) {
-					if (!linkNodes_v2(network->nodes, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.cmpi, cp->sLinkNodes, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+					if (!linkNodes_v2(network->nodes, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.cmpi, cp->sLinkNodes, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 						network->network_properties.cmpi.fail = 1;
 						goto InitExit;
 					}
 				} else
 				#endif
 				{
-					if (!linkNodes(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+					if (!linkNodes(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 						network->network_properties.cmpi.fail = 1;
 						goto InitExit;
 					}
@@ -806,7 +826,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				break;
 			}
 
-			if (!measureSuccessRatio(network->nodes, network->edges, network->adj, network->network_observables.success_ratio, network->network_observables.success_ratio2, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureSuccessRatio, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			if (!measureSuccessRatio(network->nodes, network->edges, network->adj, network->network_observables.success_ratio, network->network_observables.success_ratio2, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureSuccessRatio, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.strict_routing, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 				return false;
 		}
 
@@ -878,7 +898,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			{
 			#if ACTION_V2
 			if (network->network_properties.flags.use_bit && (network->network_properties.flags.link || network->network_properties.flags.relink)) {
-				if (!measureAction_v3(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!measureAction_v3(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->nodes.k_in, network->nodes.k_out, network->network_properties.spacetime, network->network_properties.N_tar, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto MeasureExit;
 				}
@@ -1214,12 +1234,12 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			#ifdef CUDA_ENABLED
 			if (network->network_properties.flags.use_gpu && network->network_properties.N_tar >= GPU_MIN) {
 				#if LINK_NODES_GPU_V2
-				if (!linkNodesGPU_v2(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sLinkNodes, ctx, network->network_properties.flags.decode_cpu, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!linkNodesGPU_v2(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sLinkNodes, ctx, network->network_properties.flags.decode_cpu, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto LoadPoint2;
 				}
 				#else
-				if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.link_epso, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto LoadPoint2;
 				}
@@ -1228,12 +1248,12 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			#endif
 			{
 				#ifdef MPI_ENABLED
-				if (!linkNodes_v2(network->nodes, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.cmpi, cp->sLinkNodes, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!linkNodes_v2(network->nodes, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.cmpi, cp->sLinkNodes, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto LoadPoint2;
 				}
 				#else
-				if (!linkNodes(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!linkNodes(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					goto LoadPoint2;
 				}
@@ -1574,7 +1594,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			outputStream << "Average Out-Degree Field Value\t\t" << network.network_observables.avg_odf << std::endl;
 		}
 
-		if (network.network_properties.flags.calc_action)
+		if (network.network_properties.flags.calc_action && network.network_properties.split_action == 1)
 			outputStream << "Action\t\t\t\t\t" << network.network_observables.action << std::endl;
 
 

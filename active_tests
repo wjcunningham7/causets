@@ -1,5 +1,6 @@
-ACTION EXPERIMENTS:
-===================
+ACTION EXPERIMENTS
+==================
+> Studying influence of spacelike boundary terms
 
 ------------------------
 MINKOWSKI SPECIAL SAUCER
@@ -35,70 +36,61 @@ Waiting for...NONE
 --------------
 DE SITTER SLAB
 --------------
-Jobs 1499-1500
+Jobs 1499-1500, 1714
 Spacetime = 82468
 Eta0 = 0.5
-Waiting for...NONE
+Waiting for...1714
+ > Did not finish properly
 
-NAVIGABILITY EXPERIMENTS:  COMPLETED
-====================================
-> Uses geodesic distances
-> Studies two success metrics
-> Considers all pairs
+NAVIGABILITY EXPERIMENTS: COMPLETED
+===================================
+> Uses inner products
+> k = 10
+> N = 131072
+> Ns = 20
 
 ---------------
-CONSTANT DEGREE
+RELAXED ROUTING
 ---------------
-Jobs 1607-1617
+Job 1706
 Manifold = De Sitter
-k = 10
-Spacetime = 41508
+Spacetime = 49698
 Waiting for...NONE
 
-Jobs 1618-1628
+Job 1707
+Manifold = Hyperbolic (Static H2)
+Spacetime = 49922
+Waiting for...NONE
+
+Job 1708
+Manifold = Hyperbolic (Growing H2)
+Spacetime = 49922
+Waiting for...NONE
+
+Job 1709
+Manifold = Hyperbolic (Growing H2, EPSO)
+Spacetime = 49922
+Waiting for...NONE
+
+--------------
+STRICT ROUTING
+--------------
+Job 1710
 Manifold = De Sitter
-k = 15
-Spacetime = 41508
+Spacetime = 49698
 Waiting for...NONE
 
-Jobs 1629-1639
-Manifold = De Sitter
-k = 20
-Spacetime = 41508
+Job 1711
+Manifold = Hyperbolic (Static H2)
+Spacetime = 49922
 Waiting for...NONE
 
-Jobs 1640-1650
-Manifold = Dust
-k = 10
-Spacetime = 41540
+Job 1712
+Manifold = Hyperbolic (Growing H2)
+Spacetime = 49922
 Waiting for...NONE
 
-Jobs 1651-1661
-Manifold = Dust
-k = 15
-Spacetime = 41540
-Waiting for...NONE
-
-Jobs 1662-1672
-Manifold = Dust
-k = 20
-Spacetime = 41540
-Waiting for...NONE
-
-Jobs 1673-1683
-Manifold = FLRW
-k = 10
-Spacetime = 41604
-Waiting for...NONE
-
-Jobs 1684-1694
-Manifold = FLRW
-k = 15
-Spacetime = 41604
-Waiting for...NONE
-
-Jobs 1695-1705
-Manifold = FLRW
-k = 20
-Spacetime = 41604
+Job 1713
+Manifold = Hyperbolic (Growing H2, EPSO)
+Spacetime = 49922
 Waiting for...NONE

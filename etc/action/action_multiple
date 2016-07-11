@@ -16,8 +16,8 @@ import numpy as np
 import os
 import sys
 
-basedir = '/gss_gpfs_scratch/cunningham/'
-#basedir = '/krioukov/will/'
+#basedir = '/gss_gpfs_scratch/cunningham/'
+basedir = '/krioukov/will/'
 
 if (len(sys.argv) < 3):
 	sys.stdout.write('Arguments are [jobstart] [jobend] [stdim].\n')

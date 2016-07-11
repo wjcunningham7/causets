@@ -58,6 +58,16 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		network_properties->flags.use_bit = true;
 		network_properties->core_edge_fraction = 1.0;
 	}
+
+	if (network_properties->split_action > 1) {
+		bool split_job = true;
+		unsigned int nbuf = network_properties->split_action << 1;
+		std::vector<unsigned int> current(nbuf);
+		std::iota(current.begin(), current.end(), 0);
+		std::unordered_set<std::pair<int,int> > new_pairs;
+		init_mpi_pairs(new_pairs, current, split_job);
+		network_properties->flags.test = true;
+	}
 	#endif
 
 	//If a graph ID has been provided, warn user
@@ -254,12 +264,11 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			//We have not yet calculated the actual value
 			network_properties->k_tar = 10.0;
 
-			#if HYPERBOLIC_NONUNIFORM
-			double volume = 16.0 * M_PI * POW2(sinh(network_properties->r_max / (4.0 * network_properties->zeta)));
-			#else
-			double volume = 2.0 * M_PI * (cosh(network_properties->r_max / network_properties->zeta) - 1.0);
-			#endif
-			//printf("volume: %.8f\n", volume);
+			double volume;
+			if (network_properties->flags.growing)
+				volume = 16.0 * M_PI * POW2(sinh(network_properties->r_max / (4.0 * network_properties->zeta)));
+			else
+				volume = 2.0 * M_PI * (cosh(network_properties->r_max / network_properties->zeta) - 1.0);
 			if (!!network_properties->delta)
 				network_properties->zeta = sqrt(network_properties->N_tar / (volume * network_properties->delta));
 			else
@@ -480,11 +489,13 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			printf_mpi(rank, "\t--------------------------------------------\n");
 			if (!rank) printf_cyan();
 			printf_mpi(rank, "\t > Manifold:\t\t\t%s", manifoldNames[(unsigned int)(log2((float)get_manifold(spacetime) / ManifoldFirst))].c_str());
-			#if HYPERBOLIC_NONUNIFORM
-			if (get_manifold(spacetime) & HYPERBOLIC)
-				printf_mpi(rank, " (Growing Model)\n");
-			else
-			#endif
+			if (get_manifold(spacetime) & HYPERBOLIC && network_properties->flags.growing) {
+				printf_mpi(rank, " (Growing Model");
+				if (network_properties->flags.link_epso)
+					printf_mpi(rank, ", EPSO)\n");
+				else
+					printf_mpi(rank, ")\n");
+			} else
 				printf_mpi(rank, "\n");
 			printf_mpi(rank, "\t > Spacetime Dimension:\t\t%d+1\n", get_stdim(spacetime) - 1);
 			printf_mpi(rank, "\t > Region:\t\t\t%s", regionNames[(unsigned int)(log2((float)get_region(spacetime) / RegionFirst))].c_str());
@@ -1122,7 +1133,7 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int 
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &a, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, CausetMPI &cmpi, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar, const float &k_tar, const double &a, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, CausetMPI &cmpi, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &growing, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//Values are in correct ranges
@@ -1470,11 +1481,10 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 					break;
 				case (2 | HYPERBOLIC | SLAB | POSITIVE | ASYMMETRIC):
 					assert (!EMBED_NODES);
-					#if HYPERBOLIC_NONUNIFORM
-					nodes.crd->x(i) = get_2d_asym_sph_hyperbolic_slab_nonuniform_radius(urng, r_max, zeta);
-					#else
-					nodes.crd->x(i) = get_2d_asym_sph_hyperbolic_slab_radius(urng, r_max, zeta);
-					#endif
+					if (growing)
+						nodes.crd->x(i) = get_2d_asym_sph_hyperbolic_slab_nonuniform_radius(urng, r_max, zeta);
+					else
+						nodes.crd->x(i) = get_2d_asym_sph_hyperbolic_slab_radius(urng, r_max, zeta);
 					nodes.id.tau[i] = nodes.crd->x(i) / zeta;
 					nodes.crd->y(i) = get_2d_asym_sph_hyperbolic_slab_theta(urng);
 					break;
@@ -1733,7 +1743,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	return true;
 }
 
-bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, CausetMPI &cmpi, Stopwatch &sLinkNodes, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, CausetMPI &cmpi, Stopwatch &sLinkNodes, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//No null pointers
@@ -1743,8 +1753,9 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
 	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW));
-	assert (a > 0.0);
+	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW | HYPERBOLIC));
+	if (!(get_manifold(spacetime) & HYPERBOLIC))
+		assert (a > 0.0);
 	assert (tau0 > 0.0);
 	if (get_manifold(spacetime) & DE_SITTER) {
 		if (get_curvature(spacetime) & POSITIVE) {
@@ -1769,10 +1780,21 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 		assert (get_stdim(spacetime) == 4);
 		assert (zeta < HALF_PI);
 		assert (alpha > 0.0);
+	} else if (get_manifold(spacetime) & HYPERBOLIC) {
+		assert (zeta > 0.0);
+		assert (r_max > 0.0);
 	}
 	if (get_curvature(spacetime) & FLAT)
 		assert (r_max > 0.0);
 	assert (use_bit);
+	#endif
+
+	#if EMBED_NODES
+	if (get_manifold(spacetime) & HYPERBOLIC) {
+		fprintf(stderr, "linkNodes_v2 not implemented for EMBED_NODES=true and MANIFOLD=HYPERBOLIC.  Find me on line %d in %s.\n", __LINE__, __FILE__);
+		if (!!N_tar)
+			return false;
+	}
 	#endif
 
 	if (!cmpi.rank) printf_mag();
@@ -1795,9 +1817,13 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 	for (uint64_t k = start; k < finish; k++) {
 		int i = static_cast<int>(k / N_tar);
 		int j = static_cast<int>(k % N_tar);
-
 		if (i == j) continue;
-		bool related = nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, NULL);
+
+		bool related;
+		if (get_manifold(spacetime) & HYPERBOLIC)
+			related = nodesAreRelatedHyperbolic(nodes, spacetime, N_tar, zeta, r_max, link_epso, i, j, NULL);
+		else
+			related = nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, NULL);
 
 		if (related) {
 			#ifdef _OPENMP
@@ -1855,6 +1881,8 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 
 	if (!bench) {
 		printf_mpi(rank, "\tCausets Successfully Connected.\n");
+		if (get_manifold(spacetime) & HYPERBOLIC && link_epso)
+			printf_mpi(rank, "\tEPSO Linking Rule Used.\n");
 		if (!rank) printf_cyan();
 		printf_mpi(rank, "\t\tUndirected Links:         %" PRIu64 "\n", idx);
 		printf_mpi(rank, "\t\tResulting Network Size:   %d\n", N_res);
@@ -1880,7 +1908,7 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//No null pointers
@@ -1934,6 +1962,14 @@ bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spa
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
 	#endif
 
+	#if EMBED_NODES
+	if (get_manifold(spacetime) & HYPERBOLIC) {
+		fprintf(stderr, "linkNodes not implemented for EMBED_NODES=true and MANIFOLD=HYPERBOLIC.  Find me on line %d in %s.\n", __LINE__, __FILE__);
+		if (!!N_tar)
+			return false;
+	}
+	#endif
+
 	printf_dbg("Using Version 1 (linkNodes).\n");
 
 	uint64_t future_idx = 0;
@@ -1954,7 +1990,7 @@ bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spa
 			//Apply Causal Condition (Light Cone)
 			//Assume nodes are already temporally ordered
 			if (get_manifold(spacetime) & HYPERBOLIC)
-				related = nodesAreRelatedHyperbolic(nodes, spacetime, N_tar, zeta, r_max, i, j, NULL);
+				related = nodesAreRelatedHyperbolic(nodes, spacetime, N_tar, zeta, r_max, link_epso, i, j, NULL);
 			else
 				related = nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, NULL);
 
@@ -2067,6 +2103,8 @@ bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spa
 
 	if (!bench) {
 		printf("\tCausets Successfully Connected.\n");
+		if (get_manifold(spacetime) & HYPERBOLIC && link_epso)
+			printf("\tEPSO Linking Rule Used.\n");
 		printf_cyan();
 		printf("\t\tUndirected Links:         %" PRIu64 "\n", future_idx);
 		printf("\t\tResulting Network Size:   %d\n", N_res);

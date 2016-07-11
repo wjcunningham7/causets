@@ -92,7 +92,7 @@ bool checkMpiErrors(CausetMPI &cmpi);
 //MPI Trading: Permutation Algorithms
 void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> elements);
 
-void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::vector<unsigned int> elements);
+void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::vector<unsigned int> elements, bool &split_job);
 
 void fill_mpi_similar(std::vector<std::vector<unsigned int> > &similar, std::vector<unsigned int> elements);
 
@@ -112,5 +112,7 @@ void mpi_swaps(const std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bit
 
 void sendSignal(const MPISignal signal, const int rank, const int num_mpi_threads);
 #endif
+
+int longestChain(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, int j);
 
 #endif

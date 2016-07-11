@@ -279,7 +279,7 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 }
 
 //Note that adj has not been implemented in this version of the linkNodesGPU subroutine.
-bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &link_epso, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -299,10 +299,11 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 	assert (k_tar > 0.0f);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
+	assert (!link_epso);
 	#endif
 
 	#if EMBED_NODES
-	fprintf(stderr, "linkNodesGPU_v2 not implemented for EMBED_NODES=true.  Find me on line %d in %s.\n", __LINE__, __FILE__);
+	fprintf(stderr, "linkNodesGPU_v1 not implemented for EMBED_NODES=true.  Find me on line %d in %s.\n", __LINE__, __FILE__);
 	#endif
 
 	Stopwatch sGPUOverhead = Stopwatch();
@@ -656,7 +657,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 	return true;
 }
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &use_bit, const bool &verbose)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -673,6 +674,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
 	assert (N_tar > 0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
+	assert (!link_epso);
 	if (use_bit)
 		assert (core_edge_fraction == 1.0f);
 	#endif
@@ -820,28 +822,28 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 			int flags = ((int)diag << 4) | ((int)compact << 3) | stdim;
 			switch (flags) {
 			case 2:
-				GenerateAdjacencyLists_v2<false, false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 4:
-				GenerateAdjacencyLists_v2<false, false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 10:
-				GenerateAdjacencyLists_v2<true, false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 12:
-				GenerateAdjacencyLists_v2<true, false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 18:
-				GenerateAdjacencyLists_v2<false, false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 20:
-				GenerateAdjacencyLists_v2<false, false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 26:
-				GenerateAdjacencyLists_v2<true, false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			case 28:
-				GenerateAdjacencyLists_v2<true, false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
 				break;
 			default:
 				fprintf(stderr, "Invalid flag value: %d\n", flags);
@@ -2338,7 +2340,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
 //Uses geodesic distances
-bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, int source, int dest, bool &success, bool &success2, bool &past_horizon)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const bool &strict_routing, int source, int dest, bool &success, bool &success2, bool &past_horizon)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -2388,6 +2390,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 	if (get_curvature(spacetime) & FLAT)
 		assert (r_max > 0.0);
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
+	assert (!strict_routing);
 	assert (source >= 0 && source < N_tar);
 	assert (dest >= 0 && dest < N_tar);
 	#endif
@@ -3061,7 +3064,7 @@ bool validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		assert (false);
 		break;
 	case (2 | HYPERBOLIC | SLAB | POSITIVE | ASYMMETRIC):
-		if (!(nodes.id.tau[i] > 0.0 & nodes.id.tau[i] <= tau0)) return false;
+		if (!(nodes.id.tau[i] > 0.0 && nodes.id.tau[i] <= tau0)) return false;
 		if (!(nodes.crd->x(i) > 0.0 && nodes.crd->x(i) <= r_max)) return false;
 		if (!(nodes.crd->y(i) > 0.0 && nodes.crd->y(i) < TWO_PI)) return false;
 		break;
@@ -3218,12 +3221,13 @@ void printCardinalities(const uint64_t * const cardinalities, unsigned int Nc, u
 
 	std::ofstream os;
 	char filename[80];
-	strcpy(filename, "cards_");
+	strcpy(filename, "dat/act/cards_");
 	strcat(filename, std::to_string(idx0).c_str());
 	strcat(filename, std::to_string(idx1).c_str());
-	strcat(filename, "-v");
-	strcat(filename, std::to_string(version).c_str());
-	strcat(filename, ".cset.dbg.dat");
+	//strcat(filename, "-v");
+	//strcat(filename, std::to_string(version).c_str());
+	//strcat(filename, ".cset.dbg.dat");
+	strcat(filename, ".cset.act.dat");
 
 	os.open(filename);
 	for (unsigned int i = 0; i < Nc; i++) {

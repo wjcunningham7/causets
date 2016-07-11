@@ -13,8 +13,9 @@ import math
 import numpy as np
 import sys
 
-if len(sys.argv) < 1:
+if len(sys.argv) < 2:
 	sys.stdout.write('Arguments are [type].\n')
+	sys.exit(1)
 t = int(sys.argv[1])
 
 basedir = ''

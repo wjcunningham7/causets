@@ -1,0 +1,79 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Vector Product Routing Experiments
+
+# GENERAL USE #
+# Use 'setnextjob' command
+# Set spacetime
+# Set degree/nodes
+# Set growing/epso/strict
+# Modify 'samples'
+# Choose 'queue'
+
+set -eu -o pipefail
+
+#spacetime=49698		# 1+1 de Sitter
+spacetime=49922	# 1+1 Hyperbolic
+degree=10
+nodes=131072
+
+use_growing=true
+use_epso=true
+use_strict=true
+
+source /home/$USER/.queues
+jobstart=$NEXT_JOB
+samples=20
+queue="krioukov_gpu"
+exclude="compute-4-017"
+
+if [[ $spacetime -eq 49922 ]] ; then
+  timecut="radius"
+else
+  timecut="age"
+fi
+
+epso=""
+if [[ $use_epso == "true" ]] ; then
+  epso="--link-epso"
+fi
+
+strict=""
+if [[ $use_strict == "true" ]] ; then
+  strict="--strict-routing"
+fi
+
+growing=""
+if [[ $use_growing == "true" ]] ; then
+  growing="--growing"
+fi
+
+host=$(bqueues -l $queue | awk '/HOSTS:/ {print $2}' | sed 's#/*$##')
+ncores=$(bhosts $host | awk 'NR==2 {print $4}')
+
+parfile=$CAUSET_HOME_DIR/causet.par
+if [[ ! -e $parfile ]] ; then
+  echo "Could not find parameter file: $parfile"
+  exit 1
+fi
+
+readarray -t vars < $CAUSET_HOME_DIR/causet.par
+for i in $(seq ${#vars[@]}) ; do
+  job=$(($i+$jobstart-1))
+  var=(${vars[${i}-1]})
+  if [[ ${var:0:1} == "#" ]] ; then
+    continue
+  fi
+
+  age=${var[0]}
+
+  $CAUSET_HOME_DIR/lsf/wrapper/causet_bat --start $job --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --link --core 1 --gpu --verbose -y --print --success '"$nodes"' '"$growing"' '"$epso"' '"$strict" --queue $queue --nsamples $samples --exclude $exclude
+done
+
+setnextjob $(($job+1))

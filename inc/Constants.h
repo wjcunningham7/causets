@@ -31,8 +31,6 @@
 
 #define SPECIAL_SAUCER false	//The special saucer has surfaces which intersect at right angles
 
-#define HYPERBOLIC_NONUNIFORM true	//If true, a growing hyperbolic network will be generated
-
 #define VE_RANDOM true	//Pick random pairs when performing embedding validation test
 
 #define VD_RANDOM true	//Pick random pairs when performing distance validation test

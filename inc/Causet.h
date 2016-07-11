@@ -549,14 +549,16 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), link(false), relink(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_vecprod(false), validate_embedding(false), validate_distances(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), growing(false), link(false), relink(false), link_epso(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_vecprod(false), validate_embedding(false), validate_distances(false), strict_routing(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
 	bool decode_cpu;		//Decode edge list using serial sort
 	bool print_network;		//Print to File
 	bool print_edges;		//Print Edge List to File
+	bool growing;			//Use Static/Growing H2 Model
 	bool link;			//Link Nodes after Generation
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
+	bool link_epso;			//Link Nodes in H2 Using EPSO Rule
 
 	bool read_old_format;		//Read Node Positions in the Format (theta3, theta2, theta1)
 	bool quiet_read;		//Ignore Warnings when Reading Graph
@@ -575,6 +577,7 @@ struct CausetFlags {
 
 	bool validate_embedding;	//Find Embedding Statistics
 	bool validate_distances;	//Compare Distance Methods
+	bool strict_routing;		//Use Strict Routing Protocol (see notes)
 	
 	bool verbose;			//Verbose Output
 	bool bench;			//Benchmark Algorithms
@@ -584,7 +587,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), spacetime(0), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), N_vp(0.0), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1) {}
+	NetworkProperties() : flags(CausetFlags()), spacetime(0), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), N_vp(0.0), split_action(1), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1) {}
 
 	CausetFlags flags;
 	unsigned int spacetime;		//Spacetime Definition
@@ -600,6 +603,7 @@ struct NetworkProperties {
 	double N_dst;			//Number of Pairs Used in Distance Validation
 	int max_cardinality;		//Elements used in Action Calculation
 	long double N_vp;		//Number of Pairs Used in Vector Products
+	int split_action;		//Number of Computers Used in Action
 
 	double a;			//Hyperboloid Pseudoradius
 	double eta0;			//Maximum Conformal Time

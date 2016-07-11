@@ -1005,7 +1005,7 @@ void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::ve
 //The ordered pairs are not included (e.g. (0,1) (2,3), etc.) 
 //The variable 'nbuf' should be twice the number of computers used
 //'Elements' is given as a sequence of natural numbers beginning at zero
-void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::vector<unsigned int> elements)
+void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::vector<unsigned int> elements, bool &split_job)
 {
 	#if DEBUG
 	assert (elements.size() > 0 && !(elements.size() % 2));
@@ -1015,21 +1015,48 @@ void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::v
 	pairs.clear();
 	pairs.swap(pairs);
 
-	for (size_t k = 0; k < elements.size(); k += 2) {
-		//Elements are understood to be stored in pairs
-		unsigned int i = elements[k];
-		unsigned int j = elements[k+1];
+	//If a file exists which specifies the pairs, read it
+	std::ifstream f("action_pairs.cset.act.in");
+	if (f.good() && !split_job) {
+		std::string line;
+		char d[] = " \t";
+		char *delimeters = &d[0];
+		split_job = true;
 
-		for (unsigned int m = 0; m < elements.size(); m++) {
-			if (m == i || m == j) continue;
-			pairs.insert(std::make_pair(std::min(i, m), std::max(i, m)));
-			pairs.insert(std::make_pair(std::min(j, m), std::max(j, m)));
+		while(getline(f, line)) {
+			int i = atoi(strtok((char*)line.c_str(), delimeters));
+			int j = atoi(strtok(NULL, delimeters));
+			pairs.insert(std::make_pair(std::min(i, j), std::max(i, j)));
+		}
+
+		f.close();
+	} else {
+		for (size_t k = 0; k < elements.size(); k += 2) {
+			//Elements are understood to be stored in pairs
+			unsigned int i = elements[k];
+			unsigned int j = elements[k+1];
+
+			for (unsigned int m = 0; m < elements.size(); m++) {
+				if (m == i || m == j) continue;
+				pairs.insert(std::make_pair(std::min(i, m), std::max(i, m)));
+				pairs.insert(std::make_pair(std::min(j, m), std::max(j, m)));
+			}
+		}
+
+		//Remove the ordered pairs
+		for (size_t k = 0; k < elements.size(); k += 2)
+			pairs.erase(std::make_pair(k, k+1));
+
+		if (split_job) {
+			std::ofstream g("action_pairs_all.cset.act.out");
+			if (g.good()) {
+				for (std::unordered_set<std::pair<int, int> >::iterator it = pairs.begin(); it != pairs.end(); it++)
+					g << std::get<0>(*it) << " " << std::get<1>(*it) << std::endl;
+				g.flush();
+				g.close();
+			}
 		}
 	}
-
-	//Remove the ordered pairs
-	for (size_t k = 0; k < elements.size(); k += 2)
-		pairs.erase(std::make_pair(k, k+1));
 }
 
 //Saves all permutations which are recognized as non-unique by
@@ -1328,3 +1355,71 @@ void sendSignal(const MPISignal signal, const int rank, const int num_mpi_thread
 	}
 }
 #endif
+
+//This function is totall messed up
+//It should be recursive
+int longestChain(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, int j)
+{
+	#if DEBUG
+	assert (adj.size() > 0);
+	assert (N_tar > 0);
+	assert (i >= 0 && i < N_tar);
+	assert (j >= 0 && j < N_tar);
+	#endif
+
+	if (i == j) return 0;
+
+	if (i > j) {
+		i ^= j;
+		j ^= i;
+		i ^= j;
+	}
+
+	int longest = 0;
+	int idx;
+	bool outer = false;
+
+	if (workspace == NULL) {
+		if (!nodesAreConnected_v2(adj, N_tar, i, j)) return -1;
+		outer = true;
+		workspace = new FastBitset(N_tar);
+		adj[i].clone(*workspace, 0ULL, adj[0].getNumBlocks());
+		workspace->partial_intersection(adj[j], i, j - i + 1);
+		//printf("created clone.\n");
+	}
+
+	//if (!outer) printf("\t");
+	//printf("Searching for the longest chain between [%d] and [%d]\n", i, j);
+	//workspace->printBitset();
+	//printChk();
+
+	for (uint64_t k = 0; k < workspace->getNumBlocks(); k++) {
+		uint64_t block;
+		while (block = workspace->readBlock(k)) {
+			int chain_length = 0;
+			idx = __builtin_ffsl(block) - 1;
+			workspace->unset(k*64+idx);
+
+			FastBitset _workspace = *workspace;
+			_workspace.partial_intersection(adj[idx], idx, j - idx + 1);
+
+			if (_workspace.partial_count(idx, j - idx + 1))
+				chain_length += longestChain(adj, &_workspace, N_tar, idx, j);
+			else
+				chain_length++;
+
+			longest = std::max(chain_length, longest);
+			//printf("Longest chain between [%d] and [%d] is %d.\n", idx, j, longest);
+		}
+	}
+	longest++;
+
+	if (outer) {
+		delete workspace;
+		workspace = NULL;
+	}
+
+	//printf("Longest chain between [%d] and [%d] is %d\n\n", i, j, longest);
+
+	return longest;
+}
