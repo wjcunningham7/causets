@@ -50,16 +50,16 @@ set -eu -o pipefail
 # These are experimental parameters #
 #####################################
 
-test_action=true
+test_action=false
 if [[ $test_action == "false" ]] ; then
-  platform=_krioukov_gpu
-  num=131072
+  platform=""
+  num=65536
   zeta=1
 
-  exp="epso"
-  measure=""
+  exp="de_sitter"
+  #measure=""
   #measure="--components"
-  #measure="--success 16384 --strict-routing"
+  measure="--success 16384"
   #measure="--vecprod 0.1"
 
   if [[ $exp == "hyp_static" ]] ; then
@@ -69,7 +69,8 @@ if [[ $test_action == "false" ]] ; then
   elif [[ $exp == "epso" ]] ; then
     $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 49922 --nodes $num --radius 22.5 --zeta $zeta --verbose -y --growing --link --link-epso --core 1 --gpu $measure #--print
   elif [[ $exp == "de_sitter" ]] ; then
-    $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 49698 --nodes $num --age 1.570784 --verbose -y --link --core 1 --gpu $measure #--print
+    #$CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 49698 --nodes $num --age 1.570784 --verbose -y --link --core 1 --gpu $measure #--print
+    $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 41508 --nodes $num --age 1.5 --radius 4 --verbose -y --link --core 0.99 --gpu $measure #--print
   fi
 else
   platform=_debug

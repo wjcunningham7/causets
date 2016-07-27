@@ -130,7 +130,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
 			if (get_curvature(spacetime) & FLAT && get_region(spacetime) & SLAB) {
 				if (get_manifold(spacetime) & DE_SITTER && !network_properties->r_max)
-					throw CausetException("Flag '--slice', spatial scaling, must be specified!\n");
+					throw CausetException("Flag '--radius', spatial scaling, must be specified!\n");
 				else if (get_manifold(spacetime) & (DUST | FLRW) && !network_properties->alpha)
 					throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
 			}
@@ -140,7 +140,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			if (!network_properties->N_tar)
 				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
 			if (!network_properties->r_max)
-				throw CausetException("Flag '--slice', maximum radius, must be specified!\n");
+				throw CausetException("Flag '--radius', maximum radius, must be specified!\n");
 		}
 
 		//Default constraints

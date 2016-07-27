@@ -124,6 +124,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "alpha",	required_argument,	NULL,  0  },
 		{ "autocorr",	no_argument,		NULL,  0  },
 		{ "benchmark",	no_argument,		NULL,  0  },
+		{ "beta",	required_argument,	NULL,  0  },
 		{ "buffer",	required_argument,	NULL, 'b' },
 		{ "clustering",	no_argument,		NULL, 'C' },
 		{ "components", no_argument,		NULL,  0  },
@@ -144,6 +145,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "link",	no_argument,		NULL,  0  },
 		{ "link-epso",	no_argument,		NULL,  0  },
 		{ "manifold",	required_argument,	NULL, 'm' },
+		{ "mu",		required_argument,	NULL,  0  },
 		{ "print", 	no_argument, 		NULL,  0  },
 		{ "print-edges",no_argument,		NULL,  0  },
 		{ "nodes", 	required_argument,	NULL, 'n' },
@@ -302,7 +304,15 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				else if (!strcmp("benchmark", longOpts[longIndex].name))
 					//Flag to benchmark selected routines
 					network_properties.flags.bench = true;
-				else if (!strcmp("components", longOpts[longIndex].name))
+				else if (!strcmp("beta", longOpts[longIndex].name)) {
+					//Inverse temperature
+					if (!strcmp(optarg, "infinity"))
+						network_properties.beta = -1;
+					else
+						network_properties.beta = atof(optarg);
+					if (network_properties.beta <= 0.0 && network_properties.beta != -1)
+						throw CausetException("Invalid argument for 'beta' parameter!\n");
+				} else if (!strcmp("components", longOpts[longIndex].name))
 					//Flag for Finding Connected Components
 					network_properties.flags.calc_components = true;
 				else if (!strcmp("curvature", longOpts[longIndex].name)) {
@@ -344,7 +354,12 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				else if (!strcmp("link-epso", longOpts[longIndex].name))
 					//Use EPSO for linking threshold in H2 model
 					network_properties.flags.link_epso = true;
-				else if (!strcmp("nopos", longOpts[longIndex].name))
+				else if (!strcmp("mu", longOpts[longIndex].name)) {
+					//Chemical potential
+					network_properties.mu = atof(optarg);
+					if (network_properties.mu <= 0.0)
+						throw CausetException("Invalid argument for 'mu' parameter!\n");
+				} else if (!strcmp("nopos", longOpts[longIndex].name))
 					//Flag to Skip Node Generation/Reading
 					network_properties.flags.no_pos = true;
 				else if (!strcmp("print", longOpts[longIndex].name))
@@ -428,6 +443,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --alpha\t\tSpatial Scaling/Cutoff\t\t2.0\n");
 				//printf_mpi(rank, "      --autocorr\tCalculate Autocorrelations\n");
 				printf_mpi(rank, "      --benchmark\tBenchmark Algorithms\n");
+				printf_mpi(rank, "      --beta\t\tInverse Temperature\t\t0.5, infinity\n");
 				printf_mpi(rank, "  -b, --buffer\t\tEdge Buffer\t\t\t0.3\n");
 				printf_mpi(rank, "  -C, --clustering\tMeasure Clustering\n");
 				printf_mpi(rank, "\t\t\tor Spherical Foliation\n");
@@ -452,6 +468,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --link-epso\tLink Nodes using EPSO Rule\n");
 				printf_mpi(rank, "  -m, --manifold\tManifold\t\t\t\"desitter\", \"dust\",\n");
 				printf_mpi(rank, "\t\t\t\t\t\t\t\"flrw\", \"hyperbolic\"\n");
+				printf_mpi(rank, "      --mu\t\tChemical Potential\t\t10.0\n");
 				printf_mpi(rank, "  -n, --nodes\t\tNumber of Nodes\t\t\t1000, 10000, 100000\n");
 				printf_mpi(rank, "      --nopos\t\tNo Node Positions\n");
 				printf_mpi(rank, "      --print\t\tPrint Results\n");

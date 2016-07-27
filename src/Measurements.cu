@@ -739,6 +739,9 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 	}	
 	if (get_curvature(spacetime) & FLAT)
 		assert (r_max > 0.0);
+	#if TRAVERSE_VECPROD
+	assert (get_curvature(spacetime) & POSITIVE && get_stdim(spacetime) == 2);
+	#endif
 	assert (source >= 0 && source < N_tar);
 	assert (dest >= 0 && dest < N_tar);
 	//assert (source != dest);
@@ -760,6 +763,7 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 	//While the current location (loc) is not equal to the destination (dest)
 	double min_dist = 0.0;
 	int loc = source;
+	int length = 0;
 	bool retval = true;
 	while (loc != dest) {
 		next = loc;
@@ -853,9 +857,10 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 
 		//If strict routing, make sure a move was identified
 		//Otherwise, make sure the next node has not been visited already
-		if (((strict_routing && next != loc) || (!strict_routing && !used[next])) && min_dist + 1.0 < INF)
+		if (((strict_routing && next != loc) || (!strict_routing && !used[next])) && min_dist + 1.0 < INF) {
 			loc = next;
-		else {
+			length++;
+		} else {
 			if (TRAV_DEBUG) {
 				printf_red();
 				printf("FAILURE\n");
@@ -865,6 +870,8 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 			break;
 		}
 	}
+
+	if (length >= 5) return false;
 
 	success = false;
 	return retval;

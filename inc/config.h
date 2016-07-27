@@ -2,7 +2,7 @@
 /* inc/config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* GPU global memory size (in bytes) */
-#define GLOB_MEM 5000000000
+#define GLOB_MEM 2000000000
 
 /* Define if avx2 instructions are supported */
 #define HAVE_AVX2_INSTRUCTIONS 1

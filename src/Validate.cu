@@ -2395,12 +2395,13 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 	assert (dest >= 0 && dest < N_tar);
 	#endif
 
-	bool TRAV_DEBUG = false;
+	bool TRAV_DEBUG = true;
 
 	float min_dist = 0.0f;
 	int loc = source;
 	int idx_a = source;
 	int idx_b = dest;
+	int length = 0;
 
 	float dist;
 	int next;
@@ -2468,7 +2469,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 			if (idx_a == idx_b) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
-					printf("Moving to [%d : %.4f].\n", idx_a, nodes.id.tau[idx_a]);
+					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_a, nodes.id.tau[idx_a], nodes.crd->z(idx_a));
 					printf_red();
 					printf("SUCCESS\n");
 					printf_std();
@@ -2482,13 +2483,14 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, idx_a, idx_b)) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
-					printf("Moving to [%d : %.4f].\n", idx_a, nodes.id.tau[idx_a]);
-					printf("Moving to [%d : %.4f].\n", idx_b, nodes.id.tau[idx_b]);
+					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_a, nodes.id.tau[idx_a], nodes.crd->z(idx_a));
+					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_b, nodes.id.tau[idx_b], nodes.crd->z(idx_b));
 					printf_red();
 					printf("SUCCESS\n");
 					printf_std();
 					fflush(stdout);
 				}
+				if (length >= 5) return false;
 				success = true;
 				return true;
 			}
@@ -2535,7 +2537,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 			if (idx_a == idx_b) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
-					printf("Moving to [%d : %.4f].\n", idx_a, nodes.id.tau[idx_a]);
+					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_a, nodes.id.tau[idx_a], nodes.crd->z(idx_a));
 					printf_red();
 					printf("SUCCESS\n");
 					printf_std();
@@ -2549,13 +2551,14 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, idx_a, idx_b)) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
-					printf("Moving to [%d : %.4f].\n", idx_a, nodes.id.tau[idx_a]);
-					printf("Moving to [%d : %.4f].\n", idx_b, nodes.id.tau[idx_b]);
+					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_a, nodes.id.tau[idx_a], nodes.crd->z(idx_a));
+					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_b, nodes.id.tau[idx_b], nodes.crd->z(idx_b));
 					printf_red();
 					printf("SUCCESS\n");
 					printf_std();
 					fflush(stdout);
 				}
+				if (length >= 5) return false;
 				success = true;
 				return true;
 			}
@@ -2590,14 +2593,15 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 
 		if (TRAV_DEBUG && min_dist + 1.0 < INF) {
 			printf_cyan();
-			printf("Moving to [%d : %.4f].\n", next, nodes.id.tau[next]);
+			printf("Moving to [%d : (%.4f, %.4f)].\n", next, nodes.id.tau[next], nodes.crd->z(next));
 			printf_std();
 			fflush(stdout);
 		}
 
-		if (!used[next] && min_dist + 1.0 < INF)
+		if (!used[next] && min_dist + 1.0 < INF) {
 			loc = next;
-		else {
+			length++;
+		} else {
 			if (min_dist + 1.0 > INF)
 				past_horizon = true;
 

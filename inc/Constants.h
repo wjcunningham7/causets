@@ -39,9 +39,9 @@
 
 #define VP_RANDOM true	//Pick random pairs when calculating vector products
 
-#define TRAVERSE_V2 true	//Version 2 (and 3) uses spatial distances rather than geodesics
+#define TRAVERSE_V2 false	//Version 2 (and 3) uses spatial distances rather than geodesics
 
-#define TRAVERSE_VECPROD true	//Use inner products of the embedded nodes
+#define TRAVERSE_VECPROD false	//Use inner products of the embedded nodes
 
 #define ACTION_V2 true		//Version 2 uses OpenMP, Version 3 uses minimal bitwise optimizations
 				//If false, version 1 is used, with no parallelization
