@@ -113,6 +113,22 @@ inline float3 get_flat_d3(UGenerator &urng, NGenerator &nrng, const float r_max)
 	return f;
 }
 
+/////////////////////////
+// 2-D Minkowski Slab  //
+// Flat Curvature      //
+// Symmetric About Eta //
+/////////////////////////
+
+inline float get_2d_sym_flat_minkowski_slab_eta(UGenerator &rng, const double eta0)
+{
+	return (2.0 * eta0 * rng()) - eta0;
+}
+
+inline float get_2d_sym_flat_minkowski_slab_radius(UGenerator &rng, const double r_max)
+{
+	return (2.0 * r_max * rng()) - r_max;
+}
+
 ///////////////////////////
 // 2-D Minkowski Diamond //
 // Flat Curvature        //

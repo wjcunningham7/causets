@@ -6,6 +6,7 @@ SUBDIRS = printcolor inc src
 INCD = -I $(top_builddir)/inc -I $(top_builddir)/printcolor
 LIBD = -L $(top_builddir)/printcolor -lprintcolor
 DATDIR = $(top_builddir)/dat
+ETCDIR = $(top_builddir)/etc
 
 if USE_GPU
 LNK_STRING = $(LNK_STR)

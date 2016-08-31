@@ -20,7 +20,7 @@ __global__ void DecodePastEdges(uint64_t *edges, int *past_edges, int64_t elemen
 
 __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, int elements);
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench);
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &link_epso, const bool &has_exact_k, const bool &use_bit, const bool &verbose, const bool &bench);
 
 bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const int &group_size, CausetMPI &cmpi, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &verbose);
 

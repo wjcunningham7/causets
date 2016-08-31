@@ -92,6 +92,8 @@ bool checkMpiErrors(CausetMPI &cmpi);
 //MPI Trading: Permutation Algorithms
 void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::vector<unsigned int> elements);
 
+void remove_bad_perms(std::unordered_set<FastBitset> &permutations, std::unordered_set<std::pair<int,int> > pairs);
+
 void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::vector<unsigned int> elements, bool &split_job);
 
 void fill_mpi_similar(std::vector<std::vector<unsigned int> > &similar, std::vector<unsigned int> elements);
@@ -113,6 +115,16 @@ void mpi_swaps(const std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bit
 void sendSignal(const MPISignal signal, const int rank, const int num_mpi_threads);
 #endif
 
-int longestChain(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, int j);
+std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, FastBitset &chain, FastBitset *workspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level);
+
+int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level);
+
+int longestChain(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, int j, unsigned int level);
+
+int findLongestMaximal(Bitvector &adj, const int *k_out, int *lengths, const int N_tar, const int idx);
+
+int findLongestMinimal(Bitvector &adj, const int *k_in, int *lengths, const int N_tar, const int idx);
+
+Network find_subgraph(const Network &network, std::vector<unsigned int> candidates, CaResources * const ca);
 
 #endif

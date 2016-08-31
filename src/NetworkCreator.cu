@@ -128,8 +128,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
 			if (!network_properties->tau0)
 				throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
-			if (get_curvature(spacetime) & FLAT && get_region(spacetime) & SLAB) {
-				if (get_manifold(spacetime) & DE_SITTER && !network_properties->r_max)
+			if (get_curvature(spacetime) & FLAT && get_region(spacetime) & (SLAB | SLAB_S1 | TRIANGLE_T | TRIANGLE_S)) {
+				if (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER) && !network_properties->r_max)
 					throw CausetException("Flag '--radius', spatial scaling, must be specified!\n");
 				else if (get_manifold(spacetime) & (DUST | FLRW) && !network_properties->alpha)
 					throw CausetException("Flag '--alpha', spatial scale, must be specified!\n");
@@ -161,8 +161,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		} else if (get_manifold(spacetime) & DE_SITTER) {
 			//The pseudoradius takes a default value of 1
 			if (!network_properties->delta)
-				//network_properties->a = 1.0;
-				network_properties->a = 2.0;
+				network_properties->a = 1.0;
+				//network_properties->a = 2.0;
 
 			if (get_curvature(spacetime) & FLAT) {
 				//We take eta_min = -1 so that rescaled time
@@ -207,15 +207,39 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 
 		//Solve for the remaining constraints
 		switch (spacetime) {
+		case (2 | MINKOWSKI | SLAB | FLAT | SYMMETRIC):
+			//Assumes r_max >> tau0
+			network_properties->k_tar = 2.0 * network_properties->N_tar * network_properties->eta0 / (3.0 * network_properties->r_max);
+			network_properties->delta = network_properties->N_tar / (4.0 * network_properties->eta0 * network_properties->r_max);
+			network_properties->flags.has_exact_k = false;
+			break;
+		case (2 | MINKOWSKI | SLAB_T1 | FLAT | SYMMETRIC):
+		{
+			//A guess - will be accurate when eta0 ~ r_max
+			network_properties->k_tar = 2.0 * network_properties->N_tar * network_properties->eta0 / (3.0 * network_properties->r_max);
+			network_properties->flags.has_exact_k = false;
+			double volume = 2.0 * volume_75499530_2(network_properties->r_max, eta0);
+			network_properties->delta = network_properties->N_tar / volume;
+			break;
+		}
+		case (2 | MINKOWSKI | SLAB_S1 | FLAT | SYMMETRIC):
+		{
+			//A guess - will be accurate when eta0 ~ r_max
+			network_properties->k_tar = 2.0 * network_properties->N_tar * network_properties->eta0 / (3.0 * network_properties->r_max);
+			network_properties->flags.has_exact_k = false;
+			double volume = 2.0 * volume_75499530_2(eta0, network_properties->r_max);
+			network_properties->delta = static_cast<double>(network_properties->N_tar) / volume;
+			break;
+		}
 		case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
 			network_properties->k_tar = network_properties->N_tar / 2.0;
-			network_properties->delta = 2.0 * network_properties->N_tar / POW2(network_properties->eta0, EXACT);
-			network_properties->r_max = network_properties->eta0 / 2.0;
+			network_properties->delta = 2.0 * static_cast<double>(network_properties->N_tar) / POW2(network_properties->eta0, EXACT);
+			network_properties->flags.has_exact_k = true;
 			break;
 		case (2 | MINKOWSKI | SAUCER | FLAT | SYMMETRIC):
 		{
-			//A guess here...
 			network_properties->k_tar = network_properties->N_tar / 2.0;
+			network_properties->flags.has_exact_k = false;
 			#if SPECIAL_SAUCER
 			double volume = volume_77834_1(1.5) - volume_77834_1(-1.5);
 			network_properties->r_max = 1.5;
@@ -225,11 +249,29 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->r_max = sqrt(1.0 - POW2(beta, EXACT));
 			#endif
 			network_properties->delta = static_cast<double>(network_properties->N_tar) / volume;
-			network_properties->a = 1.0;
+			break;
+		}
+		case (2 | MINKOWSKI | SAUCER_T | FLAT | SYMMETRIC):
+		{
+			network_properties->k_tar = network_properties->N_tar / 2.0;
+			network_properties->flags.has_exact_k = false;
+			double beta = sqrt(1.0 - POW2(eta0));
+			double volume = 2.0 * (sqrt(1.0 - POW2(beta, EXACT)) - POW2(beta, EXACT) * log((1.0 + sqrt(1.0 - POW2(beta, EXACT))) / beta));
+			network_properties->r_max = 1.0 - beta;
+			network_properties->delta = static_cast<double>(network_properties->N_tar) / volume;
+			break;
+		}
+		case (2 | MINKOWSKI | TRIANGLE_T | FLAT | SYMMETRIC):
+		{
+			network_properties->k_tar = network_properties->N_tar / 2.0;
+			network_properties->flags.has_exact_k = false;
+			double volume = network_properties->eta0 * network_properties->r_max;
+			network_properties->delta = static_cast<double>(network_properties->N_tar) / volume;
 			break;
 		}
 		case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 			network_properties->k_tar = network_properties->N_tar * (network_properties->eta0 / TAN(network_properties->eta0, STL) - LOG(COS(network_properties->eta0, STL), STL) - 1.0) / (TAN(network_properties->eta0, STL) * HALF_PI);
+			network_properties->flags.has_exact_k = true;
 			if (!!network_properties->delta)
 				network_properties->a = SQRT(network_properties->N_tar / (TWO_PI * network_properties->delta * TAN(network_properties->eta0, STL)), STL);
 			else
@@ -237,6 +279,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			break;
 		case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
 			network_properties->k_tar = (network_properties->N_tar / M_PI) * ((network_properties->eta0 / TAN(network_properties->eta0, STL) - 1.0) / TAN(network_properties->eta0, STL) + network_properties->eta0);
+			network_properties->flags.has_exact_k = true;
 			if (!!network_properties->delta)
 				network_properties->a = SQRT(network_properties->N_tar / (4.0 * M_PI * network_properties->delta * TAN(network_properties->eta0, STL)), STL);
 			else
@@ -244,25 +287,24 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			break;
 		case (2 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-			assert (false);
-			break;
+			goto unsupported;
 		case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):	
 			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-			assert (false);
-			break;
+			goto unsupported;
 		case (2 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
 			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-			assert (false);
-			break;
+			goto unsupported;
 		case (2 | HYPERBOLIC | SLAB | FLAT | ASYMMETRIC):
 			//We have not yet calculated the actual values
 			network_properties->k_tar = 10.0;
+			network_properties->flags.has_exact_k = false;
 			network_properties->delta = 1.0;
 			break;
 		case (2 | HYPERBOLIC | SLAB | POSITIVE | ASYMMETRIC):
 		{
 			//We have not yet calculated the actual value
 			network_properties->k_tar = 10.0;
+			network_properties->flags.has_exact_k = false;
 
 			double volume;
 			if (network_properties->flags.growing)
@@ -280,6 +322,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		{
 			int seed = static_cast<int>(4000000000 * network_properties->mrng.rng());
 			network_properties->k_tar = 9.0 * network_properties->N_tar * POW2(POW3(eta0 * eta1, EXACT), EXACT) * integrate2D(&averageDegree_10788_0, eta0, eta0, eta1, eta1, NULL, seed, 0) / (POW3(network_properties->r_max, EXACT) * POW2(POW3(eta1, EXACT) - POW3(eta0, EXACT), EXACT));
+			network_properties->flags.has_exact_k = true;
 			if (!!network_properties->delta)
 				network_properties->a = POW(9.0 * network_properties->N_tar * POW3(eta0 * eta1, EXACT) / (4.0 * M_PI * network_properties->delta * POW3(network_properties->r_max, EXACT) * (POW3(eta1, EXACT) - POW3(eta0, EXACT))), 0.25, STL);
 			else
@@ -288,6 +331,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		}
 		case (4 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 			network_properties->k_tar = network_properties->N_tar * (12.0 * (eta0 / TAN(eta0, STL) - LOG(COS(eta0, STL), STL)) - (6.0 * LOG(COS(eta0, STL), STL) + 5.0) / POW2(COS(eta0, STL), EXACT) - 7.0) / (POW2(2.0 + 1.0 / POW2(COS(eta0, STL), EXACT), EXACT) * TAN(eta0, STL) * 3.0 * HALF_PI);
+			network_properties->flags.has_exact_k = true;
 			if (!!network_properties->delta)
 				network_properties->a = POW(network_properties->N_tar * 3.0 / (2.0 * POW2(M_PI, EXACT) * network_properties->delta * (2.0 + 1.0 / POW2(COS(eta0, STL), EXACT)) * TAN(eta0, STL)), 0.25, STL);
 			else
@@ -296,6 +340,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
 		{
 			network_properties->k_tar = 2.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) * (-51.0 * sin(eta0) + 7.0 * sin(3.0 * eta0) + 6.0 * (eta0 * (3.0 + 1.0 / POW2(cos(eta0), EXACT)) + tan(eta0)) / cos(eta0)) / (3.0 * M_PI * POW2(3.0 * sin(eta0) + sin(3.0 * eta0), EXACT));
+			network_properties->flags.has_exact_k = true;
 			if (!!network_properties->delta)
 				network_properties->a = POW(3.0 * network_properties->N_tar * POW3(cos(eta0), EXACT) / (2.0 * POW2(M_PI, EXACT) * network_properties->delta * (3.0 * sin(eta0) + sin(3.0 * eta0))), 0.25, STL);
 			else
@@ -317,7 +362,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &network_properties->tau0, NULL, true);
 			if (network_properties->k_tar != network_properties->k_tar)
 				throw CausetException("Value not found in average degree table!\n");
-			//network_properties->k_tar = 5000;
+			network_properties->flags.has_exact_k = true;
 			network_properties->r_max = w / sqrt(2.0);
 			break;
 		}
@@ -334,12 +379,12 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &eta0, NULL, true);
 			if (network_properties->k_tar != network_properties->k_tar)
 				throw CausetException("Value not found in average degree table!\n");
+			network_properties->flags.has_exact_k = true;
 			break;
 		}
 		case (4 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
 			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-			assert (false);
-			break;
+			goto unsupported;
 		case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
 		{
 			if (!!network_properties->delta)
@@ -349,6 +394,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			
 			int seed = static_cast<int>(4000000000 * network_properties->mrng.rng());
 			network_properties->k_tar = (108.0 * M_PI / POW3(network_properties->tau0, EXACT)) * network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * integrate2D(&averageDegree_10820_0, 0.0, 0.0, network_properties->tau0, network_properties->tau0, NULL, seed, 0);
+			network_properties->flags.has_exact_k = true;
 			network_properties->alpha *= network_properties->a;
 			eta0 = tauToEtaDust(network_properties->tau0, network_properties->a, network_properties->alpha);
 			network_properties->zeta = HALF_PI - eta0;
@@ -367,6 +413,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &network_properties->tau0, NULL, true);
 			if (network_properties->k_tar != network_properties->k_tar)
 				throw CausetException("Value not found in average degree table!\n");
+			network_properties->flags.has_exact_k = true;
 			eta0 = tauToEtaDust(network_properties->tau0, network_properties->a, network_properties->alpha);
 			network_properties->eta0 = eta0;
 			network_properties->zeta = HALF_PI - eta0;
@@ -377,6 +424,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			method = 0;
 			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->spacetime, network_properties->N_tar, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.verbose, network_properties->flags.bench, method))
 				network_properties->cmpi.fail = 1;
+			network_properties->flags.has_exact_k = true;
 
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
@@ -403,6 +451,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			method = 1;
 			if (!solveExpAvgDegree(network_properties->k_tar, network_properties->spacetime, network_properties->N_tar, network_properties->a, network_properties->r_max, network_properties->tau0, network_properties->alpha, network_properties->delta, network_properties->cmpi.rank, network_properties->mrng, ca, cp->sCalcDegrees, bm->bCalcDegrees, network_properties->flags.verbose, network_properties->flags.bench, method))
 				network_properties->cmpi.fail = 1;
+			network_properties->flags.has_exact_k = true;
 
 			if (checkMpiErrors(network_properties->cmpi))
 				return false;
@@ -465,9 +514,14 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->k_tar = network_properties->delta * POW2(POW2(network_properties->a, EXACT), EXACT) * lookupValue(table, size, &network_properties->tau0, NULL, true);
 			if (network_properties->k_tar != network_properties->k_tar)
 				throw CausetException("Value not found in average degree table!\n");
+			network_properties->flags.has_exact_k = true;
 			break;
 		}
 		default:
+		unsupported:
+			#if DEBUG
+			printf("Spacetime ID: [%d]\n", network_properties->spacetime);
+			#endif
 			throw CausetException("Spacetime parameters not supported!\n");
 		}
 
@@ -533,7 +587,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				printf_mpi(rank, "\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
 			if (get_manifold(spacetime) & (DUST | FLRW))
 				printf_mpi(rank, "\t > Spatial Scaling:\t\t%.6f\n", network_properties->alpha);
-			if (get_curvature(spacetime) & FLAT && get_region(spacetime) & SLAB)
+			if (get_curvature(spacetime) & FLAT && get_region(spacetime) & (SLAB | SLAB_T1 | SLAB_S1 | SAUCER | SAUCER_T | TRIANGLE_T))
 				printf_mpi(rank, "\t > Spatial Cutoff:\t\t%.6f\n", network_properties->r_max);
 			if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW))
 				printf_mpi(rank, "\t > Temporal Scaling:\t\t%.6f\n", network_properties->a);
@@ -1176,6 +1230,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 		assert (r_max > 0.0);
 	#endif
 
+	bool DEBUG_COORDS = false;
 	//Enable this to validate the nodes are being generated with the correct
 	//distributions - it will use rejection sampling from the slab's distributions
 	bool DEBUG_DIAMOND = false;
@@ -1193,7 +1248,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	bool use_rejection = false;
 	if (DEBUG_DIAMOND && get_region(spacetime) & DIAMOND)
 		use_rejection = true;
-	if (get_region(spacetime) & SAUCER)
+	if (get_region(spacetime) & (SLAB_T1 | SLAB_S1 | SAUCER | SAUCER_T | TRIANGLE_T))
 		use_rejection = true;
 
 	//Initialize GSL integration structure
@@ -1291,6 +1346,33 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 				if (fabs(nodes.crd->x(i)) > eta_77834_1(nodes.crd->y(i), eta0))
 					continue;
 				#endif
+				break;
+			case (2 | MINKOWSKI | SLAB_T1 | FLAT | SYMMETRIC):
+				nodes.crd->x(i) = (2.0 * urng() - 1.0) * eta0;
+				nodes.crd->y(i) = (2.0 * urng() - 1.0) * eta0;
+				if (fabs(nodes.crd->y(i)) > eta_75499530_2(nodes.crd->x(i), r_max, eta0))
+					continue;
+				break;
+			case (2 | MINKOWSKI | SLAB_S1 | FLAT | SYMMETRIC):
+				nodes.crd->x(i) = (2.0 * urng() - 1.0) * r_max;
+				nodes.crd->y(i) = (2.0 * urng() - 1.0) * r_max;
+				if (fabs(nodes.crd->x(i)) > eta_75499530_2(nodes.crd->y(i), eta0, r_max))
+					continue;
+				break;
+			case (2 | MINKOWSKI | SAUCER_T | FLAT | SYMMETRIC):
+				nodes.crd->x(i) = (2.0 * urng() - 1.0) * eta0;
+				nodes.crd->y(i) = (2.0 * urng() - 1.0) * r_max;
+				if (fabs(nodes.crd->y(i)) > eta_77834_1(nodes.crd->x(i), r_max))
+					continue;
+				break;
+			case (2 | MINKOWSKI | TRIANGLE_T | FLAT | SYMMETRIC):
+				nodes.crd->x(i) = (2.0 * urng() - 1.0) * eta0;
+				//nodes.crd->y(i) = urng() * r_max;
+				nodes.crd->y(i) = 2.0 * urng() * eta0;
+				//if (fabs(nodes.crd->x(i)) > eta_76546058_2(nodes.crd->y(i), eta0, r_max))
+				if (nodes.crd->y(i) < r_max && fabs(nodes.crd->x(i)) < eta_76546058_2(nodes.crd->y(i), eta0, r_max))
+					continue;
+				nodes.crd->y(i) -= eta0;
 				break;
 			case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 				#if EMBED_NODES
@@ -1426,6 +1508,10 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 
 			do {
 				switch (spacetime) {
+				case (2 | MINKOWSKI | SLAB | FLAT | SYMMETRIC):
+					nodes.crd->x(i) = get_2d_sym_flat_minkowski_slab_eta(urng, eta0);
+					nodes.crd->y(i) = get_2d_sym_flat_minkowski_slab_radius(urng, r_max);
+					break;
 				case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
 					u = get_2d_asym_flat_minkowski_diamond_u(urng, xi);
 					v = get_2d_asym_flat_minkowski_diamond_v(urng, xi);
@@ -1728,6 +1814,30 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	fflush(stdout);*/
 	//printChk();
 
+	if (DEBUG_COORDS) {
+		if (nodes.id.tau != NULL)
+			printValues(nodes, spacetime, N_tar, "tau_dist.cset.dbg.dat", "tau");
+		if (get_stdim(spacetime) == 2) {
+			printValues(nodes, spacetime, N_tar, "eta_dist.cset.dbg.dat", "x");
+			if (get_curvature(spacetime) & FLAT)
+				printValues(nodes, spacetime, N_tar, "x_dist.cset.dbg.dat", "y");
+			else if (get_curvature(spacetime) & POSITIVE)
+				printValues(nodes, spacetime, N_tar, "theta_dist.cset.dbg.dat", "y");
+		} else if (get_stdim(spacetime) == 4) {
+			printValues(nodes, spacetime, N_tar, "eta_dist.cset.dbg.dat", "w");
+			if (get_curvature(spacetime) & FLAT)
+				printValues(nodes, spacetime, N_tar, "radial_dist.cset.dbg.dat", "x");
+			else if (get_curvature(spacetime) & POSITIVE)
+				printValues(nodes, spacetime, N_tar, "theta1_dist.cset.dbg.dat", "x");
+			printValues(nodes, spacetime, N_tar, "theta2_dist.cset.dbg.dat", "y");
+			printValues(nodes, spacetime, N_tar, "theta3_dist.cset.dbg.dat", "z");
+		}
+		printf_red();
+		printf("\tCheck coordinate distributions.\n");
+		printf_std();
+		fflush(stdout);
+	}
+
 	stopwatchStop(&sGenerateNodes);
 
 	if (!bench) {
@@ -1743,7 +1853,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 	return true;
 }
 
-bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, CausetMPI &cmpi, Stopwatch &sLinkNodes, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, CausetMPI &cmpi, Stopwatch &sLinkNodes, const bool &link_epso, const bool &has_exact_k, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//No null pointers
@@ -1797,9 +1907,11 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 	}
 	#endif
 
-	if (!cmpi.rank) printf_mag();
-	printf_mpi(cmpi.rank, "Using Version 2 (linkNodes).\n");
-	if (!cmpi.rank) printf_std();
+	if (verbose) {
+		if (!cmpi.rank) printf_mag();
+		printf_mpi(cmpi.rank, "Using Version 2 (linkNodes).\n");
+		if (!cmpi.rank) printf_std();
+	}
 
 	int64_t idx = 0;
 	int rank = cmpi.rank;
@@ -1888,8 +2000,10 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 		printf_mpi(rank, "\t\tResulting Network Size:   %d\n", N_res);
 		printf_mpi(rank, "\t\tResulting Average Degree: %f\n", k_res);
 		printf_mpi(rank, "\t\t    Incl. Isolated Nodes: %f\n", k_res * ((float)N_res / N_tar));
-		if (!rank) printf_red();
-		printf_mpi(rank, "\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
+		if (has_exact_k) {
+			if (!rank) printf_red();
+			printf_mpi(rank, "\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
+		}
 		if (!rank) printf_std();
 		if (!rank) fflush(stdout);
 	}
@@ -1908,7 +2022,7 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const unsigned int &spacetime, co
 
 //Identify Causal Sets
 //O(k*N^2) Efficiency
-bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodes_v1(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, Stopwatch &sLinkNodes, const bool &link_epso, const bool &has_exact_k, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//No null pointers
@@ -1964,13 +2078,14 @@ bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spa
 
 	#if EMBED_NODES
 	if (get_manifold(spacetime) & HYPERBOLIC) {
-		fprintf(stderr, "linkNodes not implemented for EMBED_NODES=true and MANIFOLD=HYPERBOLIC.  Find me on line %d in %s.\n", __LINE__, __FILE__);
+		fprintf(stderr, "linkNodes_v1 not implemented for EMBED_NODES=true and MANIFOLD=HYPERBOLIC.  Find me on line %d in %s.\n", __LINE__, __FILE__);
 		if (!!N_tar)
 			return false;
 	}
 	#endif
 
-	printf_dbg("Using Version 1 (linkNodes).\n");
+	if (verbose)
+		printf_dbg("Using Version 1 (linkNodes).\n");
 
 	uint64_t future_idx = 0;
 	uint64_t past_idx = 0;
@@ -2110,8 +2225,10 @@ bool linkNodes(Node &nodes, Edge &edges, Bitvector &adj, const unsigned int &spa
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
 		printf("\t\t    Incl. Isolated Nodes: %f\n", k_res * ((float)N_res / N_tar));
-		printf_red();
-		printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
+		if (has_exact_k) {
+			printf_red();
+			printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
+		}
 		printf_std();
 		fflush(stdout);
 	}

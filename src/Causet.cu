@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 
 	//Measure Graph Properties
 	if (network.network_properties.flags.test) goto CausetPoint2;
-	if (!measureNetworkObservables(&network, &ca, &cp, &bm)) goto CausetExit;
+	if (!measureNetworkObservables(&network, &ca, &cp, &bm, cu.cuContext)) goto CausetExit;
 
 	//Print Results
 	if (!network.network_properties.flags.bench) printMemUsed(NULL, ca.maxHostMemUsed, ca.maxDevMemUsed, cmpi.rank);
@@ -231,8 +231,6 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 			case 'm':	//Manifold
 				if (!strcmp(optarg, "minkowski"))
 					network_properties.spacetime |= MINKOWSKI;
-				else if (!strcmp(optarg, "milne"))
-					network_properties.spacetime |= MILNE;
 				else if (!strcmp(optarg, "desitter"))
 					network_properties.spacetime |= DE_SITTER;
 				else if (!strcmp(optarg, "dust"))
@@ -252,12 +250,34 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 			case 'r':	//Region
 				if (!strcmp(optarg, "slab"))
 					network_properties.spacetime |= SLAB;
+				else if (!strcmp(optarg, "slab_t1"))
+					network_properties.spacetime |= SLAB_T1;
+				else if (!strcmp(optarg, "slab_t2"))
+					network_properties.spacetime |= SLAB_T2;
+				else if (!strcmp(optarg, "slab_s1"))
+					network_properties.spacetime |= SLAB_S1;
+				else if (!strcmp(optarg, "slab_s2"))
+					network_properties.spacetime |= SLAB_S2;
+				else if (!strcmp(optarg, "slab_n1"))
+					network_properties.spacetime |= SLAB_N1;
+				else if (!strcmp(optarg, "slab_n2"))
+					network_properties.spacetime |= SLAB_N2;
+				else if (!strcmp(optarg, "slab_n3"))
+					network_properties.spacetime |= SLAB_N3;
 				else if (!strcmp(optarg, "half-diamond"))
 					network_properties.spacetime |= HALF_DIAMOND;
 				else if (!strcmp(optarg, "diamond"))
 					network_properties.spacetime |= DIAMOND;
 				else if (!strcmp(optarg, "saucer"))
 					network_properties.spacetime |= SAUCER;
+				else if (!strcmp(optarg, "saucer_t"))
+					network_properties.spacetime |= SAUCER_T;
+				else if (!strcmp(optarg, "triangle_t"))
+					network_properties.spacetime |= TRIANGLE_T;
+				else if (!strcmp(optarg, "triangle_s"))
+					network_properties.spacetime |= TRIANGLE_S;
+				else if (!strcmp(optarg, "triangle_n"))
+					network_properties.spacetime |= TRIANGLE_N;
 				else
 					throw CausetException("Invalid argument for 'region' parameter!\n");
 				break;
@@ -466,7 +486,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -h, --help\t\tDisplay This Menu\n");
 				printf_mpi(rank, "      --link\t\tLink Nodes to Create Graph\n");
 				printf_mpi(rank, "      --link-epso\tLink Nodes using EPSO Rule\n");
-				printf_mpi(rank, "  -m, --manifold\tManifold\t\t\t\"desitter\", \"dust\",\n");
+				printf_mpi(rank, "  -m, --manifold\tManifold\t\t\t\"minkowski\", \"desitter\", \"dust\",\n");
 				printf_mpi(rank, "\t\t\t\t\t\t\t\"flrw\", \"hyperbolic\"\n");
 				printf_mpi(rank, "      --mu\t\tChemical Potential\t\t10.0\n");
 				printf_mpi(rank, "  -n, --nodes\t\tNumber of Nodes\t\t\t1000, 10000, 100000\n");
@@ -477,8 +497,13 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "\t\t\treading graph\n");
 				printf_mpi(rank, "      --radius\t\tRadius of Spatial Dimension\t1.0\n");
 				printf_mpi(rank, "      --read-old-format\tRead Positions in Old Format\n");
-				printf_mpi(rank, "  -r, --region\t\tSpacetime Region\t\t\"slab\", \"half-diamond\",\n");
-				printf_mpi(rank, "\t\t\t\t\t\t\t\"diamond\", \"saucer\"\n");
+				printf_mpi(rank, "  -r, --region\t\tSpacetime Region\t\t\"slab\", \"slab_t1\", \"slab_t2\",\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"slab_s1\", \"slab_s2\", \"slab_n1\",\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"slab_n2\", \"slab_n3\",\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"half-diamond\", \"diamond\",\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"saucer\", \"saucer_t\",\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"triangle_t\", \"triangle_s\",\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"triangle_n\"\n");
 				printf_mpi(rank, "      --relink\t\tIgnore Pre-Existing Links\n");
 				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.01, 10000\n");
 				printf_mpi(rank, "  -s, --seed\t\tRandom Seed\t\t\t18100\n");
@@ -567,7 +592,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 
 	int rank = network->network_properties.cmpi.rank;
 	int nb = static_cast<int>(network->network_properties.flags.bench) * NBENCH;
-	double scale;
+	//double scale;
 	int i;
 
 	#ifdef _OPENMP
@@ -648,39 +673,16 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	}
 	#endif
 
+	//DEBUG
+	printValues(network->nodes, network->network_properties.spacetime, network->network_properties.N_tar, "eta_dist.cset.dbg.dat", "x");
+	printValues(network->nodes, network->network_properties.spacetime, network->network_properties.N_tar, "x_dist.cset.dbg.dat", "y");
+
 	//Identify edges as points connected by timelike intervals
 	if (network->network_properties.flags.link) {
 		for (i = 0; i <= nb; i++) {
-			#ifdef CUDA_ENABLED
-			if (network->network_properties.flags.use_gpu && network->network_properties.N_tar >= GPU_MIN) {
-				#if LINK_NODES_GPU_V2
-				if (!linkNodesGPU_v2(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sLinkNodes, ctx, network->network_properties.flags.decode_cpu, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-					network->network_properties.cmpi.fail = 1;
-					goto InitExit;
-				}
-				#else
-				if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.link_epso, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-					network->network_properties.cmpi.fail = 1;
-					goto InitExit;
-				}
-				#endif
-			} else
-			#endif
-			{
-				#ifdef MPI_ENABLED
-				if (network->network_properties.cmpi.num_mpi_threads > 1) {
-					if (!linkNodes_v2(network->nodes, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.cmpi, cp->sLinkNodes, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-						network->network_properties.cmpi.fail = 1;
-						goto InitExit;
-					}
-				} else
-				#endif
-				{
-					if (!linkNodes(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-						network->network_properties.cmpi.fail = 1;
-						goto InitExit;
-					}
-				}
+			if (!linkNodes(network, ca, cp, ctx)) {
+				network->network_properties.cmpi.fail = 1;
+				goto InitExit;
 			}
 		}
 
@@ -692,10 +694,10 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 		}
 	}
 
-	scale = get_manifold(network->network_properties.spacetime) & HYPERBOLIC ? network->network_properties.zeta : network->network_properties.a;
+	//scale = get_manifold(network->network_properties.spacetime) & HYPERBOLIC ? network->network_properties.zeta : network->network_properties.a;
 	//Use this statement if you're creating a degree lookup table
-	if (network->network_properties.flags.link)
-		printf_mpi(rank, "rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(scale, (double)get_stdim(network->network_properties.spacetime))));
+	//if (network->network_properties.flags.link)
+	//	printf_mpi(rank, "rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(scale, (double)get_stdim(network->network_properties.spacetime))));
 
 	InitExit:
 	if (checkMpiErrors(network->network_properties.cmpi))
@@ -706,7 +708,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	return true;
 }
 
-bool measureNetworkObservables(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm)
+bool measureNetworkObservables(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx)
 {
 	#if DEBUG
 	assert (network != NULL);
@@ -715,11 +717,6 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 	assert (bm != NULL);
 	#endif
 
-	//if (network->nodes.crd->isNull())
-	//	printf("rank: %d\n", network->network_properties.cmpi.rank);
-	//MPI_Barrier(MPI_COMM_WORLD);
-	//MPI_Barrier(MPI_COMM_WORLD);
-	
 	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio && !network->network_properties.flags.calc_deg_field && !network->network_properties.flags.validate_distances && !network->network_properties.flags.calc_action && !network->network_properties.flags.calc_vecprod)
 		return true;
 
@@ -898,8 +895,8 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 		for (i = 0; i <= nb; i++) {
 			#ifdef MPI_ENABLED
 			if (network->network_properties.cmpi.num_mpi_threads > 1) {
-				if (network->network_properties.N_tar >= ACTION_MPI_V5) {
-				//if (network->network_properties.N_tar >= 131072) {
+				//if (network->network_properties.N_tar >= ACTION_MPI_V5) {
+				if (network->network_properties.N_tar >= 1) {
 					if (!measureAction_v5(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 						network->network_properties.cmpi.fail = 1;
 						goto MeasureExit;
@@ -930,6 +927,36 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			}
 			#endif
 			}
+
+			#ifdef MPI_ENABLED
+			printf_mpi(rank, "This section has not been written to be MPI compatible.\n");
+			printf_mpi(rank, "Find this warning on line %d in file %s.\n", __LINE__, __FILE__);
+			return false;
+			#endif
+			
+			if (!timelikeActionCandidates(network->network_observables.timelike_candidates, network->network_observables.chaintime, network->nodes, network->adj, network->nodes.k_in, network->nodes.k_out, network->network_properties.spacetime, network->network_properties.N_tar, ca, cp->sMeasureActionTimelike, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				network->network_properties.cmpi.fail = 1;
+				goto MeasureExit;
+			}
+
+			//Create subnetwork based on timelike candidates
+			Network subgraph = Network(*network);
+			if (!configureSubgraph(&subgraph, network->nodes, network->network_observables.timelike_candidates, ca, ctx)) {
+				network->network_properties.cmpi.fail = 1;
+				goto MeasureExit;
+			}
+			/*subgraph.network_properties.flags.calc_components = true;
+			if (!measureConnectedComponents(subgraph.nodes, subgraph.edges, subgraph.adj, subgraph.network_properties.N_tar, subgraph.network_properties.cmpi, subgraph.network_observables.N_cc, subgraph.network_observables.N_gcc, ca, cp->sMeasureConnectedComponents, subgraph.network_properties.flags.use_bit, subgraph.network_properties.flags.verbose, subgraph.network_properties.flags.bench)) {
+				network->network_properties.cmpi.fail = 1;
+				goto MeasureExit;
+			}*/
+
+			if (!measureTimelikeAction(network, &subgraph, network->network_observables.timelike_candidates, ca)) {
+				network->network_properties.cmpi.fail = 1;
+				goto MeasureExit;
+			}
+
+			destroyNetwork(&subgraph, ca->hostMemUsed, ca->devMemUsed);
 		}
 
 		if (nb)
@@ -1083,9 +1110,9 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		}
 		}
 
-		//printf_mpi(rank, "Number of Nodes: %d\n", network->network_properties.N_tar);
-		//printf("Number of Edges: %" PRIu64 "\n", N_edg);
-		//fflush(stdout);
+		/*printf_mpi(rank, "Number of Nodes: %d\n", network->network_properties.N_tar);
+		printf("Number of Edges: %" PRIu64 "\n", N_edg);
+		fflush(stdout);*/
 
 		LoadPoint1:
 		if (checkMpiErrors(network->network_properties.cmpi)) {
@@ -1104,6 +1131,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			return false;
 		if (!!N_edg)
 			network->network_properties.k_tar = static_cast<float>(static_cast<double>(N_edg) * 2.0 / network->network_properties.N_tar);
+		//printf("Average Degree: %f\n", network->network_properties.k_tar);
 
 		printf_mpi(rank, "\nFinished Gathering Peripheral Network Data.\n");
 		fflush(stdout);
@@ -1248,35 +1276,8 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 
 		//Re-Link Using linkNodes Subroutine
 		if (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW) && network->network_properties.flags.relink && !network->network_properties.flags.no_pos) {
-			#ifdef CUDA_ENABLED
-			if (network->network_properties.flags.use_gpu && network->network_properties.N_tar >= GPU_MIN) {
-				#if LINK_NODES_GPU_V2
-				if (!linkNodesGPU_v2(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sLinkNodes, ctx, network->network_properties.flags.decode_cpu, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-					network->network_properties.cmpi.fail = 1;
-					goto LoadPoint2;
-				}
-				#else
-				if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.link_epso, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-					network->network_properties.cmpi.fail = 1;
-					goto LoadPoint2;
-				}
-				#endif
-			} else
-			#endif
-			{
-				#ifdef MPI_ENABLED
-				if (!linkNodes_v2(network->nodes, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.cmpi, cp->sLinkNodes, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-					network->network_properties.cmpi.fail = 1;
-					goto LoadPoint2;
-				}
-				#else
-				if (!linkNodes(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-					network->network_properties.cmpi.fail = 1;
-					goto LoadPoint2;
-				}
-				#endif
-			}
-
+			if (!linkNodes(network, ca, cp, ctx))
+				network->network_properties.cmpi.fail = 1;
 			goto LoadPoint2;
 		} else if (!network->network_properties.flags.link)
 			goto LoadPoint2;
@@ -1313,7 +1314,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 				e1 = atoi(strtok(NULL, delimeters));
 				//printf("%d %d\n", e0, e1);
 
-				if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
+				if (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW)) {
 					idx0 = e0;
 					idx1 = e1;
 				} else if (get_manifold(spacetime) & HYPERBOLIC) {
@@ -1329,6 +1330,8 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 
 				assert (idx0 < (unsigned int)network->network_properties.N_tar);
 				assert (idx1 < (unsigned int)network->network_properties.N_tar);
+
+				//printf("[%d - %d]\n", idx0, idx1);
 
 				network->nodes.k_in[idx1]++;
 				network->nodes.k_out[idx0]++;
@@ -1734,6 +1737,28 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 				}
 				dataStream.flush();
 				dataStream.close();
+
+				if (network.network_properties.flags.use_bit) {
+					sstm.str("");
+					sstm.clear();
+					sstm << "./dat/dot/" << network.network_properties.graphID << ".cset.dot";
+					dataStream.open(sstm.str().c_str());
+					if (!dataStream.is_open())
+						throw CausetException("Failed to open dot file!\n");
+					dataStream << "digraph \"causet\" {\n";
+					dataStream << "rankdir=BT; concentrate=true;\n";
+					for (int i = 0; i < network.network_properties.N_tar; i++) {
+						dataStream << i << " [shape=plaintext];\n";
+						for (int j = i + 1; j < network.network_properties.N_tar; j++)
+							if (network.adj[i].read(j))
+								dataStream << i << "->" << j << "; ";
+						if (!!network.nodes.k_out[i])
+							dataStream << "\n";
+					}
+					dataStream << "}\n";
+					dataStream.flush();
+					dataStream.close();
+				}
 			}
 
 			sstm.str("");
@@ -2147,6 +2172,14 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		free(network->network_observables.cardinalities);
 		network->network_observables.cardinalities = NULL;
 		hostMemUsed -= sizeof(uint64_t) * network->network_properties.max_cardinality * omp_get_max_threads();
+
+		hostMemUsed -= sizeof(unsigned int) * network->network_observables.timelike_candidates.size();
+		network->network_observables.timelike_candidates.clear();
+		network->network_observables.timelike_candidates.swap(network->network_observables.timelike_candidates);
+	
+		free(network->network_observables.chaintime);
+		network->network_observables.chaintime = NULL;
+		hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 	}
 
 	if (network->network_properties.flags.calc_vecprod) {
@@ -2154,4 +2187,105 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		network->network_observables.vecprods = NULL;
 		hostMemUsed -= sizeof(float) * network->network_properties.N_vp;
 	}
+}
+
+//--------------------//
+// Additional Methods //
+//--------------------//
+
+bool linkNodes(Network * const network, CaResources * const ca, CausetPerformance * const cp, const CUcontext &ctx)
+{
+	#ifdef CUDA_ENABLED
+	if (network->network_properties.flags.use_gpu && network->network_properties.N_tar >= GPU_MIN) {
+		#if LINK_NODES_GPU_V2
+		if (!linkNodesGPU_v2(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sLinkNodes, ctx, network->network_properties.flags.decode_cpu, network->network_properties.flags.link_epso, network->network_properties.flags.has_exact_k, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			return false;
+		#else
+		if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.link_epso, network->network_properties.flags.has_exact_k, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			return false;
+		#endif
+	} else
+	#endif
+	{
+		#ifdef MPI_ENABLED
+		if (network->network_properties.cmpi.num_mpi_threads > 1) {
+			if (!linkNodes_v2(network->nodes, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.cmpi, cp->sLinkNodes, network->network_properties.flags.link_epso, network->network_properties.flags.has_exact_k, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+				return false
+		} else
+		#endif
+		{
+			if (!linkNodes_v1(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, cp->sLinkNodes, network->network_properties.flags.link_epso, network->network_properties.flags.has_exact_k, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigned int> candidates, CaResources * const ca, const CUcontext &ctx)
+{
+	#ifdef DEBUG
+	assert (candidates.size() > 0);
+	#endif
+
+	printf("\n\tPreparing to Generate Subgraph...\n");
+	fflush(stdout);
+
+	subgraph->network_properties.N_tar = candidates.size();
+	
+	subgraph->network_properties.flags.has_exact_k = false;
+
+	subgraph->network_properties.flags.use_bit = true;
+	subgraph->network_properties.flags.gen_ds_table = false;
+	subgraph->network_properties.flags.gen_flrw_table = false;
+
+	subgraph->network_properties.flags.calc_clustering = false;
+	subgraph->network_properties.flags.calc_components = false;
+	subgraph->network_properties.flags.calc_success_ratio = false;
+	subgraph->network_properties.flags.calc_autocorr = false;
+	subgraph->network_properties.flags.calc_deg_field = false;
+	subgraph->network_properties.flags.calc_action = false;
+	subgraph->network_properties.flags.calc_vecprod = false;
+	subgraph->network_properties.flags.validate_embedding = false;
+	subgraph->network_properties.flags.validate_distances = false;
+
+	subgraph->network_properties.flags.verbose = false;
+	subgraph->network_properties.flags.bench = false;
+
+	subgraph->network_observables.clustering = NULL;
+	subgraph->network_observables.in_degree_field = NULL;
+	subgraph->network_observables.out_degree_field = NULL;
+	subgraph->network_observables.cardinalities = NULL;
+	subgraph->network_observables.vecprods = NULL;
+
+	CausetPerformance cp = CausetPerformance();
+	if (!createNetwork(subgraph->nodes, subgraph->edges, subgraph->adj, subgraph->network_properties.spacetime, subgraph->network_properties.N_tar, subgraph->network_properties.k_tar, subgraph->network_properties.core_edge_fraction, subgraph->network_properties.edge_buffer, subgraph->network_properties.cmpi, subgraph->network_properties.group_size, ca, cp.sCreateNetwork, subgraph->network_properties.flags.use_gpu, subgraph->network_properties.flags.decode_cpu, subgraph->network_properties.flags.link, subgraph->network_properties.flags.relink, subgraph->network_properties.flags.no_pos, subgraph->network_properties.flags.use_bit, subgraph->network_properties.flags.verbose, subgraph->network_properties.flags.bench, subgraph->network_properties.flags.yes))
+		return false;
+
+	for (int i = 0; i < subgraph->network_properties.N_tar; i++) {
+		if (subgraph->nodes.id.tau != NULL)
+			subgraph->nodes.id.tau[i] = nodes.id.tau[candidates[i]];
+		if (subgraph->nodes.crd->v() != NULL)
+			subgraph->nodes.crd->v(i) = nodes.crd->v(candidates[i]);
+		if (subgraph->nodes.crd->w() != NULL)
+			subgraph->nodes.crd->w(i) = nodes.crd->w(candidates[i]);
+		if (subgraph->nodes.crd->x() != NULL)
+			subgraph->nodes.crd->x(i) = nodes.crd->x(candidates[i]);
+		if (subgraph->nodes.crd->y() != NULL)
+			subgraph->nodes.crd->y(i) = nodes.crd->y(candidates[i]);
+		if (subgraph->nodes.crd->z() != NULL)
+			subgraph->nodes.crd->z(i) = nodes.crd->z(candidates[i]);
+	}
+
+	//int low = 0;
+	//int high = subgraph->network_properties.N_tar - 1;
+	//quicksort(subgraph->nodes, subgraph->network_properties.spacetime, low, high);
+
+	if (!linkNodes(subgraph, ca, &cp, ctx))
+		return false;
+
+	printf("\tGenerated Subgraph from Candidates.\n");
+	fflush(stdout);
+
+	return true;
 }

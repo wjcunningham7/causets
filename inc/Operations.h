@@ -142,6 +142,20 @@ inline double x_77834_1(const double x, const double rhs)
 	return volume_77834_1(x) - rhs;
 }
 
+//This function gives the integral of the volume from -r_max to -r_max
+inline double volume_75499530_2(const double eta0, const double r_max)
+{
+	#if DEBUG
+	assert (eta0 <= r_max);
+	#endif
+
+	double beta = eta0 + r_max;
+	double t1 = sqrt(4.0 * POW2(r_max) - POW2(beta));
+	double t2 = log((2.0 * r_max + t1) / beta);
+
+	return r_max * POW2(beta) * t2 / t1;
+}
+
 //Returns eta Residual
 //Used in 3+1 K = 1 Asymmetric de Sitter Slab
 inline double solve_eta_12836_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
@@ -454,12 +468,12 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const 
 
 	//Temporal Interval
 	if (get_stdim(spacetime) == 2)
-		dt = c->x(future_idx) - c->x(past_idx);
+		dt = fabs(c->x(future_idx) - c->x(past_idx));
 	else if (get_stdim(spacetime) == 4)
 		#if EMBED_NODES
-		dt = c->v(future_idx) - c->v(past_idx);
+		dt = fabs(c->v(future_idx) - c->v(past_idx));
 		#else
-		dt = c->w(future_idx) - c->w(past_idx);
+		dt = fabs(c->w(future_idx) - c->w(past_idx));
 		#endif
 
 	#if DEBUG
@@ -903,6 +917,36 @@ inline double eta_77834_1(double x, double eta0)
 	#else
 	return 1.0 - sqrt(POW2(x, EXACT) + POW2(1.0 - eta0, EXACT));
 	#endif
+}
+
+//-----------------------------------//
+// Volume in 1+1 Minkowski Slab (S1) //
+//-----------------------------------//
+
+//This function gives the boundary value eta(x)
+inline double eta_75499530_2(double x, double eta0, double r_max)
+{
+	#if DEBUG
+	assert (fabs(x) <= r_max);
+	#endif
+
+	double beta = r_max + eta0;
+	return sqrt(-(POW2(beta / r_max) - 4.0) * POW2(x) + POW2(beta)) - r_max;
+}
+
+//---------------------------------------//
+// Volume in 1+1 Minkowski Triangle (T1) //
+//---------------------------------------//
+
+//This function gives the boundary value eta(x)
+inline double eta_76546058_2(double x, double eta0, double r_max)
+{
+	#if DEBUG
+	assert (r_max <= eta0);
+	assert (x >= 0.0 && x <= r_max);
+	#endif
+
+	return eta0 * (1.0 - x / r_max);
 }
 
 //---------------------------------//

@@ -65,7 +65,7 @@ for i in $(seq ${#vars[@]}) ; do
     readjob=0
   fi
 
-  $CAUSET_HOME_DIR/lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --age '"$age"' --link --gpu --core 1 --verbose --action smeared --print' --queue $queue --nsamples $samples --exclude $exclude --mpi $mpi
+  $CAUSET_HOME_DIR/lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --age '"$age"' --link --gpu --core 1 --verbose -y --action smeared --print' --queue $queue --nsamples $samples --exclude $exclude --mpi $mpi
 done
 
 setnextjob $(($job+1))

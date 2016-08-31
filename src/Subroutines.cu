@@ -1001,6 +1001,32 @@ void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::ve
 	}
 }
 
+void remove_bad_perms(std::unordered_set<FastBitset> &permutations, std::unordered_set<std::pair<int,int> > pairs)
+{
+	#if DEBUG
+	assert (permutations.size() > 0);
+	assert (pairs.size() > 0);
+	#endif
+
+	std::vector<unsigned int> v_pairs;
+	v_pairs.reserve(pairs.size() << 1);
+	for (std::unordered_set<std::pair<int,int> >::iterator it = pairs.begin(); it != pairs.end(); it++) {
+		v_pairs.push_back(std::get<0>(*it));
+		v_pairs.push_back(std::get<1>(*it));
+	}
+
+	uint64_t len = static_cast<uint64_t>(v_pairs.size()) * (v_pairs.size() - 1) >> 1;
+	FastBitset fb(len);
+	perm_to_binary(fb, v_pairs);
+
+	for (std::unordered_set<FastBitset>::iterator it = permutations.begin(); it != permutations.end(); it++) {
+		FastBitset fb2 = fb;
+		fb2.setIntersection_v2(*it);
+		if (fb2.count_v3() == 0)
+			permutations.erase(*it);
+	}
+}
+
 //Enumerate all unique pairs, assuming the first element is smaller
 //The ordered pairs are not included (e.g. (0,1) (2,3), etc.) 
 //The variable 'nbuf' should be twice the number of computers used
@@ -1356,16 +1382,193 @@ void sendSignal(const MPISignal signal, const int rank, const int num_mpi_thread
 }
 #endif
 
-//This function is totall messed up
-//It should be recursive
-int longestChain(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, int j)
+//Finds the longest chain using the candidates
+//The indices (i,j) should refer to the subgraph of candidates
+//Lengths has 'N' elements (only used to be passed to longestChain_v2)
+//Sublengths has 'N_sub' elements; the first pair index is for the subgraph length,
+// > and the second index is for the global graph length (used at the very end)
+//The pair returned is (x,y) where x is the longest path in the subgraph
+// > and y is the associated longest path in the graph
+std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, FastBitset &chain, FastBitset *workspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level)
 {
 	#if DEBUG
-	assert (adj.size() > 0);
-	assert (N_tar > 0);
-	assert (i >= 0 && i < N_tar);
-	assert (j >= 0 && j < N_tar);
+	if (!level) {
+		assert (adj.size() > 0);
+		assert (subadj.size() > 0);
+		assert (chain.size() > 0);
+		assert (candidates.size() > 0);
+		assert (lengths != NULL);
+		assert (sublengths != NULL);
+		assert (N > 0);
+		assert (N_sub > 0);
+		assert (i >= 0 && i < N_sub);
+		assert (j >= 0 && j < N_sub);
+	} else
+		assert (workspace != NULL);
 	#endif
+
+	static const bool CHAIN_DEBUG = false;
+	if (CHAIN_DEBUG) sleep(2);
+
+	//If the two indices are equal, they must be the same node
+	//Define the distance between a node and itself to be zero
+	if (i == j) return std::make_pair(0, 0);
+
+	//Enforce the condition that i < j
+	if (i > j) {
+		i ^= j;
+		j ^= i;
+		i ^= j;
+	}
+
+	int longest = 0, slongest = 0, ilongest = -1;
+	bool outer = false;
+
+	uint64_t loc_idx, glob_idx;
+	std::pair<int,int> c;
+
+	//This should be executed on the outer-most recursion only
+	if (workspace == NULL) {
+		if (CHAIN_DEBUG) {
+			printf("Searching for the longest guided chain between [%d] and [%d]\n", candidates[i], candidates[j]);
+			fflush(stdout);
+		}
+		
+		//If the nodes are not even related, return -1
+		//Define the distance between unrelated nodes to be -1
+		if (!nodesAreConnected_v2(subadj, N_sub, i, j)) return std::make_pair(-1,-1);
+		outer = true;
+
+		chain.reset();
+		//chain.set(candidates[i]);
+		//chain.set(candidates[j]);
+
+		//The workspace is used to identify which nodes to look at between i and j
+		workspace = new FastBitset(N_sub);
+		subadj[i].clone(*workspace);
+		workspace->partial_intersection(subadj[j], i, j - i + 1);
+		//The workspace now contains a bitstring containing '1's
+		//for elements in the Alexandrov set (i,j)
+
+		//Initialize sublengths to -1 (i.e. unrelated)
+		for (int i = 0; i < N_sub; i++)
+			sublengths[i] = std::make_pair(-1, -1);
+	}
+
+	FastBitset test_chain = chain;
+
+	//The workspace which will be passed to the next recursion
+	FastBitset work(N_sub);
+
+	//Iterate over all bits set to 1
+	for (uint64_t k = 0; k < workspace->getNumBlocks(); k++) {
+		uint64_t block;
+		while (block = workspace->readBlock(k)) {	//If all bits are zero, continue to the next block
+			int chain_length = 0, schain_length = 0;
+
+			//Find the first bit set in this block
+			asm volatile("bsfq %1, %0" : "=r" (loc_idx) : "r" (block));
+			//This index is 'global' - it is the column index in the subadj matrix
+			glob_idx = loc_idx + (k << BLOCK_SHIFT);
+
+			//If this is true, it means this branch has not yet been traversed
+			//Note here we use depth first search
+			if (std::get<0>(sublengths[glob_idx]) == -1) {
+				if (CHAIN_DEBUG) {
+					printf("\nConsidering bit [%" PRIu64 "] (LEVEL %d)\n", candidates[glob_idx], level);
+					fflush(stdout);
+				}
+
+				//These two lines make 'work' now contain a bitstring
+				//which has 1's for elements between glob_idx and j
+				//i.e. the Alexandrov set (glob_idx, j)
+				workspace->clone(work);
+				work.partial_intersection(subadj[glob_idx], glob_idx, j - glob_idx + 1);
+
+				//If this set defined by 'work' is not the null set...
+				if (work.any_in_range(glob_idx, j - glob_idx + 1)) {
+					//Recurse to the next level to traverse elements between glob_idx and j
+					c = longestChainGuided(adj, subadj, test_chain, &work, candidates, lengths, sublengths, N, N_sub, glob_idx, j, level + 1);
+
+					//The recursion returned the longest paths in the subgraph and graph, respectively
+					sublengths[glob_idx] = c;
+
+					//Chain lengths, for this particular path
+					schain_length += std::get<0>(c);
+					chain_length += std::get<1>(c);
+				} else {	//It is the null set - the elements are directly linked
+					//Then glob_idx and j are directly linked in the subgraph
+					schain_length++;
+					//Check if there are other nodes in between glob_idx and j in the original graph
+					chain_length += longestChain_v2(adj, NULL, lengths, N, candidates[glob_idx], candidates[j], 0);
+
+					//Record these values in sublengths so this branch
+					//is not traversed again
+					sublengths[glob_idx] = std::make_pair(schain_length, chain_length);
+				}
+			} else {
+				//The branch has previously been traversed, so just use those values
+				schain_length += std::get<0>(sublengths[glob_idx]);
+				chain_length += std::get<1>(sublengths[glob_idx]);
+			}
+
+			//Use the maximum subgraph chain length as the metric
+			//but also record the maximum graph chain length
+			//which is associated with this path
+			if (schain_length > slongest) {
+				slongest = schain_length;
+				longest = chain_length;
+				ilongest = glob_idx;
+
+				//Set chain=1 for test_chain=1, chain=0 for test_chain=0
+				//for (int m = chain_start; m < chain_end; m++)	//Define ^& for this operation 
+				//	chain.unset(m);
+				//chain.setUnionS_v2(test_chain);
+				test_chain.partial_clone(chain, candidates[glob_idx], N - candidates[glob_idx] + 1);
+			}
+
+			//Unset the bit to continue to the next one
+			workspace->unset(glob_idx);
+		}
+	}
+	
+	//If this is -1, then i and j were directly linked in the subgraph
+	slongest++;
+	if (ilongest == -1) {
+		longest += longestChain_v2(adj, NULL, lengths, N, candidates[i], candidates[j], 0);
+	} else {	//Otherwise, i was directly related to 'ilongest', which is the index for the node with the longest path
+		longest += longestChain_v2(adj, NULL, lengths, N, candidates[i], candidates[ilongest], 0);
+		chain.set(candidates[ilongest]);
+	}
+
+	//If this is the outermost recursion then delete workspace
+	if (outer) {
+		delete workspace;
+		workspace = NULL;
+	}
+
+	if (CHAIN_DEBUG) {
+		printf("Longest chain between [%" PRIu64 "] and [%d] is {%d, %d}.\n", candidates[i], candidates[j], slongest, longest);
+		fflush(stdout);
+	}
+
+	return std::make_pair(slongest, longest);
+}
+
+int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level)
+{
+	#if DEBUG
+	if (!level) {
+		assert (adj.size() > 0);
+		assert (lengths != NULL);
+		assert (N_tar > 0);
+		assert (i >= 0 && i < N_tar);
+		assert (j >= 0 && j < N_tar);
+	} else
+		assert (workspace != NULL);
+	#endif
+
+	static const bool CHAIN_DEBUG = false;
 
 	if (i == j) return 0;
 
@@ -1376,50 +1579,250 @@ int longestChain(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, 
 	}
 
 	int longest = 0;
-	int idx;
 	bool outer = false;
+	
+	uint64_t loc_idx, glob_idx;
+	int c;
 
 	if (workspace == NULL) {
+		if (CHAIN_DEBUG) {
+			printf("Searching for the longest chain between [%d] and [%d]\n", i, j);
+			fflush(stdout);
+		}
+		
+		//If the nodes are not even related, return a distance of -1
 		if (!nodesAreConnected_v2(adj, N_tar, i, j)) return -1;
 		outer = true;
+
+		//The workspace is used to identify which nodes to look at between i and j
 		workspace = new FastBitset(N_tar);
-		adj[i].clone(*workspace, 0ULL, adj[0].getNumBlocks());
+		adj[i].clone(*workspace);
 		workspace->partial_intersection(adj[j], i, j - i + 1);
-		//printf("created clone.\n");
+
+		memset(lengths, -1, sizeof(int) * N_tar);
 	}
 
-	//if (!outer) printf("\t");
-	//printf("Searching for the longest chain between [%d] and [%d]\n", i, j);
-	//workspace->printBitset();
-	//printChk();
-
+	FastBitset work(N_tar);
 	for (uint64_t k = 0; k < workspace->getNumBlocks(); k++) {
 		uint64_t block;
-		while (block = workspace->readBlock(k)) {
+		while (block = workspace->readBlock(k)) {	//If all bits are zero, continue to the next block
 			int chain_length = 0;
-			idx = __builtin_ffsl(block) - 1;
-			workspace->unset(k*64+idx);
 
-			FastBitset _workspace = *workspace;
-			_workspace.partial_intersection(adj[idx], idx, j - idx + 1);
+			//Find the first bit set in this block
+			asm volatile("bsfq %1, %0" : "=r" (loc_idx) : "r" (block));
+			//This index is 'global' - it is the column index in the adj. matrix
+			glob_idx = loc_idx + (k << BLOCK_SHIFT);
 
-			if (_workspace.partial_count(idx, j - idx + 1))
-				chain_length += longestChain(adj, &_workspace, N_tar, idx, j);
-			else
-				chain_length++;
+			if (lengths[glob_idx] == -1) {
+				if (CHAIN_DEBUG) {
+					printf("\nConsidering bit [%" PRIu64 "] (LEVEL %d)\n", glob_idx, level);
+					fflush(stdout);
+				}
+
+				workspace->clone(work);
+				work.partial_intersection(adj[glob_idx], glob_idx, j - glob_idx + 1);
+
+				if (work.any_in_range(glob_idx, j - glob_idx + 1)) {
+					c = longestChain_v2(adj, &work, lengths, N_tar, glob_idx, j, level + 1);
+					if (CHAIN_DEBUG) {
+						for (unsigned int m = 0; m < level + 1; m++) printf("\t");
+						printf("Longest chain between [%" PRIu64 "] and [%d] is %d.\n", glob_idx, j, c);
+						fflush(stdout);
+					}
+					lengths[glob_idx] = c;
+					chain_length += c;
+				} else {
+					chain_length++;
+					if (CHAIN_DEBUG) {
+						for (unsigned int m = 0; m < level + 1; m++) printf("\t");
+						printf("Longest chain between [%" PRIu64 "] and [%d] is %d.\n", glob_idx, j, chain_length);
+						fflush(stdout);
+					}
+					lengths[glob_idx] = chain_length;
+				}
+			} else
+				chain_length += lengths[glob_idx];
 
 			longest = std::max(chain_length, longest);
-			//printf("Longest chain between [%d] and [%d] is %d.\n", idx, j, longest);
+			workspace->unset(glob_idx);
+		}
+	}
+
+	longest++;
+
+	//If this is the very end of the algorithm, free up arrays
+	if (outer) {
+		delete workspace;
+		workspace = NULL;
+	} 
+
+	return longest;
+}
+
+int longestChain(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, int j, unsigned int level)
+{
+	#if DEBUG
+	assert (adj.size() > 0);
+	assert (N_tar > 0);
+	assert (i >= 0 && i < N_tar);
+	assert (j >= 0 && j < N_tar);
+	#endif
+
+	static const bool CHAIN_DEBUG = true;
+
+	if (i == j) return 0;
+
+	if (i > j) {
+		i ^= j;
+		j ^= i;
+		i ^= j;
+	}
+
+	int longest = 0;
+	bool outer = false;
+	
+	uint64_t loc_idx, glob_idx;
+	int c;
+
+	//This only executes for the outer-most loop
+	//of the recursion
+	if (workspace == NULL) {
+		if (CHAIN_DEBUG)
+			printf("Searching for the longest chain between [%d] and [%d]\n", i, j);
+
+		//If the nodes are not even related, return a distance of -1
+		if (!nodesAreConnected_v2(adj, N_tar, i, j)) return -1;
+		outer = true;
+
+		//The workspace is used to identify which nodes to look at between i and j
+		workspace = new FastBitset(N_tar);
+		adj[i].clone(*workspace);
+		workspace->partial_intersection(adj[j], i, j - i + 1);
+		workspace->printBitset();
+	}
+
+	//These variables are used for the next
+	//iteration of the recursion
+	FastBitset work(N_tar);
+	FastBitset used(N_tar);
+	//The outer two loops will iterate through all blocks in the FastBitset
+	for (uint64_t k = 0; k < workspace->getNumBlocks(); k++) {
+		uint64_t block;
+		while (block = workspace->readBlock(k)) {	//If all bits are zero, continue to the next block
+			workspace->clone(work);
+			int chain_length = 0;
+
+			//Find the first bit set in this block
+			asm volatile("bsfq %1, %0" : "=r" (loc_idx) : "r" (block));
+			//This index is 'global' - it is the column index in the adj. matrix
+			glob_idx = loc_idx + (k << BLOCK_SHIFT);
+			if (CHAIN_DEBUG)
+				printf("\nConsidering bit [%" PRIu64 "] (LEVEL %d)\n", glob_idx, level);
+
+			//Set it to zero and perform an intersection
+			//This will make 'work' contain set bits for nodes related
+			//to both glob_idx and j
+			workspace->unset(glob_idx);
+			//DEBUG
+			//printf("Intersection from [%" PRIu64 "] to [%" PRIu64 "]\n", glob_idx, j);
+			//work.printBitset();
+			//adj[glob_idx].printBitset();
+			work.partial_intersection(adj[glob_idx], glob_idx, j - glob_idx + 1);
+			//work.printBitset();
+
+			//If there are other elements, between glob_idx and j, find the longest chain
+			if (work.partial_count(glob_idx, j - glob_idx + 1)) {
+				c = longestChain(adj, &work, N_tar, glob_idx, j, level + 1);
+				//This helps reduce some of the steps performed
+				workspace->setDisjointUnionS_v2(work);
+				if (CHAIN_DEBUG) {
+					for (unsigned int m = 0; m < level + 1; m++) printf("\t");
+					printf("Longest chain between [%" PRIu64 "] and [%d] is %d.\n", glob_idx, j, c);
+				}
+				chain_length += c;
+			//Otherwise, this was the last step in the chain
+			} else {
+				chain_length++;
+				if (CHAIN_DEBUG) {
+					for (unsigned int m = 0; m < level + 1; m++) printf("\t");
+					printf("Longest chain between [%" PRIu64 "] and [%d] is %d.\n", glob_idx, j, chain_length);
+				}
+			}
+			used.set(glob_idx);
+
+			longest = std::max(chain_length, longest);
 		}
 	}
 	longest++;
 
 	if (outer) {
+		//If this is the very end of the algorithm, free up arrays
 		delete workspace;
 		workspace = NULL;
-	}
+		//printf("Longest chain between [%d] and [%d] is %d\n\n", i, j, longest);
+	} else
+		workspace->setUnionS_v2(used);
 
-	//printf("Longest chain between [%d] and [%d] is %d\n\n", i, j, longest);
 
 	return longest;
+}
+
+//Find the farthest maximal element
+int findLongestMaximal(Bitvector &adj, const int *k_out, int *lengths, const int N_tar, const int idx)
+{
+	#if DEBUG
+	assert (adj.size() > 0);
+	assert (lengths != NULL);
+	assert (N_tar > 0);
+	assert (idx >= 0 && idx < N_tar);
+	#endif
+
+	int longest = -1;
+	int max_idx = 0;
+
+	//#pragma omp parallel for schedule (dynamic, 1) if (N_tar > 1000)
+	for (int i = 0; i < N_tar; i++) {
+		if (k_out[i]) continue;
+		if (!nodesAreConnected_v2(adj, N_tar, idx, i)) continue;
+		int length = longestChain_v2(adj, NULL, lengths, N_tar, idx, i, 0);
+		//#pragma omp critical
+		{
+		if (length > longest) {
+			longest = length;
+			max_idx = i;
+		}
+		}
+	}
+
+	return max_idx;
+}
+
+//Find the farthest minimal element
+int findLongestMinimal(Bitvector &adj, const int *k_in, int *lengths, const int N_tar, const int idx)
+{
+	#if DEBUG
+	assert (adj.size() > 0);
+	assert (lengths != NULL);
+	assert (N_tar > 0);
+	assert (idx >= 0 && idx < N_tar);
+	#endif
+
+	int longest = -1;
+	int min_idx = N_tar - 1;
+
+	//#pragma omp parallel for schedule (dynamic, 1) if (N_tar > 1000)
+	for (int i = 0; i < N_tar; i++) {
+		if (k_in[i]) continue;
+		if (!nodesAreConnected_v2(adj, N_tar, i, idx)) continue;
+		int length = longestChain_v2(adj, NULL, lengths, N_tar, i, idx, 0);
+		//#pragma omp critical
+		{
+		if (length > longest) {
+			longest = length;
+			min_idx = i;
+		}
+		}
+	}
+
+	return min_idx;
 }

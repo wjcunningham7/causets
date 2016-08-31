@@ -83,7 +83,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 //Bitsets
-typedef std::vector< FastBitset > Bitvector;
+typedef std::vector<FastBitset> Bitvector;
 
 #ifndef CUDA_ENABLED
 //Redefine CUDA data types
@@ -161,9 +161,9 @@ typedef boost::mt19937 Engine;
 typedef boost::uniform_real<double> UDistribution;
 typedef boost::normal_distribution<double> NDistribution;
 typedef boost::poisson_distribution<> PDistribution;
-typedef boost::variate_generator< Engine &, UDistribution > UGenerator;
-typedef boost::variate_generator< Engine &, NDistribution > NGenerator;
-typedef boost::variate_generator< Engine &, PDistribution > PGenerator;
+typedef boost::variate_generator<Engine&, UDistribution> UGenerator;
+typedef boost::variate_generator<Engine&, NDistribution> NGenerator;
+typedef boost::variate_generator<Engine&, PDistribution> PGenerator;
 
 struct MersenneRNG {
 	MersenneRNG() : dist(0.0, 1.0), rng(eng, dist)  {}
@@ -196,14 +196,13 @@ struct CaResources {
 //use a uint64_t variable.
 
 //NOTE: If you modify any of these enums, increment the
-//`VERSION' variable located in Constants.h
+//`VERSION' variable located in configure.ac
 
 //Manifold Types
 enum Manifold {
 	ManifoldFirst	= 1 << 3,
 	MINKOWSKI	= ManifoldFirst,
-	MILNE		= MINKOWSKI << 1,
-	DE_SITTER	= MILNE << 1,
+	DE_SITTER	= MINKOWSKI << 1,
 	DUST		= DE_SITTER << 1,
 	FLRW		= DUST << 1,
 	HYPERBOLIC	= FLRW << 1,
@@ -214,10 +213,25 @@ enum Manifold {
 enum Region {
 	RegionFirst	= ManifoldLast << 1,
 	SLAB		= RegionFirst,
-	HALF_DIAMOND	= SLAB << 1,
+	SLAB_T1		= SLAB << 1,	//Timelike boundaries are concave
+	SLAB_T2		= SLAB_T1 << 1,	//Timelike boundaries are convex
+	SLAB_S1		= SLAB_T2 << 1,	//Spacelike boundaries are concave
+	SLAB_S2		= SLAB_S1 << 1,	//Spacelike boundaries are convex
+
+	SLAB_N1		= SLAB_S2 << 1,	//One null boundary
+	SLAB_N2		= SLAB_N1 << 1,	//Two null boundaries, corner on left
+	SLAB_N3		= SLAB_N2 << 1,	//Two null boundaries, corner on bottom
+
+	HALF_DIAMOND	= SLAB_N3 << 1,	//Diamond with point at t=0
 	DIAMOND		= HALF_DIAMOND << 1,
-	SAUCER		= DIAMOND << 1,
-	RegionLast	= SAUCER
+
+	SAUCER		= DIAMOND << 1,	//Saucer axis is spacelike
+	SAUCER_T	= SAUCER << 1,	//Saucer axis is timelike
+
+	TRIANGLE_T	= SAUCER_T << 1,	//Obtuse triangle, all timelike boundaries
+	TRIANGLE_S	= TRIANGLE_T << 1,	//Obtuse triangle, all spacelike boundaries
+	TRIANGLE_N	= TRIANGLE_S << 1,	//Right triangle
+	RegionLast	= TRIANGLE_N
 };
 
 //Spatial Curvature
@@ -236,8 +250,8 @@ enum Symmetry {
 	SymmetryLast	= SYMMETRIC
 };
 
-static const std::string manifoldNames[] = { "Minkowski", "Milne", "De Sitter", "Dust", "FLRW", "Hyperbolic" };
-static const std::string regionNames[] = { "Slab", "Half-Diamond", "Diamond", "Saucer" };
+static const std::string manifoldNames[] = { "Minkowski", "De Sitter", "Dust", "FLRW", "Hyperbolic" };
+static const std::string regionNames[] = { "Slab", "Slab (T1)", "Slab (T2)", "Slab (S1)", "Slab (S2)", "Slab (N1)", "Slab (N2)", "Slab (N3)", "Half-Diamond", "Diamond", "Saucer", "Saucer (T)", "Triangle (T)", "Triangle (S)", "Triangle (N)" };
 static const std::string curvatureNames[] = { "Flat", "Positive" };
 static const std::string symmetryNames[] = { "Asymmetric", "Symmetric" };
 
@@ -549,7 +563,7 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), growing(false), link(false), relink(false), link_epso(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_vecprod(false), validate_embedding(false), validate_distances(false), strict_routing(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), growing(false), link(false), relink(false), link_epso(false), has_exact_k(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_vecprod(false), validate_embedding(false), validate_distances(false), strict_routing(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
 	bool decode_cpu;		//Decode edge list using serial sort
@@ -559,6 +573,7 @@ struct CausetFlags {
 	bool link;			//Link Nodes after Generation
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
 	bool link_epso;			//Link Nodes in H2 Using EPSO Rule
+	bool has_exact_k;		//True if there exists an exact expression for <k>
 
 	bool read_old_format;		//Read Node Positions in the Format (theta3, theta2, theta1)
 	bool quiet_read;		//Ignore Warnings when Reading Graph
@@ -636,7 +651,7 @@ struct NetworkProperties {
 
 //Measured values of the network
 struct NetworkObservables {
-	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), evd(EVData()), success_ratio(0.0), success_ratio2(0.0), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0), dvd(DVData()), cardinalities(NULL), action(0.0f), vecprods(NULL) {}
+	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), evd(EVData()), success_ratio(0.0), success_ratio2(0.0), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0), dvd(DVData()), cardinalities(NULL), action(0.0f), chaintime(NULL), vecprods(NULL) {}
 	
 	int N_res;			//Resulting Number of Connected Nodes
 	float k_res;			//Resulting Average Degree
@@ -665,6 +680,9 @@ struct NetworkObservables {
 	uint64_t *cardinalities;	//M-Element Inclusive-Order-Interval Cardinalities
 	float action;			//Action
 
+	std::vector<unsigned int> timelike_candidates;	//Candidates for a timelike boundary
+	int *chaintime;			//Maximal chain length to each node
+
 	float *vecprods;		//Vector Products of All Pairs
 };
 
@@ -672,6 +690,7 @@ struct NetworkObservables {
 struct Network {
 	Network() : network_properties(NetworkProperties()), network_observables(NetworkObservables()), nodes(Node()), edges(Edge()) {}
 	Network(NetworkProperties _network_properties) : network_properties(_network_properties), network_observables(NetworkObservables()), nodes(Node()), edges(Edge()) {}
+	Network(const Network &_network) : network_properties(_network.network_properties), network_observables(_network.network_observables), nodes(Node()), edges(Edge()) {}
 
 	NetworkProperties network_properties;
 	NetworkObservables network_observables;
@@ -683,7 +702,7 @@ struct Network {
 
 //Algorithmic Performance
 struct CausetPerformance {
-	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sValidateEmbedding(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureDegreeField(Stopwatch()), sValidateDistances(Stopwatch()), sMeasureAction(Stopwatch()), sMeasureVecprod(Stopwatch()) {}
+	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sValidateEmbedding(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureDegreeField(Stopwatch()), sValidateDistances(Stopwatch()), sMeasureAction(Stopwatch()), sMeasureActionTimelike(Stopwatch()), sMeasureVecprod(Stopwatch()) {}
 
 	Stopwatch sCauset;
 	Stopwatch sCalcDegrees;
@@ -700,6 +719,7 @@ struct CausetPerformance {
 	Stopwatch sMeasureDegreeField;
 	Stopwatch sValidateDistances;
 	Stopwatch sMeasureAction;
+	Stopwatch sMeasureActionTimelike;
 	Stopwatch sMeasureVecprod;
 };
 
@@ -740,7 +760,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi);
 
 bool initializeNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
 
-bool measureNetworkObservables(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm);
+bool measureNetworkObservables(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
 
 bool loadNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
 
@@ -749,6 +769,10 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID);
 bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link, const bool &relink);
 
 void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed);
+
+bool linkNodes(Network * const network, CaResources * const ca, CausetPerformance * const cp, const CUcontext &ctx);
+
+bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigned int> candidates, CaResources * const ca, const CUcontext &ctx);
 
 //Useful utility functions
 inline unsigned int get_stdim(const unsigned int &spacetime)  { return (unsigned int)(spacetime & stdim_mask);  }

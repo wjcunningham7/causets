@@ -51,7 +51,9 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, const int * const k_in, const int * const k_out, const unsigned int &spacetime, const int &N_tar, CaResources * const ca, Stopwatch sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench);
 
-bool measureActionTimelike(uint64_t *& cardinalities, float &action, Bitvector &adj, const int * const k_in, const int * const k_out, const unsigned int &spacetime, const int &N_tar, CaResources * const ca, Stopwatch sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench);
+bool timelikeActionCandidates(std::vector<unsigned int> &candidates, int *chaintime, const Node &nodes, Bitvector &adj, const int * const k_in, const int * const k_out, const unsigned int &spacetime, const int &N_tar, CaResources * const ca, Stopwatch sMeasureActionTimelike, const bool &use_bit, const bool &verbose, const bool &bench);
+
+bool measureTimelikeAction(Network * const graph, Network * const subgraph, const std::vector<unsigned int> &candidates, CaResources * const ca);
 
 bool measureVecprod(float *& vecprods, const Node &nodes, const int spacetime, const int N_tar, const long double N_vp, const double a, const double zeta, const double r_max, const double tau0, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureVecprod, const bool verbose, const bool bench);
 

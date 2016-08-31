@@ -24,7 +24,7 @@ bool compareCoreEdgeExists(const int * const k_out, const int * const future_edg
 #ifdef CUDA_ENABLED
 __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z, uint64_t *edges, int *k_in, int *k_out, unsigned long long int *g_idx, int width, bool compact);
 
-bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &link_epso, const bool &verbose, const bool &bench);
+bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &link_epso, const bool &has_exact_k, const bool &verbose, const bool &bench);
 
 bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &verbose);
 

@@ -1,0 +1,24 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# This script is used to generate a new doc/VERSION block when spacetime IDs are updated
+
+stdim=2
+manifold=minkowski
+region=triangle_s
+curvature=flat
+symmetry=symmetric
+
+nodes=1
+tcut=0.5
+scut=1
+
+platform=_krioukov_gpu
+#platform=_par-gpu-2
+
+./bin/CausalSet$platform --stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry --nodes $nodes --age $tcut --radius $scut --alpha $scut --test

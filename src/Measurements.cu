@@ -1178,17 +1178,21 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	assert (use_bit);
 	#endif
 
+
 	#ifdef MPI_ENABLED
-	if (!cmpi.rank) printf_mag();
-	printf_mpi(cmpi.rank, "Using Version 5 (measureAction).\n");
-	if (!cmpi.rank) printf_std();
-	fflush(stdout); sleep(1);
-	MPI_Barrier(MPI_COMM_WORLD);
-	static const bool ACTION_DEBUG = false;
+	if (verbose) {
+		if (!cmpi.rank) printf_mag();
+		printf_mpi(cmpi.rank, "Using Version 5 (measureAction).\n");
+		if (!cmpi.rank) printf_std();
+		fflush(stdout); sleep(1);
+		MPI_Barrier(MPI_COMM_WORLD);
+	}
+	static const bool ACTION_DEBUG = true;
 	static const bool ACTION_DEBUG_VERBOSE = false;
 	unsigned int nbuf = cmpi.num_mpi_threads << 1;
 	#else
-	printf_dbg("Using Version 5 (measureAction).\n");
+	if (verbose)
+		printf_dbg("Using Version 5 (measureAction).\n");
 	#endif
 
 	Bitvector workspace;
@@ -1224,7 +1228,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Action", ca->hostMemUsed, ca->devMemUsed, rank);
+		printMemUsed("to Measure B-D Action", ca->hostMemUsed, ca->devMemUsed, rank);
 
 	int N_eff = N_tar / cmpi.num_mpi_threads;
 	uint64_t npairs = static_cast<uint64_t>(N_eff) * (N_eff - 1) >> 1;
@@ -1285,8 +1289,15 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	init_mpi_pairs(new_pairs, current, split_job);
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	if (split_job)
+	if (split_job) {
+		remove_bad_perms(permutations, new_pairs);
 		printCardinalities(cardinalities, N_tar - 1, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
+	}
+
+	//DEBUG
+	for (std::unordered_set<std::pair<int,int> >::iterator it = new_pairs.begin(); it != new_pairs.end(); it++) {
+		printf_mpi(rank, "(%d, %d)\n", std::get<0>(*it), std::get<1>(*it));
+	}
 
 	//These next four steps identify the swaps necessary
 	//to obtain the first memory permutation
@@ -1427,8 +1438,10 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 					lock[rank] = LOCKED;
 				}
 
-				if (split_job)
+				if (split_job && new_pairs.find(std::make_pair(std::min(current[rank<<1], current[(rank<<1)+1]), std::max(current[rank<<1], current[(rank<<1)+1]))) != new_pairs.end()) {
+					printf_dbg("Rank [%d] printing for [%d - %d]\n", rank, current[rank<<1], current[(rank<<1)+1]);
 					printCardinalities(cardinalities, N_tar - 1, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
+				}
 
 				//State is now passive - the signal (if sent) has been sent to itself as well
 				waiting = true;
@@ -1795,15 +1808,17 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	assert (use_bit);
 	#endif
 
-	#ifdef MPI_ENABLED
-	if (!cmpi.rank) printf_mag();
-	printf_mpi(cmpi.rank, "Using Version 4 (measureAction).\n");
-	if (!cmpi.rank) printf_std();
-	fflush(stdout); sleep(1);
-	MPI_Barrier(MPI_COMM_WORLD);
-	#else
-	printf_dbg("Using Version 4 (measureAction).\n");
-	#endif
+	if (verbose) {
+		#ifdef MPI_ENABLED
+		if (!cmpi.rank) printf_mag();
+		printf_mpi(cmpi.rank, "Using Version 4 (measureAction).\n");
+		if (!cmpi.rank) printf_std();
+		fflush(stdout); sleep(1);
+		MPI_Barrier(MPI_COMM_WORLD);
+		#else
+		printf_dbg("Using Version 4 (measureAction).\n");
+		#endif
+	}
 
 	static const bool ACTION_DEBUG = true;
 
@@ -1863,7 +1878,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Action", ca->hostMemUsed, ca->devMemUsed, cmpi.rank);
+		printMemUsed("to Measure B-D Action", ca->hostMemUsed, ca->devMemUsed, cmpi.rank);
 
 	int N_eff = N_tar / cmpi.num_mpi_threads;
 	uint64_t npairs = static_cast<uint64_t>(N_eff) * (N_eff - 1) >> 1;
@@ -2073,7 +2088,8 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	assert (use_bit);
 	#endif
 
-	printf_dbg("Using Version 3 (measureAction).\n");
+	if (verbose)
+		printf_dbg("Using Version 3 (measureAction).\n");
 
 	Bitvector workspace;
 	int n = N_tar + N_tar % 2;
@@ -2104,10 +2120,7 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Action", ca->hostMemUsed, ca->devMemUsed, 0);
-
-	if (!measureActionTimelike(cardinalities, action, adj, k_in, k_out, spacetime, N_tar, ca, sMeasureAction, use_bit, verbose, bench))
-		return false;
+		printMemUsed("to Measure B-D Action", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//The first element will be N_tar
 	cardinalities[0] = N_tar;
@@ -2173,7 +2186,7 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	return true;
 }
 
-bool measureActionTimelike(uint64_t *& cardinalities, float &action, Bitvector &adj, const int * const k_in, const int * const k_out, const unsigned int &spacetime, const int &N_tar, CaResources * const ca, Stopwatch sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench)
+bool timelikeActionCandidates(std::vector<unsigned int> &candidates, int *chaintime, const Node &nodes, Bitvector &adj, const int * const k_in, const int * const k_out, const unsigned int &spacetime, const int &N_tar, CaResources * const ca, Stopwatch sMeasureActionTimelike, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (adj.size() > 0);
@@ -2184,26 +2197,391 @@ bool measureActionTimelike(uint64_t *& cardinalities, float &action, Bitvector &
 	assert (use_bit);
 	#endif
 
-	//int n = N_tar + N_tar % 2;
-	//uint64_t npairs = static_cast<uint64_t>(n) * (n - 1) / 2;
-	//uint64_t clone_length = adj[0].getNumBlocks();
+	//printf("Preparing to measure timelike action...\n");
+	//fflush(stdout);
+
+	std::ofstream stream;
+
+	candidates.clear();
+	candidates.swap(candidates);
+
+	int *lengths = NULL;
+	int nthreads = omp_get_max_threads();
+	int longest = 0;
+	int maximum_chain;
+	int shortest_maximal_chain;
+	int studybin;
+
+	int cutoff = 15;	//Minimum number of elements in a hypersurface to be 'usable'
+	int usable = 0;
+	int k_threshold = 0;	//Minimum total degree to be counted as a candidate
+
+	stopwatchStart(&sMeasureActionTimelike);
+
+	try {
+		chaintime = (int*)malloc(sizeof(int) * N_tar);
+		if (chaintime == NULL)
+			throw std::bad_alloc();
+		memset(chaintime, 0, sizeof(int) * N_tar);
+		ca->hostMemUsed += sizeof(int) * N_tar;
+
+		lengths = (int*)malloc(sizeof(int) * N_tar * nthreads);
+		if (lengths == NULL)
+			throw std::bad_alloc();
+		memset(lengths, -1, sizeof(int) * N_tar * nthreads);
+		ca->hostMemUsed += sizeof(int) * N_tar * nthreads;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	}
+
+	//DEBUG
+	//int i = 81, j = 10222;
+	//printf("Length between [%d - %d] is [%d]\n", i, j, longestChain_v2(adj, NULL, lengths, N_tar, i, j, 0));
+	/*int j = 32560;
+	for (int i = 0; i < N_tar; i++) {
+		if (k_in[i] != 27 && !adj[i].read(27660)) continue;
+		int l = longestChain(adj, NULL, N_tar, i, j, 0);
+		if (l == 1)
+			printf("Length between [%d - %d] is [%d]\n", i, j, l);
+	}*/
+	//printChk();
+
+	//NOTE: These loops should be compressed into a single for loop
 
 	//Find longest chain
-	int longest = 0;
+	#ifdef _OPENMP
+	#pragma omp parallel for schedule (dynamic, 1) num_threads(nthreads) if (N_tar > 1000) reduction(max : longest)
+	#endif
 	for (int i = 0; i < N_tar; i++) {
-		if (!!k_in[i]) continue;	//Continue if not a minimal element	
+		if (!!k_in[i]) continue;	//Continue if not a minimal element
+		unsigned int tid = omp_get_thread_num();
 		for (int j = i + 1; j < N_tar; j++) {
 			if (!!k_out[j]) continue;	//Continue if not a maximal element
 			if (!nodesAreConnected_v2(adj, N_tar, i, j)) continue;	//Continue if not related
 
-			int length = longestChain(adj, NULL, N_tar, i, j);
-			//printf("length between [%d-%d] is %d\n", i, j, length);
+			int length = longestChain_v2(adj, NULL, lengths + N_tar * tid, N_tar, i, j, 0);
 			longest = std::max(longest, length);
 		}
 	}
+	maximum_chain = longest;
 
-	//longest = longestChain(adj, NULL, N_tar, 1, 5);
-	printf_dbg("longest chain: %d\n", longest);
+	//Measure chain times for all nodes
+	#ifdef _OPENMP
+	#pragma omp parallel for schedule (dynamic, 1) private (longest) num_threads(nthreads) if (N_tar > 1000)
+	#endif
+	for (int i = 0; i < N_tar; i++) {
+		if (!k_in[i])
+			continue;
+		else {
+			unsigned int tid = omp_get_thread_num();
+			longest = 0;
+			for (int j = 0; j < N_tar; j++) {
+				if (!!k_in[j] || !nodesAreConnected_v2(adj, N_tar, i, j)) continue;
+				int length = longestChain_v2(adj, NULL, lengths + N_tar * tid, N_tar, i, j, 0);
+				longest = std::max(longest, length);
+			}
+			chaintime[i] = longest;
+		}
+	}
+
+	stream.open("chaintimes.cset.act.dat");
+	for (int i = 0; i < N_tar; i++)
+		stream << chaintime[i] << "\n";
+	stream.flush();
+	stream.close();
+
+	//Scan slices
+	int num[maximum_chain];
+	for (int i = 0; i < maximum_chain; i++) {
+		num[i] = 0;
+		for (int j = 0; j < N_tar; j++) {
+			if (chaintime[j] == i)
+				num[i]++;
+		}
+		//printf("Bin [%d] has %d elements.\n", i, num[i]);
+	}
+
+	//Look for edge elements
+	for (int i = maximum_chain - 1; i >= 0; i--) {
+		if (num[i] > cutoff) {
+			usable = i;
+			break;
+		}
+	}
+
+	//Iterate over all bins
+	stream.open("candidates.cset.act.dat");
+	for (int k = 0; k < usable; k++) {
+		//Maximums
+		float max_ki = 0.0;
+		float max_ko = 0.0;
+		float max_k = 0.0;
+		for (int i = 0; i < N_tar; i++) {
+			if (chaintime[i] == k) {
+				max_ki = std::max(max_ki, static_cast<float>(k_in[i]));
+				max_ko = std::max(max_ko, static_cast<float>(k_out[i]));
+				max_k = std::max(max_k, static_cast<float>(k_in[i] + k_out[i]));
+			}
+		}
+
+		//Minimums
+		float min_ki = max_ki;
+		float min_ko = max_ko;
+		float min_k = max_k;
+		for (int i = 0; i < N_tar; i++) {
+			if (chaintime[i] == k) {
+				min_ki = std::min(min_ki, static_cast<float>(k_in[i]));
+				min_ko = std::min(min_ko, static_cast<float>(k_out[i]));
+				min_k = std::min(min_k, static_cast<float>(k_in[i] + k_out[i]));
+			}
+		}
+
+		//Averages
+		float avg_x = 0.0;
+		float avg_ki = 0.0;
+		float avg_ko = 0.0;
+		float avg_k = 0.0;
+		for (int i = 0; i < N_tar; i++) {
+			if (chaintime[i] == k) {
+				avg_x += fabs(nodes.crd->y(i));
+				avg_ki += k_in[i];
+				avg_ko += k_out[i];
+				avg_k += k_in[i] + k_out[i];
+			}
+		}
+
+		if (num[k]) {
+			avg_x /= num[k];
+			avg_ki /= num[k];
+			avg_ko /= num[k];
+			avg_k /= num[k];
+		}
+
+		//Standard Deviations
+		float stddev_x = 0.0;
+		float stddev_ki = 0.0;
+		float stddev_ko = 0.0;
+		float stddev_k = 0.0;
+		for (int i = 0; i < N_tar; i++) {
+			if (chaintime[i] == k) {
+				stddev_x += POW2(fabs(nodes.crd->y(i)) - avg_x);
+				stddev_ki += POW2(k_in[i] - avg_ki);
+				stddev_ko += POW2(k_out[i] - avg_ko);
+				stddev_k += POW2(k_in[i] + k_out[i] - avg_k);
+			}
+		}
+
+		if (num[k]) {
+			stddev_x = sqrt(stddev_x / num[k]);
+			stddev_ki = sqrt(stddev_ki / num[k]);
+			stddev_ko = sqrt(stddev_ko / num[k]);
+			stddev_k = sqrt(stddev_k / num[k]);
+		}
+
+		//Person Coefficients
+		float r_x_ki = 0.0;
+		float r_x_ko = 0.0;
+		float r_x_k = 0.0;
+		for (int i = 0; i < N_tar; i++) {
+			if (chaintime[i] == k) {
+				r_x_ki += (fabs(nodes.crd->y(i)) - avg_x) * (k_in[i] - avg_ki);
+				r_x_ko += (fabs(nodes.crd->y(i)) - avg_x) * (k_out[i] - avg_ko);
+				r_x_k += (fabs(nodes.crd->y(i)) - avg_x) * (k_in[i] + k_out[i] - avg_k);
+			}
+		}
+
+		if (num[k]) {
+			if (stddev_ki)
+				r_x_ki /= num[k] * stddev_x * stddev_ki;
+			if (stddev_ko)
+				r_x_ko /= num[k] * stddev_x * stddev_ko;
+			if (stddev_k)
+				r_x_k /= num[k] * stddev_x * stddev_k;
+		}
+
+		//printf("Time [%d] Pearson Coefficients:\n", k);
+		//printf(" > |x|,k_i:     \t%f\n", r_x_ki);
+		//printf(" > |x|,k_o:     \t%f\n", r_x_ko);
+		//printf(" > |x|,k:       \t%f\n\n", r_x_k);
+
+		//Identify Candidates
+		for (int i = 0; i < N_tar; i++) {
+			if (chaintime[i] == k) {
+				if (k_in[i] > k_threshold && k_out[i] > k_threshold /*&& static_cast<float>(k_out[i]) / k_in[i] > 0.01*/ && k_in[i] + k_out[i] < min_k + 1.5 * sqrt(min_k)) {
+					candidates.push_back(i);
+					stream << nodes.crd->y(i) << " " << nodes.crd->x(i) << std::endl;
+					//printf("k_i: [%d]\tk_o: [%d]\n", k_in[i], k_out[i]);
+				}
+			}
+		}
+	}
+	stream.flush();
+	stream.close();
+
+	ca->hostMemUsed += sizeof(unsigned int) * candidates.size();
+	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
+	if (verbose)
+		printMemUsed("to Identify Timelike Boundaries", ca->hostMemUsed, ca->devMemUsed, 0);
+
+	//Find the shortest maximal chain
+	//Used to identify Type 2 Boundary
+	shortest_maximal_chain = maximum_chain;
+	for (int k = 1; k < usable; k++) {
+		for (int i = 0; i < N_tar; i++) {
+			if (chaintime[i] == k && !k_out[i]) {
+				shortest_maximal_chain = k;
+				k = usable;	//To break outer loop
+				break;		//To break inner loop
+			}
+		}
+	}
+
+	studybin = usable / 2;
+	stream.open("kdist.cset.act.dat");
+	for (int i = 0; i < N_tar; i++) {
+		if (chaintime[i] == studybin) {
+			stream << nodes.crd->x(i) << " " << nodes.crd->y(i) << " " << k_in[i] + k_out[i] << std::endl;
+			//printf("radius: %f\tratio: %f\n", fabs(nodes.crd->y(i)), static_cast<float>(k_out[i]) / k_in[i]);
+		}
+	}
+	stream.flush();
+	stream.close();
+
+	free(lengths);
+	lengths = NULL;
+	ca->hostMemUsed -= sizeof(int) * N_tar * nthreads;
+
+	stopwatchStop(&sMeasureActionTimelike);
+
+	if (!bench) {
+		printf("\tCalculated Timelike Boundary Candidates.\n");
+		printf_cyan();
+		printf("\t\tIdentified [%d] Candidates.\n", candidates.size());
+		printf_std();
+		printf("\t\tLongest  Maximal Chain: [%d]\n", longest);
+		printf("\t\t > Usable Bins: [%d]\n", usable);
+		printf("\t\t > Studying Bin [%d]\n", studybin);
+		printf("\t\tShortest Maximal Chain: [%d]\n", shortest_maximal_chain);
+		if (shortest_maximal_chain <= 10)
+			printf("\t > Detected Class II(b) Joint!\n");
+	}
+
+	if (verbose) {
+		printf("\t\tExecution Time: %5.6f sec\n", sMeasureActionTimelike.elapsedTime);
+		fflush(stdout);
+	}
+
+	return true;
+}
+
+bool measureTimelikeAction(Network * const graph, Network * const subgraph, const std::vector<unsigned int> &candidates, CaResources * const ca)
+{
+	#if DEBUG
+	assert (graph != NULL);
+	assert (subgraph != NULL);
+	#endif
+
+	std::unordered_set<int> minimal_elements;
+	std::unordered_set<int> maximal_elements;
+	std::ofstream stream;
+	std::pair<int,int> *sublengths = NULL;
+	int *lengths = NULL;
+	int nthreads = omp_get_max_threads();
+
+	Stopwatch s = Stopwatch();
+	stopwatchStart(&s);
+
+	try {
+		lengths = (int*)malloc(sizeof(int) * graph->network_properties.N_tar * nthreads);
+		if (lengths == NULL)
+			throw std::bad_alloc();
+		memset(lengths, -1, sizeof(int) * graph->network_properties.N_tar * nthreads);
+		ca->hostMemUsed += sizeof(int) * graph->network_properties.N_tar * nthreads;
+
+		sublengths = (std::pair<int,int>*)malloc(sizeof(std::pair<int,int>) * subgraph->network_properties.N_tar);
+		if (sublengths == NULL)
+			throw std::bad_alloc();
+		for (int i = 0; i < subgraph->network_properties.N_tar; i++)
+			sublengths[i] = std::make_pair(-1, -1);
+		ca->hostMemUsed += sizeof(std::pair<int,int>) * subgraph->network_properties.N_tar;
+	} catch (std::bad_alloc) {
+		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
+		return false;
+	}
+
+	//Find longest guided chain between each minimal/maximal element in subgraph
+	/*for (int i = 0; i < subgraph->network_properties.N_tar; i++) {
+		if (!!subgraph->nodes.k_in[i]) continue;
+		for (int j = 0; j < subgraph->network_properties.N_tar; j++) {
+			if (!!subgraph->nodes.k_out[j]) continue;
+			if (!nodesAreConnected_v2(subgraph->adj, subgraph->network_properties.N_tar, i, j)) continue;
+
+			FastBitset chain(graph->network_properties.N_tar);
+			std::pair<int,int> l = longestChainGuided(graph->adj, subgraph->adj, chain, NULL, candidates, lengths, sublengths, graph->network_properties.N_tar, subgraph->network_properties.N_tar, i, j, 0);
+			chain.set(candidates[i]);
+			chain.set(candidates[j]);
+			printf("\t\tLongest guided chain between [%d] and [%d] is [%d] with weight [%d].\n", candidates[i], candidates[j], std::get<1>(l), std::get<0>(l));
+			stream.open("chain.cset.act.dat");
+			for (int k = 0; k < graph->network_properties.N_tar; k++)
+				if (chain.read(k))
+					stream << graph->nodes.crd->y(k) << " " << graph->nodes.crd->x(k) << std::endl;
+			stream.flush();
+			stream.close();
+			i = j = subgraph->network_properties.N_tar;
+		}
+	}*/
+
+	//Make a list L of pairs of endpoints (vector of pairs).
+	//Generate chains for all pairs of endpoints in L (saved in vector of tuples)
+	// > Remove any chains with weight < min(10, global_heaviest/20)
+	//    > global_heaviest is the weight of the first accepted chain; its value does not change
+	// > Accept the heaviest of the remaining chains, and make its elements (excluding endpoints) prohibited (saved in vector of tuples)
+	//    > Repeat for the same endpoints until no valid chains left (this detects multiple chains with the same pair of endpoints)
+	// > Remove endpoints from L
+	//Result: vector of chains with their lengths and weights
+	// > Plot chains and sum their lengths to approximate the length of the boundary
+
+	std::vector<std::pair<int,int>> endpoints;
+	
+	//Extend chains to maximal and minimal elements
+	for (int i = 0; i < subgraph->network_properties.N_tar; i++) {
+		if (!subgraph->nodes.k_in[i])
+			minimal_elements.insert(findLongestMinimal(graph->adj, graph->nodes.k_in, lengths, graph->network_properties.N_tar, candidates[i]));
+		if (!subgraph->nodes.k_out[i])
+			maximal_elements.insert(findLongestMaximal(graph->adj, graph->nodes.k_out, lengths, graph->network_properties.N_tar, candidates[i]));
+	}	
+
+	//Check number of maximal and minimal elements in the subgraph
+	stream.open("minimal.cset.act.dat");
+	for (std::unordered_set<int>::iterator it = minimal_elements.begin(); it != minimal_elements.end(); it++)
+			stream << graph->nodes.crd->y(*it) << " " << graph->nodes.crd->x(*it) << std::endl;
+	stream.flush();
+	stream.close();
+
+	stream.open("maximal.cset.act.dat");
+	for (std::unordered_set<int>::iterator it = maximal_elements.begin(); it != maximal_elements.end(); it++)
+			stream << graph->nodes.crd->y(*it) << " " << graph->nodes.crd->x(*it) << std::endl;
+	stream.flush();
+	stream.close();
+
+	free(lengths);
+	lengths = NULL;
+	ca->hostMemUsed -= sizeof(int) * graph->network_properties.N_tar * nthreads;
+
+	free(sublengths);
+	sublengths = NULL;
+	ca->hostMemUsed -= sizeof(std::pair<int,int>) * subgraph->network_properties.N_tar;
+
+	stopwatchStop(&s);
+
+	printf("\tCalculated Timelike Action.\n");
+	fflush(stdout);
+
+	if (graph->network_properties.flags.verbose) {
+		printf("\t\tExecution Time: %5.6f sec\n", s.elapsedTime);
+		fflush(stdout);
+	}
 
 	return true;
 }

@@ -189,7 +189,7 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &link_epso, const bool &has_exact_k, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	#if EMBED_NODES
@@ -361,8 +361,10 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 		printf_mpi(cmpi.rank, "\t\tResulting Network Size:   %d\n", N_res);
 		printf_mpi(cmpi.rank, "\t\tResulting Average Degree: %f\n", k_res);
 		printf_mpi(cmpi.rank, "\t\t    Incl. Isolated Nodes: %f\n", k_res * ((float)N_res / N_tar));
-		if (!cmpi.rank) printf_red();
-		printf_mpi(cmpi.rank, "\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
+		if (has_exact_k) {
+			if (!cmpi.rank) printf_red();
+			printf_mpi(cmpi.rank, "\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
+		}
 		if (!cmpi.rank) printf_std();
 		fflush(stdout);
 	}
@@ -426,9 +428,11 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 	assert (use_bit);
 	#endif
 
-	if (!cmpi.rank) printf_mag();
-	printf_mpi(cmpi.rank, "Using Version 3 (linkNodesGPU).\n");
-	if (!cmpi.rank) printf_std();
+	if (verbose) {
+		if (!cmpi.rank) printf_mag();
+		printf_mpi(cmpi.rank, "Using Version 3 (linkNodesGPU).\n");
+		if (!cmpi.rank) printf_std();
+	}
 
 	//CUDA Streams
 	CUstream stream [NBUFFERS];
@@ -708,7 +712,8 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	#endif
 
 	#ifdef MPI_ENABLED
-	printf_dbg("Using Version 2 (linkNodesGPU).\n");
+	if (verbose)
+		printf_dbg("Using Version 2 (linkNodesGPU).\n");
 	#endif
 
 	//CUDA Streams

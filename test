@@ -50,49 +50,53 @@ set -eu -o pipefail
 # These are experimental parameters #
 #####################################
 
-test_action=false
+test_action=true
 if [[ $test_action == "false" ]] ; then
-  platform=""
-  num=65536
+  platform="_par-gpu-2"
+  num=1000000
   zeta=1
 
-  exp="de_sitter"
-  #measure=""
+  exp="hyp_static"
+  measure=""
   #measure="--components"
-  measure="--success 16384"
+  #measure="--success 16384"
   #measure="--vecprod 0.1"
 
   if [[ $exp == "hyp_static" ]] ; then
-    $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 49922 --nodes $num --radius 18.5 --zeta $zeta --verbose -y --link --core 1 --gpu $measure #--print
+    #$CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 50332034 --nodes $num --radius 18.5 --zeta $zeta --verbose -y --link --core 1 --gpu $measure #--print
+    $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 50332034 --nodes $num --radius 30 --zeta $zeta --verbose --link --gpu $measure #--print
   elif [[ $exp == "hyp_growing" ]] ; then
     $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 49922 --nodes $num --radius 23.5 --zeta $zeta --verbose -y --growing --link --core 1 --gpu $measure #--print
   elif [[ $exp == "epso" ]] ; then
     $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 49922 --nodes $num --radius 22.5 --zeta $zeta --verbose -y --growing --link --link-epso --core 1 --gpu $measure #--print
   elif [[ $exp == "de_sitter" ]] ; then
-    #$CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 49698 --nodes $num --age 1.570784 --verbose -y --link --core 1 --gpu $measure #--print
-    $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 41508 --nodes $num --age 1.5 --radius 4 --verbose -y --link --core 0.99 --gpu $measure #--print
+    $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 82466 --nodes $num --age 1.570784 --verbose -y --link --core 1 --gpu $measure #--print
+    #$CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 41508 --nodes $num --age 1.5 --radius 4 --verbose -y --link --core 0.99 --gpu $measure #--print
   fi
 else
-  platform=_debug
-  spacetime=82468 # 3+1 de Sitter Slab
-  #spacetime=77834 # 1+1 Minkowski Saucer
-  age=0.5
-  num=131072
-  #cutoff=1.7998
-  np=8
-  #seed=1462065404
+  platform=_krioukov_gpu
+  #spacetime=83886356 # 3+1 de Sitter Slab
+  spacetime=75497738 # 1+1 Minkowski Slab
+  #spacetime=75759626 # 1+1 Minkowski Saucer
+  #spacetime=76021770 # 1+1 Minkowski Saucer (T)
+  #spacetime=75499530 # 1+1 Minkowski Slab (S)
+  #spacetime=75497994 # 1+1 Minkowski Slab (T)
+  #spacetime=76546058 # 1+1 Minkowski Triangle (T)
+  age=0.25
+  num=10240
+  cutoff=0.75
+  np=4
   makenew=true
 
   if [[ "$makenew" == "true" ]] ; then
     #mpirun -np $np -prot -hostfile $CAUSET_HOME_DIR/hostfile \
-    $CAUSET_HOME_DIR/bin/CausalSet${platform} --spacetime $spacetime --nodes $num --age $age --verbose -y --link --core 1 --gpu --action smeared #--print
+    $CAUSET_HOME_DIR/bin/CausalSet${platform} --spacetime $spacetime --nodes $num --age $age --radius $cutoff --verbose -y --link --gpu --core 1 --action smeared #--print --print-edges
   else
-    #graphs=($(awk '{print $1}' $CAUSET_HOME_DIR/etc/data_keys.cset.key))
-    #graph=${graphs[${#graphs[@]}-1]}
-    graph=111
-    echo "Reading graph $graph..."
+    graphs=($(awk '{print $1}' $CAUSET_HOME_DIR/etc/data_keys.cset.key))
+    graph=${graphs[${#graphs[@]}-1]}
+    #graph=111
     #mpirun -np $np -prot -hostfile hostfile \
-    $CAUSET_HOME_DIR/bin/CausalSet${platform} --spacetime $spacetime --nodes 9 --age $age --graph $graph --nopos --core 1 --verbose -y --link --action smeared
+    $CAUSET_HOME_DIR/bin/CausalSet${platform} --spacetime $spacetime --age $age --radius $cutoff --graph $graph --core 1 --verbose -y --action smeared --relink 
   fi
 fi
 

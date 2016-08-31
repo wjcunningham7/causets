@@ -279,7 +279,7 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 }
 
 //Note that adj has not been implemented in this version of the linkNodesGPU subroutine.
-bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &link_epso, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &link_epso, const bool &has_exact_k, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -619,8 +619,10 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
 		printf("\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N_tar));
-		printf_red();
-		printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
+		if (has_exact_k) {
+			printf_red();
+			printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
+		}
 		printf_std();
 		fflush(stdout);
 	}
@@ -660,12 +662,12 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &verbose)
 {
 	#if DEBUG
-	assert (nodes.crd->getDim() == 4);
+	//assert (nodes.crd->getDim() == 4);
 	assert (!nodes.crd->isNull());
-	assert (nodes.crd->w() != NULL);
+	//assert (nodes.crd->w() != NULL);
 	assert (nodes.crd->x() != NULL);
 	assert (nodes.crd->y() != NULL);
-	assert (nodes.crd->z() != NULL);
+	//assert (nodes.crd->z() != NULL);
 	assert (nodes.k_in != NULL);
 	assert (nodes.k_out != NULL);
 	assert (edges != NULL);
@@ -1418,7 +1420,7 @@ bool printValues(Node &nodes, const unsigned int &spacetime, const int num_vals,
 		for (i = 0; i < num_vals; i++) {
 			if (!strcmp(coord, "tau"))
 				outputStream << nodes.id.tau[i] << std::endl;
-			else if (!strcmp(coord, "eta")) {
+			/*else if (!strcmp(coord, "eta")) {
 				if (get_stdim(spacetime) == 2)
 					outputStream << nodes.crd->x(i) << std::endl;
 				else if (get_stdim(spacetime) == 4)
@@ -1432,7 +1434,15 @@ bool printValues(Node &nodes, const unsigned int &spacetime, const int num_vals,
 			else if (!strcmp(coord, "theta2"))
 				outputStream << nodes.crd->y(i) << std::endl;
 			else if (!strcmp(coord, "theta3"))
-				outputStream << nodes.crd->z(i) << std::endl;
+				outputStream << nodes.crd->z(i) << std::endl;*/
+			else if (!strcmp(coord, "w"))
+				outputStream << nodes.crd->w(i) << std::endl;
+			else if (!strcmp(coord, "x"))
+				outputStream << nodes.crd->x(i) << std::endl;
+			else if (!strcmp(coord, "y"))
+				outputStream << nodes.crd->y(i) << std::endl;
+			else if (!strcmp(coord, "z"))
+				outputStream << nodes.crd->z(i) << std::endl;			
 			else if (!strcmp(coord, "u")) {
 				if (get_stdim(spacetime) == 2)
 					outputStream << (nodes.crd->x(i) + nodes.crd->y(i)) / sqrt(2.0) << std::endl;
@@ -2668,7 +2678,8 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	#endif
 
-	printf_dbg("Using Version 1 (measureAction).\n");
+	if (verbose)
+		printf_dbg("Using Version 1 (measureAction).\n");
 
 	double lk = 2.0;
 	bool smeared = max_cardinality == N_tar - 1;
@@ -2694,7 +2705,7 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 
 	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Action", ca->hostMemUsed, ca->devMemUsed, 0);
+		printMemUsed("to Measure B-D Action", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	cardinalities[0] = N_tar;
 
@@ -2831,7 +2842,8 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 	assert (edge_buffer > 0.0f);
 	#endif
 
-	printf_dbg("Using Version 2 (measureAction).\n");
+	if (verbose)
+		printf_dbg("Using Version 2 (measureAction).\n");
 
 	int n = N_tar + N_tar % 2;
 	uint64_t npairs = static_cast<uint64_t>(n) * (n - 1) / 2;
@@ -2874,7 +2886,7 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 
 	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
 	if (verbose)
-		printMemUsed("to Measure Action", ca->hostMemUsed, ca->devMemUsed, rank);
+		printMemUsed("to Measure B-D Action", ca->hostMemUsed, ca->devMemUsed, rank);
 
 	//The first element will be N_tar
 	cardinalities[0] = N_tar;
@@ -3024,6 +3036,18 @@ bool validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 	double r;
 	#endif
 	switch (spacetime) {
+	case (2 | MINKOWSKI | SLAB | FLAT | SYMMETRIC):
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
+		break;
+	case (2 | MINKOWSKI | SLAB_T1 | FLAT | SYMMETRIC):
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!(fabs(nodes.crd->y(i)) < eta0)) return false;
+		break;
+	case (2 | MINKOWSKI | SLAB_S1 | FLAT | SYMMETRIC):
+		if (!(fabs(nodes.crd->x(i)) < r_max)) return false;
+		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
+		break;
 	case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
 		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
 		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
@@ -3036,6 +3060,14 @@ bool validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
 		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
 		#endif
+		break;
+	case (2 | MINKOWSKI | SAUCER_T | FLAT | SYMMETRIC):
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
+		break;
+	case (2 | MINKOWSKI | TRIANGLE_T | FLAT | SYMMETRIC):
+		//if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		//if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
 		break;
 	case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
