@@ -39,7 +39,7 @@ fi
 source /home/$USER/.queues
 jobstart=$NEXT_JOB
 readstart=0
-samples=10
+samples=0
 queue="par-gpu-2"
 exclude="compute-4-017"
 
@@ -95,7 +95,7 @@ for i in $(seq ${#vars[@]}) ; do
     link=link
   fi
 
-  $CAUSET_HOME_DIR/lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' --gpu --verbose -y --print --success 100000' --queue $queue --nsamples $samples --exclude $exclude
+  $CAUSET_HOME_DIR/lsf/wrapper/causet_bat --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' --gpu --verbose -y --quiet-read --print --success 1000000' --queue $queue --nsamples $samples --exclude $exclude
 done
 
 setnextjob $(($job+1))

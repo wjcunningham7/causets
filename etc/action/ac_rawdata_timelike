@@ -1,0 +1,84 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+set -eu -o pipefail
+
+if [[ "$#" -lt 4 ]] ; then
+  echo "Arguments are [jobstart] [jobend] [stdim] [theoretical volume] [spacetime] [version]."
+  exit 1
+fi
+
+jobstart=$1
+jobend=$2
+stdim=$3
+vol=$4
+spacetime=$5
+version=$6
+
+declare -a nodes
+declare -a degrees
+declare -a actions aerr
+declare -a timelike terr
+
+basedir=/gss_gpfs_scratch/cunningham
+homedir=$CAUSET_HOME_DIR
+
+if [[ ! -d $basedir ]] ; then
+  echo "Base directory does not exist!"
+  exit 2
+fi
+
+for i in $(seq $jobstart $jobend) ; do
+  dir=$basedir/causet$i
+  if [[ ! -d $dir ]] ; then
+    echo "Could not find directory: $dir"
+    exit 3
+  fi
+
+  cd $dir
+  if [[ ! -e $dir/causet${i}.err ]] ; then
+    echo "It appears job $i is still running."
+    exit 4
+  fi
+
+  if [[ -s $dir/causet${i}.err ]] ; then
+    echo "Error detected in job $i"
+    echo "--------------------------"
+    cat $dir/causet${i}.err
+    echo -e "\nContinue? [y/n]"
+    read response
+    if [[ "$response" != "y" ]] ; then
+      exit 5
+    fi
+  fi
+
+  nsamples=$(ls $dir/dat/*.cset.out 2> /dev/null | wc -l)
+  if [[ $nsamples -eq 0 ]] ; then
+    echo "No data found!"
+    exit 6
+  fi
+
+  logfile=$dir/CausalSet_Job-${i}_Sample-1.log
+
+  nodes+=($(awk '/Number of Nodes:/ {print $6}' $logfile))
+  degrees+=($(./etc/degrees | awk '/Average Degrees:/ {print $3}'))
+  a=($(./etc/action_single $stdim | awk '/Average Action:/ {print $3, $5}'))
+  action+=(${a[0]})
+  aerr+=(${a[1]})
+  t=($(./etc/action_timelike $vol | awk '/Timelike Action:/ {print $3, $5}'))
+  timelike+=(${t[0]})
+  terr+=(${t[1]})
+done
+
+outfile=$homedir/timelike_${spacetime}_${version}.cset.act.raw
+echo "Job Nodes Degree Action Error Timelike Error" >> $outfile
+njobs=$(($jobend-$jobstart+1))
+for (( i=0 ; i<$njobs ; i++ )) ; do
+  job=$(($i+$jobstart))
+  echo "$job ${nodes[$i]} ${degrees[$i]} ${action[$i]} ${aerr[$i]} ${timelike[$i]} ${terr[$i]}" >> $outfile
+done

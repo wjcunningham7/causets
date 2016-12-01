@@ -743,7 +743,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	unsigned int i, j, m;
 
 	bool hyp = get_manifold(spacetime) & HYPERBOLIC;
-	bool compact = get_curvature(spacetime) & POSITIVE;
+	bool compact = get_curvature(spacetime) & (POSITIVE | NEGATIVE);
 	bool diag;
 
 	//Thread blocks are grouped into "mega" blocks

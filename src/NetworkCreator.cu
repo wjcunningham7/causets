@@ -128,7 +128,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
 			if (!network_properties->tau0)
 				throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
-			if (get_curvature(spacetime) & FLAT && get_region(spacetime) & (SLAB | SLAB_S1 | TRIANGLE_T | TRIANGLE_S)) {
+			if (get_curvature(spacetime) & (FLAT | NEGATIVE) && get_region(spacetime) & (SLAB | SLAB_S1 | TRIANGLE_T | TRIANGLE_S)) {
 				if (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER) && !network_properties->r_max)
 					throw CausetException("Flag '--radius', spatial scaling, must be specified!\n");
 				else if (get_manifold(spacetime) & (DUST | FLRW) && !network_properties->alpha)
@@ -185,7 +185,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				#if DEBUG
 				assert (network_properties->zeta > 0.0 && network_properties->zeta < HALF_PI);
 				#endif
-			}
+			} else if (get_curvature(spacetime) & NEGATIVE)
+				network_properties->zeta = HALF_PI - tauToEtaHyp(network_properties->tau0);
 
 			eta0 = HALF_PI - network_properties->zeta;
 			eta1 = HALF_PI - network_properties->zeta1;
@@ -284,6 +285,11 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->a = SQRT(network_properties->N_tar / (4.0 * M_PI * network_properties->delta * TAN(network_properties->eta0, STL)), STL);
 			else
 				network_properties->delta = network_properties->N_tar / (4.0 * M_PI * POW2(network_properties->a, EXACT) * TAN(network_properties->eta0, STL));
+			break;
+		case (2 | DE_SITTER | SLAB | NEGATIVE | ASYMMETRIC):
+			network_properties->k_tar = network_properties->N_tar / 2.0;
+			network_properties->flags.has_exact_k = false;
+			network_properties->delta = network_properties->N_tar / (TWO_PI * cosh(network_properties->tau0) - 1.0);
 			break;
 		case (2 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 			fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
@@ -561,7 +567,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				printf_mpi(rank, "\n");
 			printf_mpi(rank, "\t > Curvature:\t\t\t%s\n", curvatureNames[(unsigned int)(log2((float)get_curvature(spacetime) / CurvatureFirst))].c_str());
 			printf_mpi(rank, "\t > Temporal Symmetry:\t\t%s\n", symmetryNames[(unsigned int)(log2((float)get_symmetry(spacetime) / SymmetryFirst))].c_str());
-			printf_mpi(rank, "\t > Spacetime ID:\t\t%u\n", network_properties->spacetime);
+			printf_mpi(rank, "\t > Spacetime ID:\t\t%x\n", network_properties->spacetime);
+			//printf_mpi(rank, "\t > Spacetime ID:\t\t%d\n", network_properties->spacetime);
 			if (!rank) printf_std();
 			printf_mpi(rank, "\t--------------------------------------------\n");
 			if (!rank) printf_cyan();
@@ -574,6 +581,9 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			} else if ((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & FLAT)) {
 				printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", eta0);
 				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta1);
+			} else if ((get_manifold(spacetime) & DE_SITTER) && (get_curvature(spacetime) & NEGATIVE)) {
+				printf_mpi(rank, "\t > Min. Conformal Time:\t\t-\u221E\n");
+				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
 			} else if (!(get_manifold(spacetime) & HYPERBOLIC)) {
 				printf_mpi(rank, "\t > Min. Conformal Time:\t\t0.0\n");
 				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
@@ -1367,12 +1377,12 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 				break;
 			case (2 | MINKOWSKI | TRIANGLE_T | FLAT | SYMMETRIC):
 				nodes.crd->x(i) = (2.0 * urng() - 1.0) * eta0;
-				//nodes.crd->y(i) = urng() * r_max;
-				nodes.crd->y(i) = 2.0 * urng() * eta0;
-				//if (fabs(nodes.crd->x(i)) > eta_76546058_2(nodes.crd->y(i), eta0, r_max))
-				if (nodes.crd->y(i) < r_max && fabs(nodes.crd->x(i)) < eta_76546058_2(nodes.crd->y(i), eta0, r_max))
+				nodes.crd->y(i) = urng() * r_max;
+				//nodes.crd->y(i) = 2.0 * urng() * eta0;
+				if (fabs(nodes.crd->x(i)) > eta_76546058_2(nodes.crd->y(i), eta0, r_max))
+				//if (nodes.crd->y(i) < r_max && fabs(nodes.crd->x(i)) < eta_76546058_2(nodes.crd->y(i), eta0, r_max))
 					continue;
-				nodes.crd->y(i) -= eta0;
+				//nodes.crd->y(i) -= eta0;
 				break;
 			case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 				#if EMBED_NODES
@@ -1545,6 +1555,11 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 					#else
 					nodes.crd->y(i) = get_2d_sym_sph_deSitter_slab_theta(urng);
 					#endif
+					break;
+				case (2 | DE_SITTER | SLAB | NEGATIVE | ASYMMETRIC):
+					nodes.id.tau[i] = get_2d_asym_hyp_deSitter_slab_tau(urng, tau0);
+					nodes.crd->x(i) = tauToEtaHyp(nodes.id.tau[i]);
+					nodes.crd->y(i) = get_2d_asym_hyp_deSitter_slab_theta(urng);
 					break;
 				case (2 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 					fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
@@ -1821,7 +1836,7 @@ bool generateNodes(Node &nodes, const unsigned int &spacetime, const int &N_tar,
 			printValues(nodes, spacetime, N_tar, "eta_dist.cset.dbg.dat", "x");
 			if (get_curvature(spacetime) & FLAT)
 				printValues(nodes, spacetime, N_tar, "x_dist.cset.dbg.dat", "y");
-			else if (get_curvature(spacetime) & POSITIVE)
+			else if (get_curvature(spacetime) & (POSITIVE | NEGATIVE))
 				printValues(nodes, spacetime, N_tar, "theta_dist.cset.dbg.dat", "y");
 		} else if (get_stdim(spacetime) == 4) {
 			printValues(nodes, spacetime, N_tar, "eta_dist.cset.dbg.dat", "w");

@@ -2350,7 +2350,7 @@ bool validateDistApprox(const Node &nodes, const Edge &edges, const unsigned int
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
 //Uses geodesic distances
-bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const bool &strict_routing, int source, int dest, bool &success, bool &success2, bool &past_horizon)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const unsigned int &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const bool &strict_routing, int source, int dest, int &nsteps, bool &success, bool &success2, bool &past_horizon)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -2405,13 +2405,13 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 	assert (dest >= 0 && dest < N_tar);
 	#endif
 
-	bool TRAV_DEBUG = true;
+	bool TRAV_DEBUG = false;
 
 	float min_dist = 0.0f;
 	int loc = source;
 	int idx_a = source;
 	int idx_b = dest;
-	int length = 0;
+	nsteps = 0;
 
 	float dist;
 	int next;
@@ -2440,12 +2440,15 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 	if (dist + 1.0 > INF) {
 		past_horizon = true;
 		success2 = false;
-		//return true;
 	}
 
 	if (TRAV_DEBUG) {
 		printf_cyan();
 		printf("Beginning at [%d : %.4f].\tLooking for [%d : %.4f].\n", source, nodes.id.tau[source], dest, nodes.id.tau[dest]);
+		if (past_horizon) {
+			printf_red();
+			printf("Past horizon at start.\n");
+		}
 		printf_std();
 		fflush(stdout);
 	}
@@ -2480,11 +2483,12 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 				if (TRAV_DEBUG) {
 					printf_cyan();
 					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_a, nodes.id.tau[idx_a], nodes.crd->z(idx_a));
-					printf_red();
+					printf_cyan();
 					printf("SUCCESS\n");
 					printf_std();
 					fflush(stdout);
 				}
+				nsteps++;
 				success = true;
 				return true;
 			}
@@ -2495,12 +2499,12 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 					printf_cyan();
 					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_a, nodes.id.tau[idx_a], nodes.crd->z(idx_a));
 					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_b, nodes.id.tau[idx_b], nodes.crd->z(idx_b));
-					printf_red();
+					printf_cyan();
 					printf("SUCCESS\n");
 					printf_std();
 					fflush(stdout);
 				}
-				if (length >= 5) return false;
+				nsteps += 2;
 				success = true;
 				return true;
 			}
@@ -2548,11 +2552,12 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 				if (TRAV_DEBUG) {
 					printf_cyan();
 					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_a, nodes.id.tau[idx_a], nodes.crd->z(idx_a));
-					printf_red();
+					printf_cyan();
 					printf("SUCCESS\n");
 					printf_std();
 					fflush(stdout);
 				}
+				nsteps++;
 				success = true;
 				return true;
 			}
@@ -2563,12 +2568,12 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 					printf_cyan();
 					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_a, nodes.id.tau[idx_a], nodes.crd->z(idx_a));
 					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_b, nodes.id.tau[idx_b], nodes.crd->z(idx_b));
-					printf_red();
+					printf_cyan();
 					printf("SUCCESS\n");
 					printf_std();
 					fflush(stdout);
 				}
-				if (length >= 5) return false;
+				nsteps += 2;
 				success = true;
 				return true;
 			}
@@ -2610,7 +2615,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 
 		if (!used[next] && min_dist + 1.0 < INF) {
 			loc = next;
-			length++;
+			nsteps++;
 		} else {
 			if (min_dist + 1.0 > INF)
 				past_horizon = true;
@@ -3087,6 +3092,11 @@ bool validateCoordinates(const Node &nodes, const unsigned int &spacetime, const
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI)) return false;
 		#endif
 		break;
+	case (2 | DE_SITTER | SLAB | NEGATIVE | ASYMMETRIC):
+		if (!(nodes.id.tau[i] < tau0)) return false;
+		if (!(nodes.crd->x(i) < eta0)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI)) return false;
+		break;
 	case (2 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 		fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
 		assert (false);
@@ -3282,4 +3292,40 @@ void print_pairs(std::vector<unsigned int> vec)
 	for (size_t i = 0; i < vec.size(); i += 2)
 		printf("(%d, %d) ", vec[i], vec[i+1]);
 	printf("\n");
+}
+
+void printDot(Bitvector &adj, const int * const k_out, int N, const char *filename)
+{
+	#if DEBUG
+	assert (adj.size() > 0);
+	assert (k_out != NULL);
+	assert (N > 0);
+	assert (filename != NULL);
+	#endif
+
+	std::ofstream data;
+
+	try {
+		data.open(filename);
+		if (!data.is_open())
+			throw CausetException("Failed to open dot file!\n");
+
+		data << "digraph \"causet\" {\n";
+		data << "rankdir=BT; concentrate=true;\n";
+		for (int i = 0; i < N; i++) {
+			data << i << " [shape=plaintext];\n";
+			for (int j = i + 1; j < N; j++)
+				if (adj[i].read(j))
+					data << i << "->" << j << "; ";
+			if (!!k_out[i])
+				data << "\n";
+		}
+		data << "}\n";
+		data.flush();
+		data.close();
+	} catch (CausetException c) {
+		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
+	} catch (std::exception e) {
+		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
+	}
 }

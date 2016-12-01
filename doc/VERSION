@@ -91,3 +91,31 @@ STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
 3+1	FLRW		SLAB		FLAT		ASYMMETRIC	41943364
 3+1	FLRW		SLAB		POSITIVE	ASYMMETRIC	50331972
 3+1	FLRW		DIAMOND		FLAT		ASYMMETRIC	42074180
+
+VERSION 3.x
+===========
+
+STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
+================================================================================
+1+1     MINKOWSKI       SLAB            FLAT            SYMMETRIC       880010A 
+1+1     MINKOWSKI       SLAB_T1         FLAT            SYMMETRIC       880020A 
+1+1     MINKOWSKI       SLAB_S1         FLAT            SYMMETRIC       880080A 
+1+1     MINKOWSKI       DIAMOND         FLAT            ASYMMETRIC      482000A 
+1+1     MINKOWSKI       SAUCER          FLAT            SYMMETRIC       884000A 
+1+1     MINKOWSKI       SAUCER_T        FLAT            SYMMETRIC       888000A 
+1+1     MINKOWSKI       TRIANGLE_T      FLAT            SYMMETRIC       890000A 
+1+1     DESITTER        SLAB            POSITIVE        SYMMETRIC       9000112 
+1+1     DESITTER        SLAB            POSITIVE        ASYMMETRIC      5000112 
+1+1     DESITTER        SLAB            NEGATIVE        ASYMMETRIC      6000112 
+1+1     HYPERBOLIC      SLAB            FLAT            ASYMMETRIC      4800182 
+1+1     HYPERBOLIC      SLAB            POSITIVE        ASYMMETRIC      5000182 
+3+1     DESITTER        SLAB            FLAT            ASYMMETRIC      4800114 
+3+1     DESITTER        SLAB            POSITIVE        SYMMETRIC       9000114 
+3+1     DESITTER        SLAB            POSITIVE        ASYMMETRIC      5000114 
+3+1     DESITTER        DIAMOND         FLAT            ASYMMETRIC      4820014 
+3+1     DESITTER        DIAMOND         POSITIVE        ASYMMETRIC      5020014 
+3+1     DUST            SLAB            FLAT            ASYMMETRIC      4800124 
+3+1     DUST            DIAMOND         FLAT            ASYMMETRIC      4820024 
+3+1     FLRW            SLAB            FLAT            ASYMMETRIC      4800144 
+3+1     FLRW            SLAB            POSITIVE        ASYMMETRIC      5000144 
+3+1     FLRW            DIAMOND         FLAT            ASYMMETRIC      4820044 

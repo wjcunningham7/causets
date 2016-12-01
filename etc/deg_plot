@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Makes the data (tau0, avg(k), stderr(k)) for navigability paper
+
+import glob
+import math
+import numpy as np
+import os
+import sys
+
+if len(sys.argv) == 1:
+	sys.stdout.write('Must specify job number.\n')
+	sys.exit(1)
+elif len(sys.argv) > 2:
+	sys.stdout.write('Too many parameters specified.\n')
+	sys.exit(2)
+
+jobid = int(sys.argv[1])
+
+basedir = '/krioukov/will/causet' + str(jobid)
+if not os.path.exists(basedir):
+	sys.stdout.write('Directory does not exist.\n')
+	sys.exit(3)
+
+files = glob.glob(basedir + '/CausalSet*.log')
+
+N = len(files)
+tau0 = 0
+k = []
+avg = 0
+
+idx = 0
+for file in files:
+	f = open(file)
+	lines = f.readlines()
+
+	for line in lines:
+		tokens = line.split()
+		if len(tokens) == 0:
+			continue
+
+		if tau0 == 0 and tokens[0] == '>' and tokens[1] == 'Max.' and tokens[2] == 'Rescaled' and tokens[3] == 'Time:':
+			tau0 = float(tokens[4])
+
+		if tokens[0] == 'Resulting' and tokens[1] == 'Average' and tokens[2] == 'Degree:':
+			k.append(float(tokens[3]))
+
+	avg += k[-1]
+	f.close()
+
+stderr = 0
+if N > 0:
+	avg /= N
+	stderr = np.std(k) / math.sqrt(float(N))
+sys.stdout.write(str(tau0) + ' ' + str(avg) + ' ' + str(stderr) + '\n')

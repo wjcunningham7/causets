@@ -490,7 +490,7 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const 
 
 	//Spatial Interval
 	if (get_stdim(spacetime) == 2) {
-		if (get_curvature(spacetime) & POSITIVE) {
+		if (get_curvature(spacetime) & (POSITIVE | NEGATIVE)) {
 			#if EMBED_NODES
 			float phi1 = atan2(c->z(future_idx), c->y(future_idx));
 			float phi2 = atan2(c->z(past_idx), c->y(past_idx));
@@ -673,6 +673,16 @@ inline double tauToEtaFlat(const double tau)
 	#endif
 
 	return -exp(-tau);
+}
+
+//Rescaled to Conformal time (de Sitter hyperbolic foliation)
+inline double tauToEtaHyp(const double tau)
+{
+	#if DEBUG
+	assert (tau > 0.0);
+	#endif
+
+	return log(tanh(tau / 2.0));
 }
 
 //-------------------//
@@ -1017,8 +1027,8 @@ inline double averageDegree_10788_0(int dim, double x[], double *params)
 	//Identify x[0] with eta' coordinate
 	//Identify x[1] with eta'' coordinate
 	
-	double t = POW2(POW2(x[0] * x[1], EXACT), EXACT);
-	return ABS(POW3(x[0] - x[1], EXACT), STL) / t;
+	double t = POW2(POW2(x[0] * x[1]));
+	return ABS(POW3(x[0] - x[1]), STL) / t;
 }
 
 //-----------------------------------------------------------//

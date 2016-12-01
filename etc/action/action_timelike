@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Calculates the mean and standard error of the timelike boundary term of the action
+
+import glob
+import math
+import numpy as np
+import sys
+
+if len(sys.argv) < 2:
+	sys.stdout.write('Arguments are [theoretical volume]\n')
+	sys.exit(1)
+v = float(sys.argv[1])
+
+basedir=''
+files = glob.glob(basedir + 'CausalSet*.log')
+
+N = len(files)
+t = []
+avg = 0
+err = 0
+
+for i in range(0,N):
+	t.append(0)
+
+idx = 0
+for file in files:
+	f = open(file)
+	lines = f.readlines()
+
+	for line in lines:
+		tokens = line.split()
+		if len(tokens) < 3:
+			continue
+
+		if tokens[1] == 'Timelike' and tokens[2] == 'Volume:':
+			t[idx] = float(tokens[3])
+
+	avg += t[idx]
+	idx += 1
+
+	f.close()
+
+stderr = 0
+if N > 0:
+	avg /= N
+	stderr = np.std(t) / math.sqrt(float(N))
+sys.stdout.write('Timelike Action: ' + str(avg) + ' +/- ' + str(stderr) + '\n')
+
+f = open(basedir + 'dat/ref/timelike_action.cset.act.ref','w')
+for i in range(0,N):
+	f.write(str(t[i]) + '\n')
+f.close()
+
+sys.stdout.write('Completed TAC.\n')

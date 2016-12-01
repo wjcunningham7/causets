@@ -56,7 +56,7 @@
 				//Should be greater than 1.0
 
 //Debugging Flags
-#define DEBUG true	//Determines whether unit testing is in effect
+#define DEBUG false	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements
 			//In general it should be set to true since there
 			//is a minimal performance difference

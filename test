@@ -9,7 +9,7 @@
 set -eu -o pipefail
 
 # NOTE: The variable used for spacetime may change, and should be cross-referenced with doc/VERSION.
-# The current version is indicated in the file inc/Constants.h
+# The current version is indicated in the file inc/config.h
 
 ####################################
 # Examples of How to Use CausalSet #
@@ -50,59 +50,43 @@ set -eu -o pipefail
 # These are experimental parameters #
 #####################################
 
-test_action=true
-if [[ $test_action == "false" ]] ; then
-  platform="_par-gpu-2"
-  num=1000000
-  zeta=1
+platform=krioukov_gpu
+binary="$CAUSET_HOME_DIR/bin/CausalSet_${platform}"
 
-  exp="hyp_static"
-  measure=""
-  #measure="--components"
-  #measure="--success 16384"
-  #measure="--vecprod 0.1"
+stdim=2
+manifold=minkowski
+region=slab
+curvature=flat
+symmetry=symmetric
+spacetime="--stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry"
+#spacetime="--spacetime 4800114"
 
-  if [[ $exp == "hyp_static" ]] ; then
-    #$CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 50332034 --nodes $num --radius 18.5 --zeta $zeta --verbose -y --link --core 1 --gpu $measure #--print
-    $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 50332034 --nodes $num --radius 30 --zeta $zeta --verbose --link --gpu $measure #--print
-  elif [[ $exp == "hyp_growing" ]] ; then
-    $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 49922 --nodes $num --radius 23.5 --zeta $zeta --verbose -y --growing --link --core 1 --gpu $measure #--print
-  elif [[ $exp == "epso" ]] ; then
-    $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 49922 --nodes $num --radius 22.5 --zeta $zeta --verbose -y --growing --link --link-epso --core 1 --gpu $measure #--print
-  elif [[ $exp == "de_sitter" ]] ; then
-    $CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 82466 --nodes $num --age 1.570784 --verbose -y --link --core 1 --gpu $measure #--print
-    #$CAUSET_HOME_DIR/bin/CausalSet$platform --spacetime 41508 --nodes $num --age 1.5 --radius 4 --verbose -y --link --core 0.99 --gpu $measure #--print
-  fi
+nodes=4096
+age=0.5
+radius=0.5
+constraints="--nodes $nodes --age $age --radius $radius"
+
+makenew=true
+if [[ "$makenew" == "false" ]] ; then
+  graphs=($(awk '{print $1}' $CAUSET_HOME_DIR/etc/data_keys.cset.key))
+  graph=${graphs[${#graphs[@]}-1]}
+  echo "Graph: ${graph}"
 else
-  platform=_krioukov_gpu
-  #spacetime=83886356 # 3+1 de Sitter Slab
-  spacetime=75497738 # 1+1 Minkowski Slab
-  #spacetime=75759626 # 1+1 Minkowski Saucer
-  #spacetime=76021770 # 1+1 Minkowski Saucer (T)
-  #spacetime=75499530 # 1+1 Minkowski Slab (S)
-  #spacetime=75497994 # 1+1 Minkowski Slab (T)
-  #spacetime=76546058 # 1+1 Minkowski Triangle (T)
-  age=0.25
-  num=10240
-  cutoff=0.75
-  np=4
-  makenew=true
-
-  if [[ "$makenew" == "true" ]] ; then
-    #mpirun -np $np -prot -hostfile $CAUSET_HOME_DIR/hostfile \
-    $CAUSET_HOME_DIR/bin/CausalSet${platform} --spacetime $spacetime --nodes $num --age $age --radius $cutoff --verbose -y --link --gpu --core 1 --action smeared #--print --print-edges
-  else
-    graphs=($(awk '{print $1}' $CAUSET_HOME_DIR/etc/data_keys.cset.key))
-    graph=${graphs[${#graphs[@]}-1]}
-    #graph=111
-    #mpirun -np $np -prot -hostfile hostfile \
-    $CAUSET_HOME_DIR/bin/CausalSet${platform} --spacetime $spacetime --age $age --radius $cutoff --graph $graph --core 1 --verbose -y --action smeared --relink 
-  fi
+  graph=0
 fi
+
+link="--link --gpu --core 1"
+measure="--action smeared" 
+xtra="--verbose -y --graph ${graph}"
+
+#mpirun -prot -srun -hostfile $CAUSET_HOME_DIR/hostfile \
+$binary $spacetime $constraints $link $measure $xtra
 
 ######################################
 # These will reproduce known results #
 ######################################
+
+# Note: these spacetime values are for Version 0
 
 # Generate causal set for 1+1 de Sitter (no matter)
 #./bin/CausalSet --spacetime 12834 --nodes 24586 --age 1.5707577 --seed 18100 --link --print

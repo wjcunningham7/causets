@@ -34,8 +34,21 @@ elif [[ "$st" == 41604 ]] ; then
   scr=$basedir/gr_flrw_slab_k
 fi
 
+#n=(343552 442624 420352 424192 438016 432896 731136)
+#n=(515328 664064 630528 636416 656896 649216 1096704)
+#n=(687104 885248 840704 848384 876032 865792 1462272)
+
+#n=(171008 168704 176640 174336 168960 170496 171264)
+#n=(256768 253184 264960 261632 253696 255744 257024)
+#n=(342272 337664 353536 348928 338176 341248 342784)
+
+#n=(124416 81664 74752 55552 145664 173568 738304)
+#n=(220160 159488 135680 148480 238336 308480 723200)
+n=(342528 212992 181504 129792 292352 378624 759552)
+
 while IFS=' ' read -r -a vals ; do
   for (( i=0 ; i<${#vals[@]} ; i+=2 )) ; do
-    echo "${vals[$i]} ${vals[$i+1]} $($scr $k ${vals[$i]} ${vals[$i+1]} | awk '/spatial cutoff/ {print $3}')" >> causet.par
+    #echo "${vals[$i]} ${vals[$i+1]} $($scr $k ${vals[$i]} ${vals[$i+1]} | awk '/spatial cutoff/ {print $3}')" >> causet.par
+    echo "${vals[$i]} ${n[$i/2]} $($scr $k ${vals[$i]} ${n[$i/2]} | awk '/spatial cutoff/ {print $3}')" >> causet.par
   done
 done <<< $($basedir/gr_params $tmin $tmax $nmin $nmax $nbins)

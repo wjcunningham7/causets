@@ -212,6 +212,22 @@ inline float get_2d_sym_sph_deSitter_slab_eta(UGenerator &rng, const double eta0
 #define get_2d_sym_sph_deSitter_slab_emb(rng) \
 	get_sph_d2(rng)
 
+//////////////////////////
+// 2-D De Sitter Slab   //
+// Hyperbolic Foliation //
+// Asymmetric About Eta //
+//////////////////////////
+
+//Returns a value for tau
+inline float get_2d_asym_hyp_deSitter_slab_tau(UGenerator &rng, const double tau0)
+{
+	return acosh(rng() * (cosh(tau0) - 1.0) + 1.0);
+}
+
+//Returns a value for theta
+#define get_2d_asym_hyp_deSitter_slab_theta(rng) \
+	get_azimuthal_angle(rng)
+
 ///////////////////////////
 // 2-D De Sitter Diamond //
 // Spherical Foliation   //

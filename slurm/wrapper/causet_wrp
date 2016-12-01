@@ -1,0 +1,166 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Number of jobs to run in parallel in separate nodes
+njobs=1
+
+# Job ID offset (used for naming directories)
+jobstart=1
+
+# Number of samples to run serially on a single node
+nsamples=1
+
+# Job ID used for reading existing graph data
+readjobid=0
+
+# Graph ID used for reading existing graph data
+readgraphid=0
+
+# Flags passed to CausalSet program
+flags=''
+
+# SLURM partition
+partition=''
+
+# Number of nodes
+nnodes=1
+
+# Number of cores per node
+ncores=1
+
+# Dependency
+waitid=0
+
+# Nodes excluded
+exclude="compute-0-000"
+
+# Parse command line parameters
+OPTIONS=`getopt -o c:f:G:hJ:j:n:p:R:s:w:x: -l ncores:,flags:,graph:,'help',nodes:,start:,njobs:,partition:,readjob:,nsamples:,waitfor:,exclude: -n 'causet_wrp' -- "$@"`
+
+if [ $? -ne 0 ] ; then
+  echo "Unrecognized option. Try running with --help flag." >&2
+  exit 1
+fi
+
+eval set -- "$OPTIONS"
+
+while true ; do
+  case "$1" in
+    -c|--ncores)
+      case "$2" in
+        "") shift 2 ;;
+        *) ncores=$2 ; shift 2 ;;
+      esac ;;
+    -f|--flags)
+      case "$2" in
+        "") shift 2 ;;
+        *) flags=$2 ; shift 2 ;;
+      esac ;;
+    -G|--graph)
+      case "$2" in
+        "") shift 2 ;;
+        *) readgraphid=$2 ; shift 2 ;;
+      esac ;;
+    -J|--start)
+      case "$2" in
+        "") shift 2 ;;
+        *) jobstart=$2 ; shift 2 ;;
+      esac ;;
+    -j|--njobs)
+      case "$2" in
+        "") shift 2 ;;
+        *) njobs=$2 ; shift 2 ;;
+      esac ;;
+    -n|--nodes)
+      case "$2" in
+        "") shift 2 ;;
+        *) nnodes=$2 ; shift 2 ;;
+      esac ;;
+    -p|--partition)
+      case "$2" in
+        "") shift 2 ;;
+        *) partition=$2 ; shift 2 ;;
+      esac ;;
+    -R|--readjob)
+      case "$2" in
+        "") shift 2 ;;
+        *) readjobid=$2; shift 2 ;;
+      esac ;;
+    -s|--nsamples)
+      case "$2" in
+        "") shift 2 ;;
+        *) nsamples=$2 ; shift 2 ;;
+      esac ;;
+    -w|--waitfor)
+      case "$2" in
+        "") shift 2 ;;
+        *) waitid=$2 ; shift 2 ;;
+      esac ;;
+    -x|--exclude)
+      case "$2" in
+        "") shift 2 ;;
+        *) exclude=$2 ; shift 2 ;;
+      esac ;;
+    -h|--help)
+      echo "Usage: causet_wrp [OPTION]..."
+      echo "Send CausalSet jobs to SLURM partitions on Discovery cluster."
+      echo ""
+      echo "  -c, --ncores     number of cores requested"
+      echo "  -f, --flags      flags to pass to CausalSet program"
+      echo "  -G, --graph      graph ID specified when reading a graph from another job"
+      echo "  -h, --help       display this help and exit"
+      echo "  -J, --start      job ID offset, used for naming directories"
+      echo "  -j, --njobs      number of jobs to run in parallel on separate nodes"
+      echo "  -n, --nodes      number of nodes"
+      echo "  -p, --partition  SLURM partition"
+      echo "  -R, --readjob    job ID specified when reading graph(s) from another job"
+      echo "  -s, --nsamples   number of samples to run serially on a single node"
+      echo "  -w, --waitfor    job which must complete before this one starts"
+      echo "  -x, --exclude    exclude a certain host"
+      echo ""
+      echo "Report causet_wrp bugs to w.cunningham@neu.edu"
+      echo "Bitbucket repository home page: <https://bitbucket.org/dk-lab/2015_code_causets>"
+      exit 0 ;;
+    --) shift ; break ;;
+    *) echo "Internal error!" ; exit 2 ;;
+  esac
+done
+
+# Check if 'jobstart' is an integer or a string
+num='^[0-9]+$' # Regular expression here
+istart=1
+notnumber=0 # Assume jobstart is a number by default
+if ! [[ "$jobstart" =~ $num ]] ; then # Not a number
+  njobs=1
+  notnumber=1
+else
+  istart=$jobstart
+fi
+
+# Format wait statement
+if [ ${waitid} -ne 0 ] ; then
+  waitfor="SBATCH -d afterany:${waitid}"
+else
+  waitfor=""
+fi
+
+# Send jobs to SLURM via sbatch
+jobid=$jobstart
+for (( i=${istart}; i<${njobs}+${istart}; i++ )) ; do
+  if [ ${notnumber} -eq 0 ] ; then
+    jobid=$i
+  fi
+  if [[ ${readjobid} -ne 0 && ${readjobid} -eq ${jobid} ]] ; then
+    echo "Invalid option: jobid equals readjobid!"
+    exit 3;
+  fi
+  mkdir -p /gss_gpfs_scratch/cunningham
+  mkdir -p /gss_gpfs_scratch/cunningham/causet${jobid}
+  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%partition%:$partition:g;s:%ncores%:$ncores:g;s:%nnodes%:$nnodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%waitfor%:$waitfor:g;s:%exclude%:$exclude:g" < $CAUSET_HOME_DIR/slurm/batch/causet_slm | sbatch
+  sleep 1
+done

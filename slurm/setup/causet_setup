@@ -1,0 +1,126 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Working directories
+work=/gss_gpfs_scratch/cunningham/causet@jobID@
+homedir=/home/cunningham.wi/projects/causets
+
+# Copy the binary
+cp $homedir/bin/CausalSet_@partition@ $work/
+
+# Create peripheral directories and copy relevant files
+mkdir -p $work/etc
+mkdir -p $work/etc/tables
+
+cp $homedir/etc/action/action_single $work/etc/
+cp $homedir/etc/action/action_timelike $work/etc/
+cp $homedir/etc/degrees $work/etc/
+cp $homedir/etc/deg_dist $work/etc/
+cp $homedir/etc/components $work/etc/
+cp $homedir/etc/clustering $work/etc/
+cp $homedir/etc/clust_dist $work/etc/
+cp $homedir/etc/fields $work/etc/
+cp $homedir/etc/min_tau $work/etc/
+cp $homedir/etc/stretch $work/etc/
+cp $homedir/etc/success $work/etc/
+cp $homedir/etc/mkdat $work/etc/
+
+cp $homedir/etc/tables/raduc_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/raducNC_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/ctuc_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/partial_fraction_coefficients.cset.bin $work/etc/tables
+cp $homedir/etc/tables/average_degree_13348_0_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/average_degree_11300_0_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/average_degree_11332_0_table.cset.bin $work/etc/tables
+cp $homedir/etc/tables/average_degree_11396_0_table.cset.bin $work/etc/tables
+
+if [[ -e $homedir/action_pairs.cset.act.in ]] ; then
+  cp $homedir/action_pairs.cset.act.in $work
+fi
+
+# Make directories to hold data files
+$homedir/etc/mkdat $work
+
+# Make sure directories exist if reading previously generated data
+if [ @readjobid@ -ne 0 ] ; then
+  dir1="/gss_gpfs_scratch/cunningham/causet@readjobid@"
+  if [ ! -d ${dir1} ] ; then
+    echo "Folder ${dir1} does not exist!"
+    exit 1
+  fi
+
+  dir2=$dir1/dat
+  if [ ! -d ${dir2} ] ; then
+    echo "Folder ${dir2} does not exist!"
+    exit 2
+  fi
+
+  dir3=$dir2/pos
+  if [ ! -d ${dir3} ] ; then
+    echo "Folder ${dir3} does not exist!"
+    exit 3
+  fi
+
+  dir4=$dir2/edg
+  if [ ! -d ${dir4} ] ; then
+    echo "Folder ${dir4} does not exist!"
+    exit 4
+  fi
+
+  if [ @readgraphid@ -eq 0 ] ; then # Use graph list
+    dir5=$dir1/etc
+    if [ ! -d ${dir5} ] ; then
+      echo "Folder ${dir5} does not exist!"
+      exit 5
+    fi
+
+    keyfile=$dir5/data_keys.cset.key
+    if [ ! -f ${keyfile} ] ; then
+      echo "Graph ID file ${keyfile} does not exist!"
+      exit 6
+    fi
+
+    graphfile=$work/graphlist
+    awk '{ print $1 }' $keyfile > $graphfile
+    declare -a graphs
+    readarray -t graphs < ${graphfile}
+    for (( i=0; i<${#graphs[@]}; i++ )) ; do
+      posfile=$dir3/${graphs[$i]}.cset.pos.dat
+      if [ ! -f ${posfile} ] ; then
+        echo "Node position file ${posfile} does not exist!"
+        exit 7
+      else
+        cp $posfile $work/dat/pos
+      fi
+
+      edgfile=$dir4/${graphs[$i]}.cset.edg.dat
+      #if [ ! -f ${edgfile} ] ; then
+      #  echo "Edge list file ${edgfile} does not exist!"
+      #  exit 8
+      #fi
+      if [ -f ${edgfile} ] ; then
+        cp $edgfile $work/dat/edg
+      fi
+    done
+  else
+    posfile=$dir3/@readgraphid@.cset.pos.dat
+    if [ ! -f ${posfile} ] ; then
+      echo "Node position file ${posfile} does not exist!"
+      exit 9
+    fi
+
+    edgfile=$dir4/@readgraphid@.cset.edg.dat
+    if [ ! -f ${edgfile} ] ; then
+      echo "Edge list file ${edgfile} does not exist!"
+      exit 10
+    fi
+
+    cp $posfile $work/dat/pos
+    cp $edgfile $work/dat/edg
+  fi
+fi

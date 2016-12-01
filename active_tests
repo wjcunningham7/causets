@@ -1,96 +1,140 @@
-ACTION EXPERIMENTS
-==================
-> Studying influence of spacelike boundary terms
-
-------------------------
-MINKOWSKI SPECIAL SAUCER
-------------------------
-Jobs 984-1002,1501-1506
-Spacetime = 77834
-Eta0 = 1.0 (Special Saucer)
-Waiting for...NONE
+STRETCH
+=======
+> Measuring the stretch of successful greedy paths
+  using geodesic routing with disconnected pairs dropped
 
 ----------------
-MINKOWSKI SAUCER
+CONSTANT DENSITY
 ----------------
-Jobs 1507-1531
-Spacetime = 77834
-Eta0 = 0.2
+Jobs 1706-1730
+Read = 1092
+Spacetime = 4800114
+Density = 60
 Waiting for...NONE
 
-Jobs 1532-1556
-Spacetime = 77834
-Eta0 = 0.4
+Jobs 1731-1755
+Read = 1117
+Spacetime = 4800114
+Density = 75
+Waiting for...NONE
+ > Job 1755 could not finish
+
+Jobs 1756-1780
+Read = 1142
+Spacetime = 4800114
+Density = 90
 Waiting for...NONE
 
-Jobs 1557-1581
-Spacetime = 77834
-Eta0 = 0.6
+Jobs 1781-1805
+Read = 1188
+Spacetime = 4800124
+Density = 60
 Waiting for...NONE
 
-Jobs 1582-1606
-Spacetime = 77834
-Eta0 = 0.8
+Jobs 1806-1830
+Read = 1213
+Spacetime = 4800124
+Density = 75
+Waiting for...NONE
+ > Job 1825 had trouble
+
+Jobs 1831-1855
+Read = 1238
+Spacetime = 4800124
+Density = 90
+Waiting for...NONE
+ > Job 1855 could not finish
+
+Jobs 1856-1880
+Read = 1403
+Spacetime = 4800144
+Density = 60
 Waiting for...NONE
 
---------------
-DE SITTER SLAB
---------------
-Jobs 1499-1500, 1714
-Spacetime = 82468
-Eta0 = 0.5
-Waiting for...1714
- > Did not finish properly
+Jobs 1881-1905
+Read = 1428
+Spacetime = 4800144
+Density = 75
+Waiting for...NONE
 
-NAVIGABILITY EXPERIMENTS: COMPLETED
-===================================
-> Uses inner products
-> k = 10
-> N = 131072
-> Ns = 20
+Jobs 1906-1930
+Read = 1453
+Spacetime = 4800144
+Density = 90
+Waiting for...NONE
 
 ---------------
-RELAXED ROUTING
+CONSTANT DEGREE
 ---------------
-Job 1706
-Manifold = De Sitter
-Spacetime = 49698
+Jobs 1931-1937
+Read = 1167
+Spacetime = 4800114
+Degree = 10
+Waiting for...1932-1934
+
+Jobs 1938-1944
+Read = 1174
+Spacetime = 4800114
+Degree = 15
+Waiting for...1939-1941
+
+Jobs 1945-1951
+Read = 1181
+Spacetime = 4800114
+Degree = 20
+Waiting for...NONE
+ > Re-do 1947-1948
+
+Jobs 1952-1958
+Read = 1263
+Spacetime = 4800124
+Degree = 10
 Waiting for...NONE
 
-Job 1707
-Manifold = Hyperbolic (Static H2)
-Spacetime = 49922
+Jobs 1959-1965
+Read = 1270
+Spacetime = 4800124
+Degree = 15
 Waiting for...NONE
 
-Job 1708
-Manifold = Hyperbolic (Growing H2)
-Spacetime = 49922
+Jobs 1966-1972
+Read = 1277
+Spacetime = 4800124
+Degree = 20
 Waiting for...NONE
 
-Job 1709
-Manifold = Hyperbolic (Growing H2, EPSO)
-Spacetime = 49922
+Jobs 1973-1979
+Read = 1478
+Spacetime = 4800144
+Degree = 10
 Waiting for...NONE
+ > Re-do 1973-1976, 1979
+
+Jobs 1980-1986
+Read = 1485
+Spacetime = 4800144
+Degree = 15
+Waiting for...NONE
+ > Re-do 1980-1983
+
+Jobs 1987-1993
+Read = 1492
+Spacetime = 4800144
+Degree = 20
+Waiting for...NONE
+ > Re-do 1987-1990, 1993
+
+===============
+TIMELIKE ACTION
+===============
+ > Measure the accuracy of the timelike action
+   as the graph size increases
 
 --------------
-STRICT ROUTING
+MINKOWSKI SLAB
 --------------
-Job 1710
-Manifold = De Sitter
-Spacetime = 49698
-Waiting for...NONE
-
-Job 1711
-Manifold = Hyperbolic (Static H2)
-Spacetime = 49922
-Waiting for...NONE
-
-Job 1712
-Manifold = Hyperbolic (Growing H2)
-Spacetime = 49922
-Waiting for...NONE
-
-Job 1713
-Manifold = Hyperbolic (Growing H2, EPSO)
-Spacetime = 49922
-Waiting for...NONE
+Jobs 1994-2000
+Spacetime = 880010A
+Age = 0.5
+Radius = 0.5
+Waiting for...1999-2000

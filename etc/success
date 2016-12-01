@@ -59,4 +59,3 @@ for i in range(0,N):
 f.close()
 
 sys.stdout.write('Completed SUC.\n')
-

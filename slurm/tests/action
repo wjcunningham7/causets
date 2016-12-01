@@ -1,0 +1,85 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Action Experiments
+
+# Use 'setnextjob' command
+# Set spacetime details
+# Set age
+# Specify details of .par file
+# Choose 'readstart' and 'samples'
+# Choose 'queue' and 'mpi'
+
+set -eu -o pipefail
+
+if [[ "$#" -lt 1 ]] ; then
+  echo "Arguments are [parfile]"
+  exit 1
+fi
+
+stdim=2
+manifold=minkowski
+region=slab
+curvature=flat
+symmetry=symmetric
+spacetime="--stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry"
+
+age=0.5
+radius=0.5
+makeparfile=false
+
+nmin=1024
+nmax=16384
+nnum=5
+
+source /home/cunningham.wi/.queues
+jobstart=$NEXT_JOB
+readstart=0
+samples=10
+partition="krioukov_gpu"
+ncores=$(sinfo -p $partition -o "%c" | awk 'NR==2 {print $1}')
+exclude="compute-4-017"
+
+makeparfile=false
+if [[ "$makeparfile" == "true" ]] ; then
+  rm -f $CAUSET_HOME_DIR/causet.par
+  $CAUSET_HOME_DIR/etc/action/action_test $nmin $nmax $nnum
+  exit 2
+fi
+
+parfile=$1
+readarray -t vars < $parfile
+
+for i in $(seq ${#vars[@]}) ; do
+  job=$(($i+$jobstart-1))
+  var=(${vars[${i}-1]})
+  if [[ ${var:0:1} == "#" ]] ; then
+    continue
+  fi
+
+  nodes=$var
+
+  if [[ "$readstart" -ne 0 ]] ; then
+    readjob=$(($i+$readstart-1))
+    nodes=0
+    samples=1
+
+    echo "Attempting to read job $readjob."
+    basedir=/gss_gpfs_scratch/cunningham
+    if [[ ! -d $basedir/causet${readjob} ]] ; then
+      echo "Job ${readjob} could not be found."
+      continue
+    fi
+  else
+    readjob=0
+  fi
+
+  $CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags "$spacetime"' --nodes '"$nodes"' --radius '"$radius"' --age '"$age"' --link --gpu --core 1 --verbose -y --print --action smeared' --partition $partition --nsamples $samples --exclude $exclude
+done
+
+setnextjob $(($job+1))

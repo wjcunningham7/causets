@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [[ "$#" -ne 1 ]] ; then
+  echo "Arguments are [filename]."
+  exit 1
+fi
+
+tred $1 | sfdp -Kdot -Tsvg > graph.svg

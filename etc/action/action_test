@@ -10,6 +10,11 @@
 
 set -eu -o pipefail
 
+if [[ "$#" -lt 3 ]] ; then
+  echo "Arguments are [min] [max] [num]"
+  exit 1
+fi
+
 min=$1
 max=$2
 num=$3

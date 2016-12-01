@@ -8,17 +8,44 @@
 
 # This script is used to generate a new doc/VERSION block when spacetime IDs are updated
 
-stdim=2
-manifold=minkowski
-region=triangle_s
-curvature=flat
-symmetry=symmetric
+if [[ "$#" -lt 1 ]] ; then
+  echo "Arguments are [new version]"
+  exit 1
+fi
+
+version=$1
+outfile=$CAUSET_HOME_DIR/doc/VERSION
+
+stdims=(2 4)
+manifolds=(minkowski desitter dust flrw hyperbolic)
+regions=(slab slab_t1 slab_t2 slab_s1 slab_s2 slab_n1 slab_n2 slab_n3 half_diamond diamond saucer saucer_t triangle_t triangle_s triangle_n)
+curvatures=(flat positive negative)
+symmetries=(symmetric asymmetric)
 
 nodes=1
 tcut=0.5
-scut=1
+scut=0.5
 
 platform=_krioukov_gpu
-#platform=_par-gpu-2
+binary=$CAUSET_HOME_DIR/bin/CausalSet$platform
 
-./bin/CausalSet$platform --stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry --nodes $nodes --age $tcut --radius $scut --alpha $scut --test
+echo -e "\nVERSION ${version}.x" >> $outfile
+echo -e "===========\n" >> $outfile
+echo -e "STDIM\tMANIFOLD\tREGION\t\tCURVATURE\tSYMMETRY\tID" >> $outfile
+echo "================================================================================" >> $outfile
+
+for stdim in ${stdims[@]} ; do
+  sdim=$((stdim-1))
+  for manifold in ${manifolds[@]} ; do
+    for region in ${regions[@]} ; do
+      for curvature in ${curvatures[@]} ; do
+        for symmetry in ${symmetries[@]} ; do
+          id=$($binary --stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry --nodes $nodes --age $tcut --radius $scut --alpha $scut --test 2>&- | awk '/Spacetime ID:/ {print $4}')
+          if [[ "$id" != "" ]] ; then
+            printf "%-8s%-16s%-16s%-16s%-16s%-8s\n" "$sdim+1" $manifold $region $curvature $symmetry $id | awk '{print toupper($0)}' >> $outfile
+          fi
+        done
+      done
+    done
+  done
+done

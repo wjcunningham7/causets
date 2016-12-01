@@ -1,0 +1,18 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Wrapper for deg_plot
+
+jobstart=1478
+jobend=1484
+
+outfile="degree_k-10_flrw.cset.deg.ref"
+
+for i in $(seq $jobstart $jobend) ; do
+  $CAUSET_HOME_DIR/etc/deg_plot $i >> $CAUSET_HOME_DIR/$outfile
+done

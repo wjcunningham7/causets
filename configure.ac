@@ -6,6 +6,10 @@ if [[ -e /home/$USER/.causet ]] ; then
   source /home/$USER/.causet
 fi
 
+if [[[ "$CAUSET_HOME_DIR" == "" ]]] ; then
+  echo "export CAUSET_HOME_DIR=$PWD" >> $HOME/.bashrc
+fi
+
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([src/Causet.cu])
 AC_CONFIG_HEADERS([inc/config.h])

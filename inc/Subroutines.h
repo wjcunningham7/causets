@@ -59,10 +59,13 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 bool nodesAreConnected_v2(const Bitvector &adj, const int &N_tar, int past_idx, int future_idx);
 
-//Breadth First Search Algorithm
-void bfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements);
+//Depth First Search Algorithm
+void dfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements, int level);
 
-void bfsearch_v2(const Node &nodes, const Bitvector &adj, const int &N_tar, const int index, const int id, int &elements);
+void dfsearch_v2(const Node &nodes, const Bitvector &adj, const int &N_tar, const int index, const int id, int &elements);
+
+//Breadth First Search Algorithm
+int shortestPath(const Node &nodes, const Edge &edges, const int &N_tar, int * const distances, const int start, const int end);
 
 //Array Intersection Algorithms
 void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int64_t &pstart, const int64_t &fstart, bool &too_many);
@@ -115,11 +118,17 @@ void mpi_swaps(const std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bit
 void sendSignal(const MPISignal signal, const int rank, const int num_mpi_threads);
 #endif
 
-std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, FastBitset &chain, FastBitset *workspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level);
+std::vector<std::tuple<FastBitset, int, int>> getPossibleChains(Bitvector &adj, Bitvector &subadj, Bitvector &chains, FastBitset *excluded, std::vector<std::pair<int,int>> &endpoints, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, const int min_weight, int &max_weight, int &max_idx, int &end_idx);
+
+std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level);
+
+int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level);
 
 int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level);
 
-int longestChain(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, int j, unsigned int level);
+int longestChain_v1(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, int j, unsigned int level);
+
+int rootChain(Bitvector &adj, Bitvector &workspace, FastBitset &chain, const int * const k_in, const int * const k_out, int *lengths, const int N_tar);
 
 int findLongestMaximal(Bitvector &adj, const int *k_out, int *lengths, const int N_tar, const int idx);
 

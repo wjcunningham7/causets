@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Computes the mean and standard error of the stretch
+
+import glob
+import math
+import numpy as np
+import sys
+
+basedir=''
+files = glob.glob(basedir + 'dat/*.cset.out')
+
+N = len(files)
+s = []
+avg = 0
+
+for i in range(0,N):
+	s.append(0)
+
+idx = 0
+for file in files:
+	f = open(file)
+	lines = f.readlines()
+
+	for line in lines:
+		tokens = line.split()
+		if len(tokens) == 0:
+			continue
+
+		if tokens[0] == 'Stretch':
+			s[idx] = float(tokens[1])
+
+	avg += s[idx]
+	idx += 1
+
+	f.close()
+
+stderr = 0
+if N > 0:
+	avg /= N
+	stderr = np.std(s) / math.sqrt(float(N))
+sys.stdout.write('Stretch: ' + str(avg) + ' +/- ' + str(stderr) + '\n')
+
+f = open(basedir + 'dat/ref/stretch.cset.suc.ref','w')
+for i in range(0,N):
+	f.write(str(s[i]) + '\n')
+f.close()
+
+sys.stdout.write('Completed STR.\n')
