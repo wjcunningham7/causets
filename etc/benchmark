@@ -1,0 +1,28 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2017 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+set -eu -o pipefail
+
+if [ "$#" -lt 2 ] ; then
+  echo "Arguments are [jobstart] [jobend]."
+  exit 1
+fi
+
+jobstart=$1
+jobend=$2
+
+basedir=/gss_gpfs_scratch/cunningham
+match=measureAction
+outfile=$CAUSET_HOME_DIR/bench_${match}_v5-4.dat
+
+for i in $(seq $jobstart $jobend) ; do
+  dir=$basedir/causet$i
+  n=$(awk '/Number of Nodes:/ {print $6}' $dir/CausalSet_Job-${i}_Sample-1.log)
+  t=$(awk '/'$match'/ {print $2}' $dir/bench.log)
+  echo "$n $t" >> $outfile
+done

@@ -16,6 +16,8 @@
 //Assumes \tilde\alpha = sqrt(2)
 //static const double tauA[] = { -2.48490665, -9.688312171, -16.38397373, -22.9074773, -29.34585237, -35.73358416, -42.08769934, -48.41786129, -54.73008553, -61.02837227 };
 
+//Coefficients for the action (add this later)
+
 //======================//
 // Root-Finding Kernels //
 //======================//
@@ -394,6 +396,11 @@ inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z));
 }
 
+inline float flatProduct_v2(const float3 &sc0, const float3 &sc1)
+{
+	return POW2(sc0.y) + POW2(sc1.y) - 2.0f * sc0.y * sc1.y * cosf(sc0.z - sc1.z);
+}
+
 //Embedded form
 inline float flatEmbProduct(const float5 &sc0, const float5 &sc1)
 {
@@ -406,11 +413,11 @@ inline float flatEmbProduct(const float5 &sc0, const float5 &sc1)
 
 //Assumes coordinates have been temporally ordered
 //Used for relations in Lorentzian spaces
-inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const int N_tar, const double a, const double zeta, const double zeta1, const double r_max, const double alpha, int past_idx, int future_idx, double *omega12)
+inline bool nodesAreRelated(Coordinates *c, const Spacetime &spacetime, const int N_tar, const double a, const double zeta, const double zeta1, const double r_max, const double alpha, int past_idx, int future_idx, double *omega12)
 {
 	#if DEBUG
-	assert (!c->isNull());
-	assert (get_stdim(spacetime) & (2 | 4));
+	/*assert (!c->isNull());
+	assert (get_stdim(spacetime) == 2 || get_stdim(spacetime) == 3 || get_stdim(spacetime) == 4);
 	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW));
 
 	if (get_stdim(spacetime) == 2) {
@@ -454,7 +461,7 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const 
 		
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
-	assert (past_idx != future_idx);
+	assert (past_idx != future_idx);*/
 	#endif
 
 	float dt = 0.0f, dx = 0.0f;
@@ -467,9 +474,11 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const 
 	}
 
 	//Temporal Interval
-	if (get_stdim(spacetime) == 2)
+	//if (get_stdim(spacetime) == 2 || get_stdim(spacetime) == 3)
+	if (spacetime.stdimIs("2") || spacetime.stdimIs("3"))
 		dt = fabs(c->x(future_idx) - c->x(past_idx));
-	else if (get_stdim(spacetime) == 4)
+	//else if (get_stdim(spacetime) == 4)
+	else if (spacetime.stdimIs("4"))
 		#if EMBED_NODES
 		dt = fabs(c->v(future_idx) - c->v(past_idx));
 		#else
@@ -478,10 +487,12 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const 
 
 	#if DEBUG
 	assert (dt >= 0.0f);
-	if ((get_curvature(spacetime) & FLAT) && (get_manifold(spacetime) & DE_SITTER))
+	//if ((get_curvature(spacetime) & FLAT) && (get_manifold(spacetime) & DE_SITTER))
+	if (spacetime.curvatureIs("Flat") && spacetime.manifoldIs("De_Sitter"))
 		assert (dt <= zeta - zeta1);
 	else {
-		if (get_symmetry(spacetime) & SYMMETRIC)
+		//if (get_symmetry(spacetime) & SYMMETRIC)
+		if (spacetime.symmetryIs("Temporal"))
 			assert (dt <= 2.0f * static_cast<float>(HALF_PI - zeta));
 		else
 			assert (dt <= static_cast<float>(HALF_PI - zeta));
@@ -489,8 +500,10 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const 
 	#endif
 
 	//Spatial Interval
-	if (get_stdim(spacetime) == 2) {
-		if (get_curvature(spacetime) & (POSITIVE | NEGATIVE)) {
+	//if (get_stdim(spacetime) == 2) {
+	if (spacetime.stdimIs("2")) {
+		//if (get_curvature(spacetime) & (POSITIVE | NEGATIVE)) {
+		if (spacetime.curvatureIs("Positive") || spacetime.curvatureIs("Negative")) {
 			#if EMBED_NODES
 			float phi1 = atan2(c->z(future_idx), c->y(future_idx));
 			float phi2 = atan2(c->z(past_idx), c->y(past_idx));
@@ -498,10 +511,16 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const 
 			#else
 			dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(c->y(future_idx) - c->y(past_idx)), STL), STL));
 			#endif
-		} else if (get_curvature(spacetime) & FLAT)
+		//} else if (get_curvature(spacetime) & FLAT)
+		} else
 			dx = fabs(c->y(future_idx) - c->y(past_idx));
-	} else if (get_stdim(spacetime) == 4) {
-		if (get_curvature(spacetime) & POSITIVE) {
+	//} else if (get_stdim(spacetime) == 3) {
+	} else if (spacetime.stdimIs("3"))
+		dx = sqrtf(flatProduct_v2(c->getFloat3(past_idx), c->getFloat3(future_idx)));
+	//} else if (get_stdim(spacetime) == 4) {
+	else if (spacetime.stdimIs("4")) {
+		//if (get_curvature(spacetime) & POSITIVE) {
+		if (spacetime.curvatureIs("Positive")) {
 			//Spherical Law of Cosines
 			#if EMBED_NODES
 			dx = acosf(sphEmbProduct(c->getFloat5(past_idx), c->getFloat5(future_idx)));
@@ -512,7 +531,8 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const 
 			dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
 			#endif
 			#endif
-		} else if (get_curvature(spacetime) & FLAT) {
+		//} else if (get_curvature(spacetime) & FLAT) {
+		} else if (spacetime.curvatureIs("Flat")) {
 			//Euclidean Law of Cosines
 			#if EMBED_NODES
 			dx = sqrtf(flatEmbProduct(c->getFloat5(past_idx), c->getFloat5(future_idx)));
@@ -526,14 +546,13 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const 
 		}
 	}
 
-	//printf("dx: %f\n", dx);
-
-	#if DEBUG
+	//These don't hold true for regions such as slab_t1
+	/*#if DEBUG
 	if (get_curvature(spacetime) & POSITIVE)
 		assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
 	else if (get_curvature(spacetime) & FLAT)
 		assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(r_max));
-	#endif
+	#endif*/
 
 	if (omega12 != NULL)
 		*omega12 = dx;
@@ -546,10 +565,10 @@ inline bool nodesAreRelated(Coordinates *c, const unsigned int spacetime, const 
 
 //Assumes coordinates have been temporally ordered
 //Used for relations in Hyperbolic spaces
-inline bool nodesAreRelatedHyperbolic(const Node &nodes, const unsigned int spacetime, const int N_tar, const double zeta, const double r_max, const bool link_epso, int past_idx, int future_idx, double *product)
+inline bool nodesAreRelatedHyperbolic(const Node &nodes, const Spacetime &spacetime, const int N_tar, const double zeta, const double r_max, const bool link_epso, int past_idx, int future_idx, double *product)
 {
 	#if DEBUG
-	assert (!nodes.crd->isNull());
+	/*assert (!nodes.crd->isNull());
 	assert (get_stdim(spacetime) == 2);
 	assert (get_manifold(spacetime) & HYPERBOLIC);
 	assert (get_curvature(spacetime) & POSITIVE);
@@ -564,7 +583,7 @@ inline bool nodesAreRelatedHyperbolic(const Node &nodes, const unsigned int spac
 	assert (r_max > 0.0);
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
-	assert (past_idx != future_idx);
+	assert (past_idx != future_idx);*/
 	#endif
 
 	float inner_product = 0.0f, max_r = 0.0f;
@@ -588,7 +607,8 @@ inline bool nodesAreRelatedHyperbolic(const Node &nodes, const unsigned int spac
 		double R_j = nodes.id.tau[past_idx] + 2.0 * log(m * M_PI / nodes.id.tau[past_idx]);
 		max_r = std::max(R_i, R_j);
 	} else
-		max_r = nodes.id.tau[future_idx];
+		//max_r = nodes.id.tau[future_idx];
+		max_r = r_max;
 
 	if (acosh(inner_product) < max_r)
 		return true;
@@ -596,10 +616,10 @@ inline bool nodesAreRelatedHyperbolic(const Node &nodes, const unsigned int spac
 		return false;
 }
 
-inline void deSitterInnerProduct(const Node &nodes, const unsigned int spacetime, const int N_tar, int past_idx, int future_idx, double *product)
+inline void deSitterInnerProduct(const Node &nodes, const Spacetime &spacetime, const int N_tar, int past_idx, int future_idx, double *product)
 {
 	#if DEBUG
-	assert (!nodes.crd->isNull());
+	/*assert (!nodes.crd->isNull());
 	assert (get_stdim(spacetime) == 2);
 	assert (get_manifold(spacetime) & DE_SITTER);
 	assert (get_curvature(spacetime) & POSITIVE);
@@ -613,7 +633,7 @@ inline void deSitterInnerProduct(const Node &nodes, const unsigned int spacetime
 	assert (N_tar > 0);
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
-	assert (past_idx != future_idx);
+	assert (past_idx != future_idx);*/
 	#endif
 
 	*product = sinh(nodes.id.tau[past_idx]) * sinh(nodes.id.tau[future_idx]) - cosh(nodes.id.tau[past_idx]) * cosh(nodes.id.tau[future_idx]) * cos(nodes.crd->y(past_idx) - nodes.crd->y(future_idx));
@@ -1001,6 +1021,33 @@ inline double volume_11396_0_upper(double tau, void *params)
 	return POW2(t, EXACT) * POW3(((double*)params)[1] - eta, EXACT);
 }
 
+//----------------------------------//
+// Volume of 3+1 de Sitter Interval //
+//----------------------------------//
+
+//We have implicitly assumed a de Sitter radius of 1
+inline double volume_9000114_3(float4 n0, float4 n1)
+{
+	double inner_product = -tan(n0.w) * tan(n1.w) + sec(n0.w) * sec(n1.w) * sphProduct_v2(n0, n1);
+	if (inner_product <= 1.0)
+		//printf("vector product: %.16e\n", inner_product);
+		return 0.0;
+	inner_product = asec(inner_product);
+	/*double tau0 = etaToTauSph(n0.w);
+	double tau1 = etaToTauSph(n1.w);
+	double inner_product = acosh(-sinh(tau0) * sinh(tau1) + cosh(tau0) * cosh(tau1) * sphProduct_v2(n0, n1));*/
+	assert (inner_product == inner_product);
+	//inner_product = tauToEtaSph(inner_product);
+	double x0 = std::min(n0.w, n1.w);
+	double x1 = x0 + inner_product;
+
+	double T0 = POW2(sec((x0 + x1) * 0.5));
+	double T1 = log(cos(x0) * cos(x1) * T0);
+	double T2 = (cos(x0 - x1) - 1) * T0;
+
+	return TWO_PI * (T2 - 2 * T1) / 3.0;
+}
+
 //=========================//
 // Average Degree Formulae //
 //=========================//
@@ -1255,7 +1302,7 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 {
 	#if DEBUG
 	assert (cardinalities != NULL);
-	assert (stdim == 2 || stdim == 4);
+	assert (stdim >= 2 && stdim <= 4);
 	assert (lk > 0.0);
 	#endif
 
@@ -1264,21 +1311,34 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 	if (smeared) {
 		long double epsilon = static_cast<long double>(POW(lk, -stdim, STL));
 		long double eps1 = epsilon / (1.0 - epsilon);
+		long double eps2 = eps1 * eps1;
+		long double eps3 = eps2 * eps1;
+		long double epsi = 1.0;
+		long double c3_1 = 27.0 / 8.0;
+		long double c3_2 = 9.0 / 8.0;
+		long double c4_1 = 4.0 / 3.0;
 		long double ni;
 		uint64_t i;
 
 		for (i = 0; i < cardinalities[0] - 3; i++) {
 			ni = static_cast<long double>(cardinalities[i+1]);
 			if (stdim == 2)
-				action += ni * POW(1.0 - epsilon, i, STL) * (1.0 - 2.0 * eps1 * i + 0.5 * POW2(eps1, EXACT) * i * (i - 1.0));
+				//action += ni * epsi * (1.0 - 2.0 * eps1 * i + 0.5 * eps2 * i * (i - 1.0));
+				action += ni * epsi * (1.0 - 4.0 * eps1 * i + 2.5 * eps2 * i * (i - 1.0) - eps3 * i * (i - 1.0) * (i - 2.0) / 3.0);
+			else if (stdim == 3)
+				action += ni * epsi * (1.0 - c3_1 * i * eps1 + c3_2 * i * (i - 1.0) * eps2);
 			else if (stdim == 4)
-				action += ni * POW(1.0 - epsilon, i, STL) * (1.0 - 9.0 * eps1 * i + 8.0 * POW2(eps1, EXACT) * i * (i - 1.0) - (4.0 / 3.0) * POW3(eps1, EXACT) * i * (i - 1.0) * (i - 2.0));
+				action += ni * epsi * (1.0 - 9.0 * eps1 * i + 8.0 * eps2 * i * (i - 1.0) - c4_1 * eps3 * i * (i - 1.0) * (i - 2.0));
 			else
 				action = NAN;
+			epsi *= (1.0 - epsilon);
 		}
 
 		if (stdim == 2)
-			action = 2.0 * epsilon * (cardinalities[0] - 2.0 * epsilon * action);
+			//action = 2.0 * epsilon * (cardinalities[0] - 2.0 * epsilon * action);
+			action = epsilon * (cardinalities[0] - 6.0 * epsilon * action);
+		else if (stdim == 3)
+			action = pow(M_PI / (3.0 * sqrt(2.0)), 2.0 / 3.0) / GAMMA(5.0 / 3.0, STL) * (pow(epsilon, 2.0 / 3.0) * cardinalities[0] - pow(epsilon, 5.0 / 3.0) * action);
 		else if (stdim == 4)
 			action = (4.0 / sqrt(6.0)) * (sqrt(epsilon) * cardinalities[0] - POW(epsilon, 1.5, STL) * action);
 		else
@@ -1286,6 +1346,8 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 	} else {
 		if (stdim == 2)
 			action = 2.0 * (cardinalities[0] - 2.0 * (cardinalities[1] - 2.0 * cardinalities[2] + cardinalities[3]));
+		else if (stdim == 3)
+			action = pow(M_PI / (3.0 * sqrt(2.0)), 2.0 / 3.0) / GAMMA(5.0 / 3.0, STL) * (cardinalities[0] - cardinalities[1] + (27.0 / 8.0) * cardinalities[2] - (9.0 / 4.0) * cardinalities[3]);
 		else if (stdim == 4)
 			action = (4.0 / sqrt(6.0)) * (cardinalities[0] - cardinalities[1] + 9.0 * cardinalities[2] - 16.0 * cardinalities[3] + 8.0 * cardinalities[4]);
 		else

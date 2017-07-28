@@ -69,7 +69,8 @@ __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float
 					float r_j = n1.x + 2.0 * log(m * M_PI / n1.x);
 					dt[k] = max(r_i, r_j);
 				} else
-					dt[k] = max(n0.x, n1.x);
+					//dt[k] = max(n0.x, n1.x);
+					dt[k] = 32.362;
 				dx[k] = acosh(cosh(n0.x) * cosh(n1.x) - sinh(n0.x) * sinh(n1.x) * cos(n0.y - n1.y));
 			} else {
 				if (stdim == 2)
@@ -189,10 +190,10 @@ __global__ void ResultingProps(int *k_in, int *k_out, int *N_res, int *N_deg2, i
 	}
 }
 
-bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsigned int &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &link_epso, const bool &has_exact_k, const bool &use_bit, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sLinkNodesGPU, const CUcontext &ctx, const bool &decode_cpu, const bool &link_epso, const bool &has_exact_k, const bool &use_bit, const bool &mpi_split, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	#if EMBED_NODES
+	/*#if EMBED_NODES
 	assert (nodes.crd->getDim() == 5);
 	assert (nodes.crd->v() != NULL);
 	#else
@@ -216,7 +217,7 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
+	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);*/
 	#endif
 
 	#if EMBED_NODES
@@ -224,6 +225,9 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 	if (!!N_tar)
 		return false;
 	#endif
+
+	if (verbose || bench)
+		printf_dbg("Using Version 2 (linkNodesGPU).\n");
 
 	Stopwatch sGenAdjList = Stopwatch();
 	Stopwatch sDecodeLists = Stopwatch();
@@ -259,17 +263,17 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 	stopwatchStart(&sGenAdjList);
 	#if GEN_ADJ_LISTS_GPU_V2
 	#ifdef MPI_ENABLED
-	if (cmpi.num_mpi_threads > 1) {
-		if (!generateLists_v3(nodes, adj, g_idx, spacetime, N_tar, group_size, cmpi, ca, link_epso, use_bit, verbose))
+	if (mpi_split && cmpi.num_mpi_threads > 1) {
+		if (!generateLists_v3(nodes, adj, g_idx, spacetime, N_tar, group_size, cmpi, ca, link_epso, use_bit, mpi_split, verbose, bench))
 			return false;
 	} else
 	#endif
 	{
-		if (!generateLists_v2(nodes, h_edges, adj, g_idx, spacetime, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, link_epso, use_bit, verbose))
+		if (!generateLists_v2(nodes, h_edges, adj, g_idx, spacetime, N_tar, core_edge_fraction, d_edges_size, group_size, ca, ctx, link_epso, use_bit, verbose, bench))
 			return false;
 	}
 	#else
-	if (!generateLists_v1(nodes, h_edges, adj, g_idx, spacetime, N_tar, core_edge_fraction, d_edges_size, group_size, ca, link_epso, use_bit, verbose))
+	if (!generateLists_v1(nodes, h_edges, adj, g_idx, spacetime, N_tar, core_edge_fraction, d_edges_size, group_size, ca, link_epso, use_bit, verbose, bench))
 		return false;
 	#endif
 	stopwatchStop(&sGenAdjList);
@@ -354,7 +358,8 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 
 	if (!bench) {
 		printf_mpi(cmpi.rank, "\tCausets Successfully Connected.\n");
-		if (get_manifold(spacetime) & HYPERBOLIC && link_epso)
+		//if (get_manifold(spacetime) & HYPERBOLIC && link_epso)
+		if (spacetime.manifoldIs("Hyperbolic") && link_epso)
 			printf_mpi(cmpi.rank, "\tEPSO Linking Rule Used.\n");
 		if (!cmpi.rank) printf_cyan();
 		printf_mpi(cmpi.rank, "\t\tUndirected Links:         %" PRId64 "\n", *g_idx);
@@ -406,11 +411,11 @@ bool linkNodesGPU_v2(Node &nodes, const Edge &edges, Bitvector &adj, const unsig
 }
 
 //Works with MPI, requires use_bit = true (adjacency matrix used) for now
-bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const int &group_size, CausetMPI &cmpi, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &verbose)
+bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const Spacetime &spacetime, const int &N_tar, const int &group_size, CausetMPI &cmpi, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &mpi_split, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//assert (nodes.crd->getDim() == 4);
-	assert (!nodes.crd->isNull());
+	/*assert (!nodes.crd->isNull());
 	assert (nodes.crd->x() != NULL);
 	assert (nodes.crd->y() != NULL);
 	if (get_stdim(spacetime) == 4) {
@@ -425,12 +430,12 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 	assert (N_tar > 0);
 	assert (group_size >= 1);
 	assert (!link_epso);
-	assert (use_bit);
+	assert (use_bit);*/
 	#endif
 
-	if (verbose) {
+	if (verbose || bench) {
 		if (!cmpi.rank) printf_mag();
-		printf_mpi(cmpi.rank, "Using Version 3 (linkNodesGPU).\n");
+		printf_mpi(cmpi.rank, "Using Version 3 (generateLists).\n");
 		if (!cmpi.rank) printf_std();
 	}
 
@@ -456,8 +461,10 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 	CUdeviceptr d_k_out[NBUFFERS];
 	CUdeviceptr d_edges[NBUFFERS];
 	
-	bool compact = get_curvature(spacetime) & POSITIVE;
-	int stdim = get_stdim(spacetime);
+	//bool compact = get_curvature(spacetime) & POSITIVE;
+	bool compact = spacetime.curvatureIs("Positive");
+	//int stdim = get_stdim(spacetime);
+	int stdim = atoi(Spacetime::stdims[spacetime.get_stdim()]);
 	unsigned int i, j, k;
 
 	//Block groups
@@ -548,6 +555,7 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 	//Index 'i' marks the row and 'j' marks the column
 	int start = mpi_offset;
 	int finish = start + mpi_chunk;
+	if (!mpi_split) mpi_offset = 0;
 	for (i = start; i < finish; i++) {
 		for (j = 0; j < group_size / NBUFFERS; j++) {
 			for (k = 0; k < NBUFFERS; k++) {
@@ -607,7 +615,7 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 				//Read Data from Buffers
 				readDegrees(nodes.k_in, h_k_in[k], (j * NBUFFERS + k) * mthread_size, size1);
 				readDegrees(nodes.k_out, h_k_out[k], i * mthread_size, size0);
-				readEdges(NULL, h_edges[k], adj, g_idx, limit, N_tar, 0, mthread_size, size0, size1, i - start, j * NBUFFERS + k, true, true);
+				readEdges(NULL, h_edges[k], adj, g_idx, limit, N_tar, 0, mthread_size, size0, size1, i - mpi_offset, j * NBUFFERS + k, true, mpi_split);
 			}
 		}
 	}
@@ -619,6 +627,9 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 	MPI_Allreduce(MPI_IN_PLACE, g_idx, 1, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
 	if (cmpi.num_mpi_threads > 1)
 		*g_idx >>= 1;
+	if (!mpi_split)
+		for (int i = 0; i < N_tar; i++)
+			MPI_Bcast(adj[i].getAddress(), adj[i].getNumBlocks(), BlockTypeMPI, cmpi.rank, MPI_COMM_WORLD);
 	#endif
 
 	//Free Buffers
@@ -691,10 +702,10 @@ bool generateLists_v3(Node &nodes, Bitvector &adj, int64_t * const &g_idx, const
 }
 
 //Uses multiple buffers and asynchronous operations
-bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &link_epso, const bool &use_bit, const bool &verbose)
+bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const Spacetime &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const CUcontext &ctx, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	assert (!nodes.crd->isNull());
+	/*assert (!nodes.crd->isNull());
 	assert (nodes.crd->x() != NULL);
 	assert (nodes.crd->y() != NULL);
 	if (get_stdim(spacetime) == 4) {
@@ -708,13 +719,11 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	assert (N_tar > 0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	if (use_bit)
-		assert (core_edge_fraction == 1.0f);
+		assert (core_edge_fraction == 1.0f);*/
 	#endif
 
-	#ifdef MPI_ENABLED
-	if (verbose)
-		printf_dbg("Using Version 2 (linkNodesGPU).\n");
-	#endif
+	if (verbose || bench)
+		printf_dbg("Using Version 2 (generateLists).\n");
 
 	//CUDA Streams
 	CUstream stream[NBUFFERS];
@@ -739,11 +748,14 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	CUdeviceptr d_edges[NBUFFERS];
 
 	unsigned int core_limit = static_cast<unsigned int>(core_edge_fraction * N_tar);
-	unsigned int stdim = get_stdim(spacetime);
+	//unsigned int stdim = get_stdim(spacetime);
+	unsigned int stdim = atoi(Spacetime::stdims[spacetime.get_stdim()]);
 	unsigned int i, j, m;
 
-	bool hyp = get_manifold(spacetime) & HYPERBOLIC;
-	bool compact = get_curvature(spacetime) & (POSITIVE | NEGATIVE);
+	//bool hyp = get_manifold(spacetime) & HYPERBOLIC;
+	bool hyp = spacetime.manifoldIs("Hyperbolic");
+	//bool compact = get_curvature(spacetime) & (POSITIVE | NEGATIVE);
+	bool compact = spacetime.curvatureIs("Positive") || spacetime.curvatureIs("Negative");
 	bool diag;
 
 	//Thread blocks are grouped into "mega" blocks

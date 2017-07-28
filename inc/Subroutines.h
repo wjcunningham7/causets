@@ -35,11 +35,11 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 double lookupValue4D(const double *table, const long &size, const double &omega12, double t1, double t2);
 
 //Quicksort Algorithm
-void quicksort(Node &nodes, const unsigned int &spacetime, int low, int high);
+void quicksort(Node &nodes, const Spacetime &spacetime, int low, int high);
 
 void quicksort(uint64_t *edges, int64_t low, int64_t high);
 
-void swap(Node &nodes, const unsigned int &spacetime, const int i, const int j);
+void swap(Node &nodes, const Spacetime &spacetime, const int i, const int j);
 
 void swap(uint64_t *edges, const int64_t i, const int64_t j);
 
@@ -120,15 +120,17 @@ void sendSignal(const MPISignal signal, const int rank, const int num_mpi_thread
 
 std::vector<std::tuple<FastBitset, int, int>> getPossibleChains(Bitvector &adj, Bitvector &subadj, Bitvector &chains, FastBitset *excluded, std::vector<std::pair<int,int>> &endpoints, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, const int min_weight, int &max_weight, int &max_idx, int &end_idx);
 
-std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level);
+std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, FastBitset *subworkspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level);
 
 int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level);
+
+int longestChain_v2r(Bitvector &adj, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level);
 
 int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level);
 
 int longestChain_v1(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, int j, unsigned int level);
 
-int rootChain(Bitvector &adj, Bitvector &workspace, FastBitset &chain, const int * const k_in, const int * const k_out, int *lengths, const int N_tar);
+int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * const k_in, const int * const k_out, int *lengths, const int N_tar);
 
 int findLongestMaximal(Bitvector &adj, const int *k_out, int *lengths, const int N_tar, const int idx);
 

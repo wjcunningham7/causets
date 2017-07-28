@@ -17,6 +17,7 @@ if [ "$#" -eq 1 ]; then
   basedir=$1
 fi
 
+mkdir -p $basedir/etc
 mkdir -p $basedir/dat
 mkdir -p $basedir/dat/act
 mkdir -p $basedir/dat/cdk

@@ -47,7 +47,9 @@
 				//If false, version 1 is used, with no parallelization
 				//If MPI is enabled, this flag is ignored
 
-#define ACTION_MPI_V5 262144	//Size limit which determines which MPI algorithm is used
+#define ACTION_MPI_V5 1000000	//Size limit which determines which MPI algorithm is used
+
+#define ACTION_MPI_V4 800000
 
 #define GEODESIC_LOWER 0.95	//Boundary between Region I and Region II approximations
 				//Should be less than 1.0
@@ -56,7 +58,7 @@
 				//Should be greater than 1.0
 
 //Debugging Flags
-#define DEBUG false	//Determines whether unit testing is in effect
+#define DEBUG true	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements
 			//In general it should be set to true since there
 			//is a minimal performance difference
@@ -64,7 +66,7 @@
 #define NPRINT 1000	//Used for debugging statements inside loops
 
 //Benchmarking Flags
-#define NBENCH 10	//Number of samples used during benchmarking
+#define NBENCH 8	//Number of samples used during benchmarking
 
 #ifdef CUDA_ENABLED
 

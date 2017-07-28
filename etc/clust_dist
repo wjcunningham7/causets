@@ -11,22 +11,14 @@
 import glob
 import sys
 
-if (len(sys.argv) == 1):
+if (len(sys.argv) < 2):
 	sys.stdout.write('Must specify target number of nodes.\n')
 	sys.exit(1)
-elif (len(sys.argv) > 2):
-	sys.stdout.write('Too many parameters specified.\n')
-	sys.exit(2)
 
 N = int(sys.argv[1])
 
-if (N < 0):
-	sys.stdout.write('Invalid argument.\n')
-	sys.exit(3)
-
-#basedir = '/scratch/cunningham/causets/'
 basedir = ''
-cdk_files = glob.glob(basedir + 'dat/cdk/*.cset.cdk.dat')
+files = glob.glob(basedir + 'dat/cdk/*.cset.cdk.dat')
 c = []
 
 for i in range(0,N):

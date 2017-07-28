@@ -18,9 +18,9 @@ set -eu -o pipefail
 # Choose 'queue'
 # Set 'makeparfile' accordingly
 
-spacetime=41508
-#density=60
-degree=15
+spacetime=41604
+density=60
+#degree=10
 
 if [[ "$spacetime" -eq 41508 ]] ; then
   spacecut="radius"
@@ -38,11 +38,11 @@ fi
 
 source /home/$USER/.queues
 jobstart=$NEXT_JOB
-readstart=1174
-samples=0
-partition="par-gpu-2"
+readstart=1403
+samples=1
+partition="par-gpu"
 ncores=$(sinfo -p $partition -o "%c" | awk 'NR==2 {print $1}')
-exclude="compute-0-000"
+exclude="compute-4-017"
 
 if [ "$partition" = "par-gpu" ] || [ "$partition" = "par-gpu-2" ] || [ "$partition" = "krioukov_gpu" ] ; then
   gpu="--gpu"
@@ -116,7 +116,8 @@ for i in $(seq ${#vars[@]}) ; do
     link=link
   fi
 
-  $CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' '"$gpu"' --quiet-read --verbose -y --print --success 100000 --stretch' --partition $partition --nsamples $samples --exclude $exclude
+  $CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' '"$gpu"' --verbose -y --quiet-read --print --geo-discon 10000000' --partition $partition --nsamples $samples --exclude $exclude
+  #$CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' '"$gpu"' --verbose -y --core 1 --print' --partition $partition --nsamples $samples --exclude $exclude
 done
 
 setnextjob $(($job+1))

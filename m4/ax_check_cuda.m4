@@ -84,7 +84,7 @@ if [[[ $USE_CUDA == "yes" && $VALID_CUDA == "yes" ]]] ; then
 
   if [[[ $nvidia_smi_prefix != "" ]]] ; then
     AC_MSG_CHECKING([size of global GPU memory])
-    glob_mem_mib=$($nvidia_smi_prefix/nvidia-smi -q | grep -A3 "FB Memory Usage" | awk '/Total/ {print [$]3}')
+    glob_mem_mib=$($nvidia_smi_prefix/nvidia-smi -q | grep -A3 "FB Memory Usage" | awk '/Total/ {print [$]3; exit;}')
     glob_mem_bytes=$(($(echo "scale=8; $glob_mem_mib * 1.049 / 1000" | bc | awk '{printf("%d\n", [$]1)}') * 1000000000))
     glob_mem_gb=$(($glob_mem_bytes/1000000000))
     AC_MSG_RESULT([$glob_mem_gb GB])

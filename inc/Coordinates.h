@@ -262,7 +262,7 @@ inline float2 get_2d_asym_sph_deSitter_diamond_emb(UGenerator &rng, const float 
 //Returns a value for radius
 inline float get_2d_asym_sph_hyperbolic_slab_radius(UGenerator &rng, const double r_max, const double zeta)
 {
-	return zeta * acosh(rng() * (cosh(r_max / zeta) - 1.0f) + 1.0f);
+	return 2.0 * zeta * acosh(rng() * (cosh(r_max / (2.0 * zeta)) - 1.0f) + 1.0f);
 }
 
 //Non-Uniform Radial Distribution
@@ -276,6 +276,26 @@ inline float get_2d_asym_sph_hyperbolic_slab_nonuniform_radius(UGenerator &rng, 
 
 //Returns a value for theta
 #define get_2d_asym_sph_hyperbolic_slab_theta(rng) \
+	get_azimuthal_angle(rng)
+
+/////////////////////////
+// 3-D Minkowski Slab  //
+// Flat Curvature      //
+// Symmetric About Eta //
+/////////////////////////
+
+//Returns a value for eta
+inline float get_3d_sym_flat_minkowski_slab_eta(UGenerator &rng, const double eta0)
+{
+	return eta0 * (2.0 * rng() - 1.0);
+}
+
+//Returns a value for radius
+#define get_3d_sym_flat_minkowski_slab_radius(rng, r_max) \
+	get_radius(rng, r_max, 3)
+
+//Returns a value for azimuthal angle
+#define get_3d_sym_flat_minkowski_slab_theta(rng) \
 	get_azimuthal_angle(rng)
 
 //////////////////////////

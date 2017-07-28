@@ -33,34 +33,46 @@ ver=$5
 homedir=$CAUSET_HOME_DIR
 #basedir='/krioukov/will'
 basedir='/gss_gpfs_scratch/cunningham'
-postfix='geo_all'
+postfix='geo'
 
 for i in $(seq ${jobstart} ${jobend}) ; do
   dir="$basedir/causet${i}"
   cd $dir
   logfile="CausalSet_Job-${i}_Sample-1.log"
   tau=$(cat $logfile | awk '/Max. Rescaled Time/ {print $5}')
+  nodes=$(cat $logfile | awk '/Number of Nodes/ {print $6}')
   if [[ "$constq" == true ]] ; then
     degrees=$(cat $logfile | awk '/Expected Degrees/ {print $4}')
   else
     density=$(cat $logfile | awk '/Node Density/ {print $4}')
+    d=($(./etc/degrees | awk 'NR==1 || NR==2 {print $3}'))
+    degrees=${d[0]}
+    derr=${d[1]}
   fi
-  success1=$(etc/success 1 | awk '/Success Ratio/')
-  IFS=' ' read -r -a vals1 <<< "$success1"
-  s1val=${vals1[2]}
-  s1err=${vals1[4]}
-  success2=$(etc/success 2 | awk '/Success Ratio/')
-  IFS=' ' read -r -a vals2 <<< "$success2"
-  s2val=${vals2[2]}
-  s2err=${vals2[4]}
+  success=$(etc/success 1 | awk '/Success Ratio/')
+  IFS=' ' read -r -a vals1 <<< "$success"
+  sval=${vals1[2]}
+  serr=${vals1[4]}
+  smin=${vals1[7]}
+  smax=${vals1[9]}
+  stretch=$(etc/stretch | awk '/Stretch/')
+  IFS=' ' read -r -a vals2 <<< "$stretch"
+  tval=${vals2[1]}
+  terr=${vals2[3]}
+  tmin=${vals2[6]}
+  tmax=${vals2[8]}
+  npairs=$(cat $logfile | awk '/Traversed Pairs:/ {print $3}')
 
   if [[ "$constq" == true ]] ; then
-    echo "$tau $degrees" >> $homedir/gr_degrees_q-${q}_${st}_${ver}_${postfix}.cset.dat.ref
-    echo "$tau $s1val $s1err" >> $homedir/gr_success1_q-${q}_${st}_${ver}_${postfix}.cset.dat.ref
-    echo "$tau $s2val $s2err" >> $homedir/gr_success2_q-${q}_${st}_${ver}_${postfix}.cset.dat.ref
+    #echo "$tau $nodes" >> $homedir/gr_nodes_q-${q}_${st}_${ver}_${postfix}.cset.dat.ref
+    #echo "$tau $degrees" >> $homedir/gr_degrees_q-${q}_${st}_${ver}_${postfix}.cset.dat.ref
+    #echo "$tau $sval $serr" >> $homedir/gr_success_q-${q}_${st}_${ver}_${postfix}.cset.dat.ref
+    #echo "$tau $tval $terr" >> $homedir/gr_stretch_q-${q}_${st}_${ver}_${postfix}.cset.dat.ref
   else
-    echo "$tau $density" >> $homedir/gr_density_k-${k}_${st}_${ver}_${postfix}.cset.dat.ref
-    echo "$tau $s1val $s1err" >> $homedir/gr_success1_k-${k}_${st}_${ver}_${postfix}.cset.dat.ref
-    echo "$tau $s2val $s2err" >> $homedir/gr_success2_k-${k}_${st}_${ver}_${postfix}.cset.dat.ref
+    #echo "$tau $nodes" >> $homedir/gr_nodes_k-${k}_${st}_${ver}_${postfix}.cset.dat.ref
+    #echo "$tau $density" >> $homedir/gr_density_k-${k}_${st}_${ver}_${postfix}.cset.dat.ref
+    echo "$npairs $sval $serr $smin $smax" >> $homedir/gr_success_k-${k}_${st}_${ver}_${postfix}.cset.dat.ref
+    echo "$npairs $tval $terr $tmin $tmax" >> $homedir/gr_stretch_k-${k}_${st}_${ver}_${postfix}.cset.dat.ref
+    #echo "$tau $degrees $derr" >> $homedir/gr_degrees_k-${k}_${st}_${ver}_${postfix}.cset.dat.ref
   fi
 done

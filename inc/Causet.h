@@ -64,6 +64,7 @@
 //Local Files
 #include "autocorr2.h"
 #include "Constants.h"
+#include "spacetime.h"
 
 /////////////////////////////
 //(C) Will Cunningham 2014 //
@@ -201,7 +202,7 @@ struct CaResources {
 //file doc/VERSION
 
 //Manifold Types
-enum Manifold {
+/*enum Manifold {
 	ManifoldFirst	= 1 << 3,
 	MINKOWSKI	= ManifoldFirst,
 	DE_SITTER	= MINKOWSKI << 1,
@@ -262,7 +263,7 @@ static const unsigned int stdim_mask = ManifoldFirst - 1;
 static const unsigned int manifold_mask = (ManifoldLast << 1) - ManifoldFirst;
 static const unsigned int region_mask = (RegionLast << 1) - RegionFirst;
 static const unsigned int curvature_mask = (CurvatureLast << 1) - CurvatureFirst;
-static const unsigned int symmetry_mask = (SymmetryLast << 1) - SymmetryFirst;
+static const unsigned int symmetry_mask = (SymmetryLast << 1) - SymmetryFirst;*/
 
 //These coordinate data structures are important because they allow
 //the data to be coalesced (physically adjacent), and this can improve the
@@ -566,12 +567,13 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), growing(false), link(false), relink(false), link_epso(false), has_exact_k(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_stretch(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_vecprod(false), calc_chain(false), calc_hubs(false), validate_embedding(false), validate_distances(false), strict_routing(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), print_dot(false), growing(false), link(false), relink(false), link_epso(false), has_exact_k(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), mpi_split(false), gen_ds_table(false), gen_flrw_table(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_stretch(false), calc_autocorr(false), calc_deg_field(false), calc_action(false), calc_action_theory(false), calc_vecprod(false), calc_chain(false), calc_hubs(false), calc_geo_dis(false), validate_embedding(false), validate_distances(false), strict_routing(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
 	bool decode_cpu;		//Decode edge list using serial sort
 	bool print_network;		//Print to File
 	bool print_edges;		//Print Edge List to File
+	bool print_dot;			//Print Edges to Dot File
 	bool growing;			//Use Static/Growing H2 Model
 	bool link;			//Link Nodes after Generation
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
@@ -582,6 +584,8 @@ struct CausetFlags {
 	bool quiet_read;		//Ignore Warnings when Reading Graph
 	bool no_pos;			//No positions in graph (edge list only)
 	bool use_bit;			//Use bit array instead of sparse edge lists
+	bool mpi_split;			//When MPI is enabled, split the adjacency matrix
+					//among all computers
 	bool gen_ds_table;		//Generate de Sitter geodesic lookup table
 	bool gen_flrw_table;		//Generate FLRW geodesic lookup table
 	
@@ -592,9 +596,11 @@ struct CausetFlags {
 	bool calc_autocorr;		//Autocorrelation
 	bool calc_deg_field;		//Measure Degree Field
 	bool calc_action;		//Measure Action
+	bool calc_action_theory;	//Calculate Theoretical Action
 	bool calc_vecprod;		//Calculate Vector Products
 	bool calc_chain;		//Study Maximum Chain Lengths
 	bool calc_hubs;			//Calculate Hub Connectivity
+	bool calc_geo_dis;		//Calculate Fraction of Geodesically Disconnected Pairs
 
 	bool validate_embedding;	//Find Embedding Statistics
 	bool validate_distances;	//Compare Distance Methods
@@ -608,10 +614,11 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), spacetime(0), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), N_vp(0.0), split_action(1), N_hubs(0), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), beta(0.0), mu(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1) {}
+	NetworkProperties() : flags(CausetFlags()), spacetime(Spacetime()), N_tar(0), k_tar(0.0), N_emb(0.0), N_sr(0.0), N_df(0), tau_m(0.0), N_dst(0.0), max_cardinality(0), N_vp(0.0), split_action(1), N_hubs(0), N_gd(0.0), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), beta(0.0), mu(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1), datdir("./dat/") {}
 
 	CausetFlags flags;
-	unsigned int spacetime;		//Spacetime Definition
+	//unsigned int spacetime;		//Spacetime Definition
+	Spacetime spacetime;
 					//Encodes dimension, manifold, region, curvature, and symmetry
 
 	int N_tar;			//Target Number of Nodes
@@ -623,9 +630,11 @@ struct NetworkProperties {
 	double tau_m;			//Rescaled Time of Nodes used for Measuring Degree Field
 	double N_dst;			//Number of Pairs Used in Distance Validation
 	int max_cardinality;		//Elements used in Action Calculation
+	int N_actth;			//2^(N_actth) is the Largest Theoretical Value to Calculate
 	long double N_vp;		//Number of Pairs Used in Vector Products
 	int split_action;		//Number of Computers Used in Action
 	int N_hubs;			//Number of Nodes Used to Calculate Hub Connectivity
+	long double N_gd;		//Number of Pairs Used in Geodesic Disconnectedness Measurements
 
 	double a;			//Hyperboloid Pseudoradius
 	double eta0;			//Maximum Conformal Time
@@ -654,11 +663,13 @@ struct NetworkProperties {
 	MersenneRNG mrng;		//Mersenne Twister RNG
 
 	int group_size;			//Number of mega-blocks per grid dimension
+
+	std::string datdir;		//Directory to read and write data
 };
 
 //Measured values of the network
 struct NetworkObservables {
-	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), evd(EVData()), success_ratio(0.0), success_ratio2(0.0), stretch(0.0), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0), dvd(DVData()), cardinalities(NULL), action(0.0f), chaintime(NULL), vecprods(NULL), chain_sym(0), chain_asym(0), hub_density(0.0) {}
+	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), evd(EVData()), success_ratio(0.0), success_ratio2(0.0), stretch(0.0), in_degree_field(NULL), avg_idf(0.0), out_degree_field(NULL), avg_odf(0.0), dvd(DVData()), cardinalities(NULL), action(0.0f), chaintime(NULL), actth(NULL), vecprods(NULL), chain_sym(0), chain_asym(0), hub_density(0.0), hub_densities(NULL), geo_discon(0.0) {}
 	
 	int N_res;			//Resulting Number of Connected Nodes
 	float k_res;			//Resulting Average Degree
@@ -691,12 +702,17 @@ struct NetworkObservables {
 	std::vector<unsigned int> timelike_candidates;	//Candidates for a timelike boundary
 	int *chaintime;			//Maximal chain length to each node
 
+	double *actth;			//Theoretical values of action for different densities
+
 	float *vecprods;		//Vector Products of All Pairs
 
 	int chain_sym;			//Longest chain for symmetric region
 	int chain_asym;			//Longest chain for asymmetric region
 
 	float hub_density;		//Density of Hubs
+	float *hub_densities;		//Density as a Function of Number of Hubs
+
+	float geo_discon;		//Fraction of geodesically disconnected pairs
 };
 
 //Network object containing minimal unique information
@@ -715,7 +731,7 @@ struct Network {
 
 //Algorithmic Performance
 struct CausetPerformance {
-	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sValidateEmbedding(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureDegreeField(Stopwatch()), sValidateDistances(Stopwatch()), sMeasureAction(Stopwatch()), sMeasureActionTimelike(Stopwatch()), sMeasureVecprod(Stopwatch()), sMeasureChain(Stopwatch()), sMeasureHubs(Stopwatch()) {}
+	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sValidateEmbedding(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureDegreeField(Stopwatch()), sValidateDistances(Stopwatch()), sMeasureAction(Stopwatch()), sMeasureActionTimelike(Stopwatch()), sMeasureThAction(Stopwatch()), sMeasureVecprod(Stopwatch()), sMeasureChain(Stopwatch()), sMeasureHubs(Stopwatch()), sMeasureGeoDis(Stopwatch()) {}
 
 	Stopwatch sCauset;
 	Stopwatch sCalcDegrees;
@@ -733,14 +749,16 @@ struct CausetPerformance {
 	Stopwatch sValidateDistances;
 	Stopwatch sMeasureAction;
 	Stopwatch sMeasureActionTimelike;
+	Stopwatch sMeasureThAction;
 	Stopwatch sMeasureVecprod;
 	Stopwatch sMeasureChain;
 	Stopwatch sMeasureHubs;
+	Stopwatch sMeasureGeoDis;
 };
 
 //Benchmark Statistics
 struct Benchmark {
-	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0), bMeasureDegreeField(0.0), bMeasureAction(0.0), bMeasureVecprod(0.0), bMeasureChain(0.0), bMeasureHubs(0.0) {}
+	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0), bMeasureDegreeField(0.0), bMeasureAction(0.0), bMeasureVecprod(0.0), bMeasureChain(0.0), bMeasureHubs(0.0), bMeasureGeoDis(0.0) {}
 
 	double bCalcDegrees;
 	double bCreateNetwork;
@@ -757,6 +775,7 @@ struct Benchmark {
 	double bMeasureVecprod;
 	double bMeasureChain;
 	double bMeasureHubs;
+	double bMeasureGeoDis;
 };
 
 //Custom exception class used in this program
@@ -792,10 +811,10 @@ bool linkNodes(Network * const network, CaResources * const ca, CausetPerformanc
 bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigned int> candidates, CaResources * const ca, const CUcontext &ctx);
 
 //Useful utility functions
-inline unsigned int get_stdim(const unsigned int &spacetime)  { return (unsigned int)(spacetime & stdim_mask);  }
+/*inline unsigned int get_stdim(const unsigned int &spacetime)  { return (unsigned int)(spacetime & stdim_mask);  }
 inline Manifold get_manifold(const unsigned int &spacetime)   { return (Manifold)(spacetime & manifold_mask);   }
 inline Region get_region(const unsigned int &spacetime)       { return (Region)(spacetime & region_mask);	}
 inline Curvature get_curvature(const unsigned int &spacetime) { return (Curvature)(spacetime & curvature_mask); }
-inline Symmetry get_symmetry(const unsigned int &spacetime)   { return (Symmetry)(spacetime & symmetry_mask);   }
+inline Symmetry get_symmetry(const unsigned int &spacetime)   { return (Symmetry)(spacetime & symmetry_mask);   }*/
 
 #endif

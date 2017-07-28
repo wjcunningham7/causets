@@ -10,15 +10,18 @@
 
 set -eu -o pipefail
 
-start=1994
-end=1998
+start=2382
+end=2393
 
 basedir=/gss_gpfs_scratch/cunningham
+#basedir=/krioukov/will
 
-sourcefile=$CAUSET_HOME_DIR/etc/action/action_timelike
+sourcefile=$CAUSET_HOME_DIR/etc/stretch
 dest=etc
 
 for i in $(seq $start $end) ; do
   dir=$basedir/causet${i}
-  cp $sourcefile $dir/$dest
+  if [[ -e $dir ]] ; then
+    cp $sourcefile $dir/$dest
+  fi
 done

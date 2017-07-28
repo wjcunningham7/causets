@@ -1,128 +1,177 @@
-STRETCH
-=======
-> Measuring the stretch of successful greedy paths
-  using geodesic routing with disconnected pairs dropped
+ACTION BENCHMARKING
+===================
+> Benchmark linking and action algorithms
+  for the "Causal Set Generator" paper
+> Jobs MUST be submitted on the par-gpu-3
+  partition on the cluster for consistency
 
-----------------
-CONSTANT DENSITY
-----------------
-Jobs 1706-1730
-Read = 1092
-Spacetime = 4800114
-Density = 60
-Waiting for...NONE
+-------------------
+> Global Parameters
+-------------------
+Spacetime:	9000112
+Age:		0.5
 
-Jobs 1731-1755
-Read = 1117
-Spacetime = 4800114
-Density = 75
-Waiting for...NONE
- > Job 1755 could not finish
+------------------
+LINKING ALGORITHMS
+------------------
+Jobs:		2152-2167
+Task:		LINK_V1
+Waiting:	NONE
 
-Jobs 1756-1780
-Read = 1142
-Spacetime = 4800114
-Density = 90
-Waiting for...NONE
+Jobs:		2168-2183
+Task:		LINK_V2
+Waiting:	NONE
 
-Jobs 1781-1805
-Read = 1188
-Spacetime = 4800124
-Density = 60
-Waiting for...NONE
+Jobs:		2184-2199
+Task:		LINKGPU_V1
+Waiting:	NONE
 
-Jobs 1806-1830
-Read = 1213
-Spacetime = 4800124
-Density = 75
-Waiting for...NONE
- > Job 1825 had trouble
+Jobs:		2200-2215
+Task:		LINKGPU_V2, GENERATE_V1
+Waiting:	NONE
 
-Jobs 1831-1855
-Read = 1238
-Spacetime = 4800124
-Density = 90
-Waiting for...NONE
- > Job 1855 could not finish
+Jobs:		2216-2231
+Task:		LINKGPU_V2, GENERATE_V2
+Waiting:	NONE
 
-Jobs 1856-1880
-Read = 1403
-Spacetime = 4800144
-Density = 60
-Waiting for...NONE
+-----------------
+ACTION ALGORITHMS
+-----------------
+Jobs:		2232-2253
+Task:		ACTION_V1
+Waiting:	NONE
 
-Jobs 1881-1905
-Read = 1428
-Spacetime = 4800144
-Density = 75
-Waiting for...NONE
+Jobs:		2254-2275
+Task:		ACTION_V2
+Waiting:	NONE
 
-Jobs 1906-1930
-Read = 1453
-Spacetime = 4800144
-Density = 90
-Waiting for...NONE
+Jobs:		2276-2297
+Task:		ACTION_V3
+Waiting:	NONE
+
+Jobs:		2394-2409
+Task:		ACTION_V4
+Computers:	2
+Waiting:	NONE
+ > 2409 cannot finish in time
+ > Need to re-do 2404
+
+Jobs:		2410-2425
+Task:		ACTION_V4
+Computers:	4
+Waiting:	NONE
+ > 2424,2425 cannot finish in time
+
+Jobs:		2429-2444
+Task:		ACTION_V5
+Computers:	2
+Waiting:	NONE
+ > Re-submit jobs 2430-2431
+ > 2443,2444 cannot finish in time
+
+Jobs:		2445-2460
+Task:		ACTION_V5
+Computers:	4
+Waiting:	2453-2460
+
+Jobs:		2461-2482
+Task:		Mean Action
+Waiting:	NONE
+
+========================
+NAVIGATION SUPPLEMENTARY
+========================
+> Data for SI in paper
 
 ---------------
-CONSTANT DEGREE
+Number of Paths
 ---------------
-Jobs 1931-1937
-Read = 1167
-Spacetime = 4800114
-Degree = 10
-Waiting for...1932-1934
+Jobs:		2298-2312
+Spacetime:	4800124
+Degree:		10
+Nodes:		1048576
+Age:		4.6416
+Cutoff:		28.3374
+Waiting:	NONE
+ > 2307-2312 cancelled
 
-Jobs 1938-1944
-Read = 1174
-Spacetime = 4800114
-Degree = 15
-Waiting for...1939-1941
+Jobs:		2382-2393
+Spacetime:	4800124
+Degree:		10
+Nodes:		1048576
+Age:		4.6416
+Cutoff:		28.3374
+Waiting:	NONE
 
-Jobs 1945-1951
-Read = 1181
-Spacetime = 4800114
-Degree = 20
-Waiting for...NONE
- > Re-do 1947-1948
+----------------------------
+Geodesically Connected Pairs
+----------------------------
+Jobs:		2313-2337
+Reading:	243-267
+Spacetime:	4800114
+Density:	60
+Cutoff:		5
+Waiting:	NONE
 
-Jobs 1952-1958
-Read = 1263
-Spacetime = 4800124
-Degree = 10
-Waiting for...NONE
+Jobs:		2338-2362
+Reading:	1403-1427
+Spacetime:	4800144
+Density:	60
+Cutoff:		6
+Waiting:	NONE
 
-Jobs 1959-1965
-Read = 1270
-Spacetime = 4800124
-Degree = 15
-Waiting for...NONE
+Jobs:		2363-2369
+Reading:	2131-2137
+Spacetime:	4800114
+Degree:		10
+Nodes:		1048576
+Waiting:	NONE
 
-Jobs 1966-1972
-Read = 1277
-Spacetime = 4800124
-Degree = 20
-Waiting for...NONE
+Jobs:		2370-2376
+Reading:	2145-2151
+Spacetime:	4800144
+Degree:		10
+Nodes:		1048576
+Waiting:	NONE
 
-Jobs 1973-1979
-Read = 1478
-Spacetime = 4800144
-Degree = 10
-Waiting for...NONE
- > Re-do 1973-1976, 1979
+-----------------------
+Clustering Distribution
+-----------------------
+Jobs:		2377
+Spacetime:	4800114
+Density:	60
+Cutoff:		5
+Waiting:	NONE
 
-Jobs 1980-1986
-Read = 1485
-Spacetime = 4800144
-Degree = 15
-Waiting for...NONE
- > Re-do 1980-1983
+Jobs:		2378
+Spacetime:	4800124
+Density:	60
+Cutoff:		6
+Waiting:	NONE
 
-Jobs 1987-1993
-Read = 1492
-Spacetime = 4800144
-Degree = 20
-Waiting for...NONE
- > Re-do 1987-1990, 1993
+Jobs:		2379
+Spacetime:	4800144
+Density:	60
+Cutoff:		6
+Waiting:	NONE
+
+-----------
+Hub Density
+-----------
+Jobs:		2380
+Spacetime:	4800144
+Degree:		10
+Nodes:		1048576
+Age:		4.6416
+Cutoff:		1.684
+Waiting:	NONE
+
+Jobs:		2381
+Spacetime:	5000182
+Degree:		10
+Nodes:		1048576
+Cutoff:		32.362
+Waiting:	NONE
 
 ===============
 TIMELIKE ACTION
@@ -130,11 +179,43 @@ TIMELIKE ACTION
  > Measure the accuracy of the timelike action
    as the graph size increases
 
---------------
-MINKOWSKI SLAB
---------------
-Jobs 1994-2000
+-------------
+MINKOWSKI 1+1
+-------------
+Jobs 1994-1999
 Spacetime = 880010A
 Age = 0.5
 Radius = 0.5
-Waiting for...1999-2000
+Waiting for...NONE
+
+Jobs 2000-2005
+Spacetime = 880020A
+Age = 0.5
+Radius = 0.25
+Waiting for...NONE
+
+Jobs 2006-2011
+Spacetime = 888000A
+Age = 0.5
+Radius = 0.25
+Waiting for...NONE
+
+---------------
+UPDATED FORMULA
+---------------
+Jobs 2012-2019
+Spacetime = 880010A
+Age = 0.5
+Radius = 0.5
+Waiting for...NONE
+
+Jobs 2020-2027
+Spacetime = 880020A
+Age = 0.5
+Radius = 0.25
+Waiting for...NONE
+
+Jobs 2028-2035
+Spacetime = 888000A
+Age = 0.5
+Waiting for...NONE

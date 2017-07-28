@@ -57,6 +57,7 @@ void printCPUInfo();
 void printMemUsed(char const * chkPoint, size_t hostMem, size_t devMem, const int &rank);
 void memoryCheckpoint(const size_t &hostMemUsed, size_t &maxHostMemUsed, const size_t &devMemUsed, size_t &maxDevMemUsed);
 void printChk();
+void printChk(int flag);
 
 #ifdef CUDA_ENABLED
 void connectToGPU(CuResources *cu, int argc, char **argv, const int &rank);

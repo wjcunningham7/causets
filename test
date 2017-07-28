@@ -50,36 +50,52 @@ set -eu -o pipefail
 # These are experimental parameters #
 #####################################
 
-platform=krioukov_gpu
+platform=par-gpu-3
 binary="$CAUSET_HOME_DIR/bin/CausalSet_${platform}"
 
 stdim=2
-manifold=minkowski
-region=slab
-curvature=flat
-symmetry=symmetric
+manifold=De_Sitter
+region=Slab
+curvature=Positive
+symmetry=Temporal
 spacetime="--stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry"
-#spacetime="--spacetime 4800114"
 
-nodes=4096
+nodes=32768
 age=0.5
-radius=0.5
-constraints="--nodes $nodes --age $age --radius $radius"
+radius=5.988719
+#radius=21.563
+constraints="--nodes $nodes --age $age"
+#constraints="--nodes $nodes --radius $radius"
 
 makenew=true
 if [[ "$makenew" == "false" ]] ; then
-  graphs=($(awk '{print $1}' $CAUSET_HOME_DIR/etc/data_keys.cset.key))
-  graph=${graphs[${#graphs[@]}-1]}
-  echo "Graph: ${graph}"
+  basedir=$CAUSET_HOME_DIR
+  #basedir=/gss_gpfs_scratch/cunningham/ctest
+  graphs=($(awk '{print $1}' $basedir/etc/data_keys.cset.key))
+  #graph=${graphs[${#graphs[@]}-1]}
+  graph=${graphs[0]}
+
+  link="--relink --core 1 --gpu"
+  measure="--action smeared"
+  xtra="--verbose -y --graph ${graph}"
 else
   graph=0
+
+  link="--link --core 1 --gpu"
+  #measure="--action-theory 25"
+  #measure="--geo-discon 100"
+  #measure="--clustering"
+  #measure="--hubs 5000"
+  measure="--action smeared"
+  #measure=""
+  xtra="--verbose -y"
 fi
 
-link="--link --gpu --core 1"
-measure="--action smeared" 
-xtra="--verbose -y --graph ${graph}"
+#link="--link --core 1"
+#measure="--action smeared"
+#xtra="--verbose -y --graph ${graph} --datdir=/gss_gpfs_scratch/cunningham/ctest/dat/"
 
-#mpirun -prot -srun -hostfile $CAUSET_HOME_DIR/hostfile \
+#mpirun -prot -hostfile $CAUSET_HOME_DIR/hostfile \
 $binary $spacetime $constraints $link $measure $xtra
 
 ######################################

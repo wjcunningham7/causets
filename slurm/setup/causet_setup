@@ -24,11 +24,14 @@ cp $homedir/etc/deg_dist $work/etc/
 cp $homedir/etc/components $work/etc/
 cp $homedir/etc/clustering $work/etc/
 cp $homedir/etc/clust_dist $work/etc/
+cp $homedir/etc/clust_dist2 $work/etc/
 cp $homedir/etc/fields $work/etc/
 cp $homedir/etc/min_tau $work/etc/
+cp $homedir/etc/nodes $work/etc/
 cp $homedir/etc/stretch $work/etc/
 cp $homedir/etc/success $work/etc/
 cp $homedir/etc/mkdat $work/etc/
+cp $homedir/etc/geopairs $work/etc/
 
 cp $homedir/etc/tables/raduc_table.cset.bin $work/etc/tables
 cp $homedir/etc/tables/raducNC_table.cset.bin $work/etc/tables
@@ -73,6 +76,7 @@ if [ @readjobid@ -ne 0 ] ; then
   fi
 
   if [ @readgraphid@ -eq 0 ] ; then # Use graph list
+    echo "HERE"
     dir5=$dir1/etc
     if [ ! -d ${dir5} ] ; then
       echo "Folder ${dir5} does not exist!"

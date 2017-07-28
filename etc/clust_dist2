@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2017 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Log-bin clustering data over multiple files
+
+import glob
+import numpy as np
+import sys
+
+if (len(sys.argv) < 3):
+	sys.stdout.write('Arguments are [number of bins] [number of linear bins].\n')
+	sys.exit(1)
+
+nbins = int(sys.argv[1])
+lbins = int(sys.argv[2])
+
+basedir = ''
+dfiles = glob.glob(basedir + 'dat/dst/*.cset.dst.dat')
+
+max_degree = 0
+for file in dfiles:
+	f = open(file)
+	lines = f.readlines()
+
+	for line in lines:
+		k, nk = (float(x) for x in line.split())
+		max_degree = max(k, max_degree)
+
+	f.close()
+
+min = 2
+max = max_degree + 1
+linbins = np.linspace(2, lbins + 1, lbins)
+logbins = np.logspace(np.log10(6), np.log10(max), num = nbins - lbins + 1)
+bins = np.concatenate([linbins, logbins], axis = 0)
+n = np.zeros(len(bins)-1)
+c = np.zeros(len(bins)-1)
+
+cfiles = glob.glob(basedir + 'dat/cls/*.cset.cls.dat')
+for file in cfiles:
+	f = open(file)
+	lines = f.readlines()
+
+	for line in lines:
+		k, ck = line.split()
+		for i in range(1, len(bins)):
+			if float(k) < bins[i]:
+				n[i-1] += 1
+	 			c[i-1] += float(ck)
+				break
+
+	f.close()
+
+C = sum(c)
+N = sum(n)
+
+for i in range(0, len(n)):
+	if n[i] > 0:
+		c[i] /= n[i]
+
+if N > 0:
+	avg = C / N
+
+f = open(basedir + 'dat/ref/cdk_dist2.cset.cls.ref', 'w')
+for i in range(0, len(n) - 1):
+	f.write(str(bins[i]) + ' ' + str(c[i]) + '\n')
+f.close()
+
+sys.stdout.write('Average Clustering: %f\n' % avg)
+sys.stdout.write('Completed CDK2.\n')

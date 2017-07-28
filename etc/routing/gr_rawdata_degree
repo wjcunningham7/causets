@@ -25,8 +25,8 @@ declare -a tau
 declare -a nodes
 declare -a alpha
 declare -a densities
-declare -a success1 err1
-declare -a success2 err2
+declare -a success err
+declare -a stretch err2
 
 basedir='/gss_gpfs_scratch/cunningham'
 homedir=$CAUSET_HOME_DIR
@@ -46,7 +46,7 @@ for i in $(seq $jobstart $jobend) ; do
   cd $dir
   if [[ ! -e $dir/causet${i}.err ]] ; then
     echo "It appears job $i is still running."
-    exit 6
+    exit 4
   fi
 
   if [[ -s $dir/causet${i}.err ]] ; then
@@ -54,37 +54,40 @@ for i in $(seq $jobstart $jobend) ; do
     cat $dir/causet${i}.err
     echo "Continue? [y/n]"
     read response
-    if [[ "$response" != "y" ]] ; then
+    if ! { [ "$response" == "y" ] || [ "$response" == "" ]; } ; then
+      echo "Not continuing."
       exit 5
     fi
   fi
 
   nsamples=$(ls $dir/dat/*.cset.out 2> /dev/null | wc -l)
-  if [[ $nsamples -lt 10 ]] ; then
-    #echo "No data found!"
-    echo "Fewer than 10 samples found."
-    exit 4
+  if [[ $nsamples -eq 0 ]] ; then
+    echo "No data found!"
+    exit 6
   fi
 
   logfile=$dir/CausalSet_Job-${i}_Sample-1.log
 
   tau+=($(awk '/Max. Rescaled Time:/ {print $5}' $logfile))
   nodes+=($(awk '/Number of Nodes:/ {print $6}' $logfile))
-  alpha+=($(awk '/Spatial Scaling:/ {print $4}' $logfile))
-  #alpha+=($(awk '/Spatial Cutoff:/ {print $4}' $logfile))
+  if [[ "$spacetime" -eq 4800114 ]] ; then
+    alpha+=($(awk '/Spatial Cutoff:/ {print $4}' $logfile))
+  else
+    alpha+=($(awk '/Spatial Scaling:/ {print $4}' $logfile))
+  fi
   densities+=($(awk '/Node Density:/ {print $4}' $logfile))
-  s1=($(./etc/success 1 | awk '/Success Ratio:/ {print $3, $5}'))
-  success1+=(${s1[0]})
-  err1+=(${s1[1]})
-  s2=($(./etc/success 2 | awk '/Success Ratio:/ {print $3, $5}'))
-  success2+=(${s2[0]})
-  err2+=(${s2[1]})
+  s=($(./etc/success 1 | awk '/Success Ratio:/ {print $3, $5}'))
+  success+=(${s[0]})
+  err1+=(${s[1]})
+  t=($(./etc/stretch | awk '/Stretch:/ {print $2, $4}'))
+  stretch+=(${t[0]})
+  err2+=(${t[1]})
 done
 
 outfile=$homedir/navigation_k-${degree}_${spacetime}_${version}.cset.suc.raw
-echo "Job Time Nodes Cutoff Density Success1 Error1 Success2 Error2" >> $outfile
+echo "Job Time Nodes Cutoff Density Success Error Stretch Error" >> $outfile
 njobs=$(($jobend-$jobstart+1))
 for (( i=0 ; i<$njobs ; i++ )) ; do
   job=$(($i+$jobstart))
-  echo "$job ${tau[$i]} ${nodes[$i]} ${alpha[$i]} ${densities[$i]} ${success1[$i]} ${err1[$i]} ${success2[$i]} ${err2[$i]}" >> $outfile
+  echo "$job ${tau[$i]} ${nodes[$i]} ${alpha[$i]} ${densities[$i]} ${success[$i]} ${err1[$i]} ${stretch[$i]} ${err2[$i]}" >> $outfile
 done

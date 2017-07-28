@@ -45,7 +45,7 @@ stderr = 0
 if N > 0:
 	avg /= N
 	stderr = np.std(s) / math.sqrt(float(N))
-sys.stdout.write('Stretch: ' + str(avg) + ' +/- ' + str(stderr) + '\n')
+sys.stdout.write('Stretch: ' + str(avg) + ' +/- ' + str(stderr) + ' ; Min: ' + str(min(s)) + ' Max: ' + str(max(s)) + '\n')
 
 f = open(basedir + 'dat/ref/stretch.cset.suc.ref','w')
 for i in range(0,N):

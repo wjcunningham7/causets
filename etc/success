@@ -51,7 +51,7 @@ stderr = 0
 if N > 0:
 	avg /= N
 	stderr = np.std(s) / math.sqrt(float(N))
-sys.stdout.write('Success Ratio: ' + str(avg) + ' +/- ' + str(stderr) + '\n')
+sys.stdout.write('Success Ratio: ' + str(avg) + ' +/- ' + str(stderr) + ' ; Min: ' + str(min(s)) + ' Max: ' + str(max(s)) + '\n')
 
 f = open(basedir + 'dat/ref/success_ratio_type-' + str(t) + '.cset.suc.ref','w')
 for i in range(0,N):

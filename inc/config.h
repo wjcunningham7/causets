@@ -2,7 +2,7 @@
 /* inc/config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* GPU global memory size (in bytes) */
-#define GLOB_MEM 5000000000
+#define GLOB_MEM 11000000000
 
 /* Define if avx2 instructions are supported */
 #define HAVE_AVX2_INSTRUCTIONS 1
@@ -233,19 +233,19 @@
 #define PACKAGE_NAME "CausalSet"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "CausalSet 2.0"
+#define PACKAGE_STRING "CausalSet 3.0"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "causalset"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "2.0"
+#define PACKAGE_VERSION "3.0"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "2.0"
+#define VERSION "3.0"
 
 /* Define for Solaris 2.5.1 so the uint64_t typedef from <sys/synch.h>,
    <pthread.h>, or <semaphore.h> is not used. If the typedef were allowed, the

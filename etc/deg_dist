@@ -28,14 +28,18 @@ if (N < 0):
 basedir = ''
 idd_files = glob.glob(basedir + 'dat/idd/*.cset.idd.dat')
 odd_files = glob.glob(basedir + 'dat/odd/*.cset.odd.dat')
+dst_files = glob.glob(basedir + 'dat/dst/*.cset.dst.dat')
 
 k_in = []
 k_out = []
+k = []
 
 for i in range(0,N):
 	k_in.append(0)
 for i in range(0,N):
 	k_out.append(0)
+for i in range(0,N):
+	k.append(0)
 
 for file in idd_files:
 	h = open(file)
@@ -51,17 +55,30 @@ for file in odd_files:
 		token1,token2 = (int(x) for x in line.split())
 		k_out[token1] += token2
 	h.close()
+for file in dst_files:
+	h = open(file)
+	lines = h.readlines()
+	for line in lines:
+		token1,token2 = (int(x) for x in line.split())
+		k[token1] += token2
+	h.close()
 
 h = open(basedir + 'dat/ref/in_degrees.cset.dst.ref','w')
 for i in range(0,N):
-	if (k_in[i] > 0):
+	if k_in[i] > 0:
 		h.write(str(i) + ' ' + str(k_in[i]) + '\n')
 h.close()
 
 h = open(basedir + 'dat/ref/out_degrees.cset.dst.ref','w')
 for i in range(0,N):
-	if (k_out[i] > 0):
+	if k_out[i] > 0:
 		h.write(str(i) + ' ' + str(k_out[i]) + '\n')
+h.close()
+
+h = open(basedir + 'dat/ref/degrees.cset.dst.ref','w')
+for i in range(0,N):
+	if k[i] > 0:
+		h.write(str(i) + ' ' + str(k[i]) + '\n')
 h.close()
 
 sys.stdout.write('Completed DST.\n')
