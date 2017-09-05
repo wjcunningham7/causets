@@ -1,3 +1,9 @@
+/////////////////////////////
+//(C) Will Cunningham 2017 //
+//         DK Lab          //
+// Northeastern University //
+/////////////////////////////
+
 #include "printcolor.h"
 
 void printf_cyan()

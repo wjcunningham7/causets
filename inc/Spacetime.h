@@ -1,3 +1,9 @@
+/////////////////////////////
+//(C) Will Cunningham 2017 //
+//         DK Lab          //
+// Northeastern University //
+/////////////////////////////
+
 #ifndef SPACETIME_H_
 #define SPACETIME_H_
 
@@ -8,18 +14,27 @@
 class Spacetime
 {
 public:
+	static constexpr const char *stdims[] = { "2", "3", "4" };
+	static constexpr const char *manifolds[] = { "Minkowski", "De_Sitter", "Anti_de_Sitter", "Dust", "FLRW", "Hyperbolic" };
+	static constexpr const char *regions[] = { "Slab", "Slab_T1", "Slab_T2", "Slab_S1", "Slab_S2", "Slab_N1", "Slab_N2", "Slab_N3", "Half_Diamond", "Diamond", "Saucer_T", "Saucer_S", "Triangle_T", "Triangle_S", "Triangle_N", "Cube" };
+	static constexpr const char *curvatures[] = { "Positive", "Flat", "Negative" };
+	static constexpr const char *symmetries[] = { "None", "Temporal" };
+
+	static const unsigned int nstdims = sizeof(stdims) / sizeof(char*);
+	static const unsigned int nmanifolds = sizeof(manifolds) / sizeof(char*);
+	static const unsigned int nregions = sizeof(regions) / sizeof(char*);
+	static const unsigned int ncurvatures = sizeof(curvatures) / sizeof(char*);
+	static const unsigned int nsymmetries = sizeof(symmetries) / sizeof(char*);
+	static const unsigned int stsize = nstdims + nmanifolds + nregions + ncurvatures + nsymmetries;
+
 	Spacetime()
 	{
-		//printf("Calling empty constructor.\n");
-		//fflush(stdout);
 		spacetime = new FastBitset(stsize);
 		create_masks();
 	}
 
 	Spacetime(const char *stdim, const char *manifold, const char *region, const char *curvature, const char *symmetry)
 	{
-		//printf("Calling full constructor.\n");
-		//fflush(stdout);
 		spacetime = new FastBitset(stsize);
 		create_masks();
 		set_spacetime(stdim, manifold, region, curvature, symmetry);
@@ -27,8 +42,6 @@ public:
 
 	Spacetime(const Spacetime &other)
 	{
-		//printf("Calling copy constructor.\n");
-		//fflush(stdout);
 		create_masks();
 		spacetime = new FastBitset(stsize);
 		other.spacetime->clone(*spacetime);
@@ -36,8 +49,6 @@ public:
 
 	Spacetime& operator= (const Spacetime &other)
 	{
-		//printf("Calling assignment operator.\n");
-		//fflush(stdout);
 		FastBitset *_spacetime = new FastBitset(stsize);
 		other.spacetime->clone(*_spacetime);
 		delete spacetime;
@@ -47,8 +58,6 @@ public:
 
 	~Spacetime()
 	{
-		//printf("Called destructor.\n");
-		//fflush(stdout);
 		delete spacetime;
 		delete stdim_mask;
 		delete manifold_mask;
@@ -71,11 +80,6 @@ public:
 		spacetime->set(std::distance(regions, std::find(regions, regions + nregions, std::string(region))) + nstdims + nmanifolds);
 		spacetime->set(std::distance(curvatures, std::find(curvatures, curvatures + ncurvatures, std::string(curvature))) + nstdims + nmanifolds + nregions);
 		spacetime->set(std::distance(symmetries, std::find(symmetries, symmetries + nsymmetries, std::string(symmetry))) + nstdims + nmanifolds + nregions + ncurvatures);
-		/*printf("stdim: %s\n", stdims[get_stdim()]);
-		printf("manifold: %s\n", manifolds[get_manifold()]);
-		printf("region: %s\n", regions[get_region()]);
-		printf("curvature: %s\n", curvatures[get_curvature()]);
-		printf("symmetry: %s\n", symmetries[get_symmetry()]);*/
 	}
 
 	int get_stdim() const
@@ -146,7 +150,6 @@ public:
 	const char* toHexString() const
 	{
 		std::ostringstream s;
-		//printf("number of blocks: %d\n", (int)spacetime->getNumBlocks());
 		if (spacetime->size() > 64)
 			s << std::setfill('0') << std::setw(64);
 		s << std::hex;
@@ -154,19 +157,6 @@ public:
 			s << spacetime->readBlock(i);
 		return s.str().c_str();
 	}
-
-	static constexpr const char *stdims[] = { "2", "3", "4" };
-	static constexpr const char *manifolds[] = { "Minkowski", "De_Sitter", "Anti_de_Sitter", "Dust", "FLRW", "Hyperbolic" };
-	static constexpr const char *regions[] = { "Slab", "Slab_T1", "Slab_T2", "Slab_S1", "Slab_S2", "Slab_N1", "Slab_N2", "Slab_N3", "Half_Diamond", "Diamond", "Saucer_T", "Saucer_S", "Triangle_T", "Triangle_S", "Triangle_N" };
-	static constexpr const char *curvatures[] = { "Positive", "Flat", "Negative" };
-	static constexpr const char *symmetries[] = { "None", "Temporal" };
-
-	static const unsigned int nstdims = sizeof(stdims) / sizeof(char*);
-	static const unsigned int nmanifolds = sizeof(manifolds) / sizeof(char*);
-	static const unsigned int nregions = sizeof(regions) / sizeof(char*);
-	static const unsigned int ncurvatures = sizeof(curvatures) / sizeof(char*);
-	static const unsigned int nsymmetries = sizeof(symmetries) / sizeof(char*);
-	static const unsigned int stsize = nstdims + nmanifolds + nregions + ncurvatures + nsymmetries;
 
 private:
 	FastBitset *spacetime;

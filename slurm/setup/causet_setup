@@ -25,7 +25,6 @@ cp $homedir/etc/components $work/etc/
 cp $homedir/etc/clustering $work/etc/
 cp $homedir/etc/clust_dist $work/etc/
 cp $homedir/etc/clust_dist2 $work/etc/
-cp $homedir/etc/fields $work/etc/
 cp $homedir/etc/min_tau $work/etc/
 cp $homedir/etc/nodes $work/etc/
 cp $homedir/etc/stretch $work/etc/
@@ -36,15 +35,10 @@ cp $homedir/etc/geopairs $work/etc/
 cp $homedir/etc/tables/raduc_table.cset.bin $work/etc/tables
 cp $homedir/etc/tables/raducNC_table.cset.bin $work/etc/tables
 cp $homedir/etc/tables/ctuc_table.cset.bin $work/etc/tables
-cp $homedir/etc/tables/partial_fraction_coefficients.cset.bin $work/etc/tables
 cp $homedir/etc/tables/average_degree_13348_0_table.cset.bin $work/etc/tables
 cp $homedir/etc/tables/average_degree_11300_0_table.cset.bin $work/etc/tables
 cp $homedir/etc/tables/average_degree_11332_0_table.cset.bin $work/etc/tables
 cp $homedir/etc/tables/average_degree_11396_0_table.cset.bin $work/etc/tables
-
-if [[ -e $homedir/action_pairs.cset.act.in ]] ; then
-  cp $homedir/action_pairs.cset.act.in $work
-fi
 
 # Make directories to hold data files
 $homedir/etc/mkdat $work

@@ -1,3 +1,9 @@
+/////////////////////////////
+//(C) Will Cunningham 2017 //
+//         DK Lab          //
+// Northeastern University //
+/////////////////////////////
+
 #ifndef CU_RESOURCES_H_
 #define CU_RESOURCES_H_
 

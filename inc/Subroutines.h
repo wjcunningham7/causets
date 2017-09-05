@@ -1,14 +1,14 @@
-#ifndef SUBROUTINES_H_
-#define SUBROUTINES_H_
-
-#include "Causet.h"
-#include "CuResources.h"
-
 /////////////////////////////
 //(C) Will Cunningham 2014 //
 //         DK Lab          //
 // Northeastern University //
 /////////////////////////////
+
+#ifndef SUBROUTINES_H_
+#define SUBROUTINES_H_
+
+#include "Causet.h"
+#include "CuResources.h"
 
 //Hashing function for std::pair<int,int>
 namespace std
@@ -31,8 +31,6 @@ namespace std
 bool getLookupTable(const char *filename, double **lt, long *size);
 
 double lookupValue(const double *table, const long &size, double *x, double *y, bool increasing);
-
-double lookupValue4D(const double *table, const long &size, const double &omega12, double t1, double t2);
 
 //Quicksort Algorithm
 void quicksort(Node &nodes, const Spacetime &spacetime, int low, int high);
@@ -77,10 +75,6 @@ void readDegrees(int * const &degrees, const int * const h_k, const size_t &offs
 
 void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &core_limit_row, const unsigned int &core_limit_col, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit, const bool &use_mpi);
 
-void remakeAdjMatrix(bool * const adj0, bool * const adj1, const int * const k_in, const int * const k_out, const int * const past_edges, const int * const future_edges, const int64_t * const past_edge_row_start, const int64_t * const future_edge_row_start, int * const idx_buf0, int * const idx_buf1, const int &N_tar, const int &i, const int &j, const int64_t &l);
-
-void readIntervals(int * const cardinalities, const unsigned int * const N_ij, const int &l);
-
 //Prefix Sum Algorithm
 void scan(const int * const k_in, const int * const k_out, int64_t * const &past_edge_pointers, int64_t * const &future_edge_pointers, const int &N_tar);
 
@@ -97,7 +91,7 @@ void init_mpi_permutations(std::unordered_set<FastBitset> &permutations, std::ve
 
 void remove_bad_perms(std::unordered_set<FastBitset> &permutations, std::unordered_set<std::pair<int,int> > pairs);
 
-void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::vector<unsigned int> elements, bool &split_job);
+void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::vector<unsigned int> elements);
 
 void fill_mpi_similar(std::vector<std::vector<unsigned int> > &similar, std::vector<unsigned int> elements);
 

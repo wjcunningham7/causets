@@ -1,10 +1,10 @@
-#include "Validate.h"
-
 /////////////////////////////
 //(C) Will Cunningham 2014 //
 //         DK Lab          //
 // Northeastern University //
 /////////////////////////////
+
+#include "Validate.h"
 
 //Debug:  Future vs Past Edges in Adjacency List
 //O(1) Efficiency
@@ -282,7 +282,7 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &link_epso, const bool &has_exact_k, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	/*assert (nodes.crd->getDim() == 4);
+	assert (nodes.crd->getDim() == 4);
 	assert (!nodes.crd->isNull());
 	assert (nodes.crd->w() != NULL);
 	assert (nodes.crd->x() != NULL);
@@ -294,12 +294,12 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	assert (edges.future_edge_row_start != NULL);
 	assert (ca != NULL);
 
-	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
+	assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"));
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
-	assert (!link_epso);*/
+	assert (!link_epso);
 	#endif
 
 	#if EMBED_NODES
@@ -356,7 +356,6 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	ca->devMemUsed += sizeof(float) * N_tar * 4;
 
 	size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
-	//printf("d_edges_size: %zd\n", d_edges_size);
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
 	ca->devMemUsed += sizeof(uint64_t) * d_edges_size;
 
@@ -663,26 +662,25 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	return true;
 }
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const Spacetime &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const Spacetime &spacetime, const int &N_tar, const double &r_max, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	/*//assert (nodes.crd->getDim() == 4);
 	assert (!nodes.crd->isNull());
-	//assert (nodes.crd->w() != NULL);
 	assert (nodes.crd->x() != NULL);
 	assert (nodes.crd->y() != NULL);
-	//assert (nodes.crd->z() != NULL);
 	assert (nodes.k_in != NULL);
 	assert (nodes.k_out != NULL);
 	assert (edges != NULL);
 	assert (g_idx != NULL);
 	assert (ca != NULL);
-	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
+	assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"));
 	assert (N_tar > 0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (!link_epso);
-	if (use_bit)
-		assert (core_edge_fraction == 1.0f);*/
+	if (use_bit) {
+		assert (adj.size() >= N_tar);
+		assert (core_edge_fraction == 1.0f);
+	}
 	#endif
 
 	if (verbose || bench)
@@ -702,28 +700,13 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	unsigned int i, j;
 	bool diag;
 
-	//unsigned int stdim = get_stdim(spacetime);
 	unsigned int stdim = atoi(Spacetime::stdims[spacetime.get_stdim()]);
-	//bool compact = get_curvature(spacetime) & POSITIVE;
 	bool compact = spacetime.curvatureIs("Positive");
 
 	//Thread blocks are grouped into "mega" blocks
 	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
 	size_t mthread_size = mblock_size * BLOCK_SIZE;
 	size_t m_edges_size = mthread_size * mthread_size;
-
-	//DEBUG
-	/*#if DEBUG
-	printf_red();
-	printf("\nTHREAD  SIZE: %d\n", THREAD_SIZE);
-	printf("BLOCK   SIZE: %d\n", BLOCK_SIZE);
-	printf("GROUP   SIZE: %d\n", group_size);
-	printf("MBLOCK  SIZE: %zd\n", mblock_size);
-	printf("MTHREAD SIZE: %zd\n", mthread_size);
-	printf("Number of Times Kernel is Executed: %d\n\n", (group_size*group_size));
-	printf_std();
-	fflush(stdout);
-	#endif*/
 
 	//Allocate Buffers on Host
 	try {
@@ -790,13 +773,6 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	dim3 threads_per_block(1, BLOCK_SIZE, 1);
 	dim3 blocks_per_grid(gridx, gridy, 1);
 
-	//DEBUG
-	/*printf_red();
-	printf("Grid X: %u\n", gridx);
-	printf("Grid Y: %u\n", gridy);
-	printf_std();
-	fflush(stdout);*/
-
 	size_t final_size = N_tar - mthread_size * (group_size - 1);
 	size_t size0, size1;
 
@@ -833,28 +809,28 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 			int flags = ((int)diag << 4) | ((int)compact << 3) | stdim;
 			switch (flags) {
 			case 2:
-				GenerateAdjacencyLists_v2<false, false, false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1, r_max);
 				break;
 			case 4:
-				GenerateAdjacencyLists_v2<false, false, false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1, r_max);
 				break;
 			case 10:
-				GenerateAdjacencyLists_v2<true, false, false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, false, false, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1, r_max);
 				break;
 			case 12:
-				GenerateAdjacencyLists_v2<true, false, false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, false, false, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1, r_max);
 				break;
 			case 18:
-				GenerateAdjacencyLists_v2<false, false, false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1, r_max);
 				break;
 			case 20:
-				GenerateAdjacencyLists_v2<false, false, false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<false, false, false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1, r_max);
 				break;
 			case 26:
-				GenerateAdjacencyLists_v2<true, false, false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, false, true, 2><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1, r_max);
 				break;
 			case 28:
-				GenerateAdjacencyLists_v2<true, false, false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1);
+				GenerateAdjacencyLists_v2<true, false, false, true, 4><<<blocks_per_grid, threads_per_block>>>((float*)d_w0, (float*)d_x0, (float*)d_y0, (float*)d_z0, (float*)d_w1, (float*)d_x1, (float*)d_y1, (float*)d_z1, (int*)d_k_in, (int*)d_k_out, (bool*)d_edges, size0, size1, r_max);
 				break;
 			default:
 				fprintf(stderr, "Invalid flag value: %d\n", flags);
@@ -1059,354 +1035,6 @@ bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int
 }
 #endif
 
-//Generate confusion matrix for geodesic distances
-//Compares timelike/spacelike in 4D/5D
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const float &k_tar, const long double &N_emb, const int &N_res, const float &k_res, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &verbose)
-{
-	#if DEBUG
-	/*assert (nodes.crd->getDim() == 4);
-	assert (!nodes.crd->isNull());
-	assert (nodes.crd->w() != NULL);
-	assert (nodes.crd->x() != NULL);
-	assert (nodes.crd->y() != NULL);
-	assert (nodes.crd->z() != NULL);
-	assert (edges.future_edges != NULL);
-	assert (edges.future_edge_row_start != NULL);
-	assert (ca != NULL);
-
-	assert (N_tar > 0);
-	assert (k_tar > 0.0f);
-	assert (get_stdim(spacetime) == 4);
-	assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
-	assert (a > 0.0);
-	if (get_manifold(spacetime) & FLRW)
-		assert (alpha > 0.0);
-	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);*/
-	#endif
-
-	int n = N_tar + N_tar % 2;
-	uint64_t max_pairs = static_cast<uint64_t>(n) * (n - 1) / 2;
-	uint64_t stride = max_pairs / static_cast<uint64_t>(N_emb);
-	uint64_t npairs = static_cast<uint64_t>(N_emb);
-	uint64_t start = 0;
-	uint64_t finish = npairs;
-	int rank = cmpi.rank;
-
-	#ifdef MPI_ENABLED
-	assert (false);	//MPI code not maintained
-	//uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
-	int edges_size = static_cast<int>(N_tar * k_tar * (1.0 + edge_buffer) / 2);
-	#endif
-
-	stopwatchStart(&sValidateEmbedding);
-
-	//printf("Number of paths to test: %" PRIu64 "\n", static_cast<uint64_t>(N_emb));
-	//printf("Stride: %" PRIu64 "\n", stride);
-
-	try {
-		evd.confusion = (uint64_t*)malloc(sizeof(uint64_t) * 4);
-		if (evd.confusion == NULL) {
-			cmpi.fail = 1;
-			goto ValEmbPoint;
-		}
-		memset(evd.confusion, 0, sizeof(uint64_t) * 4);
-		ca->hostMemUsed += sizeof(uint64_t) * 4;
-
-		ValEmbPoint:
-		if (checkMpiErrors(cmpi)) {
-			if (!rank)
-				throw std::bad_alloc();
-			else
-				return false;
-		}
-
-		memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
-		if (verbose)
-			printMemUsed("for Embedding Validation", ca->hostMemUsed, ca->devMemUsed, rank);
-	} catch (std::bad_alloc) {
-		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
-		return false;
-	}
-
-	#ifdef MPI_ENABLED
-	MPI_Barrier(MPI_COMM_WORLD);
-	MPI_Bcast(nodes.crd->w(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(nodes.crd->z(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(nodes.id.tau, N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-
-	MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(edges.future_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-	//MPI_Bcast(adj, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
-
-	uint64_t mpi_chunk = npairs / cmpi.num_mpi_threads;
-	start = rank * mpi_chunk;
-	finish = start + mpi_chunk;
-	#endif
-
-	uint64_t c0 = evd.confusion[0];
-	uint64_t c1 = evd.confusion[1];
-	uint64_t c2 = evd.confusion[2];
-	uint64_t c3 = evd.confusion[3];
-
-	#ifdef _OPENMP
-	unsigned int seed = static_cast<unsigned int>(mrng.rng() * 4000000000);
-	#pragma omp parallel reduction (+ : c0, c1, c2, c3)
-	{
-	Engine eng(seed ^ omp_get_thread_num());
-	UDistribution dst(0.0, 1.0);
-	UGenerator rng(eng, dst);
-	#pragma omp for schedule (dynamic, 1)
-	#else
-	UGenerator &rng = mrng.rng;
-	#endif
-	for (uint64_t k = start; k < finish; k++) {
-		//Choose a pair
-		uint64_t vec_idx;
-
-		if (VE_RANDOM)
-			vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
-		else
-			vec_idx = k * stride;
-
-		int i = static_cast<int>(vec_idx / (n - 1));
-		int j = static_cast<int>(vec_idx % (n - 1) + 1);
-		int do_map = i >= j;
-
-		if (j < n >> 1) {
-			i = i + do_map * ((((n >> 1) - i) << 1) - 1);
-			j = j + do_map * (((n >> 1) - j) << 1);
-		}
-
-		if (j == N_tar) continue;
-
-		//Embedded distance
-		double distance = distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], spacetime, a, alpha);
-		if (distance > 0) {
-			double dx = 0.0;
-			nodesAreRelated(nodes.crd, spacetime, N_tar, a, 0.1, 0.1, 0.0, alpha, i, j, &dx);
-			printf("t1: %f\tt2: %f\tdx: %f\ts: %f\n", nodes.crd->w(i), nodes.crd->w(j), dx, cosh(distance));
-		}
-
-		//Check light cone condition for 4D vs 5D
-		//Null hypothesis is the nodes are not connected
-		if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, i, j)) {
-			if (distance > 0)
-				//True Negative (both timelike)
-				c1++;
-			else
-				//False Positive
-				c2++;
-		} else {	//Actual Spacelike (Positive)
-			if (distance > 0)
-				//False Negative
-				c3++;
-			else
-				//True Positive (both spacelike)
-				c0++;
-		}		
-	}
-
-	#ifdef _OPENMP
-	}
-	#endif
-
-	evd.confusion[0] = c0;
-	evd.confusion[1] = c1;
-	evd.confusion[2] = c2;
-	evd.confusion[3] = c3;
-
-	#ifdef MPI_ENABLED
-	MPI_Barrier(MPI_COMM_WORLD);
-	if (!rank)
-		MPI_Reduce(MPI_IN_PLACE, evd.confusion, 4, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
-	else
-		MPI_Reduce(evd.confusion, NULL, 4, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
-	#endif
-
-	//Number of timelike distances
-	evd.A1T = (N_res * k_res / 2) * ((double)npairs / max_pairs);
-	//Number of spacelike distances
-	evd.A1S = npairs - evd.A1T;
-
-	stopwatchStop(&sValidateEmbedding);
-
-	printf_mpi(rank, "\tCalculated Embedding Confusion Matrix.\n");
-	if (!rank) printf_cyan();
-	printf_mpi(rank, "\t\tTrue  Positives: %f\t(4D spacelike, 5D spacelike)\n", static_cast<double>(evd.confusion[0]) / evd.A1S);
-	printf_mpi(rank, "\t\tTrue  Negatives: %f\t(4D timelike,  5D timelike)\n", static_cast<double>(evd.confusion[1]) / evd.A1T);
-	if (!rank) printf_red();
-	printf_mpi(rank, "\t\tFalse Positives: %f\t(4D timelike,  5D spacelike)\n", static_cast<double>(evd.confusion[2]) / evd.A1T);
-	printf_mpi(rank, "\t\tFalse Negatives: %f\t(4D spacelike, 5D timelike)\n", static_cast<double>(evd.confusion[3]) / evd.A1S);
-	if (!rank) printf_std();
-	fflush(stdout);
-
-	if (verbose) {
-		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sValidateEmbedding.elapsedTime);
-		fflush(stdout);
-	}
-
-	return true;
-}
-
-//Used to compare distance calculated with embedding to
-//distances calculated with exact formula
-//NOTE: This only works with de Sitter since there is not a known
-//formula for the embedded FLRW distance.
-bool validateDistances(DVData &dvd, Node &nodes, const Spacetime &spacetime, const int &N_tar, const double &N_dst, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateDistances, const bool &verbose)
-{
-	#if DEBUG
-	/*assert (nodes.crd->getDim() == 4);
-	assert (!nodes.crd->isNull());
-	assert (nodes.crd->w() != NULL);
-	assert (nodes.crd->x() != NULL);
-	assert (nodes.crd->y() != NULL);
-	assert (nodes.crd->z() != NULL);
-	assert (ca != NULL);
-	assert (N_tar > 0);
-	assert (get_stdim(spacetime) == 4);
-	assert (get_manifold(spacetime) & DE_SITTER);
-	assert (a > 0.0);*/
-	#endif
-
-	bool DST_DEBUG = false;
-
-	int n = N_tar + N_tar % 2;
-	uint64_t max_pairs = static_cast<uint64_t>(n) * (n - 1) / 2;
-	uint64_t stride = max_pairs / static_cast<uint64_t>(N_dst);
-	uint64_t npairs = static_cast<uint64_t>(N_dst);
-	uint64_t start = 0;
-	uint64_t finish = npairs;
-
-	double tol = 1.0e-2;
-
-	stopwatchStart(&sValidateDistances);
-
-	try {
-		dvd.confusion = (uint64_t*)malloc(sizeof(uint64_t) * 2);
-		if (dvd.confusion == NULL)
-			throw std::bad_alloc();
-		memset(dvd.confusion, 0, sizeof(uint64_t) * 2);
-		ca->hostMemUsed += sizeof(uint64_t) * 2;
-	} catch (std::bad_alloc) {
-		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
-		return false;
-	}
-
-	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
-	if (verbose)
-		printMemUsed("to Validate de Sitter Distance Algorithm", ca->hostMemUsed, ca->devMemUsed, 0);
-
-	uint64_t c0 = dvd.confusion[0];
-	uint64_t c1 = dvd.confusion[1];
-
-	#ifdef _OPENMP
-	unsigned int seed = static_cast<unsigned int>(mrng.rng() * 4000000000);
-	#pragma omp parallel reduction(+ : c0, c1)
-	{
-	Engine eng(seed ^ omp_get_thread_num());
-	UDistribution dst(0.0, 1.0);
-	UGenerator rng(eng, dst);
-	#pragma omp for schedule (dynamic, 1)
-	#else
-	UGenerator &rng = mrng.rng;
-	#endif
-	for (uint64_t k = start; k < finish; k++) {
-		//Choose a pair
-		uint64_t vec_idx;
-		if (VD_RANDOM)
-			vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
-		else
-			vec_idx = k * stride;
-
-		int i = static_cast<int>(vec_idx / (n - 1));
-		int j = static_cast<int>(vec_idx % (n - 1) + 1);
-		int do_map = i >= j;
-
-		if (j < n >> 1) {
-			i = i + do_map * ((((n >> 1) - i) << 1) - 1);
-			j = j + do_map * (((n >> 1) - j) << 1);
-		}
-
-		//Distance using embedding
-		double embeddedDistance = ABS(distanceEmb(nodes.crd->getFloat4(i), nodes.id.tau[i], nodes.crd->getFloat4(j), nodes.id.tau[j], spacetime, a, alpha), STL);
-		//if (embeddedDistance + 1.0 < INF)
-		//	printf("\n\tEmbedded Distance: %f\n", embeddedDistance);
-
-		//Distance using exact formula
-		double exactDistance = 0.0;
-		//if (get_curvature(spacetime) & POSITIVE)
-		if (spacetime.curvatureIs("Positive"))
-			exactDistance = distanceDeSitterSph(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j);
-		//else if (get_curvature(spacetime) & FLAT)
-		else if (spacetime.curvatureIs("Flat"))
-			exactDistance = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j);
-		//if (exactDistance + 1.0 < INF)
-		//	printf("\tExactDistance:     %f\n", exactDistance);
-
-		double abserr = ABS(embeddedDistance - exactDistance, STL) / embeddedDistance;
-
-		if (exactDistance != -1 && abserr < tol) {
-			if (DST_DEBUG) {
-				printf_cyan();
-				printf("SUCCESS\n");
-			}
-			c0++;
-		} else {
-			if (DST_DEBUG) {
-				printf_red();
-				printf("FAILURE\t%f\n", abserr);
-				printf("\t%f\t%f\n", embeddedDistance, exactDistance);
-			}
-			c1++;
-		}
-
-		if (DST_DEBUG) {
-			printf_std();
-			fflush(stdout);
-		}
-		
-		/*if (embeddedDistance < 100) {
-			printf("\nTesting Lookup Table...\n");
-			testOmega12(nodes.id.tau[i], nodes.id.tau[j], ACOS(sphProduct_v2(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)), STL, VERY_HIGH_PRECISION), -0.15, 0.5, 0.001, manifold);
-			printf("\n");
-			fflush(stdout);
-			#ifndef _OPENMP
-			break;
-			#endif
-		}*/
-	}
-
-	#ifdef _OPENMP
-	}
-	#endif
-
-	dvd.confusion[0] = c0;
-	dvd.confusion[1] = c1;
-	dvd.norm = static_cast<double>(npairs);
-
-	stopwatchStop(&sValidateDistances);
-
-	printf("\tCalculated Distances Confusion Matrix.\n");
-	printf_cyan();
-	printf("\t\tMatching    Pairs: %f\n", static_cast<double>(dvd.confusion[0]) / dvd.norm);
-	printf_red();
-	printf("\t\tConflicting Pairs: %f\n", static_cast<double>(dvd.confusion[1]) / dvd.norm);
-	printf_std();
-	printf("\t\tNumber of Samples: %" PRIu64 "\n", npairs);
-	fflush(stdout);
-
-	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sValidateDistances.elapsedTime);
-		fflush(stdout);
-	}
-
-	return true;
-}
-
 //Write Node Coordinates to File
 //O(num_vals) Efficiency
 bool printValues(Node &nodes, const Spacetime &spacetime, const int num_vals, const char *filename, const char *coord)
@@ -1436,10 +1064,10 @@ bool printValues(Node &nodes, const Spacetime &spacetime, const int num_vals, co
 		for (i = 0; i < num_vals; i++) {
 			if (!strcmp(coord, "tau"))
 				outputStream << nodes.id.tau[i] << std::endl;
-			/*else if (!strcmp(coord, "eta")) {
-				if (get_stdim(spacetime) == 2)
+			else if (!strcmp(coord, "eta")) {
+				if (spacetime.stdimIs("2") || spacetime.stdimIs("3"))
 					outputStream << nodes.crd->x(i) << std::endl;
-				else if (get_stdim(spacetime) == 4)
+				else if (spacetime.stdimIs("4"))
 					#if EMBED_NODES
 					outputStream << nodes.crd->v(i) << std::endl;
 					#else
@@ -1450,7 +1078,7 @@ bool printValues(Node &nodes, const Spacetime &spacetime, const int num_vals, co
 			else if (!strcmp(coord, "theta2"))
 				outputStream << nodes.crd->y(i) << std::endl;
 			else if (!strcmp(coord, "theta3"))
-				outputStream << nodes.crd->z(i) << std::endl;*/
+				outputStream << nodes.crd->z(i) << std::endl;
 			else if (!strcmp(coord, "w"))
 				outputStream << nodes.crd->w(i) << std::endl;
 			else if (!strcmp(coord, "x"))
@@ -1460,17 +1088,13 @@ bool printValues(Node &nodes, const Spacetime &spacetime, const int num_vals, co
 			else if (!strcmp(coord, "z"))
 				outputStream << nodes.crd->z(i) << std::endl;			
 			else if (!strcmp(coord, "u")) {
-				//if (get_stdim(spacetime) == 2)
-				if (spacetime.stdimIs("2"))
+				if (spacetime.stdimIs("2") || spacetime.stdimIs("3"))
 					outputStream << (nodes.crd->x(i) + nodes.crd->y(i)) / sqrt(2.0) << std::endl;
-				//else if (get_stdim(spacetime) == 4)
 				else if (spacetime.stdimIs("4"))
 					outputStream << (nodes.crd->w(i) + nodes.crd->x(i)) / sqrt(2.0) << std::endl;
 			} else if (!strcmp(coord, "v")) {
-				//if (get_stdim(spacetime) == 2)
-				if (spacetime.stdimIs("2"))
+				if (spacetime.stdimIs("2") || spacetime.stdimIs("3"))
 					outputStream << (nodes.crd->x(i) - nodes.crd->y(i)) / sqrt(2.0) << std::endl;
-				//else if (get_stdim(spacetime) == 4)
 				else if (spacetime.stdimIs("4"))
 					outputStream << (nodes.crd->w(i) - nodes.crd->x(i)) / sqrt(2.0) << std::endl;
 			} else
@@ -1677,727 +1301,27 @@ bool printAdjMatrix(const Bitvector &adj, const int N, const char *filename, con
 	return true;
 }
 
-//Searches a range of lambdas for a match to omega12
-bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const Spacetime &spacetime)
-{
-	#if DEBUG
-	/*assert (tau1 > 0.0f);
-	assert (tau2 > 0.0f);
-	assert (omega12 > 0.0);
-	assert (min_lambda < max_lambda);
-	assert (lambda_step > 0.0);
-	assert (get_manifold(spacetime) & (DE_SITTER | FLRW));*/
-	#endif
-
-	printf("\tTesting Geodesic Lookup Algorithm...\n");
-	fflush(stdout);
-
-	//if (!(get_manifold(spacetime) & (DE_SITTER | FLRW)))
-	if (!(spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("FLRW")))
-		return false;
-
-	if (tau1 > tau2) {
-		float temp = tau1;
-		tau1 = tau2;
-		tau2 = temp;
-	}
-
-	bool DS_EXACT = false;
-
-	//double (*kernel)(double x, void *params) = (get_manifold(spacetime) & FLRW) ? &flrwLookupKernel : &deSitterLookupKernel;
-	double (*kernel)(double x, void *params) = spacetime.manifoldIs("FLRW") ? &flrwLookupKernel : &deSitterLookupKernel;
-
-	IntData idata = IntData();
-	idata.limit = 50;
-	idata.tol = 1e-5;
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-
-	double tol = 1e-3;
-	int n_lambda = static_cast<int>((max_lambda - min_lambda) / lambda_step);
-
-	double omega_val;
-	int i;
-
-	printf("tau1: %f\ttau2: %f\tomega12: %f\n", tau1, tau2, omega12);
-	fflush(stdout);
-
-	for (i = 0; i < n_lambda; i++) {
-		double lambda = i * lambda_step + min_lambda;
-		//double tau_m = geodesicMaxTau(get_manifold(spacetime), lambda);
-		double tau_m = geodesicMaxTau(spacetime.get_manifold(), lambda);
-		printf("tau_m:   %f\t", tau_m);
-		fflush(stdout);
-
-		if (tau1 >= tau2 || lambda == 0.0)
-			omega_val = 0.0;
-		else if (lambda > 0) {
-			if (DS_EXACT) {
-				double ov0 = deSitterLookupExact(static_cast<double>(tau1), lambda);
-				double ov1 = deSitterLookupExact(static_cast<double>(tau2), lambda);
-				if (ov0 == 0.0 || ov1 == 0.0)
-					omega_val = 0.0;
-				else
-					omega_val = ov1 - ov0;
-			} else {
-				idata.lower = tau1;
-				idata.upper = tau2;
-				omega_val = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
-			}
-		} else if (lambda < 0 && (tau1 < tau_m && tau2 < tau_m)) {
-
-			if (DS_EXACT) {
-				double ov0 = deSitterLookupExact(tau_m, lambda);
-				double ov1 = deSitterLookupExact(static_cast<double>(tau1), lambda);
-				double ov2 = deSitterLookupExact(static_cast<double>(tau2), lambda);
-				if (ov0 == 0.0 || ov1 == 0.0 || ov2 == 0.0)
-					omega_val = 0.0;
-				else
-					omega_val = 2.0 * ov0 - ov1 - ov2;
-			} else {
-				idata.lower = tau1;
-				idata.upper = tau_m;
-				omega_val = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
-
-				idata.lower = tau2;
-				double omega_val2 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
-				omega_val += omega_val2;
-			}
-		} else
-			omega_val = 0.0;
-
-		printf("lambda: %f\tomega12: %f\n", lambda, omega_val);
-		fflush(stdout);
-
-		if (ABS(omega12 - omega_val, STL) / omega12 < tol) {
-			printf("MATCH!\n");
-			fflush(stdout);
-			break;
-		}
-	}
-	
-	gsl_integration_workspace_free(idata.workspace);
-
-	printf("\tTask Completed.\n");
-	fflush(stdout);
-
-	return true;
-}
-
-//Generates the lookup tables
-bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const Spacetime &spacetime, const bool &verbose)
-{
-	#if DEBUG
-	/*assert (filename != NULL);
-	assert (max_tau > 0.0);
-	assert (min_lambda < max_lambda);
-	assert (tau_step > 0.0);
-	assert (lambda_step > 0.0);
-	assert (get_manifold(spacetime) & (DE_SITTER | FLRW));*/
-	#endif
-
-	//if (get_manifold(spacetime) & FLRW)
-	if (spacetime.manifoldIs("FLRW"))
-		printf("\tGenerating FLRW geodesic lookup table...\n");
-	//else if (get_manifold(spacetime) & DE_SITTER)
-	else if (spacetime.manifoldIs("De_Sitter"))
-		printf("\tGenerating de Sitter geodesic lookup table...\n");
-	else
-		return false;
-	fflush(stdout);
-
-	//Only set this to 'true' when a de Sitter table is being generated
-	//and the two methods (integration v. exact) should be compared
-	bool DS_EXACT = false;
-
-	//double (*kernel)(double x, void *params) = (get_manifold(spacetime) & FLRW) ? &flrwLookupKernel : &deSitterLookupKernel;
-	double (*kernel)(double x, void *params) = spacetime.manifoldIs("FLRW") ? &flrwLookupKernel : &deSitterLookupKernel;
-
-	Stopwatch sLookup = Stopwatch();
-	IntData idata = IntData();
-	idata.limit = 50;
-	idata.tol = 1e-5;
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-
-	int n_tau = static_cast<int>(max_tau / tau_step);
-	int n_lambda = static_cast<int>((max_lambda - min_lambda) / lambda_step);
-
-	double tau1, tau2, tau_m, omega12, lambda;
-	int i, j, k;
-
-	try {
-		FILE *table = fopen(filename, "wb");
-		if (table == NULL)
-			throw CausetException("Failed to open geodesic lookup table!\n");
-
-		stopwatchStart(&sLookup);
-
-		double zero = 0.0;
-		double n_tau_d = static_cast<double>(n_tau);
-		double n_lambda_d = static_cast<double>(n_lambda);
-		fwrite(&zero, sizeof(double), 1, table);
-		fwrite(&zero, sizeof(double), 1, table);
-		fwrite(&n_tau_d, sizeof(double), 1, table);
-		fwrite(&n_lambda_d, sizeof(double), 1, table);
-
-		//printf("tau1\t\ttau2\t\tomega12\tlambda\n");
-		for (i = 0; i < n_tau; i++) {
-			tau1 = i * tau_step;
-			for (j = 0; j < n_tau; j++) {
-				tau2 = j * tau_step;
-
-				for (k = 0; k < n_lambda; k++) {
-					lambda = k * lambda_step + min_lambda;
-					//tau_m = geodesicMaxTau(get_manifold(spacetime), lambda);
-					tau_m = geodesicMaxTau(spacetime.get_manifold(), lambda);
-
-					if (tau1 >= tau2 || lambda == 0.0)
-						omega12 = 0.0;
-					else if (lambda > 0) {
-						if (DS_EXACT) {
-							double ov0 = deSitterLookupExact(static_cast<double>(tau1), lambda);
-							double ov1 = deSitterLookupExact(static_cast<double>(tau2), lambda);
-
-							if (ov0 == 0.0 || ov1 == 0.0)
-								omega12 = 0.0;
-							else
-								omega12 = ov1 - ov0;
-						} else {
-							idata.lower = tau1;
-							idata.upper = tau2;
-							omega12 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
-						}
-					} else if (lambda < 0 && (tau1 < tau_m && tau2 < tau_m)) {
-						if (DS_EXACT) {
-							double ov0 = deSitterLookupExact(tau_m, lambda);
-							double ov1 = deSitterLookupExact(static_cast<double>(tau1), lambda);
-							double ov2 = deSitterLookupExact(static_cast<double>(tau2), lambda);
-
-							if (ov0 == 0.0 || ov1 == 0.0 || ov2 == 0.0)
-								omega12 = 0.0;
-							else
-								omega12 = 2.0 * ov0 - ov1 - ov2;
-						} else {
-							idata.lower = tau1;
-							idata.upper = tau_m;
-							omega12 = integrate1D(kernel, (void*)&lambda, &idata, QAGS);
-
-							idata.lower = tau2;
-							omega12 += integrate1D(kernel, (void*)&lambda, &idata, QAGS);
-						}
-					} else
-						omega12 = 0.0;
-
-					//Write to file
-					fwrite(&tau1, sizeof(double), 1, table);
-					fwrite(&tau2, sizeof(double), 1, table);
-					fwrite(&omega12, sizeof(double), 1, table);
-					fwrite(&lambda, sizeof(double), 1, table);
-				}
-			}
-		}
-
-		stopwatchStop(&sLookup);
-
-		fclose(table);
-	} catch (CausetException c) {
-		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		return false;
-	} catch (std::exception e) {
-		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-		return false;
-	}
-
-	gsl_integration_workspace_free(idata.workspace);
-
-	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sLookup.elapsedTime);
-		fflush(stdout);
-	}
-	
-	printf("\tTask Completed.\n");
-	fflush(stdout);
-
-	return true;
-}
-
-//Debug and validate distance approximation algorithm
-bool validateDistApprox(const Node &nodes, const Edge &edges, const Spacetime &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha)
-{
-	//This line is VERY important if this code should be portable
-	assert (sizeof(long double) == 16);
-
-	//printf("\nBeginning Timelike Analysis:\n");
-	printf("\nBeginning Spacelike Analysis:\n");
-	printf("----------------------------\n");
-
-	int past_idx = 0;
-	//int future_idx = edges.future_edges[0];
-	int future_idx = 1;
-	printf_cyan();
-	//printf("Studying timelike relation [%d - %d]\n", past_idx, future_idx);
-	printf("Studying spacelike relation [%d - %d]\n", past_idx, future_idx);
-	printf_std();
-
-	double omega12;
-	double dt = nodes.crd->w(future_idx) - nodes.crd->w(past_idx);
-	nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
-	printf("dt: %f\tdx: %f\n", dt, omega12);
-
-	double x1 = POW(SINH(1.5 * nodes.id.tau[past_idx], STL), 1.0 / 3.0, STL);
-	double x2 = POW(SINH(1.5 * nodes.id.tau[future_idx], STL), 1.0 / 3.0, STL);
-	printf("x1: %f\tx2: %f\n", x1, x2);
-
-	IntData idata = IntData();
-	idata.tol = 1.0e-10;
-	idata.lower = x1;
-	idata.upper = x2;
-
-	double lambda, omega_res;	
-	/*printf("\nAttempting large lambda approximation.\n");
-	lambda = omega12 / (2.0 * integrate1D(&flrwLookupApprox, NULL, &idata, QNG));
-	printf("lambda:\t\t%f\n", lambda);
-	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
-	printf("Resulting dx:\t%f\n", omega_res);
-	if (ABS(omega_res - omega12, STL) / omega12 > 1e-3)
-		printf("Attempt failed.\n");
-	else
-		printf("Attempt succeeded.\n");*/
-
-	printf("\nStudying omegaRegion1.\n");
-	double om1;
-	double err = 1.0E-10;
-	int nterms = 10;
-
-	printf("Testing single point.\n");
-	//lambda = 0.05;
-	lambda = -0.05;
-	double z1 = -1.0 * lambda * x1 * x1 * x1 * x1;
-	double z2 = -1.0 * lambda * x2 * x2 * x2 * x2;
-	double mz = 1.0;
-	om1 = omegaRegion1(x1, lambda, z1, &err, &nterms);
-	printf("omega(x = %f, lambda = %f) = %f\n", x1, lambda, om1);
-	printf("Resulting Error: %.8e\n", err);
-	printf("Terms Used: %d\n", nterms);
-
-	printf("\nAttempting to find lambda via bisection method.\n");
-	double x0;
-	double res = 1.0, tol = 1e-5;
-	//double lower = 0.0, upper = 10000.0;
-	double lower = -1.0 / POW2(POW2(x2, EXACT), EXACT), upper = 0.0;
-	double mx;
-	int iter = 0, max_iter = 10000;
-	while (upper - lower > tol && iter < max_iter) {
-		x0 = (lower + upper) / 2.0;
-		z1 = -1.0 * x0 * x1 * x1 * x1 * x1;
-		z2 = -1.0 * x0 * x2 * x2 * x2 * x2;
-		//Added for spacelike study
-		err = 1.0E-10;
-		nterms = 10;
-		mx = geodesicMaxX(x0);
-		res = 2.0 * omegaRegion1(mx, x0, mz, &err, &nterms);
-		//End addition
-		err = 1.0E-10;
-		nterms = 10;
-		//Changed from = to -= for spacelike
-		res -= omegaRegion1(x2, x0, z2, &err, &nterms);
-		assert (res == res);
-		err = 1.0E-10;
-		nterms = 10;
-		res -= omegaRegion1(x1, x0, z1, &err, &nterms);
-		assert (res == res);
-		//printf("omega(x1 = %f, x2 = %f, lambda = %f) = %f\n", x1, x2, x0, res);
-		res -= omega12;
-		//NOTE: This is > for timelike, < for spacelike!
-		if (res < 0.0)
-			lower = x0;
-		else
-			upper = x0;
-		iter++;
-	}
-	lambda = x0;
-	printf("Finished bisection after %d iterations.\n", iter);
-	printf("Identified lambda = %f\n", lambda);
-
-	printf("\nInserting lambda into original integral.\n");
-	//This block has been revised for spacelike distances
-	idata.upper = mx;
-	idata.limit = 60;
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	idata.lower = x2;
-	omega_res += 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	gsl_integration_workspace_free(idata.workspace);
-	printf("Resulting dx:\t%.8e\n", omega_res);
-	printf("Error:\t\t%.8e\n", ABS(omega_res - omega12, STL) / omega12);	
-
-	printf("\nCalculating Distance.\n");
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	idata.limit = 60;
-	//double tm = geodesicMaxTau(get_manifold(spacetime), lambda);
-	double tm = geodesicMaxTau(spacetime.get_manifold(), lambda);
-	idata.lower = nodes.id.tau[past_idx];
-	idata.upper = tm;
-	double distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
-	idata.lower = nodes.id.tau[future_idx];
-	distance += integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
-	gsl_integration_workspace_free(idata.workspace);
-	printf("Distance: %.8e\n", distance);
-	//printf("Completed timelike study of omegaRegion1.\n");
-	printf("Completed spacelike study of omegaRegion1.\n");
-
-	//Time algorithm
-	Stopwatch sdb = Stopwatch();
-	int ntests = 1000;
-	stopwatchStart(&sdb);
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	for (int i = 0; i < ntests; i++) {
-		idata.lower = x1;
-		idata.upper = mx;
-		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-		idata.lower = x2;
-		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	}
-	gsl_integration_workspace_free(idata.workspace);
-	stopwatchStop(&sdb);
-	double intTime = sdb.elapsedTime;
-
-	stopwatchReset(&sdb);
-	stopwatchStart(&sdb);
-	for (int i = 0; i < ntests; i++) {
-		//omegaRegion1(mx, x0, &err, &nterms);
-		omegaRegion1(x2, x0, z2, &err, &nterms);
-		omegaRegion1(x1, x0, z2, &err, &nterms);
-	}
-	stopwatchStop(&sdb);
-	double approxTime = sdb.elapsedTime;
-
-	printf("Time for integration:   %.6f\n", intTime);
-	printf("Time for approximation: %.6f\n", approxTime);
-
-	past_idx = 1500;
-	//future_idx = 5935;
-	future_idx = 1501;
-	printf_cyan();
-	//printf("\nStudying timelike relation [%d - %d]\n", past_idx, future_idx);
-	printf("\nStudying spacelike relation [%d - %d]\n", past_idx, future_idx);
-	printf_std();
-	dt = nodes.crd->w(future_idx) - nodes.crd->w(past_idx);
-	nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
-	printf("dt: %f\tdx: %f\n", dt, omega12);
-
-	x1 = POW(SINH(1.50 * nodes.id.tau[past_idx], STL), 1.0 / 3.0, STL);
-	x2 = POW(SINH(1.5 * nodes.id.tau[future_idx], STL), 1.0 / 3.0, STL);
-	printf("x1: %f\tx2: %f\n", x1, x2);
-
-	/*printf("\nAttempting large lambda approximation.\n");
-	idata.lower = x1;
-	idata.upper = x2;
-	lambda = omega12 / (2.0 * integrate1D(&flrwLookupApprox, NULL, &idata, QNG));
-	printf("lambda:\t\t%f\n", lambda);
-	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
-	printf("Resulting dx:\t%f\n", omega_res);
-	if (ABS(omega_res - omega12, STL) / omega12 > 1e-3)
-		printf("Attempt failed.\n");
-	else
-		printf("Attempt succeeded.\n");*/
-
-	//printf("\nStudying omegaRegion2a.\n");
-	printf("\nStudying omegaRegion2b.\n");
-	double om2;
-
-	printf("Testing single point.\n");
-	//lambda = 0.05;
-	lambda = -0.05;
-	err = 1.0E-10;
-	nterms = 15;
-	//om2 = omegaRegion2a(x2, lambda, &err, &nterms);
-	om2 = omegaRegion2b(x1, lambda, &err, &nterms);
-	printf("omega(x = %f, lambda = %f) = %f\n", x1, lambda, om2);
-	printf("Terms Used: %d\n", nterms);
-
-	printf("\nAttempting to find lambda via the bisection method.\n");
-	res = 1.0;
-	tol = 1.0e-5;
-	//lower = 0.0;
-	//upper = 10000.0;
-	lower = -1.0 / POW2(POW2(x2, EXACT), EXACT);
-	upper = 0.0;
-	iter = 0;
-	max_iter = 10000;
-	while (ABS(res, STL) > tol && iter < max_iter) {
-		x0 = (lower + upper) / 2.0;
-		//Changed 2a to 2b for spacelike
-		mx = geodesicMaxX(x0);
-		res = 2.0 * omegaRegion2b(mx, x0, &err, &nterms);
-		assert (res == res);
-		//Changed = to -= for spacelike
-		res -= omegaRegion2b(x2, x0, &err, &nterms);
-		assert (res == res);
-		res -= omegaRegion2b(x1, x0, &err, &nterms);
-		assert (res == res);
-		//printf("omega(x1 = %f, x2 = %f, lambda = %f) = %f\n", x1, x2, x0, res);
-		res -= omega12;
-		//Changed > to < for spacelike
-		if (res < 0.0)
-			lower = x0;
-		else
-			upper = x0;
-		iter++;
-	}
-	lambda = x0;
-	printf("Finished bisection after %d iterations.\n", iter);
-	printf("Identifed lambda = %f\n", lambda);
-
-	printf("\nInserting lambda into original integral.\n");
-	//This block has been revised for spacelike distances
-	idata.lower = x1;
-	idata.upper = mx;
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	idata.lower = x2;
-	omega_res += 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	gsl_integration_workspace_free(idata.workspace);
-	printf("Resulting dx:\t%.8e\n", omega_res);
-	printf("Error:\t\t%.8e\n", ABS(omega_res - omega12, STL) / omega12);
-
-	printf("\nCalculating Distance.\n");
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	//tm = geodesicMaxTau(get_manifold(spacetime), lambda);
-	tm = geodesicMaxTau(spacetime.get_manifold(), lambda);
-	idata.lower = nodes.id.tau[past_idx];
-	idata.upper = tm;
-	distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
-	idata.lower = nodes.id.tau[future_idx];
-	distance += integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
-	gsl_integration_workspace_free(idata.workspace);
-	printf("Distance: %.8e\n", distance);
-	//printf("Completed timelike study of omegaRegion2a.\n");
-	printf("Completed spacelike study of omegaRegion2b.\n");
-
-	stopwatchReset(&sdb);
-	stopwatchStart(&sdb);
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	for (int i = 0; i < ntests; i++) {
-		idata.lower = x1;
-		idata.upper = mx;
-		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-		idata.lower = x2;
-		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	}
-	gsl_integration_workspace_free(idata.workspace);
-	stopwatchStop(&sdb);
-	intTime = sdb.elapsedTime;
-
-	stopwatchReset(&sdb);
-	nterms = 6;
-	stopwatchStart(&sdb);
-	for (int i = 0; i < ntests; i++) {
-		omegaRegion2b(mx, lambda, &err, &nterms);
-		omegaRegion2b(x1, lambda, &err, &nterms);
-		omegaRegion2b(x2, lambda, &err, &nterms);
-	}
-	stopwatchStop(&sdb);
-	approxTime = sdb.elapsedTime;
-
-	printf("Time for integration:   %.6f\n", intTime);
-	printf("Time for approximation: %.6f\n", approxTime);
-
-	past_idx = 7530;
-	//future_idx = 9705;
-	future_idx = 7531;
-	printf_cyan();
-	//printf("\nStudying timelike relation [%d - %d]\n", past_idx, future_idx);
-	printf("\nStudying spacelike relation [%d - %d]\n", past_idx, future_idx);
-	printf_std();
-
-	dt = nodes.crd->w(future_idx) - nodes.crd->w(past_idx);
-	nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
-	printf("dt: %f\tdx: %f\n", dt, omega12);
-
-	x1 = POW(SINH(1.5 * nodes.id.tau[past_idx], STL), 1.0 / 3.0, STL);
-	x2 = POW(SINH(1.5 * nodes.id.tau[future_idx], STL), 1.0 / 3.0, STL);
-	printf("x1: %f\tx2: %f\n", x1, x2);
-
-	/*printf("\nAttempting large lambda approximation.\n");
-	idata.lower = x1;
-	idata.upper = x2;
-	lambda = omega12 / (2.0 * integrate1D(&flrwLookupApprox, NULL, &idata, QNG));
-	printf("lambda:\t\t%f\n", lambda);
-	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QNG);
-	printf("Resulting dx:\t%f\n", omega_res);
-	if (ABS(omega_res - omega12, STL) / omega12 > 1e-3)
-		printf("Attempt failed.\n");
-	else
-		printf("Attempt succeeded.\n");*/
-
-	printf("\nStudying omegaRegion3.\n");
-	double *table;
-	double om3;
-	long size = 0L;
-	getLookupTable("./etc/tables/partial_fraction_coefficients.cset.bin", &table, &size);
-	assert (table != NULL);
-
-	printf("Testing single pair.\n");
-	//lambda = 3.0;
-	lambda = -0.4;
-	z1 = -1.0 * lambda * x1 * x1 * x1 * x1;
-	z2 = -1.0 * lambda * x2 * x2 * x2 * x2;
-	err = 1.0E-10;
-	nterms = 10;
-	om3 = omegaRegion3(table, x1, x2, lambda, z1, z2, &err, &nterms, size);
-	printf("omega(x1 = %f, x2 = %f, lambda = %f) = %e\n", x1, x2, lambda, om3);
-	printf("Resulting Error: %.8e\n", err);
-	printf("Terms Used: %d\n", nterms);
-
-	printf("\nAttempting to find lambda via the bisection method.\n");
-	res = 1.0;
-	tol = 1.0e-5;
-	//lower = 0.0;
-	//upper = 1000.0;
-	lower = -1.0 / POW2(POW2(x2, EXACT), EXACT);
-	upper = 0.0;
-	iter = 0;
-	max_iter = 10000;
-	while(ABS(res, STL) > tol && iter < max_iter) {
-		x0 = (lower + upper) / 2.0;
-		z1 = -1.0 * x0 * x1 * x1 * x1 * x1;
-		z2 = -1.0 * x0 * x2 * x2 * x2 * x2;
-		mx = geodesicMaxX(x0);
-		err = 1.0E-10;
-		nterms = 10;
-		//Changed x2 to mx for spacelike
-		res = omegaRegion3(table, x1, mx, x0, z1, mz, &err, &nterms, size);
-		assert (res == res);
-		//Added for spacelike
-		err = 1.000E-10;
-		nterms = 10;
-		res += omegaRegion3(table, x2, mx, x0, z2, mz, &err, &nterms, size);
-		assert (res == res);
-		//printf("omega(x1 = %f, x2 = %f, lambda = %f) = %f\n", x1, x2, x0, res);
-		res -= omega12;
-		//Changed > to < for spacelike
-		if (res < 0.0)
-			lower = x0;
-		else
-			upper = x0;
-		iter++;
-	}
-	lambda = x0;
-	printf("Finished bisection after %d iterations.\n", iter);
-	printf("Identified lambda = %f\n", lambda);
-
-	printf("\nInserting lambda into original integral.\n");
-	//This block has been revised for spacelike distances
-	idata.lower = x1;
-	idata.upper = mx;
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	omega_res = 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	idata.lower = x2;
-	omega_res += 2.0 * integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	gsl_integration_workspace_free(idata.workspace);
-	printf("Resulting dx:\t%.8e\n", omega_res);
-	printf("Error:\t\t%.8e\n", ABS(omega_res - omega12, STL) / omega12);
-
-	printf("\nCalculating Distance.\n");
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	//tm = geodesicMaxTau(get_manifold(spacetime), lambda);
-	tm = geodesicMaxTau(spacetime.get_manifold(), lambda);
-	idata.lower = nodes.id.tau[past_idx];
-	idata.upper = tm;
-	distance = integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
-	idata.lower = nodes.id.tau[future_idx];
-	distance += integrate1D(&flrwDistKernel, (void*)&lambda, &idata, QAGS);
-	gsl_integration_workspace_free(idata.workspace);
-	printf("Distance: %.8e\n", distance);
-	//printf("Completed timelike study of omegaRegion3.\n");
-	printf("Completed spacelike study of omegaRegion3.\n");
-
-	stopwatchReset(&sdb);
-	stopwatchStart(&sdb);
-	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-	for (int i = 0; i < ntests; i++) {
-		idata.lower = x1;
-		idata.upper = mx;
-		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-		idata.lower = x2;
-		integrate1D(&flrwLookupKernelX, (void*)&lambda, &idata, QAGS);
-	}
-	gsl_integration_workspace_free(idata.workspace);
-	stopwatchStop(&sdb);
-	intTime = sdb.elapsedTime;
-
-	stopwatchReset(&sdb);
-	z1 = -1.0 * lambda * x1 * x1 * x1 * x1;
-	z2 = -1.0 * lambda * x2 * x2 * x2 * x2;
-	stopwatchStart(&sdb);
-	for (int i = 0; i < ntests; i++) {
-		err = 1.0E-10;
-		nterms = 10;
-		omegaRegion3(table, x1, mx, lambda, z1, mz, &err, &nterms, size);
-		//omegaRegion3a(mx, lambda, zm, &err, &nterms);
-		//omegaRegion3b(table, mx, lambda, &err, &nterms, size);
-		err = 1.0E-10;
-		nterms = 10;
-		omegaRegion3(table, x2, mx, lambda, z2, mz, &err, &nterms, size);
-		//omegaRegion3a(x1, lambda, z1, &err, &nterms);
-		//omegaRegion3b(table, mx, lambda, &err, &nterms, size);
-	}
-	stopwatchStop(&sdb);
-	approxTime = sdb.elapsedTime;
-
-	printf("Time for integration:   %.6f\n", intTime);
-	printf("Time for approximation: %.6f\n", approxTime);
-
-	/*printf("\nHypergeometric Test.\n");
-	double f;
-	double f_err = 1.0e-10;
-	int f_nt = -1;
-	lambda = -0.501845;
-	double z = -1.0 * lambda * POW2(POW2(x1, EXACT), EXACT);
-	double w = 1.0 - z;
-	_2F1(-9.0, 1.0, 1.5, w, &f, &f_err, &f_nt, false);
-	printf("2F1(-9, 1, 1.5, %f) = %f\n", w, f);
-	printf("Error: %.8e\n", f_err);
-
-	printf("\nCoefficient Test.\n");
-	double n0 = _2F1_An(-9.0, 1.0, 1.5, 8);
-	double n1 = _2F1_An(-9.0, 1.0, 1.5, 9);
-	double n2 = _2F1_An(-9.0, 1.0, 1.5, 10);
-	double n3 = _2F1_An(-9.0, 1.0, 1.5, 11);
-	printf("n0: %f\nn1: %f\nn2: %f\nn3: %f\n", n0, n1, n2, n3);
-
-	printf("\nPochhammer Test.\n");
-	double p0 = POCHHAMMER(-9.0, 9);
-	double p1 = POCHHAMMER(1.0, 9);
-	double p2 = POCHHAMMER(1.5, 9);
-	double p3 = GAMMA(10.0, STL);
-	double p4 = p0 * p1 / (p2 * p3);
-	printf("p0: %f\np1: %f\np2: %f\np3: %f\np4: %f\n", p0, p1, p2, p3, p4);*/
-
-	return true;
-}
-
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
 //Uses geodesic distances
 bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const Spacetime &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const bool &strict_routing, int source, int dest, int &nsteps, bool &success, bool &success2, bool &past_horizon)
 {
 	#if DEBUG
-	/*assert (!nodes.crd->isNull());
-	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
+	assert (!nodes.crd->isNull());
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("4"));
+	assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic"));
 
-	if (get_manifold(spacetime) & HYPERBOLIC)
-		assert (get_stdim(spacetime) == 2);
+	if (spacetime.manifoldIs("Hyperbolic"))
+		assert (spacetime.stdimIs("2"));
 
-	if (get_stdim(spacetime) == 2) {
+	if (spacetime.stdimIs("2")) {
 		assert (nodes.crd->getDim() == 2);
-		assert (get_manifold(spacetime) & (DE_SITTER | HYPERBOLIC));
-	} else if (get_stdim(spacetime) == 4) {
+		assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Hyperbolic"));
+	} else if (spacetime.stdimIs("4")) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
-		assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
+		assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"));
 	}
 
 	assert (nodes.crd->x() != NULL);
@@ -2411,28 +1335,28 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 	assert (used != NULL);
 
 	assert (N_tar > 0);
-	if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
+	if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 		assert (a > 0.0);
-		if (get_manifold(spacetime) & (DUST | FLRW)) {
+		if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 			assert (zeta < HALF_PI);
 			assert (alpha > 0.0);
 		} else {
-			if (get_curvature(spacetime) & POSITIVE) {
+			if (spacetime.curvatureIs("Positive")) {
 				assert (zeta > 0.0);
 				assert (zeta < HALF_PI);
-			} else if (get_curvature(spacetime) & FLAT) {
+			} else if (spacetime.curvatureIs("Flat")) {
 				assert (zeta > HALF_PI);
 				assert (zeta1 > HALF_PI);
 				assert (zeta > zeta1);
 			}
 		}
 	}
-	if (get_curvature(spacetime) & FLAT)
+	if (spacetime.curvatureIs("Flat"))
 		assert (r_max > 0.0);
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	assert (!strict_routing);
 	assert (source >= 0 && source < N_tar);
-	assert (dest >= 0 && dest < N_tar);*/
+	assert (dest >= 0 && dest < N_tar);
 	#endif
 
 	bool TRAV_DEBUG = false;
@@ -2448,23 +1372,17 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 	int m;
 
 	//Check if source and destination can be connected by any geodesic
-	//if (get_manifold(spacetime) & DE_SITTER) {
 	if (spacetime.manifoldIs("De_Sitter")) {
-		//if (get_curvature(spacetime) & POSITIVE)
 		if (spacetime.curvatureIs("Positive"))
 			dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
-		//else if (get_curvature(spacetime) & FLAT)
 		else if (spacetime.curvatureIs("Flat"))
 			dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 		else
 			return false;
-	//} else if (get_manifold(spacetime) & FLRW)
 	} else if (spacetime.manifoldIs("FLRW"))
 			dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
-	//else if (get_manifold(spacetime) & DUST)
 	else if (spacetime.manifoldIs("Dust"))
 		dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
-	//else if (get_manifold(spacetime) & HYPERBOLIC)
 	else if (spacetime.manifoldIs("Hyperbolic"))
 		dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 	else
@@ -2546,23 +1464,17 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 			}
 
 			//(C) Otherwise find the past neighbor closest to the destination
-			//if (get_manifold(spacetime) & DE_SITTER) {
 			if (spacetime.manifoldIs("De_Sitter")) {
-				//if (get_curvature(spacetime) & POSITIVE)
 				if (spacetime.curvatureIs("Positive"))
 					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
-				//else if (get_curvature(spacetime) & FLAT)
 				else if (spacetime.curvatureIs("Flat"))
 					dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 				else
 					return false;
-			//} else if (get_manifold(spacetime) & FLRW)
 			} else if (spacetime.manifoldIs("FLRW"))
 					dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
-			//else if (get_manifold(spacetime) & DUST)
 			else if (spacetime.manifoldIs("Dust"))
 				dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
-			//else if (get_manifold(spacetime) & HYPERBOLIC)
 			else if (spacetime.manifoldIs("Hyperbolic"))
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 			else
@@ -2621,23 +1533,17 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 			}
 
 			//(F) Otherwise find the future neighbor closest to the destination
-			//if (get_manifold(spacetime) & DE_SITTER) {
 			if (spacetime.manifoldIs("De_Sitter")) {
-				//if (get_curvature(spacetime) & POSITIVE)
 				if (spacetime.curvatureIs("Positive"))
 					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
-				//else if (get_curvature(spacetime) & FLAT)
 				else if (spacetime.curvatureIs("Flat"))
 					dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 				else
 					return false;
-			//} else if (get_manifold(spacetime) & FLRW)
 			} else if (spacetime.manifoldIs("FLRW"))
 					dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
-			//else if (get_manifold(spacetime) & DUST)
 			else if (spacetime.manifoldIs("Dust"))
 				dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
-			//else if (get_manifold(spacetime) & HYPERBOLIC)
 			else if (spacetime.manifoldIs("Hyperbolic"))
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 			else
@@ -2689,15 +1595,13 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	/*if (!no_pos)
+	if (!no_pos)
 		assert (!nodes.crd->isNull());
-	//assert (get_stdim(spacetime) == 4);
-	assert (get_manifold(spacetime) & DE_SITTER);
 
 	if (!no_pos) {
-		if (get_stdim(spacetime) == 2)
+		if (spacetime.stdimIs("2"))
 			assert (nodes.crd->getDim() == 2);
-		else if (get_stdim(spacetime) == 4) {
+		else if (spacetime.stdimIs("4")) {
 			assert (nodes.crd->getDim() == 4);
 			assert (nodes.crd->w() != NULL);
 			assert (nodes.crd->z() != NULL);
@@ -2720,15 +1624,15 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 	assert (N_tar > 0);
 	assert (max_cardinality > 0);
 	assert (a > 0.0);
-	if (get_curvature(spacetime) & POSITIVE) {
+	if (spacetime.curvatureIs("Positive")) {
 		assert (zeta > 0.0);
 		assert (zeta < HALF_PI);
-	} else if (get_curvature(spacetime) & FLAT) {
+	} else if (spacetime.curvatureIs("Flat")) {
 		assert (zeta > HALF_PI);
 		assert (zeta1 > HALF_PI);
 		assert (zeta > zeta1);
 	} 
-	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);*/
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	#endif
 
 	if (verbose || bench)
@@ -2818,9 +1722,6 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 	if (max_cardinality < 5)
 		goto ActionExit;
 
-	//action = static_cast<float>(cardinalities[0] - cardinalities[1] + 9 * cardinalities[2] - 16 * cardinalities[3] + 8 * cardinalities[4]);
-	//action *= 4.0f / sqrtf(6.0f);
-	//action = calcAction(cardinalities, get_stdim(spacetime), lk, smeared);
 	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, smeared);
 	assert (action == action);
 	
@@ -2852,15 +1753,13 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	/*if (!no_pos)
+	if (!no_pos)
 		assert (!nodes.crd->isNull());
-	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & DE_SITTER);
 
 	if (!no_pos) {
-		if (get_stdim(spacetime) == 2)
+		if (spacetime.stdimIs("2"))
 			assert (nodes.crd->getDim() == 2);
-		else if (get_stdim(spacetime) == 4) {
+		else if (spacetime.stdimIs("4")) {
 			assert (nodes.crd->getDim() == 4);
 			assert (nodes.crd->w() != NULL);
 			assert (nodes.crd->z() != NULL);
@@ -2884,16 +1783,16 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 	assert (k_tar > 0.0f);
 	assert (max_cardinality > 0);
 	assert (a > 0.0);
-	if (get_curvature(spacetime) & POSITIVE) {
+	if (spacetime.curvatureIs("Positive")) {
 		assert (zeta > 0.0);
 		assert (zeta < HALF_PI);
-	} else if (get_curvature(spacetime) & FLAT) {
+	} else if (spacetime.curvatureIs("Flat")) {
 		assert (zeta > HALF_PI);
 		assert (zeta1 > HALF_PI);
 		assert (zeta > zeta1);
 	} 
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-	assert (edge_buffer > 0.0f);*/
+	assert (edge_buffer > 0.0f);
 	#endif
 
 	if (verbose || bench)
@@ -2909,7 +1808,7 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 	double lk = 2.0;
 
 	#ifdef MPI_ENABLED
-	//assert (false);	//MPI code not maintained
+	assert (false);	//MPI code not maintained
 	//uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
 	//uint64_t edges_size = static_cast<uint64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2;
 	#endif
@@ -3057,7 +1956,6 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 	if (max_cardinality < 5)
 		goto ActionExit;
 
-	//action = calcAction(cardinalities, get_stdim(spacetime), lk, smeared);
 	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, smeared);
 	assert (action == action);
 
@@ -3090,29 +1988,22 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 	float tol = 1.0e-4;
 	double r;
 	#endif
-	//switch (spacetime) {
-	//case (2 | MINKOWSKI | SLAB | FLAT | SYMMETRIC):
 	if (spacetime.spacetimeIs("2", "Minkowski", "Slab", "Flat", "Temporal")) {
 		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
 		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
-		//break;
-	//case (2 | MINKOWSKI | SLAB_T1 | FLAT | SYMMETRIC):
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab", "Positive", "Temporal")) {
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!(nodes.crd->y(i) > 0.0 && nodes.crd->y(i) < TWO_PI)) return false;
 	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_T1", "Flat", "Temporal")) {
 		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
 		if (!(fabs(nodes.crd->y(i)) < eta0)) return false;
-		//break;
-	//case (2 | MINKOWSKI | SLAB_S1 | FLAT | SYMMETRIC):
 	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_S1", "Flat", "Temporal")) {
 		if (!(fabs(nodes.crd->x(i)) < r_max)) return false;
 		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
-		//break;
-	//case (2 | MINKOWSKI | DIAMOND | FLAT | ASYMMETRIC):
 	} else if (spacetime.spacetimeIs("2", "Minkowski", "Diamond", "Flat", "None")) {
 		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
 		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
-		//break;
-	//case (2 | MINKOWSKI | SAUCER | FLAT | SYMMETRIC):
-	} else if (spacetime.spacetimeIs("2", "Minkowski", "Saucer_S", "Flat", "Temporal")) {
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Saucer_T", "Flat", "Temporal")) {
 		#if SPECIAL_SAUCER
 		if (!(nodes.crd->x(i) > -1.0 && nodes.crd->x(i) < 1.0)) return false;
 		if (!(nodes.crd->y(i) > -1.5 && nodes.crd->y(i) < 1.5)) return false;
@@ -3120,18 +2011,14 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
 		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
 		#endif
-		//break;
-	//case (2 | MINKOWSKI | SAUCER_T | FLAT | SYMMETRIC):
-	} else if (spacetime.spacetimeIs("2", "Minkowski", "Saucer_T", "Flat", "Temporal")) {
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Saucer_S", "Flat", "Temporal")) {
+		#if SPECIAL_SAUCER
+		if (!(nodes.crd->x(i) > -1.5 && nodes.crd->x(i) < 1.5)) return false;
+		if (!(nodes.crd->y(i) > -1.0 && nodes.crd->y(i) < 1.0)) return false;
+		#else
 		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
 		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
-		//break;
-	//case (2 | MINKOWSKI | TRIANGLE_T | FLAT | SYMMETRIC):
-	} else if (spacetime.spacetimeIs("2", "Minkowski", "Triangle_T", "Flat", "Temporal")) {
-		//if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
-		//if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
-		//break;
-	//case (2 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
+		#endif
 	} else if (spacetime.spacetimeIs("2", "De_Sitter", "Slab", "Positive", "None")) {
 		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
@@ -3140,8 +2027,6 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		#else
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//case (2 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
 	} else if (spacetime.spacetimeIs("2", "De_Sitter", "Slab", "Positive", "Temporal")) {
 		if (!(fabs(nodes.crd->x(i)) < HALF_PI - zeta)) return false;
 		if (!(nodes.id.tau[i] > -tau0 && nodes.id.tau[i] < tau0)) return false;
@@ -3150,38 +2035,22 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		#else
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//case (2 | DE_SITTER | SLAB | NEGATIVE | ASYMMETRIC):
 	} else if (spacetime.spacetimeIs("2", "De_Sitter", "Slab", "Negative", "None")) {
 		if (!(nodes.id.tau[i] < tau0)) return false;
 		if (!(nodes.crd->x(i) < eta0)) return false;
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI)) return false;
-		//break;
-	//case (2 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
-	//	fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-	//	assert (false);
-	//	break;
-	//case (2 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
-	//	fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-	//	assert (false);
-	//	break;
-	//case (2 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
-	//	fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-	//	assert (false);
-	//	break;
-	//case (2 | HYPERBOLIC | SLAB | POSITIVE | ASYMMETRIC):
 	} else if (spacetime.spacetimeIs("2", "Hyperbolic", "Slab", "Positive", "None")) {
 		if (!(nodes.id.tau[i] > 0.0 && nodes.id.tau[i] <= tau0)) return false;
 		if (!(nodes.crd->x(i) > 0.0 && nodes.crd->x(i) <= r_max)) return false;
 		if (!(nodes.crd->y(i) > 0.0 && nodes.crd->y(i) < TWO_PI)) return false;
-		//break;
-	//case (3 | MINKOWSKI | SLAB | FLAT | SYMMETRIC):
 	} else if (spacetime.spacetimeIs("3", "Minkowski", "Slab", "Flat", "Temporal")) {
 		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
 		if (!(nodes.crd->y(i) < r_max)) return false;
 		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
-		//break; 
-	//case (4 | DE_SITTER | SLAB | FLAT | ASYMMETRIC):
+	} else if (spacetime.spacetimeIs("3", "Minkowski", "Cube", "Flat", "None")) {
+		if (!(nodes.crd->x(i) >= 0.0 && nodes.crd->x(i) <= eta0)) return false;
+		if (!(nodes.crd->y(i) >= 0.0 && nodes.crd->y(i) <= r_max)) return false;
+		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) <= r_max)) return false;
 	} else if (spacetime.spacetimeIs("4", "De_Sitter", "Slab", "Flat", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -3193,8 +2062,6 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//case (4 | DE_SITTER | SLAB | POSITIVE | ASYMMETRIC):
 	} else if (spacetime.spacetimeIs("4", "De_Sitter", "Slab", "Positive", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -3206,8 +2073,6 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//case (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC):
 	} else if (spacetime.spacetimeIs("4", "De_Sitter", "Slab", "Positive", "Temporal")) {
 		if (!(nodes.id.tau[i] > -tau0 && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -3219,8 +2084,6 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//case (4 | DE_SITTER | DIAMOND | FLAT | ASYMMETRIC):
 	} else if (spacetime.spacetimeIs("4", "De_Sitter", "Diamond", "Flat", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -3233,8 +2096,6 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//case (4 | DE_SITTER | DIAMOND | POSITIVE | ASYMMETRIC):
 	} else if (spacetime.spacetimeIs("4", "De_Sitter", "Diamond", "Positive", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -3247,12 +2108,6 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//case (4 | DE_SITTER | DIAMOND | POSITIVE | SYMMETRIC):
-	//	fprintf(stderr, "Not yet implemented on line %d in file %s\n", __LINE__, __FILE__);
-	//	assert (false);
-	//	break;
-	//case (4 | DUST | SLAB | FLAT | ASYMMETRIC):
 	} else if (spacetime.spacetimeIs("4", "Dust", "Slab", "Flat", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -3264,8 +2119,6 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//case (4 | DUST | DIAMOND | FLAT | ASYMMETRIC):
 	} else if (spacetime.spacetimeIs("4", "Dust", "Diamond", "Flat", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -3278,8 +2131,6 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//case (4 | FLRW | SLAB | FLAT | ASYMMETRIC):
 	} else if (spacetime.spacetimeIs("4", "FLRW", "Slab", "Flat", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -3291,8 +2142,6 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//case (4 | FLRW | SLAB | POSITIVE | ASYMMETRIC):
 	} else if (spacetime.spacetimeIs("4", "FLRW", "Slab", "Positive", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -3304,8 +2153,6 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//case (4 | FLRW | DIAMOND | FLAT | ASYMMETRIC):
 	} else if (spacetime.spacetimeIs("4", "FLRW", "Diamond", "Flat", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -3318,58 +2165,12 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
-		//break;
-	//default:
 	} else {
 		fprintf(stderr, "Spacetime parameters not supported!\n");
 		assert (false);
 	}
 
 	return true;
-}
-
-void printCardinalities(const uint64_t * const cardinalities, unsigned int Nc, unsigned int nthreads, unsigned int idx0, unsigned int idx1, unsigned int version)
-{
-	#if DEBUG
-	assert (cardinalities != NULL);
-	assert (Nc > 0);
-	assert (nthreads >= 1);
-	assert (idx0 != idx1);
-	#endif
-
-	if (idx0 > idx1) {
-		idx0 ^= idx1;
-		idx1 ^= idx0;
-		idx0 ^= idx1;
-	}
-
-	std::ofstream os;
-	char filename[80];
-	strcpy(filename, "dat/act/cards_");
-	strcat(filename, std::to_string(idx0).c_str());
-	strcat(filename, std::to_string(idx1).c_str());
-	//strcat(filename, "-v");
-	//strcat(filename, std::to_string(version).c_str());
-	//strcat(filename, ".cset.dbg.dat");
-	strcat(filename, ".cset.act.dat");
-
-	os.open(filename);
-	for (unsigned int i = 0; i < Nc; i++) {
-		int sum = 0;
-		for (unsigned int j = 0; j < nthreads; j++)
-			sum += cardinalities[j*Nc+i];
-		os << sum << std::endl;
-	}
-
-	os.flush();
-	os.close();
-}
-
-void print_pairs(std::vector<unsigned int> vec)
-{
-	for (size_t i = 0; i < vec.size(); i += 2)
-		printf("(%d, %d) ", vec[i], vec[i+1]);
-	printf("\n");
 }
 
 void printDot(Bitvector &adj, const int * const k_out, int N, const char *filename)

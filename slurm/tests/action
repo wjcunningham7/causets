@@ -23,9 +23,9 @@ if [[ "$#" -lt 1 ]] ; then
 fi
 
 stdim=2
-manifold=De_Sitter
-region=Slab
-curvature=Positive
+manifold=Minkowski
+region=Saucer_T
+curvature=Flat
 symmetry=Temporal
 spacetime="--stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry"
 
@@ -40,9 +40,10 @@ nnum=5
 source /home/cunningham.wi/.queues
 jobstart=$NEXT_JOB
 readstart=0
-samples=1
-partition="par-gpu-3"
-mpi=2
+samples=100
+partition="krioukov_gpu"
+#partition=par-gpu-2
+mpi=1
 ncores=$(sinfo -p $partition -o "%c" | awk 'NR==2 {print $1}')
 exclude="compute-0-000"
 
@@ -80,8 +81,7 @@ for i in $(seq ${#vars[@]}) ; do
     readjob=0
   fi
 
-  #$CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags "$spacetime"' --nodes '"$nodes"' --radius '"$radius"' --age '"$age"' --link --gpu --core 1 --verbose -y --print --action smeared' --partition $partition --nsamples $samples --exclude $exclude
-  $CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --nodes $mpi --flags "$spacetime"' --nodes '"$nodes"' --radius '"$radius"' --age '"$age"' --link --gpu --core 1 --verbose -y --action smeared --print --bench' --partition $partition --nsamples $samples --exclude $exclude
+  $CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags "$spacetime"' --nodes '"$nodes"' --radius '"$radius"' --age '"$age"' --link --gpu --core 1 --verbose -y --print --action smeared' --partition $partition --nsamples $samples --exclude $exclude
 done
 
 setnextjob $(($job+1))

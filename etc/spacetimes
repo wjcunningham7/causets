@@ -14,13 +14,13 @@ if [[ "$#" -lt 1 ]] ; then
 fi
 
 version=$1
-outfile=$CAUSET_HOME_DIR/doc/VERSION
+outfile=$CAUSET_HOME_DIR/VERSION_new
 
 stdims=(2 4)
-manifolds=(minkowski desitter dust flrw hyperbolic)
-regions=(slab slab_t1 slab_t2 slab_s1 slab_s2 slab_n1 slab_n2 slab_n3 half_diamond diamond saucer saucer_t triangle_t triangle_s triangle_n)
-curvatures=(flat positive negative)
-symmetries=(symmetric asymmetric)
+manifolds=(Minkowski De_Sitter Anti_de_Sitter Dust FLRW Hyperbolic)
+regions=(Slab Slab_T1 Slab_T2 Slab_S1 Slab_S2 Slab_N1 Slab_N2 Slab_N3 Half_Diamond Diamond Saucer_T Saucer_S Triangle_T Triangle_S Triangle_N)
+curvatures=(Flat Positive Negative)
+symmetries=(None Temporal)
 
 nodes=1
 tcut=0.5

@@ -1,3 +1,9 @@
+###########################
+#(C) Will Cunningham 2017 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
 AC_DEFUN([AX_CHECK_CUDA],
 [
 AC_PROVIDE([AX_CHECK_CUDA])

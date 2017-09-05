@@ -25,14 +25,8 @@ mkdir -p $basedir/dat/cls
 mkdir -p $basedir/dat/dst
 mkdir -p $basedir/dat/dot
 mkdir -p $basedir/dat/edg
-mkdir -p $basedir/dat/emb
-mkdir -p $basedir/dat/emb/fp
-mkdir -p $basedir/dat/emb/fn
 mkdir -p $basedir/dat/hub
 mkdir -p $basedir/dat/idd
-mkdir -p $basedir/dat/idf
 mkdir -p $basedir/dat/odd
-mkdir -p $basedir/dat/odf
 mkdir -p $basedir/dat/pos
 mkdir -p $basedir/dat/ref
-mkdir -p $basedir/dat/vpd

@@ -1,5 +1,11 @@
+###########################
+#(C) Will Cunningham 2017 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
 AC_PREREQ([2.63])
-AC_INIT([CausalSet], [3.0], [w.cunningham@northeastern.edu])
+AC_INIT([CausalSet], [4.0], [w.cunningham@northeastern.edu])
 AM_INIT_AUTOMAKE
 
 if [[ -e /home/$USER/.causet ]] ; then
@@ -7,7 +13,8 @@ if [[ -e /home/$USER/.causet ]] ; then
 fi
 
 if [[[ "$CAUSET_HOME_DIR" == "" ]]] ; then
-  echo "export CAUSET_HOME_DIR=$PWD" >> $HOME/.bashrc
+  echo "export CAUSET_HOME_DIR=$PWD" >> /home/$USER/.bashrc
+  source /home/$USER/.bashrc
 fi
 
 AC_CONFIG_MACRO_DIR([m4])
@@ -41,8 +48,8 @@ AC_CHECK_LIB([gsl], [gsl_blas_dgemm],, AC_MSG_ERROR([Could not find the library 
 AC_CHECK_LIB([stdc++], [main],, AC_MSG_ERROR([Could not find the library "libstdc++"]))
 AC_CHECK_LIB([pthread], [fork],, AC_MSG_ERROR([Could not find the library "pthread"]))
 
-AC_CHECK_FILES([src/autocorr2.cu src/Causet.cu src/CuResources.cu src/Measurements.cu src/NetworkCreator.cu src/Subroutines.cu src/Validate.cu],, AC_MSG_ERROR([Could not find CausalSet source files.]))
-AC_CHECK_FILES([inc/autocorr2.h inc/Causet.h inc/Constants.h inc/Coordinates.h inc/CuResources.h inc/Geodesics.h inc/Measurements.h inc/NetworkCreator.h inc/Operations.h inc/Subroutines.h inc/Validate.h],, AC_MSG_ERROR([Could not find CausalSet header files.]))
+AC_CHECK_FILES([src/Causet.cu src/CuResources.cu src/Measurements.cu src/NetworkCreator.cu src/Subroutines.cu src/Validate.cu],, AC_MSG_ERROR([Could not find CausalSet source files.]))
+AC_CHECK_FILES([inc/Causet.h inc/Constants.h inc/Coordinates.h inc/CuResources.h inc/Geodesics.h inc/Measurements.h inc/NetworkCreator.h inc/Operations.h inc/Spacetime.h inc/Subroutines.h inc/Validate.h],, AC_MSG_ERROR([Could not find CausalSet header files.]))
 
 AC_CHECK_HEADERS([cassert cmath cstring exception fstream getopt.h inttypes.h iomanip iostream limits math.h pthread.h sstream stdarg.h stddef.h stdint.h stdio.h string sys/io.h unordered_set vector],, AC_MSG_ERROR([Could not find C++ header file.]))
 AC_CHECK_HEADERS([boost/functional/hash/hash.hpp boost/random/mersenne_twister.hpp boost/random/normal_distribution.hpp boost/random/poisson_distribution.hpp boost/random/uniform_real.hpp boost/random/variate_generator.hpp boost/unordered_map.hpp],, AC_MSG_ERROR([Could not find Boost header file.]))
@@ -68,15 +75,6 @@ AX_GCC_X86_CPU_SUPPORTS([popcnt],, AC_MSG_ERROR([CPU does not support the popcnt
 AX_GCC_ARCHFLAG([no],, AC_MSG_ERROR([CPU architecture could not be identified.]))
 AC_SUBST([ARCHFLAGS], [$ax_cv_gcc_archflag])
 
-dnl echo "CXXFLAGS:     "$CXXFLAGS
-dnl echo "CUDA_FLAGS:   "$CUDA_FLAGS
-dnl echo "FAST_FLAGS:   "$FASTMATH_FLAGS
-dnl echo "ARCHFLAGS:    "$ARCHFLAGS
-dnl echo "AVXFLAGS:     "$AVXFLAGS
-dnl echo "LDFLAGS:      "$LDFLAGS
-dnl echo "CUDA_LDFLAGS: "$CUDA_LDFLAGS
-dnl echo "FAST_LDFLAGS: "$FASTMATH_LDFLAGS
-
 AX_PROG_MPICXX([$MPI_HOME])
 BINARY_NAME=CausalSet$PLATFORM
 if [[[ "$CUDA_ENABLED" == "yes" ]]] ; then
@@ -94,5 +92,5 @@ AC_SUBST([BIN_STR], [$BIN_STR])
 AC_SUBST([BINARY_NAME], [$BINARY_NAME])
 AM_CONDITIONAL(USE_GPU, [test "x$CUDA_ENABLED" == "xyes"])
 
-AC_CONFIG_FILES([Makefile src/Makefile inc/Makefile printcolor/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile inc/Makefile src/printcolor/Makefile])
 AC_OUTPUT

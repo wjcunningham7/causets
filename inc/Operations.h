@@ -1,22 +1,14 @@
-#ifndef OPERATIONS_H_
-#define OPERATIONS_H_
-
-#include "Causet.h"
-#include "Subroutines.h"
-
 /////////////////////////////
 //(C) Will Cunningham 2014 //
 //         DK Lab          //
 // Northeastern University //
 /////////////////////////////
 
-//Coefficients for tau(u,v) in FLRW diamond
-//This is the inverse series centered about 0
-//These values are the logarithms of the actual coefficients
-//Assumes \tilde\alpha = sqrt(2)
-//static const double tauA[] = { -2.48490665, -9.688312171, -16.38397373, -22.9074773, -29.34585237, -35.73358416, -42.08769934, -48.41786129, -54.73008553, -61.02837227 };
+#ifndef OPERATIONS_H_
+#define OPERATIONS_H_
 
-//Coefficients for the action (add this later)
+#include "Causet.h"
+#include "Subroutines.h"
 
 //======================//
 // Root-Finding Kernels //
@@ -32,61 +24,44 @@ inline double eta_prime_12836_0(const double &x, const double &a)
 	return 6.0 * (1.0 + x * (a + x * (-2.0 + x * (-2.0 * a + x * (5.0 + a * x)))));
 }
 
-inline double tau_12836_0(const double &x, const double &zeta, const double &rval)
-{
-	double _coshx2 = POW2(COSH(x, APPROX ? FAST : STL), EXACT);
-	double _sinz2 = POW2(SIN(zeta, APPROX ? FAST : STL), EXACT);
-
-	return (2.0 + _coshx2) * SINH(x, APPROX ? FAST : STL) * TAN(zeta, APPROX ? FAST : STL) * _sinz2 / (2.0 * _sinz2 + 1) - rval;
-}
-
-inline double tau_prime_12836_0(const double &x, const double &zeta)
-{
-	double _coshx2 = POW2(COSH(x, APPROX ? FAST : STL), EXACT);
-	double _coshx4 = POW2(_coshx2, EXACT);
-	double _sinz2 = POW2(SIN(zeta, APPROX ? FAST : STL), EXACT);
-
-	return 3.0 * _coshx4 * TAN(zeta, APPROX ? FAST : STL) * _sinz2 / (2.0 * _sinz2 + 1);
-}
-
 inline double tau_10884_0(const double &x, const double &tau0, const double &rval)
 {
-	return (SINH(3.0 * x, APPROX ? FAST : STL) - 3.0 * x) / (SINH(3.0 * tau0, APPROX ? FAST : STL) - 3.0 * tau0) - rval;
+	return (sinh(3.0 * x) - 3.0 * x) / (sinh(3.0 * tau0) - 3.0 * tau0) - rval;
 }
 
 inline double tau_prime_10884_0(const double &x, const double &tau0)
 {
-	return 6.0 * POW2(SINH(1.5 * x, APPROX ? FAST : STL), EXACT) / (SINH(3.0 * tau0, APPROX ? FAST : STL) - 3.0 * tau0);
+	return 6.0 * POW2(sinh(1.5 * x)) / (sinh(3.0 * tau0) - 3.0 * tau0);
 }
 
 inline double hyperzenith(const double &x, const double &rval)
 {
-	return (2.0 * x - SIN(2.0 * x, APPROX ? FAST : STL)) / TWO_PI - rval;
+	return (2.0 * x - sin(2.0 * x)) / TWO_PI - rval;
 }
 
 inline double hyperzenith_prime(const double &x)
 {
-	return POW2(SIN(x, APPROX ? FAST : STL), EXACT) / HALF_PI;
+	return POW2(sin(x)) / HALF_PI;
 }
 
 inline double u_13348_0(const double &x, const double &rmu)
 {
-	return (LOG(0.5 * (1.0 / COS(sqrt(2.0) * x, APPROX ? FAST : STL) + 1.0), STL) - 1.0 / POW2(COS(x / sqrt(2.0), APPROX ? FAST : STL), EXACT) + 1.0) - rmu;
+	return (log(0.5 * (1.0 / cos(sqrt(2.0) * x) + 1.0)) - 1.0 / POW2(cos(x / sqrt(2.0))) + 1.0) - rmu;
 }
 
 inline double u_prime_13348_0(const double &x)
 {
-	return sqrt(2.0) * POW3(TAN(x / sqrt(2.0), APPROX ? FAST : STL), EXACT) / COS(sqrt(2.0) * x, APPROX ? FAST : STL);
+	return sqrt(2.0) * POW3(tan(x / sqrt(2.0))) / cos(sqrt(2.0) * x);
 }
 
 inline double v_13348_0(const double &x, const double &u, const double &rval)
 {
-	return (0.25 * COS(sqrt(2.0) * u, APPROX ? FAST : STL) / SIN(u / sqrt(2.0), APPROX ? FAST : STL)) * (4.0 * (1.0 + 3.0 * COS(sqrt(2.0) * u, APPROX ? FAST : STL) + COS(2.0 * sqrt(2.0) * u, APPROX ? FAST : STL)) / SIN(u / sqrt(2.0), APPROX ? FAST : STL) + (SIN((2.0 * u - 3.0 * x) / sqrt(2.0), APPROX ? FAST : STL) + 3.0 * SIN(x / sqrt(2.0), APPROX ? FAST : STL) + 3.0 * SIN((x - 2.0 * u) / sqrt(2.0), APPROX ? FAST : STL) - SIN(3.0 * (2.0 * u + x) / sqrt(2.0), APPROX ? FAST : STL) - 3.0 * SIN((4.0 * u + x) / sqrt(2.0), APPROX ? FAST : STL) + SIN((2.0 * u + 3.0 * x) / sqrt(2.0), APPROX ? FAST : STL)) / (POW2(TAN(u / sqrt(2.0), APPROX ? FAST : STL), EXACT) * POW3(COS((u + x) / sqrt(2.0), APPROX ? FAST : STL), EXACT))) - rval;
+	return (0.25 * cos(sqrt(2.0) * u) / sin(u / sqrt(2.0))) * (4.0 * (1.0 + 3.0 * cos(sqrt(2.0) * u) + cos(2.0 * sqrt(2.0) * u)) / sin(u / sqrt(2.0)) + (sin((2.0 * u - 3.0 * x) / sqrt(2.0)) + 3.0 * sin(x / sqrt(2.0)) + 3.0 * sin((x - 2.0 * u) / sqrt(2.0)) - sin(3.0 * (2.0 * u + x) / sqrt(2.0)) - 3.0 * sin((4.0 * u + x) / sqrt(2.0)) + sin((2.0 * u + 3.0 * x) / sqrt(2.0))) / (POW2(tan(u / sqrt(2.0))) * POW3(cos((u + x) / sqrt(2.0))))) - rval;
 }
 
 inline double v_prime_13348_0(const double &x, const double &u)
 {
-	return (-3.0 / (4.0 * sqrt(2.0))) * COS(sqrt(2.0) * u, APPROX ? FAST : STL) * (-2.0 * COS(u / sqrt(2.0), APPROX ? FAST : STL) + COS((u - 2.0 * x) / sqrt(2.0), APPROX ? FAST : STL) + COS((3.0 * u - 2.0 * x) / sqrt(2.0), APPROX ? FAST : STL)) / (POW2(TAN(u / sqrt(2.0), APPROX ? FAST : STL), EXACT) * SIN(u / sqrt(2.0), APPROX ? FAST : STL) * POW2(POW2(COS((u + x) / sqrt(2.0), APPROX ? FAST : STL), EXACT), EXACT));
+	return (-3.0 / (4.0 * sqrt(2.0))) * cos(sqrt(2.0) * u) * (-2.0 * cos(u / sqrt(2.0)) + cos((u - 2.0 * x) / sqrt(2.0)) + cos((3.0 * u - 2.0 * x) / sqrt(2.0))) / (POW2(tan(u / sqrt(2.0))) * sin(u / sqrt(2.0)) * POW2(POW2(cos((u + x) / sqrt(2.0)))));
 }
 
 inline double v_11332_0(const double &x, const double &u, const double &rval)
@@ -129,19 +104,10 @@ inline double volume_77834_1(double x)
 	#endif
 
 	double t1 = 4.0 * x;
-	double t2 = x * sqrt(1.0 + 4.0 * POW2(x, EXACT) / 3.0);
+	double t2 = x * sqrt(1.0 + 4.0 * POW2(x) / 3.0);
 	double t3 = 0.5 * sqrt(3.0) * asinh(2.0 * x / sqrt(3.0));
 
 	return t1 - t2 - t3;
-}
-
-inline double x_77834_1(const double x, const double rhs)
-{
-	#if DEBUG
-	assert (fabs(x) <= 1.5);
-	#endif
-
-	return volume_77834_1(x) - rhs;
 }
 
 //This function gives the integral of the volume from -r_max to -r_max
@@ -168,20 +134,6 @@ inline double solve_eta_12836_0(const double &x, const double * const p1, const 
 	#endif
 
 	return -1.0 * eta_12836_0(x, p1[0]) / eta_prime_12836_0(x, p1[0]);
-}
-
-//Returns tau Residual
-//Used in 3+1 K = 1 Asymmetric de Sitter Slab
-//Was implemented before solve_eta_12836_0, but no longer used
-inline double solve_tau_12836_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
-{
-	#if DEBUG
-	assert (p1 != NULL);
-	assert (p1[0] > 0.0 && p1[0] < HALF_PI);	//zeta
-	assert (p1[1] > 0.0 && p1[1] < 1.0);		//rval
-	#endif
-
-	return -1.0 * tau_12836_0(x, p1[0], p1[1]) / tau_prime_12836_0(x, p1[0]);
 }
 
 //Returns tau Residual
@@ -298,17 +250,6 @@ inline double solve_v_11332_0_bisec(const double &x, const double * const p1, co
 	return v_11332_0(x, p1[0], p1[1]);
 }
 
-//Returns x Residual in Bisection Algorithm
-//Used in 1+1 Minkowski Saucer (Symmetric)
-inline double solve_x_77834_1_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
-{
-	#if DEBUG
-	assert (p1 != NULL);
-	#endif
-
-	return x_77834_1(x, p1[0]);
-}
-
 //=========================//
 // Spatial Length Formulae //
 //=========================//
@@ -316,43 +257,43 @@ inline double solve_x_77834_1_bisec(const double &x, const double * const p1, co
 //X1 Coordinate of de Sitter 3-Metric
 inline float X1_SPH(const float &theta1)
 {
-	return static_cast<float>(COS(theta1, APPROX ? FAST : STL));
+	return cosf(theta1);
 }
 
 //X2 Coordinate of Spherical 3-Metric
 inline float X2_SPH(const float &theta1, const float &theta2)
 {
-	return static_cast<float>(SIN(theta1, APPROX ? FAST : STL) * COS(theta2, APPROX ? FAST : STL));
+	return sinf(theta1) * cosf(theta2);
 }
 
 //X3 Coordinate of Spherical 3-Metric
 inline float X3_SPH(const float &theta1, const float &theta2, const float &theta3)
 {
-	return static_cast<float>(SIN(theta1, APPROX ? FAST : STL) * SIN(theta2, APPROX ? FAST : STL) * COS(theta3, APPROX ? FAST : STL));
+	return sinf(theta1) * sinf(theta2) * cosf(theta3);
 }
 
 //X4 Coordinate of Spherical 3-Metric
 inline float X4_SPH(const float &theta1, const float &theta2, const float &theta3)
 {
-	return static_cast<float>(SIN(theta1, APPROX ? FAST : STL) * SIN(theta2, APPROX ? FAST : STL) * SIN(theta3, APPROX ? FAST : STL));
+	return sinf(theta1) * sinf(theta2) * sinf(theta3);
 }
 
 //X Coordinate from Flat 3-Metric
 inline float X_FLAT(const float &theta1, const float &theta2, const float &theta3)
 {
-	return static_cast<float>(theta1 * SIN(theta2, APPROX ? FAST : STL) * COS(theta3, APPROX ? FAST : STL));
+	return theta1 * sinf(theta2) * cosf(theta3);
 }
 
 //Y Coordinate from Flat 3-Metric
 inline float Y_FLAT(const float &theta1, const float &theta2, const float &theta3)
 {
-	return static_cast<float>(theta1 * SIN(theta2, APPROX ? FAST : STL) * SIN(theta3, APPROX ? FAST : STL));
+	return theta1 * sinf(theta2) * sinf(theta3);
 }
 
 //Z Coordinate from Flat 3-Metric
 inline float Z_FLAT(const float &theta1, const float &theta2)
 {
-	return static_cast<float>(theta1 * COS(theta2, APPROX ? FAST : STL));
+	return theta1 * cosf(theta2);
 }
 
 //Spherical Inner Product
@@ -391,7 +332,7 @@ inline float flatProduct_v1(const float4 &sc0, const float4 &sc1)
 //Factored form, fewer FLOPS than v1
 inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 {
-	return POW2(sc0.x, EXACT) + POW2(sc1.x, EXACT) -
+	return POW2(sc0.x) + POW2(sc1.x) -
 	       2.0f * sc0.x * sc1.x * (cosf(sc0.y) * cosf(sc1.y) +
 	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z));
 }
@@ -404,7 +345,7 @@ inline float flatProduct_v2(const float3 &sc0, const float3 &sc1)
 //Embedded form
 inline float flatEmbProduct(const float5 &sc0, const float5 &sc1)
 {
-	return POW2(sc0.x - sc1.x, EXACT) + POW2(sc0.y - sc1.y, EXACT) + POW2(sc0.z - sc1.z, EXACT);
+	return POW2(sc0.x - sc1.x) + POW2(sc0.y - sc1.y) + POW2(sc0.z - sc1.z);
 }
 
 //==========================//
@@ -413,27 +354,17 @@ inline float flatEmbProduct(const float5 &sc0, const float5 &sc1)
 
 //Assumes coordinates have been temporally ordered
 //Used for relations in Lorentzian spaces
-inline bool nodesAreRelated(Coordinates *c, const Spacetime &spacetime, const int N_tar, const double a, const double zeta, const double zeta1, const double r_max, const double alpha, int past_idx, int future_idx, double *omega12)
+inline bool nodesAreRelated(Coordinates *c, const Spacetime spacetime, const int N_tar, const double a, const double zeta, const double zeta1, const double r_max, const double alpha, int past_idx, int future_idx, double *omega12)
 {
 	#if DEBUG
-	/*assert (!c->isNull());
-	assert (get_stdim(spacetime) == 2 || get_stdim(spacetime) == 3 || get_stdim(spacetime) == 4);
-	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW));
+	assert (!c->isNull());
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
+	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"));
 
-	if (get_stdim(spacetime) == 2) {
-		#if EMBED_NODES
-		assert (c->getDim() == 3);
-		assert (c->z() != NULL);
-		#else
+	if (spacetime.stdimIs("2"))
 		assert (c->getDim() == 2);
-		#endif
-	} else if (get_stdim(spacetime) == 4) {
-		#if EMBED_NODES
-		assert (c->getDim() == 5);
-		assert (c->v() != NULL);
-		#else
+	else if (spacetime.stdimIs("4")) {
 		assert (c->getDim() == 4);
-		#endif
 		assert (c->w() != NULL);
 		assert (c->z() != NULL);
 	}
@@ -443,25 +374,25 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime &spacetime, const in
 
 	assert (N_tar > 0);
 	assert (a > 0.0);
-	if (get_manifold(spacetime) & DE_SITTER) {
-		if (get_curvature(spacetime) & POSITIVE) {
+	if (spacetime.manifoldIs("De_Sitter")) {
+		if (spacetime.curvatureIs("Positive")) {
 			assert (zeta > 0.0);
 			assert (zeta < HALF_PI);
-		} else if (get_curvature(spacetime) & FLAT) {
+		} else if (spacetime.curvatureIs("Flat")) {
 			assert (zeta > HALF_PI);
 			assert (zeta1 > HALF_PI);
 			assert (zeta > zeta1);
 		}
-	} else if (get_manifold(spacetime) & (DUST | FLRW)) {
+	} else if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 		assert (zeta < HALF_PI);
 		assert (alpha > 0.0);
 	}
-	if (get_curvature(spacetime) & FLAT)
+	if (spacetime.curvatureIs("Flat"))
 		assert (r_max > 0.0);
 		
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
-	assert (past_idx != future_idx);*/
+	assert (past_idx != future_idx);
 	#endif
 
 	float dt = 0.0f, dx = 0.0f;
@@ -474,10 +405,8 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime &spacetime, const in
 	}
 
 	//Temporal Interval
-	//if (get_stdim(spacetime) == 2 || get_stdim(spacetime) == 3)
 	if (spacetime.stdimIs("2") || spacetime.stdimIs("3"))
 		dt = fabs(c->x(future_idx) - c->x(past_idx));
-	//else if (get_stdim(spacetime) == 4)
 	else if (spacetime.stdimIs("4"))
 		#if EMBED_NODES
 		dt = fabs(c->v(future_idx) - c->v(past_idx));
@@ -487,11 +416,9 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime &spacetime, const in
 
 	#if DEBUG
 	assert (dt >= 0.0f);
-	//if ((get_curvature(spacetime) & FLAT) && (get_manifold(spacetime) & DE_SITTER))
 	if (spacetime.curvatureIs("Flat") && spacetime.manifoldIs("De_Sitter"))
 		assert (dt <= zeta - zeta1);
 	else {
-		//if (get_symmetry(spacetime) & SYMMETRIC)
 		if (spacetime.symmetryIs("Temporal"))
 			assert (dt <= 2.0f * static_cast<float>(HALF_PI - zeta));
 		else
@@ -500,59 +427,44 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime &spacetime, const in
 	#endif
 
 	//Spatial Interval
-	//if (get_stdim(spacetime) == 2) {
 	if (spacetime.stdimIs("2")) {
-		//if (get_curvature(spacetime) & (POSITIVE | NEGATIVE)) {
 		if (spacetime.curvatureIs("Positive") || spacetime.curvatureIs("Negative")) {
 			#if EMBED_NODES
 			float phi1 = atan2(c->z(future_idx), c->y(future_idx));
 			float phi2 = atan2(c->z(past_idx), c->y(past_idx));
 			dx = M_PI - fabs(M_PI - fabs(phi2 - phi1));
 			#else
-			dx = static_cast<float>(M_PI - ABS(M_PI - ABS(static_cast<double>(c->y(future_idx) - c->y(past_idx)), STL), STL));
+			dx = M_PI - fabs(M_PI - fabs(c->y(future_idx) - c->y(past_idx)));
 			#endif
-		//} else if (get_curvature(spacetime) & FLAT)
 		} else
 			dx = fabs(c->y(future_idx) - c->y(past_idx));
-	//} else if (get_stdim(spacetime) == 3) {
 	} else if (spacetime.stdimIs("3"))
 		dx = sqrtf(flatProduct_v2(c->getFloat3(past_idx), c->getFloat3(future_idx)));
-	//} else if (get_stdim(spacetime) == 4) {
 	else if (spacetime.stdimIs("4")) {
-		//if (get_curvature(spacetime) & POSITIVE) {
 		if (spacetime.curvatureIs("Positive")) {
 			//Spherical Law of Cosines
 			#if EMBED_NODES
 			dx = acosf(sphEmbProduct(c->getFloat5(past_idx), c->getFloat5(future_idx)));
 			#else
 			#if DIST_V2
-			dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			dx = acosf(sphProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx)));
 			#else
-			dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
+			dx = acosf(sphProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx)));
 			#endif
 			#endif
-		//} else if (get_curvature(spacetime) & FLAT) {
 		} else if (spacetime.curvatureIs("Flat")) {
 			//Euclidean Law of Cosines
 			#if EMBED_NODES
 			dx = sqrtf(flatEmbProduct(c->getFloat5(past_idx), c->getFloat5(future_idx)));
 			#else
 			#if DIST_V2
-			dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? BITWISE : STL));
+			dx = sqrtf(flatProduct_v2(c->getFloat4(past_idx), c->getFloat4(future_idx)));
 			#else
-			dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx))), APPROX ? BITWISE : STL));
+			dx = sqrtf(flatProduct_v1(c->getFloat4(past_idx), c->getFloat4(future_idx)));
 			#endif
 			#endif
 		}
 	}
-
-	//These don't hold true for regions such as slab_t1
-	/*#if DEBUG
-	if (get_curvature(spacetime) & POSITIVE)
-		assert (dx >= 0.0f && dx <= static_cast<float>(M_PI));
-	else if (get_curvature(spacetime) & FLAT)
-		assert (dx >= 0.0f && dx <= 2.0f * static_cast<float>(r_max));
-	#endif*/
 
 	if (omega12 != NULL)
 		*omega12 = dx;
@@ -568,10 +480,10 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime &spacetime, const in
 inline bool nodesAreRelatedHyperbolic(const Node &nodes, const Spacetime &spacetime, const int N_tar, const double zeta, const double r_max, const bool link_epso, int past_idx, int future_idx, double *product)
 {
 	#if DEBUG
-	/*assert (!nodes.crd->isNull());
-	assert (get_stdim(spacetime) == 2);
-	assert (get_manifold(spacetime) & HYPERBOLIC);
-	assert (get_curvature(spacetime) & POSITIVE);
+	assert (!nodes.crd->isNull());
+	assert (spacetime.stdimIs("2"));
+	assert (spacetime.manifoldIs("Hyperbolic"));
+	assert (spacetime.curvatureIs("Positive"));
 
 	assert (nodes.crd->getDim() == 2);
 	assert (nodes.crd->x() != NULL);
@@ -583,7 +495,7 @@ inline bool nodesAreRelatedHyperbolic(const Node &nodes, const Spacetime &spacet
 	assert (r_max > 0.0);
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
-	assert (past_idx != future_idx);*/
+	assert (past_idx != future_idx);
 	#endif
 
 	float inner_product = 0.0f, max_r = 0.0f;
@@ -607,7 +519,6 @@ inline bool nodesAreRelatedHyperbolic(const Node &nodes, const Spacetime &spacet
 		double R_j = nodes.id.tau[past_idx] + 2.0 * log(m * M_PI / nodes.id.tau[past_idx]);
 		max_r = std::max(R_i, R_j);
 	} else
-		//max_r = nodes.id.tau[future_idx];
 		max_r = r_max;
 
 	if (acosh(inner_product) < max_r)
@@ -619,10 +530,10 @@ inline bool nodesAreRelatedHyperbolic(const Node &nodes, const Spacetime &spacet
 inline void deSitterInnerProduct(const Node &nodes, const Spacetime &spacetime, const int N_tar, int past_idx, int future_idx, double *product)
 {
 	#if DEBUG
-	/*assert (!nodes.crd->isNull());
-	assert (get_stdim(spacetime) == 2);
-	assert (get_manifold(spacetime) & DE_SITTER);
-	assert (get_curvature(spacetime) & POSITIVE);
+	assert (!nodes.crd->isNull());
+	assert (spacetime.stdimIs("2"));
+	assert (spacetime.manifoldIs("De_Sitter"));
+	assert (spacetime.curvatureIs("Positive"));
 
 	assert (nodes.crd->getDim() == 2);
 	assert (nodes.crd->x() != NULL);
@@ -633,7 +544,7 @@ inline void deSitterInnerProduct(const Node &nodes, const Spacetime &spacetime, 
 	assert (N_tar > 0);
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
-	assert (past_idx != future_idx);*/
+	assert (past_idx != future_idx);
 	#endif
 
 	*product = sinh(nodes.id.tau[past_idx]) * sinh(nodes.id.tau[future_idx]) - cosh(nodes.id.tau[past_idx]) * cosh(nodes.id.tau[future_idx]) * cos(nodes.crd->y(past_idx) - nodes.crd->y(future_idx));
@@ -666,7 +577,7 @@ inline double etaToTauSph(const double eta)
 	assert (fabs(eta) < HALF_PI);
 	#endif
 
-	return SGN(eta, DEF) * ACOSH(1.0 / COS(eta, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	return SGN(eta) * acosh(1.0 / cos(eta));
 }
 
 //Conformal to Rescaled Time (de Sitter flat foliation)
@@ -676,13 +587,13 @@ inline double etaToTauFlat(const double eta)
 	assert (eta < 0.0);
 	#endif
 
-	return -LOG(-eta, APPROX ? FAST : STL);
+	return -log(-eta);
 }
 
 //Rescaled to Conformal Time (de Sitter spherical foliation)
 inline double tauToEtaSph(const double tau)
 {
-	return SGN(tau, DEF) * ACOS(1.0 / COSH(tau, APPROX ? FAST : STL), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION);
+	return SGN(tau) * acos(1.0 / cosh(tau));
 }
 
 //Rescaled to Conformal Time (de Sitter flat foliation)
@@ -718,7 +629,7 @@ inline double etaToTauDust(const double eta, const double a, const double alpha)
 	assert (alpha > 0.0);
 	#endif
 
-	return POW3(eta * alpha / a, EXACT) / 12.0;
+	return POW3(eta * alpha / a) / 12.0;
 }
 
 //Rescaled to Conformal Time (Dust)
@@ -730,7 +641,7 @@ inline double tauToEtaDust(const double tau, const double a, const double alpha)
 	assert (alpha > 0.0);
 	#endif
 
-	return POW(12.0 * tau, 1.0 / 3.0, STL) * a / alpha;
+	return pow(12.0 * tau, 1.0 / 3.0) * a / alpha;
 }
 
 //------------------//
@@ -744,7 +655,7 @@ inline double tauToEtaFLRW(double tau, void *params)
 	assert (tau > 0.0);
 	#endif
 
-	return POW(SINH(1.5 * tau, APPROX ? FAST : STL), (-2.0 / 3.0), APPROX ? FAST : STL);
+	return pow(sinh(1.5 * tau), (-2.0 / 3.0));
 }
 
 //'Exact' Solution (Hypergeometric Series)
@@ -764,20 +675,19 @@ inline double tauToEtaFLRWExact(const double &tau, const double a, const double 
 	int nterms = -1;
 
 	//Determine which transformation of 2F1 is used
-	double z = 1.0 / POW2(COSH(1.5 * tau, APPROX ? FAST : STL), EXACT);
+	double z = 1.0 / POW2(cosh(1.5 * tau));
 	double w;
 	if (z >= 0.0 && z <= 0.5) {
 		w = z;
 		_2F1(1.0 / 3.0, 5.0 / 6.0, 4.0 / 3.0, w, &f, &err, &nterms, false);
-		eta = SQRT(3.0 * POW3(M_PI, EXACT), STL) / (GAMMA(5.0 / 6.0, STL) * GAMMA(-4.0 / 3.0, STL)) - POW(w, 1.0 / 3.0, STL) * f;
+		eta = sqrt(3.0 * POW3(M_PI)) / (GAMMA(5.0 / 6.0) * GAMMA(-4.0 / 3.0)) - pow(w, 1.0 / 3.0) * f;
 	} else if (z > 0.5 && z <= 1.0) {
 		w = 1 - z;
 		_2F1(0.5, 1.0, 7.0 / 6.0, w, &f, &err, &nterms, false);
-		eta = 2.0 * POW(z * SQRT(w, STL), 1.0 / 3.0, STL) * f;
+		eta = 2.0 * pow(z * sqrt(w), 1.0 / 3.0) * f;
 	} else
 		//This should never be reached
 		return NAN;
-	//printf("tau: %.16e\teta: %.16e\n", tau, eta);
 
 	eta *= a / alpha;
 
@@ -798,9 +708,9 @@ inline double etaToTauFLRW(const double &eta, const double &a, const double &alp
 	assert (alpha > 0.0);
 	#endif
 
-	double g = 9.0 * GAMMA(2.0 / 3.0, STL) * alpha * eta / a;
-	g -= 4.0 * SQRT(3.0, APPROX ? BITWISE : STL) * POW(M_PI, 1.5, STL) / GAMMA(5.0 / 6.0, STL);
-	g /= 3.0 * GAMMA(-1.0 / 3.0, STL);
+	double g = 9.0 * GAMMA(2.0 / 3.0) * alpha * eta / a;
+	g -= 4.0 * sqrt(3.0) * pow(M_PI, 1.5) / GAMMA(5.0 / 6.0);
+	g /= 3.0 * GAMMA(-1.0 / 3.0);
 
 	#if DEBUG
 	assert (g > 0.0);
@@ -808,49 +718,6 @@ inline double etaToTauFLRW(const double &eta, const double &a, const double &alp
 
 	return g;
 }
-
-//Gives tau(u,v) for diamond
-//Assumes \tilde{\alpha} = sqrt(2)
-/*inline double uvToTauFLRW(const double u, const double v)
-{
-	double loguv = LOG(u + v, STL);
-	double logtau = tauA[0] + 3.0 * loguv;
-
-	double t = 0.0;
-	for (int i = 1; i < 10; i++)
-		t += exp(tauA[i] - tauA[0] + 6.0 * i * loguv);
-	logtau += log1p(t);
-
-	return exp(logtau);
-}*/
-
-//-----------------------//
-// Boost Transformations //
-//-----------------------//
-
-//NOTE: These are only valid in Minkowski manifold!
-
-//Performs a boost about the origin (0,0)
-//Returns the boosted coordinate where u' = v'
-//Assumes both u and v are positive
-/*inline double boost_origin(const double &u, const double &v)
-{
-	#if DEBUG
-	assert (u >= 0.0);
-	assert (v >= 0.0);
-	#endif
-
-	return sqrt(u * v);
-}*/
-
-//Perform a boost about 'origin' on a point (u,v)
-//It is assumed 'origin' is at (origin, origin) in the (u,v) coordinate system
-//This is called 'xi' in the notes
-//Returns the boosted coordinate where u' = v'
-/*inline double boost_from(const double &u, const double &v, const double &origin)
-{
-	return origin - sqrt(u * v - origin * (u + v - origin));
-}*/
 
 //=====================================//
 // Integration Supplementary Functions //
@@ -864,17 +731,17 @@ inline double isf_01(double &r)
 	double f;
 	int nterms = 10;
 
-	if (ABS(r - 1.0, STL) < 0.05)
+	if (fabs(r - 1.0) < 0.05)
 		nterms = 20;
 
 	if (r < 1.0) {
-		double z = -1.0 * POW3(r, EXACT);
+		double z = -1.0 * POW3(r);
 		_2F1(1.0 / 6.0, 0.5, 7.0 / 6.0, z, &f, &err, &nterms, false);
-		zeta = 2.0 * SQRT(r, STL) * f;
+		zeta = 2.0 * sqrt(r) * f;
 	} else {
-		double z = -1.0 / POW3(r, EXACT);
+		double z = -1.0 / POW3(r);
 		_2F1(1.0 / 3.0, 0.5, 4.0 / 3.0, z, &f, &err, &nterms, false);
-		zeta = SQRT(4.0 / M_PI, STL) * GAMMA(7.0 / 6.0, STL) * GAMMA(1.0 / 3.0, STL) - f / r;
+		zeta = sqrt(4.0 / M_PI) * GAMMA(7.0 / 6.0) * GAMMA(1.0 / 3.0) - f / r;
 	}
 
 	return zeta;
@@ -920,7 +787,7 @@ inline double isf_02(double *table, double size, double eta, double a, double al
 	assert (tau > 0.0);
 	#endif
 		
-	return POW(SINH(1.5 * tau, APPROX ? FAST : STL), 2.0 / 3.0, APPROX ? FAST : STL);
+	return pow(sinh(1.5 * tau), 2.0 / 3.0);
 }
 
 //=================//
@@ -943,9 +810,9 @@ inline double eta_77834_1(double x, double eta0)
 	#endif
 
 	#if SPECIAL_SAUCER
-	return 2.0 - sqrt(4.0 * POW2(x, EXACT) / 3.0 + 1.0);
+	return 2.0 - sqrt(4.0 * POW2(x) / 3.0 + 1.0);
 	#else
-	return 1.0 - sqrt(POW2(x, EXACT) + POW2(1.0 - eta0, EXACT));
+	return 1.0 - sqrt(POW2(x) + POW2(1.0 - eta0));
 	#endif
 }
 
@@ -996,10 +863,10 @@ inline double volume_11396_0_lower(double tau, void *params)
 	assert (tau > 0.0 && tau < ((double*)params)[2]);
 	#endif
 
-	double t = SINH(1.5 * tau, APPROX ? FAST : STL);
+	double t = sinh(1.5 * tau);
 	double eta = tauToEtaFLRWExact(tau, 1.0, 1.0);
 
-	return POW2(t, EXACT) * POW3(eta, EXACT);
+	return POW2(t) * POW3(eta);
 }
 
 //This kernel is used in numerical integration
@@ -1015,37 +882,10 @@ inline double volume_11396_0_upper(double tau, void *params)
 	assert (tau > ((double*)params)[2] && tau < ((double*)params)[0]);
 	#endif
 
-	double t = SINH(1.5 * tau, APPROX ? FAST : STL);
+	double t = sinh(1.5 * tau);
 	double eta = tauToEtaFLRWExact(tau, 1.0, 1.0);
 
-	return POW2(t, EXACT) * POW3(((double*)params)[1] - eta, EXACT);
-}
-
-//----------------------------------//
-// Volume of 3+1 de Sitter Interval //
-//----------------------------------//
-
-//We have implicitly assumed a de Sitter radius of 1
-inline double volume_9000114_3(float4 n0, float4 n1)
-{
-	double inner_product = -tan(n0.w) * tan(n1.w) + sec(n0.w) * sec(n1.w) * sphProduct_v2(n0, n1);
-	if (inner_product <= 1.0)
-		//printf("vector product: %.16e\n", inner_product);
-		return 0.0;
-	inner_product = asec(inner_product);
-	/*double tau0 = etaToTauSph(n0.w);
-	double tau1 = etaToTauSph(n1.w);
-	double inner_product = acosh(-sinh(tau0) * sinh(tau1) + cosh(tau0) * cosh(tau1) * sphProduct_v2(n0, n1));*/
-	assert (inner_product == inner_product);
-	//inner_product = tauToEtaSph(inner_product);
-	double x0 = std::min(n0.w, n1.w);
-	double x1 = x0 + inner_product;
-
-	double T0 = POW2(sec((x0 + x1) * 0.5));
-	double T1 = log(cos(x0) * cos(x1) * T0);
-	double T2 = (cos(x0 - x1) - 1) * T0;
-
-	return TWO_PI * (T2 - 2 * T1) / 3.0;
+	return POW2(t) * POW3(((double*)params)[1] - eta);
 }
 
 //=========================//
@@ -1075,68 +915,8 @@ inline double averageDegree_10788_0(int dim, double x[], double *params)
 	//Identify x[1] with eta'' coordinate
 	
 	double t = POW2(POW2(x[0] * x[1]));
-	return ABS(POW3(x[0] - x[1]), STL) / t;
+	return fabs(POW3(x[0] - x[1])) / t;
 }
-
-//-----------------------------------------------------------//
-// Average Degree in Closed (K = 1) Symmetric de Sitter Slab //
-//-----------------------------------------------------------//
-
-//For use with GNU Scientific Library
-//This gives T2/2 - only part of the expression - see notes
-inline double averageDegree_21028_0(double eta, void *params)
-{
-	#if DEBUG
-	assert (cos(eta) >= 0.0);
-	#endif
-
-	double t = 1.0 / cos(eta);
-	return eta * eta * t * t * t * t;
-}
-
-//-----------------------------------------------------//
-// Rescaled Average Degree in Closed de Sitter Diamond //
-//-----------------------------------------------------//
-
-//This kernel is used in numerical integration
-//This result should be divided by log((1+sec(sqrt(2)xi))/2) - sec(xi/sqrt(2))^2 + 1
-/*inline double averageDegree_13348_0(int dim, double x[], double *params)
-{
-	#if DEBUG
-	assert (params != NULL);
-	assert (dim > 0);
-	assert (x[0] > 0.0);
-	assert (x[1] > 0.0);
-	assert (params[0] > 0.0);
-	assert (x[0] < params[0]);
-	assert (x[1] < params[0]);
-	#endif
-
-	double u = x[0];
-	double v = x[1];
-	double xi = params[0];
-	double psi_p = boost_origin(u, v);
-	double psi_f = boost_from(u, v, xi);
-
-	double s4uv = 1.0 / POW2(POW2(cos((u + v) / sqrt(2.0)), EXACT), EXACT);
-	double s2uv = POW2(sin((u - v) / sqrt(2.0)), EXACT);
-
-	double cxp = cos((xi + psi_f) / sqrt(2.0));
-	double c2xp = POW2(cxp, EXACT);
-	double cp = cos(sqrt(2.0) * psi_f);
-	double c2pf = POW2(cp, EXACT);
-	double cx = cos(sqrt(2.0) * xi);
-	double cx3p = cos((xi - 3.0 * psi_f) / sqrt(2.0));
-	double c2pp = POW2(cos(psi_p / sqrt(2.0)), EXACT);
-
-	double t1 = log(c2xp / (cx * cp));
-	double t2 = log(0.5 * (1.0 / cos(sqrt(2.0) * psi_p) + 1.0));
-	double t3 = c2pf / c2xp;
-	double t4 = cx3p / cxp;
-	double t5 = 1.0 / c2pp;
-
-	return s4uv * s2uv * (t1 + t2 - t3 + t4 - t5 + 1.0);
-}*/
 
 //---------------------------------------//
 // Rescaled Average Degree in Dusty Slab //
@@ -1156,9 +936,9 @@ inline double averageDegree_10820_0(int dim, double x[], double *params)
 	//Identify x[1] with the tau'' coordinate
 	
 	double h1 = x[0] * x[1];
-	double h2 = ABS(POW(x[0], 1.0 / 3.0, STL) - POW(x[1], 1.0 / 3.0, STL), STL);
+	double h2 = fabs(pow(x[0], 1.0 / 3.0) - pow(x[1], 1.0 / 3.0));
 
-	return POW2(h1, EXACT) * POW3(h2, EXACT);
+	return POW2(h1) * POW3(h2);
 }
 
 //--------------------------------------------------//
@@ -1182,10 +962,10 @@ inline double averageDegree_10884_0(int dim, double x[], double *params)
 	double h1 = tauToEtaFLRWExact(x[0], 1.0, 1.0);
 	double h2 = tauToEtaFLRWExact(x[1], 1.0, 1.0);
 
-	double s1 = POW2(SINH(1.5 * x[0], APPROX ? FAST : STL), EXACT);
-	double s2 = POW2(SINH(1.5 * x[1], APPROX ? FAST : STL), EXACT);
+	double s1 = POW2(sinh(1.5 * x[0]));
+	double s2 = POW2(sinh(1.5 * x[1]));
 
-	return s1 * s2 * ABS(POW3(h2 - h1, EXACT), STL);
+	return s1 * s2 * fabs(POW3(h2 - h1));
 }
 
 //----------------------------------------------//
@@ -1209,8 +989,8 @@ inline double averageDegree_12932_0(int dim, double x[], double *params)
 
 	double z;
 
-	z = POW3(ABS(isf_01(x[0]) - isf_01(x[1]), STL), EXACT) * POW2(x[0], EXACT) * POW3(x[1], EXACT) * SQRT(x[1], STL);
-	z /= (SQRT(1.0 + 1.0 / POW3(x[0], EXACT), STL) * SQRT(1.0 + POW3(x[1], EXACT), STL));
+	z = POW3(fabs(isf_01(x[0]) - isf_01(x[1]))) * POW2(x[0]) * POW3(x[1]) * sqrt(x[1]);
+	z /= (sqrt(1.0 + 1.0 / POW3(x[0])) * sqrt(1.0 + POW3(x[1])));
 
 	#if DEBUG
 	assert (z > 0.0);
@@ -1244,9 +1024,9 @@ inline double averageDegree_12932_0_a(int dim, double x[], double *params)
 
 	double z;
 
-	z = POW3(ABS(x[0] - x[1], STL), EXACT);
-	z *= POW2(POW2(isf_02(&params[3], params[2], x[0], params[0], params[1]), EXACT), EXACT);
-	z *= POW2(POW2(isf_02(&params[3], params[2], x[1], params[0], params[1]), EXACT), EXACT);
+	z = POW3(fabs(x[0] - x[1]));
+	z *= POW2(POW2(isf_02(&params[3], params[2], x[0], params[0], params[1])));
+	z *= POW2(POW2(isf_02(&params[3], params[2], x[1], params[0], params[1])));
 
 	#if DEBUG
 	assert (z > 0.0);
@@ -1268,28 +1048,7 @@ inline double averageDegree_12932_0_b(double eta, void *params)
 	//Identify params[2] with size
 	//Identify params[3] with table
 	
-	return POW2(POW2(isf_02(&((double*)params)[3], ((double*)params)[2], eta, ((double*)params)[0], ((double*)params)[1]), EXACT), EXACT);
-}
-
-//=======================//
-// Degree Field Formulae //
-//=======================//
-
-//For use with GNU Scientific Library
-inline double degreeFieldTheory(double eta, void *params)
-{
-	#if DEBUG
-	assert (params != NULL);
-	assert (eta > 0.0);
-	#endif
-
-	//Identify params[0] with eta_m
-	//Identify params[1] with a
-	//Identify params[2] with alpha
-	//Identify params[3] with size
-	//Identify params[4] with table
-	
-	return POW3(ABS(((double*)params)[0] - eta, STL), EXACT) * POW2(POW2(isf_02(&((double*)params)[4], ((double*)params)[3], eta, ((double*)params)[1], ((double*)params)[2]), EXACT), EXACT);
+	return POW2(POW2(isf_02(&((double*)params)[3], ((double*)params)[2], eta, ((double*)params)[0], ((double*)params)[1])));
 }
 
 //================//
@@ -1309,7 +1068,7 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 	long double action = 0.0;
 
 	if (smeared) {
-		long double epsilon = static_cast<long double>(POW(lk, -stdim, STL));
+		long double epsilon = static_cast<long double>(pow(lk, -stdim));
 		long double eps1 = epsilon / (1.0 - epsilon);
 		long double eps2 = eps1 * eps1;
 		long double eps3 = eps2 * eps1;
@@ -1338,16 +1097,16 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 			//action = 2.0 * epsilon * (cardinalities[0] - 2.0 * epsilon * action);
 			action = epsilon * (cardinalities[0] - 6.0 * epsilon * action);
 		else if (stdim == 3)
-			action = pow(M_PI / (3.0 * sqrt(2.0)), 2.0 / 3.0) / GAMMA(5.0 / 3.0, STL) * (pow(epsilon, 2.0 / 3.0) * cardinalities[0] - pow(epsilon, 5.0 / 3.0) * action);
+			action = pow(M_PI / (3.0 * sqrt(2.0)), 2.0 / 3.0) / GAMMA(5.0 / 3.0) * (pow(epsilon, 2.0 / 3.0) * cardinalities[0] - pow(epsilon, 5.0 / 3.0) * action);
 		else if (stdim == 4)
-			action = (4.0 / sqrt(6.0)) * (sqrt(epsilon) * cardinalities[0] - POW(epsilon, 1.5, STL) * action);
+			action = (4.0 / sqrt(6.0)) * (sqrt(epsilon) * cardinalities[0] - pow(epsilon, 1.5) * action);
 		else
 			action = NAN;
 	} else {
 		if (stdim == 2)
 			action = 2.0 * (cardinalities[0] - 2.0 * (cardinalities[1] - 2.0 * cardinalities[2] + cardinalities[3]));
 		else if (stdim == 3)
-			action = pow(M_PI / (3.0 * sqrt(2.0)), 2.0 / 3.0) / GAMMA(5.0 / 3.0, STL) * (cardinalities[0] - cardinalities[1] + (27.0 / 8.0) * cardinalities[2] - (9.0 / 4.0) * cardinalities[3]);
+			action = pow(M_PI / (3.0 * sqrt(2.0)), 2.0 / 3.0) / GAMMA(5.0 / 3.0) * (cardinalities[0] - cardinalities[1] + (27.0 / 8.0) * cardinalities[2] - (9.0 / 4.0) * cardinalities[3]);
 		else if (stdim == 4)
 			action = (4.0 / sqrt(6.0)) * (cardinalities[0] - cardinalities[1] + 9.0 * cardinalities[2] - 16.0 * cardinalities[3] + 8.0 * cardinalities[4]);
 		else

@@ -50,22 +50,22 @@ set -eu -o pipefail
 # These are experimental parameters #
 #####################################
 
-platform=par-gpu-3
+#platform=krioukov_gpu
+platform=par-gpu
 binary="$CAUSET_HOME_DIR/bin/CausalSet_${platform}"
 
 stdim=2
-manifold=De_Sitter
-region=Slab
-curvature=Positive
+manifold=Minkowski
+region=Saucer_T
+curvature=Flat
 symmetry=Temporal
 spacetime="--stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry"
 
-nodes=32768
+nodes=1024
 age=0.5
-radius=5.988719
-#radius=21.563
-constraints="--nodes $nodes --age $age"
-#constraints="--nodes $nodes --radius $radius"
+radius=0.5
+constraints="--nodes $nodes --age $age --radius $radius"
+#constraints="--nodes $nodes"
 
 makenew=true
 if [[ "$makenew" == "false" ]] ; then
@@ -82,13 +82,8 @@ else
   graph=0
 
   link="--link --core 1 --gpu"
-  #measure="--action-theory 25"
-  #measure="--geo-discon 100"
-  #measure="--clustering"
-  #measure="--hubs 5000"
   measure="--action smeared"
-  #measure=""
-  xtra="--verbose -y"
+  xtra="--verbose -y --print"
 fi
 
 #link="--link --core 1"

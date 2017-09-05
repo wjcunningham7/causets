@@ -1,3 +1,64 @@
+===============
+TIMELIKE ACTION
+===============
+> Measure divergence term for timelike action
+> Stdim:	1+1
+> Manifold:	Minkowski
+> Region:	Slab
+> Curvature:	Flat
+> Symmetry:	Temporal
+
+Jobs:		2484-2505
+Age:		0.5
+Radius:		0.5
+Waiting:	NONE
+
+Jobs:		2506-2527
+Age:		0.8
+Radius:		0.5
+Wating:		NONE
+
+> Curvature:	Positive
+Jobs:		2528-2549
+Age:		0.5
+Waiting:	NONE
+
+> Stdim:	2+1
+> Curvature:	Flat
+Jobs:		2550-2571
+Age:		0.5
+Radius:		0.5
+Waiting:	NONE
+
+> Region:	Cube
+Jobs:		2572-2593
+Age:		1.0
+Radius:		1.0
+Waiting:	NONE
+
+> Stdim:	1+1
+> Region:	Saucer_T (Special)
+Jobs:		2594-2615
+Waiting:	NONE
+
+> Region:	Saucer_S (Special)
+Jobs:		2616-2637
+Waiting:	NONE
+
+> Region:	Saucer_T
+Jobs:		2638-2659
+Waiting:	NONE
+
+> Region:	Saucer_S
+Jobs:		2660-2681
+Waiting:	NONE
+
+> Region:	Saucer_T
+> Samples:	100
+> Jobs:		2682-2703
+> Waiting:	2702-2703
+
+===================
 ACTION BENCHMARKING
 ===================
 > Benchmark linking and action algorithms

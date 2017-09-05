@@ -27,16 +27,20 @@ jobStart = int(sys.argv[1])
 jobEnd = int(sys.argv[2])
 stdim = int(sys.argv[3])
 
-if not (stdim == 2 or stdim == 4):
+if not (stdim == 2 or stdim == 3 or stdim == 4):
 	sys.stdout.write('Invalid parameter: [stdim]\n');
 	sys.exit(1)
+
+new = False
+if len(sys.argv) == 5 and str(sys.argv[4]) == 'new':
+	new = True
 
 # Range of job numbers (inclusive)
 njobs = jobEnd - jobStart + 1
 
 # Range of lk to use (inclusive)
 lkmin = 2
-lkmax = 8
+lkmax = 13
 lkstep = 1
 nlk = (lkmax - lkmin + 1) / lkstep
 
@@ -65,19 +69,32 @@ for lk in range(lkmin, lkmax + lkstep, lkstep):
 				c_idx += 1
 
 			f.close()
-#			n = c_idx + 1
 
 			for i in range(0, c[0] - 2):
 				ni = float(c[i+1])
 				if stdim == 2:
-					a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 2.0 * eps1 * i + 0.5 * eps1 * eps1 * i * (i - 1.0))
-					#a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 4.0 * eps1 * i + 2.5 * eps1 * eps1 * i * (i - 1.0) - eps1 * eps1 * eps1 * i * (i - 1.0) * (i - 2.0) / 3.0)
+					if not new:
+						a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 2.0 * eps1 * i + 0.5 * eps1 * eps1 * i * (i - 1.0))
+					else:
+						a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 4.0 * eps1 * i + 2.5 * eps1 * eps1 * i * (i - 1.0) - (1.0 / 3.0) * eps1 * eps1 * eps1 * i * (i - 1.0) * (i - 2.0))
+				elif stdim == 3:
+					if not new:
+						a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 27.0 * eps1 * i / 8.0 + 9.0 * eps1 * eps1 * i * (i - 1.0) / 8.0)
+					else:
+						a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (4.0 - (213.0 / 8.0) * eps1 * i + (171.0 / 8.0) * eps1 * eps1 * i * (i - 1.0) - (27.0 / 8.0) * eps1 * eps1 * eps1 * i * (i - 1.0) * (i - 2.0))
 				elif stdim == 4:
 					a[a_idx] += ni * math.pow(1.0 - epsilon, i) * (1.0 - 9.0 * eps1 * i + 8.0 * eps1 * eps1 * i * (i - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * i * (i - 1.0) * (i - 2.0))
 
 			if stdim == 2:
-				a[a_idx] = 2.0 * epsilon * (c[0] - 2.0 * epsilon * a[a_idx])
-				#a[a_idx] = epsilon * (c[0] - 6.0 * epsilon * a[a_idx])
+				if not new:
+					a[a_idx] = 2.0 * epsilon * (c[0] - 2.0 * epsilon * a[a_idx])
+				else:
+					a[a_idx] = -2.0 * epsilon * (c[0] - 6.0 * epsilon * a[a_idx])
+			elif stdim == 3:
+				if not new:
+					a[a_idx] = (math.pow(math.pi / (3.0 * math.sqrt(2.0)), 2.0 / 3.0) / math.gamma(5.0 / 3.0)) * (math.pow(epsilon, 2.0 / 3.0) * c[0] - math.pow(epsilon, 5.0 / 3.0) * a[a_idx])
+				else:
+					a[a_idx] = (math.pow(math.pi / (3.0 * math.sqrt(2.0)), 2.0 / 3.0) / math.gamma(5.0 / 3.0)) * math.pow(epsilon, 2.0 / 3.0) * (c[0] - epsilon * a[a_idx])
 			elif stdim == 4:
 				a[a_idx] = (4.0 / math.sqrt(6.0)) * (math.sqrt(epsilon) * c[0] - math.pow(epsilon, 1.5) * a[a_idx])
 
@@ -94,9 +111,12 @@ basedir = os.environ['CAUSET_HOME_DIR']
 
 if stdim == 2:
 	filename = 'd2_'
+elif stdim == 3:
+	filename = 'd3_'
 elif stdim == 4:
 	filename = 'd4_'
 filename += 'smeared'
+#filename += '_v2'
 
 f = open(basedir + '/action_' + filename + '.cset.act.ref', 'a')
 g = open(basedir + '/stderr_' + filename + '.cset.act.ref', 'a')

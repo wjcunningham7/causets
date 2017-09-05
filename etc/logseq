@@ -6,7 +6,7 @@
 # Northeastern University #
 ###########################
 
-# Generate a log-binned sequence of numbers
+# Generate a logarithmically spaced sequence of numbers
 
 import numpy as np
 import sys

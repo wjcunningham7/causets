@@ -1,9 +1,0 @@
-Causet Simulation Benchmark Results
------------------------------------
-Times Averaged over 5 Runs:
-	calcDegrees:		0.000000 sec
-	createNetwork:		0.000000 sec
-	generateNodes:		0.000000 sec
-	quicksort:		0.000000 sec
-	linkNodesGPU:		0.000000 sec
-	measureAction:	79.966148 sec

@@ -1,13 +1,13 @@
-#ifndef COORDINATES_H_
-#define COORDINATES_H_
-
-#include "Operations.h"
-
 /////////////////////////////
 //(C) Will Cunningham 2015 //
 //         DK Lab          //
 // Northeastern University //
 /////////////////////////////
+
+#ifndef COORDINATES_H_
+#define COORDINATES_H_
+
+#include "Operations.h"
 
 // The purpose of this file is to easily allow the addition of new
 // manifolds, regions, dimensions, and foliations.  There are many redundant
@@ -129,6 +129,18 @@ inline float get_2d_sym_flat_minkowski_slab_radius(UGenerator &rng, const double
 	return (2.0 * r_max * rng()) - r_max;
 }
 
+/////////////////////////
+// 2-D Minkowski Slab  //
+// Positive Curvature  //
+// Symmetric About Eta //
+/////////////////////////
+
+#define get_2d_sym_sph_minkowski_slab_eta(rng, eta0) \
+	get_2d_sym_flat_minkowski_slab_eta(rng, eta0)
+
+#define get_2d_sym_sph_minkowski_slab_theta(rng) \
+	get_azimuthal_angle(rng)
+
 ///////////////////////////
 // 2-D Minkowski Diamond //
 // Flat Curvature        //
@@ -142,31 +154,6 @@ inline float get_2d_asym_flat_minkowski_diamond_u(UGenerator &rng, const double 
 
 #define get_2d_asym_flat_minkowski_diamond_v(rng, xi) \
 	get_2d_asym_flat_minkowski_diamond_u(rng, xi)
-
-//////////////////////////
-// 2-D Minkowski Saucer //
-// Flat Curvature       //
-// Symmetric About Eta  //
-//////////////////////////
-
-/*inline float get_2d_sym_flat_minkowski_saucer_eta(UGenerator &rng, const double x)
-{
-	return (2.0 * rng() - 1.0) * eta_77834_1(x);
-}
-
-inline float get_2d_sym_flat_minkowski_saucer_x(UGenerator &rng, const double vol, const double mu2)
-{
-	double x;
-	double rhs = vol * rng() + mu2;
-	if (!bisection(&solve_x_77834_1_bisec, &x, 2000, -1.5, 1.5, TOL, true, &rhs, NULL, NULL))
-		x = NAN;
-
-	#if DEBUG
-	assert (x == x);
-	#endif
-
-	return x;
-}*/
 
 //////////////////////////
 // 2-D De Sitter Slab   //
@@ -269,8 +256,6 @@ inline float get_2d_asym_sph_hyperbolic_slab_radius(UGenerator &rng, const doubl
 //Use this for a Growing H2 Model
 inline float get_2d_asym_sph_hyperbolic_slab_nonuniform_radius(UGenerator &rng, const double r_max, const double zeta)
 {
-	//double gamma = rng() * (cosh(r_max / (2.0 * zeta)) - 1.0) + 1.0;
-	//return zeta * acosh(POW2(gamma) + sqrt(POW2(gamma) - 1.0));
 	return 4.0 * zeta * asinh(sqrt(rng() * POW2(sinh(r_max / (4.0 * zeta)))));
 }
 
@@ -299,6 +284,27 @@ inline float get_3d_sym_flat_minkowski_slab_eta(UGenerator &rng, const double et
 	get_azimuthal_angle(rng)
 
 //////////////////////////
+// 3-D Minkowski Cube   //
+// Flat Curvature       //
+// Asymmetric About Eta //
+//////////////////////////
+
+//Return a value for eta
+inline float get_3d_asym_flat_minkowski_cube_eta(UGenerator &rng, const double eta0)
+{
+	return rng() * eta0;
+}
+
+//Return a value for x
+inline float get_3d_asym_flat_minkowski_cube_x(UGenerator &rng, const double r_max)
+{
+	return rng() * r_max;
+}
+
+#define get_3d_asym_flat_minkowski_cube_y(rng, r_max) \
+	get_3d_asym_flat_minkowski_cube_x(rng, r_max)
+
+//////////////////////////
 // 4-D De Sitter Slab   //
 // Spherical Foliation  //
 // Asymmetric About Eta //
@@ -310,7 +316,7 @@ inline float get_4d_asym_sph_deSitter_slab_eta(UGenerator &rng, const double zet
 	double eta;
 	double x = 0.2;
 	double r = rng();
-	double a = r * (2.0 + POW2(1.0 / sin(zeta), EXACT)) / tan(zeta);
+	double a = r * (2.0 + POW2(1.0 / sin(zeta))) / tan(zeta);
 	if (!newton(&solve_eta_12836_0, &x, 1000, TOL, &a, NULL, NULL))
 		eta = NAN;
 	else
@@ -438,7 +444,7 @@ inline float4 get_4d_asym_sph_deSitter_diamond_emb(UGenerator &urng, NGenerator 
 //Returns a value for eta
 inline float get_4d_asym_flat_deSitter_slab_eta(UGenerator &rng, const double eta_min, const double eta_max)
 {
-	return eta_min * pow(1.0 - rng() * (1.0 - POW3(eta_min / eta_max, EXACT)), -1.0 / 3.0);
+	return eta_min * pow(1.0 - rng() * (1.0 - POW3(eta_min / eta_max)), -1.0 / 3.0);
 }
 
 //Returns a value for radius
@@ -476,17 +482,17 @@ inline float get_4d_asym_flat_deSitter_diamond_u(UGenerator &rng, const double x
 //This function can by OPTIMIZED by passing constants
 inline float get_4d_asym_flat_deSitter_diamond_v(UGenerator &rng, const double u, const double xi)
 {
-	double t1 = POW3(u, EXACT);
-	double t2 = -3.0 * POW2(u, EXACT) * xi;
-	double t3 = 3.0 * u * POW2(xi, EXACT);
-	double t4 = -POW3(xi, EXACT);
+	double t1 = POW3(u);
+	double t2 = -3.0 * POW2(u) * xi;
+	double t3 = 3.0 * u * POW2(xi);
+	double t4 = -POW3(xi);
 
 	double F = rng();
 	double alpha = (t1 + t3) * (F - 2.0) + (t2 + t4) * F;
 	double beta = 3.0 * u * ((t1 + t3) * F + (t2 + t4) * (F - 2.0));
 	double gamma = 3.0 * u * alpha;
-	double delta = POW2(beta, EXACT) - POW2(gamma, EXACT);
-	double C = POW(POW2(beta + gamma, EXACT) * (beta - gamma), 1.0 / 3.0, STL);
+	double delta = POW2(beta) - POW2(gamma);
+	double C = pow(POW2(beta + gamma) * (beta - gamma), 1.0 / 3.0);
 
 	return -(beta + C + delta / C) / (3.0 * alpha);
 }

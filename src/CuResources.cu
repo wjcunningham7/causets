@@ -1,3 +1,9 @@
+/////////////////////////////
+//(C) Will Cunningham 2017 //
+//         DK Lab          //
+// Northeastern University //
+/////////////////////////////
+
 #include "CuResources.h"
 
 #ifdef CUDA_ENABLED

@@ -6,6 +6,9 @@
 # Northeastern University #
 ###########################
 
+# Used to compare experimental action to theoretical action
+# when studying regions with timelike boundaries
+
 set -eu -o pipefail
 
 if [[ "$#" -lt 4 ]] ; then

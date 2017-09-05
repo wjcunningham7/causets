@@ -1,10 +1,10 @@
-#include "Subroutines.h"
-
 /////////////////////////////
 //(C) Will Cunningham 2014 //
 //         DK Lab          //
 // Northeastern University //
 /////////////////////////////
+
+#include "Subroutines.h"
 
 //Linear Interpolation using Lookup Table
 bool getLookupTable(const char *filename, double **lt, long *size)
@@ -115,113 +115,23 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 	return output;
 }
 
-//Lookup value in table of (t1, t2, omega12, lambda) coordinates -> 4D parameter space
-//Used for geodesic distance calculations
-//Returns the transcendental integration parameter 'lambda'
-double lookupValue4D(const double *table, const long &size, const double &omega12, double t1, double t2)
-{
-	#if DEBUG
-	assert (table != NULL);
-	assert (size > 0);
-	assert (omega12 >= 0.0);
-	assert (t1 >= 0.0);
-	assert (t2 >= 0.0);
-	#endif
-
-	if (t2 < t1) {
-		double temp = t1;
-		t1 = t2;
-		t2 = temp;
-	}
-
-	double lambda = 0.0;
-	double tol = 1e-2;
-	int tau_step, lambda_step, step;
-	int counter;
-	int i;
-
-	try {
-		//The first two table elements should be zero
-		if (table[0] != 0.0 || table[1] != 0.0)
-			throw CausetException("Corrupted lookup table!\n");
-
-		tau_step = table[2];
-		lambda_step = table[3];
-		step = 4 * tau_step * lambda_step;
-		counter = 0;
-
-		//Identify Value in Table
-		//Assumes values are written (tau1, tau2, omega12, lambda)
-		for (i = 4; i < size / (int)sizeof(double); i += step) {
-			counter++;
-
-			if (step == 4 * tau_step * lambda_step && table[i] > t1) {
-				i -= (step - 1);
-				step = 4 * lambda_step;
-				i -= step;
-				counter = 0;
-			} else if (step == 4 * lambda_step && table[i] > t2) {
-				i -= (step - 1);
-				step = 4;
-				i -= step;
-				counter = 0;
-			} else if (step == 4 && ABS(table[i] - omega12, STL) / omega12 < tol && table[i] != 0.0) {
-				i -= step;
-				step = 1;
-			} else if (step == 1) {
-				lambda = table[i];
-				break;
-			}
-
-			if ((step == 4 * tau_step * lambda_step && counter == tau_step) ||
-			    (step == 4 * lambda_step && counter == tau_step) ||
-			    (step == 4 && counter == lambda_step))
-				break;
-		}
-
-		//Perhaps do some linear interpolation here?
-
-		//If no value found
-		if (lambda == 0.0) {
-			if (step == 4 * tau_step * lambda_step)
-				throw CausetException("tau1 value not found in geodesic lookup table.\n");
-			else if (step == 4 * lambda_step)
-				throw CausetException("tau2 value not found in geodesic lookup table.\n");
-			else if (step == 4)
-				throw CausetException("omega12 value not found in geodesic lookup table.\n");
-			else if (step == 1)
-				throw std::exception();
-		}
-	} catch (CausetException c) {
-		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-		lambda = std::numeric_limits<double>::quiet_NaN();
-	} catch (std::exception e) {
-		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
-		lambda = std::numeric_limits<double>::quiet_NaN();
-	}
-
-	return lambda;
-}
-
 //Sort nodes temporally
 //O(N*log(N)) Efficiency
 void quicksort(Node &nodes, const Spacetime &spacetime, int low, int high)
 {
 	#if DEBUG
-	/*assert (!nodes.crd->isNull());
-	assert (get_stdim(spacetime) == 2 || get_stdim(spacetime) == 3 || get_stdim(spacetime) == 4);
-	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW | HYPERBOLIC));
-	if (get_manifold(spacetime) & HYPERBOLIC)
-		assert (get_stdim(spacetime) == 2);*/
+	assert (!nodes.crd->isNull());
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
+	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic"));
+	if (spacetime.manifoldIs("Hyperbolic"))
+		assert (spacetime.stdimIs("2"));
 	#endif
 
 	int i, j, k;
 	float key = 0.0;
 	#if EMBED_NODES
-	//float *& time = get_stdim(spacetime) == 2 ? nodes.crd->x() : nodes.crd->v();
 	float *& time = spacetime.stdimIs("2") ? nodes.crd->x() : nodes.crd->v();
 	#else
-	//float *& time = (get_stdim(spacetime) == 2 || get_stdim(spacetime) == 3) ? nodes.crd->x() : nodes.crd->w();
 	float *& time = (spacetime.stdimIs("2") || spacetime.stdimIs("3")) ? nodes.crd->x() : nodes.crd->w();
 	#endif
 
@@ -284,37 +194,32 @@ void quicksort(uint64_t *edges, int64_t low, int64_t high)
 void swap(Node &nodes, const Spacetime &spacetime, const int i, const int j)
 {
 	#if DEBUG
-	/*assert (!nodes.crd->isNull());
-	assert (get_stdim(spacetime) == 2 || get_stdim(spacetime) == 3 || get_stdim(spacetime) == 4);
-	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW | HYPERBOLIC));
-	if (get_manifold(spacetime) & HYPERBOLIC)
-		assert (get_stdim(spacetime) == 2);*/
+	assert (!nodes.crd->isNull());
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
+	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic"));
+	if (spacetime.manifoldIs("Hyperbolic"))
+		assert (spacetime.stdimIs("2"));
 	#endif
 
 	#if EMBED_NODES
-	//if (get_stdim(spacetime) == 2) {
 	if (spacetime.stdimIs("2")) {
 		float3 hc = nodes.crd->getFloat3(i);
 		nodes.crd->setFloat3(nodes.crd->getFloat3(j), i);
 		nodes.crd->setFloat3(hc, j);
-	//} else if (get_stdim(spacetime) == 4) {
 	} else if (spacetime.stdimIs("4")) {
 		float5 sc = nodes.crd->getFloat5(i);
 		nodes.crd->setFloat5(nodes.crd->getFloat5(j), i);
 		nodes.crd->setFloat5(sc, j);
 	}
 	#else
-	//if (get_stdim(spacetime) == 2) {
 	if (spacetime.stdimIs("2")) {
 		float2 hc = nodes.crd->getFloat2(i);
 		nodes.crd->setFloat2(nodes.crd->getFloat2(j), i);
 		nodes.crd->setFloat2(hc, j);
-	//} else if (get_stdim(spacetime) == 3) {
 	} else if (spacetime.stdimIs("3")) {
 		float3 sc = nodes.crd->getFloat3(i);
 		nodes.crd->setFloat3(nodes.crd->getFloat3(j), i);
 		nodes.crd->setFloat3(sc, j);
-	//} else if (get_stdim(spacetime) == 4) {
 	} else if (spacetime.stdimIs("4")) {
 		float4 sc = nodes.crd->getFloat4(i);
 		nodes.crd->setFloat4(nodes.crd->getFloat4(j), i);
@@ -322,12 +227,10 @@ void swap(Node &nodes, const Spacetime &spacetime, const int i, const int j)
 	}
 	#endif
 
-	//if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
 	if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 		float tau = nodes.id.tau[i];
 		nodes.id.tau[i] = nodes.id.tau[j];
 		nodes.id.tau[j] = tau;
-	//} else if (get_manifold(spacetime) & HYPERBOLIC) {
 	} else if (spacetime.manifoldIs("Hyperbolic")) {
 		int AS = nodes.id.AS[i];
 		nodes.id.AS[i] = nodes.id.AS[j];
@@ -447,8 +350,6 @@ bool bisection(double (*solve)(const double &x, const double * const p1, const f
 		while (ABS(res, STL) > tol && iter < max_iter) {
 			//Residual Value
 			res = (*solve)(*x, p1, p2, p3);
-			//printf("res:   %.16e\n\n", res);
-			//printf("x: %.16e\n\n", *x);
 
 			//Check for NaN
 			if (res != res)
@@ -479,13 +380,6 @@ bool bisection(double (*solve)(const double &x, const double * const p1, const f
 		return false;
 	}
 	
-	//printf("Bisection Results:\n");
-	//printf("Tolerance: %E\n", tol);
-	//printf("%d of %d iterations performed.\n", iter, max_iter);
-	//printf("Residual: %E\n", y - res);
-	//printf("Solution: %E\n", *x);
-	//fflush(stdout);
-
 	return true;
 }
 
@@ -505,7 +399,6 @@ bool newton(double (*solve)(const double &x, const double * const p1, const floa
 		while (ABS(res, STL) > tol && iter < max_iter) {
 			//Residual Value
 			res = (*solve)(*x, p1, p2, p3);
-			//printf("res: %E\n", res);
 
 			//Check for NaN
 			if (res != res)
@@ -527,13 +420,6 @@ bool newton(double (*solve)(const double &x, const double * const p1, const floa
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
-
-	//printf("Newton-Raphson Results:\n");
-	//printf("Tolerance: %E\n", tol);
-	//printf("%d of %d iterations performed.\n", iter, max_iter);
-	//printf("Residual: %E\n", res);
-	//printf("Solution: %E\n", *x);
-	//fflush(stdout);
 
 	return true;
 }
@@ -592,7 +478,6 @@ bool nodesAreConnected_v2(const Bitvector &adj, const int &N_tar, int past_idx, 
 	#if DEBUG
 	assert (past_idx >= 0 && past_idx < N_tar);
 	assert (future_idx >= 0 && future_idx < N_tar);
-	//assert (past_idx != future_idx);
 	#endif
 
 	return (bool)adj[past_idx].read(future_idx);
@@ -615,10 +500,6 @@ void dfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 	assert (elements >= 0);
 	#endif
 
-	//DEBUG
-	//assert (index < 491776);
-	//printf("level: %d\n", level);
-
 	int64_t ps = edges.past_edge_row_start[index];
 	int64_t fs = edges.future_edge_row_start[index];
 	int i;
@@ -628,27 +509,17 @@ void dfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 	if (!!nodes.k_out[index]) assert (fs >= 0);
 	#endif
 
-	//DEBUG
-	//assert (ps < 11177141);
-	//assert (fs < 11177141);
-
 	nodes.cc_id[index] = id;
 	elements++;
 
 	//Move to past nodes
 	for (i = 0; i < nodes.k_in[index]; i++) {
-		//assert (ps+i < 11177141);
-		//assert (edges.past_edges[ps+i] >= 0);
-		//assert (edges.past_edges[ps+i] < 491776);
 		if (!nodes.cc_id[edges.past_edges[ps+i]])
 			dfsearch(nodes, edges, edges.past_edges[ps+i], id, elements, level + 1);
 	}
 
 	//Move to future nodes
 	for (i = 0; i < nodes.k_out[index]; i++) {
-		//assert (fs+i < 11177141);
-		//assert (edges.future_edges[fs+i] >= 0);
-		//assert (edges.future_edges[fs+i] < 491776);
 		if (!nodes.cc_id[edges.future_edges[fs+i]])
 			dfsearch(nodes, edges, edges.future_edges[fs+i], id, elements, level + 1);
 	}
@@ -912,9 +783,6 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &a
 	//assert (x <= y);
 	#endif
 
-	//printf("x: %d\tsize0: %zd\n", x, size0);
-	//printf("I have a bitvector of length %zd\n", adj.size());
-
 	unsigned int i, j;
 	for (i = 0; i < size0; i++) {
 		for (j = 0; j < size1; j++) {
@@ -931,112 +799,6 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &a
 			}
 		}
 	}
-}
-
-//Remake adjacency sub-matrix using 'l' rows, beginning at row 'i'
-void remakeAdjMatrix(bool * const adj0, bool * const adj1, const int * const k_in, const int * const k_out, const int * const past_edges, const int * const future_edges, const int64_t * const past_edge_row_start, const int64_t * const future_edge_row_start, int * const idx_buf0, int * const idx_buf1, const int &N_tar, const int &i, const int &j, const int64_t &l)
-{
-	#if DEBUG
-	assert (adj0 != NULL);
-	assert (adj1 != NULL);
-	assert (k_in != NULL);
-	assert (k_out != NULL);
-	assert (past_edges != NULL);
-	assert (future_edges != NULL);
-	assert (past_edge_row_start != NULL);
-	assert (future_edge_row_start != NULL);
-	assert (idx_buf0 != NULL);
-	assert (idx_buf1 != NULL);
-	assert (N_tar > 0);
-	assert (i >= 0);
-	assert (j >= 0);
-	assert (l > 0);
-	#endif
-
-	//Map tile indices to global indices
-	for (int m = 0; m < l; m++) {
-		int M = m + i * l;
-		for (int n = 0; n < l; n++) {
-			int N = n + j * l;
-			if (!N)
-				continue;
-
-			//Use triangular mapping
-			int do_map = M >= N;
-			if (N < N_tar >> 1) {
-				M = M + do_map * ((((N_tar >> 1) - M) << 1) - 1);
-				N = N + do_map * (((N_tar >> 1) - N) << 1);
-			}
-
-			idx_buf0[m] = M;
-			idx_buf1[n] = N;
-		}
-	}
-
-	//Fill Adjacency Submatrix 0
-	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 1)
-	#endif
-	for (int m = 0; m < l; m++) {
-		int M = idx_buf0[m];
-		int element;
-
-		//Past Neighbors
-		int64_t start = past_edge_row_start[M];
-		for (int p = 0; p < k_in[M]; p++) {
-			element = past_edges[start+p];
-			adj0[m*N_tar+element] = true;
-		}
-
-		//Future Neighbors
-		start = future_edge_row_start[M];
-		for (int p = 0; p < k_out[M]; p++) {
-			element = future_edges[start+p];
-			adj0[m*N_tar+element] = true;
-		}
-	}
-
-	//Fill Adjacency Submatrix 1
-	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 1)
-	#endif
-	for (int n = 0; n < l; n++) {
-		int N = idx_buf1[n];
-		int element;
-
-		if (!N)
-			continue;
-
-		//Past Neighbors
-		int64_t start = past_edge_row_start[N];
-		for (int p = 0; p < k_in[N]; p++) {
-			element = past_edges[start+p];
-			adj1[n*N_tar+element] = true;
-		}
-
-		//Future Neighbors
-		start = future_edge_row_start[N];
-		for (int p = 0; p < k_out[N]; p++) {
-			element = future_edges[start+p];
-			adj1[n*N_tar+element] = true;
-		}
-	}
-}
-
-//Data formatting used when reading output of
-//the interval matrix created by the GPU
-void readIntervals(int * const cardinalities, const unsigned int * const N_ij, const int &l)
-{
-	#if DEBUG
-	assert (cardinalities != NULL);
-	assert (N_ij != NULL);
-	assert (l > 0);
-	#endif
-
-	int i, j;
-	for (i = 0; i < l; i++)
-		for (j = 0; j < l; j++)
-			cardinalities[N_ij[j*l+i]+1]++;
 }
 
 //Scanning algorithm used when decoding
@@ -1171,7 +933,7 @@ void remove_bad_perms(std::unordered_set<FastBitset> &permutations, std::unorder
 //The ordered pairs are not included (e.g. (0,1) (2,3), etc.) 
 //The variable 'nbuf' should be twice the number of computers used
 //'Elements' is given as a sequence of natural numbers beginning at zero
-void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::vector<unsigned int> elements, bool &split_job)
+void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::vector<unsigned int> elements)
 {
 	#if DEBUG
 	assert (elements.size() > 0 && !(elements.size() % 2));
@@ -1181,48 +943,21 @@ void init_mpi_pairs(std::unordered_set<std::pair<int,int> > &pairs, const std::v
 	pairs.clear();
 	pairs.swap(pairs);
 
-	//If a file exists which specifies the pairs, read it
-	std::ifstream f("action_pairs.cset.act.in");
-	if (f.good() && !split_job) {
-		std::string line;
-		char d[] = " \t";
-		char *delimeters = &d[0];
-		split_job = true;
+	for (size_t k = 0; k < elements.size(); k += 2) {
+		//Elements are understood to be stored in pairs
+		unsigned int i = elements[k];
+		unsigned int j = elements[k+1];
 
-		while(getline(f, line)) {
-			int i = atoi(strtok((char*)line.c_str(), delimeters));
-			int j = atoi(strtok(NULL, delimeters));
-			pairs.insert(std::make_pair(std::min(i, j), std::max(i, j)));
-		}
-
-		f.close();
-	} else {
-		for (size_t k = 0; k < elements.size(); k += 2) {
-			//Elements are understood to be stored in pairs
-			unsigned int i = elements[k];
-			unsigned int j = elements[k+1];
-
-			for (unsigned int m = 0; m < elements.size(); m++) {
-				if (m == i || m == j) continue;
-				pairs.insert(std::make_pair(std::min(i, m), std::max(i, m)));
-				pairs.insert(std::make_pair(std::min(j, m), std::max(j, m)));
-			}
-		}
-
-		//Remove the ordered pairs
-		for (size_t k = 0; k < elements.size(); k += 2)
-			pairs.erase(std::make_pair(k, k+1));
-
-		if (split_job) {
-			std::ofstream g("action_pairs_all.cset.act.out");
-			if (g.good()) {
-				for (std::unordered_set<std::pair<int, int> >::iterator it = pairs.begin(); it != pairs.end(); it++)
-					g << std::get<0>(*it) << " " << std::get<1>(*it) << std::endl;
-				g.flush();
-				g.close();
-			}
+		for (unsigned int m = 0; m < elements.size(); m++) {
+			if (m == i || m == j) continue;
+			pairs.insert(std::make_pair(std::min(i, m), std::max(i, m)));
+			pairs.insert(std::make_pair(std::min(j, m), std::max(j, m)));
 		}
 	}
+
+	//Remove the ordered pairs
+	for (size_t k = 0; k < elements.size(); k += 2)
+		pairs.erase(std::make_pair(k, k+1));
 }
 
 //Saves all permutations which are recognized as non-unique by
@@ -1975,7 +1710,7 @@ int longestChain_v2r(Bitvector &adj, FastBitset *workspace, int *lengths, const 
 				work.partial_intersection(adj[glob_idx], i, glob_idx - i + 1);
 
 				if (work.any_in_range(i, glob_idx - i + 1)) {
-					c = longestChain_v2(adj, &work, lengths, N_tar, i, glob_idx, level + 1);
+					c = longestChain_v2r(adj, &work, lengths, N_tar, i, glob_idx, level + 1);
 					lengths[glob_idx] = c;
 					chain_length = c;
 				} else {
@@ -2204,9 +1939,6 @@ int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * 
 		}
 		
 	}
-
-	//printf("First bit set: %" PRIu64 "\n", first);
-	//printf("Last bit set:  %" PRIu64 "\n", last);
 
 	for (int i = 0; i < first; i++) {
 		if (!!k_in[i]) continue;

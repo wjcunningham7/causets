@@ -1,3 +1,9 @@
+/////////////////////////////
+//(C) Will Cunningham 2014 //
+//         DK Lab          //
+// Northeastern University //
+/////////////////////////////
+
 #ifndef VALIDATE_H_
 #define VALIDATE_H_
 
@@ -8,12 +14,6 @@
 #endif
 #include "Operations.h"
 #include "Geodesics.h"
-
-/////////////////////////////
-//(C) Will Cunningham 2014 //
-//         DK Lab          //
-// Northeastern University //
-/////////////////////////////
 
 void compareAdjacencyLists(const Node &nodes, const Edge &edges);
 
@@ -26,14 +26,10 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 
 bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &link_epso, const bool &has_exact_k, const bool &verbose, const bool &bench);
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const Spacetime &spacetime, const int &N_tar, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench);
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const Spacetime &spacetime, const int &N_tar, const double &r_max, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench);
 
 bool decodeLists_v1(const Edge &edges, const uint64_t * const h_edges, const int64_t * const g_idx, const size_t &d_edges_size, CaResources * const ca, const bool &verbose);
 #endif
-
-bool validateEmbedding(EVData &evd, Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const float &k_tar, const long double &N_emb, const int &N_res, const float &k_res, const double &a, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateEmbedding, const bool &verbose);
-
-bool validateDistances(DVData &dvd, Node &nodes, const Spacetime &spacetime, const int &N_tar, const double &N_dst, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sValidateDistances, const bool &verbose);
 
 bool printValues(Node &nodes, const Spacetime &spacetime, const int num_vals, const char *filename, const char *coord);
 
@@ -45,12 +41,6 @@ bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *fi
 
 bool printAdjMatrix(const Bitvector &adj, const int N, const char *filename, const int num_mpi_threads, const int rank);
 
-bool testOmega12(float tau1, float tau2, const double &omega12, const double min_lambda, const double max_lambda, const double lambda_step, const Spacetime &spacetime);
-
-bool generateGeodesicLookupTable(const char *filename, const double max_tau, const double min_lambda, const double max_lambda, const double tau_step, const double lambda_step, const Spacetime &spacetime, const bool &verbose);
-
-bool validateDistApprox(const Node &nodes, const Edge &edges, const Spacetime &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha);
-
 bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const Spacetime &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const bool &strict_routing, int source, int dest, int &nsteps, bool &success, bool &success2, bool &past_horizon);
 
 bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool no_pos, const bool &use_bit, const bool &verbose, const bool &bench);
@@ -58,10 +48,6 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench);
 
 bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const int &i);
-
-void printCardinalities(const uint64_t * const cardinalities, unsigned int Nc, unsigned int nthreads, unsigned int idx0, unsigned int idx1, unsigned int version);
-
-void print_pairs(std::vector<unsigned int> vec);
 
 void printDot(Bitvector &adj, const int * const k_out, int N, const char *filename);
 

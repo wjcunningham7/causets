@@ -1,11 +1,11 @@
-#include "NetworkCreator.h"
-#include "Measurements.h"
-
 /////////////////////////////
 //(C) Will Cunningham 2014 //
 //         DK Lab          //
 // Northeastern University //
 /////////////////////////////
+
+#include "NetworkCreator.h"
+#include "Measurements.h"
 
 int main(int argc, char **argv)
 {
@@ -21,17 +21,6 @@ int main(int argc, char **argv)
 	MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
 	MPI_Comm_size(MPI_COMM_WORLD, &cmpi.num_mpi_threads);
 	MPI_Comm_rank(MPI_COMM_WORLD, &cmpi.rank);
-
-	/*int len;
-	char name[MPI_MAX_PROCESSOR_NAME];
-	MPI_Get_processor_name(name, &len);
-	printf("Hello world from processor %s, rank %d out of %d processors\n", name, cmpi.rank, cmpi.num_mpi_threads);
-	#ifdef _OPENMP
-	printf_mpi(cmpi.rank, "Max openmp threads: %d\n", omp_get_max_threads());
-	#pragma omp parallel for
-	for (int i = 0; i < omp_get_max_threads(); i++)
-		printf_mpi(cmpi.rank, "Hello from thread [%d].\n", omp_get_thread_num());
-	#endif*/
 	#endif
 
 	CausetPerformance cp = CausetPerformance();
@@ -39,12 +28,6 @@ int main(int argc, char **argv)
 
 	//Initialize 'Network' structure
 	Network network = Network(parseArgs(argc, argv, &cmpi));
-
-	/*printf("stdim: %s\n", Spacetime::stdims[network.network_properties.spacetime.get_stdim()]);
-	printf("manifold: %s\n", Spacetime::manifolds[network.network_properties.spacetime.get_manifold()]);
-	printf("region: %s\n", Spacetime::regions[network.network_properties.spacetime.get_region()]);
-	printf("curvature: %s\n", Spacetime::curvatures[network.network_properties.spacetime.get_curvature()]);
-	printf("symmetry: %s\n", Spacetime::symmetries[network.network_properties.spacetime.get_symmetry()]);*/
 
 	bool _bench = network.network_properties.flags.bench;
 	if (_bench)
@@ -73,8 +56,9 @@ int main(int argc, char **argv)
 	//Print Results
 	if (!network.network_properties.flags.bench) printMemUsed(NULL, ca.maxHostMemUsed, ca.maxDevMemUsed, cmpi.rank);
 	#ifdef MPI_ENABLED
-	if (!cmpi.rank) {
+	if (!cmpi.rank)
 	#endif
+	{
 	if (network.network_properties.flags.bench && !printBenchmark(bm, network.network_properties.flags, network.network_properties.flags.link, network.network_properties.flags.relink)) {
 		cmpi.fail = 1;
 		goto CausetPoint1;
@@ -83,9 +67,7 @@ int main(int argc, char **argv)
 		cmpi.fail = 1;
 		goto CausetPoint1;
 	}
-	#ifdef MPI_ENABLED
 	}
-	#endif
 
 	CausetPoint1:
 	if (checkMpiErrors(cmpi)) goto CausetExit;
@@ -133,11 +115,6 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		network_properties.cmpi = *cmpi;
 	int rank = cmpi->rank;
 
-	/*char stdim[20];
-	char manifold[20];
-	char region[20];
-	char curvature[20];
-	char symmetry[20];*/
 	std::string stdim;
 	std::string manifold;
 	std::string region;
@@ -146,14 +123,13 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":A:a:b:Cc:k:d:e:F:g:H:hm:n:r:s:S:vyz:";
+	static const char *optString = ":A:a:b:Cc:k:d:e:g:H:hm:n:r:s:S:vyz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
 		{ "action",		required_argument,	NULL, 'A' },
 		{ "action-theory",	required_argument,	NULL,  0  },
 		{ "age",		required_argument,	NULL, 'a' },
 		{ "alpha",		required_argument,	NULL,  0  },
-		{ "autocorr",		no_argument,		NULL,  0  },
 		{ "benchmark",		no_argument,		NULL,  0  },
 		{ "beta",		required_argument,	NULL,  0  },
 		{ "buffer",		required_argument,	NULL, 'b' },
@@ -164,12 +140,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "curvature",		required_argument,	NULL,  0  },
 		{ "datdir",		required_argument,	NULL,  0  },
 		{ "delta",		required_argument,	NULL, 'd' },
-		{ "distances",		required_argument,	NULL,  0  },
-		{ "embedding",  	required_argument,	NULL,  0  },
 		{ "energy",		required_argument,	NULL, 'e' },
-		{ "fields",		required_argument,	NULL, 'F' },
-		{ "gen-ds-table",	no_argument,		NULL,  0  },
-		{ "gen-flrw-table",	no_argument,		NULL,  0  },
 		{ "geo-discon",		required_argument,	NULL,  0  },
 		{ "gpu", 		no_argument, 		NULL,  0  },
 		{ "graph",		required_argument,	NULL, 'g' },
@@ -193,14 +164,12 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "relink",		no_argument,		NULL,  0  },
 		{ "seed",		required_argument,	NULL, 's' },
 		{ "spacetime",		required_argument,	NULL,  0  },
-		{ "split-action",	required_argument,	NULL,  0  },
 		{ "stdim",		required_argument,	NULL,  0  },
 		{ "stretch",		no_argument,		NULL,  0  },
 		{ "strict-routing",	no_argument,		NULL,  0  },
 		{ "success",		required_argument,	NULL, 'S' },
 		{ "symmetry",		required_argument,	NULL,  0  },
 		{ "test",		no_argument,		NULL,  0  },
-		{ "vecprod",		required_argument,	NULL, 'V' },
 		{ "verbose", 		no_argument, 		NULL,  0  },
 		{ "version",		no_argument,		NULL, 'v' },
 		{ "zeta",		required_argument,	NULL, 'z' },
@@ -219,16 +188,14 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				else
 					throw CausetException("Invalid argument for 'action' parameter!\n");
 				break;
-			case 'a':
-				//Temporal cutuff (age)
+			case 'a':	//Temporal cutuff (age)
 				network_properties.tau0 = atof(optarg);
 				if (network_properties.tau0 <= 0.0)
 					throw CausetException("Invalid argument for 'age' parameter!\n");
 				network_properties.omegaL = POW2(tanh(1.5 * network_properties.tau0), EXACT);
 				network_properties.omegaM = 1.0 - network_properties.omegaL;
 				break;
-			case 'b':
-				//Edge buffer in adjacency lists
+			case 'b':	//Edge buffer in adjacency lists
 				network_properties.edge_buffer = atof(optarg);
 				if (network_properties.edge_buffer < 0.0 || network_properties.edge_buffer > 1.0)
 					throw CausetException("Invalid argument for 'buffer' parameter!\n");
@@ -255,13 +222,8 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				network_properties.omegaM = 1.0 - network_properties.omegaL;
 				network_properties.tau0 = atanh(SQRT(network_properties.omegaL, STL)) / 1.5;
 				break;
-			case 'F':	//Measure Degree Field with Test Nodes
-				network_properties.flags.calc_deg_field = true;
-				network_properties.tau_m = atof(optarg);
-				break;
 			case 'g':	//Graph ID
 				network_properties.graphID = atoi(optarg);
-				//printf_dbg("Setting graph ID to %d\n", network_properties.graphID);
 				if (network_properties.graphID < 0)
 					throw CausetException("Invalid argument for 'Graph ID' parameter!\n");
 				break;
@@ -273,21 +235,8 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				break;
 			//case 'h' is located at the end
 			case 'm':	//Manifold
-				/*if (!strcmp(optarg, "minkowski"))
-					network_properties.spacetime |= MINKOWSKI;
-				else if (!strcmp(optarg, "desitter"))
-					network_properties.spacetime |= DE_SITTER;
-				else if (!strcmp(optarg, "dust"))
-					network_properties.spacetime |= DUST;
-				else if (!strcmp(optarg, "flrw"))
-					network_properties.spacetime |= FLRW;
-				else if (!strcmp(optarg, "hyperbolic"))
-					network_properties.spacetime |= HYPERBOLIC;
-				else
-					throw CausetException("Invalid argument for 'manifold' parameter!\n");*/
 				if (std::find(Spacetime::manifolds, Spacetime::manifolds + Spacetime::nmanifolds, std::string(optarg)) == Spacetime::manifolds + Spacetime::nmanifolds)
 					throw CausetException("Invalid argument for 'manifold' parameter!\n");
-				//strcpy(manifold, optarg);
 				manifold.assign(optarg);
 				break;
 			case 'n':	//Number of nodes
@@ -296,41 +245,8 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					throw CausetException("Invalid argument for 'nodes' parameter!\n");
 				break;
 			case 'r':	//Region
-				/*if (!strcmp(optarg, "slab"))
-					network_properties.spacetime |= SLAB;
-				else if (!strcmp(optarg, "slab_t1"))
-					network_properties.spacetime |= SLAB_T1;
-				else if (!strcmp(optarg, "slab_t2"))
-					network_properties.spacetime |= SLAB_T2;
-				else if (!strcmp(optarg, "slab_s1"))
-					network_properties.spacetime |= SLAB_S1;
-				else if (!strcmp(optarg, "slab_s2"))
-					network_properties.spacetime |= SLAB_S2;
-				else if (!strcmp(optarg, "slab_n1"))
-					network_properties.spacetime |= SLAB_N1;
-				else if (!strcmp(optarg, "slab_n2"))
-					network_properties.spacetime |= SLAB_N2;
-				else if (!strcmp(optarg, "slab_n3"))
-					network_properties.spacetime |= SLAB_N3;
-				else if (!strcmp(optarg, "half_diamond"))
-					network_properties.spacetime |= HALF_DIAMOND;
-				else if (!strcmp(optarg, "diamond"))
-					network_properties.spacetime |= DIAMOND;
-				else if (!strcmp(optarg, "saucer"))
-					network_properties.spacetime |= SAUCER;
-				else if (!strcmp(optarg, "saucer_t"))
-					network_properties.spacetime |= SAUCER_T;
-				else if (!strcmp(optarg, "triangle_t"))
-					network_properties.spacetime |= TRIANGLE_T;
-				else if (!strcmp(optarg, "triangle_s"))
-					network_properties.spacetime |= TRIANGLE_S;
-				else if (!strcmp(optarg, "triangle_n"))
-					network_properties.spacetime |= TRIANGLE_N;
-				else
-					throw CausetException("Invalid argument for 'region' parameter!\n");*/
 				if (std::find(Spacetime::regions, Spacetime::regions + Spacetime::nregions, std::string(optarg)) == Spacetime::regions + Spacetime::nregions)
 					throw CausetException("Invalid argument for 'region' parameter!\n");
-				//strcpy(region, optarg);
 				region.assign(optarg);
 				break;
 			case 'S':	//Flag for calculating success ratio
@@ -344,12 +260,6 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				network_properties.seed = atol(optarg);
 				if (network_properties.seed <= 0L)
 					throw CausetException("Invalid argument for 'seed' parameter!\n");
-				break;
-			case 'V':	//Calculate vector products
-				network_properties.flags.calc_vecprod = true;
-				network_properties.N_vp = atof(optarg);
-				if (network_properties.N_vp <= 0.0)
-					throw CausetException("Invalid argument for 'vecprod' parameter!\n");
 				break;
 			//case 'v' is located at the end
 			case 'y':	//Suppress user input
@@ -372,10 +282,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					network_properties.alpha = atof(optarg);
 					if (network_properties.alpha <= 0.0)
 						throw CausetException("Invalid argument for 'alpha' parameter!\n");
-				} else if (!strcmp("autocorr", longOpts[longIndex].name))
-					//Flag to calculate autocorrelation of selected variables
-					network_properties.flags.calc_autocorr = true;
-				else if (!strcmp("benchmark", longOpts[longIndex].name))
+				} else if (!strcmp("benchmark", longOpts[longIndex].name))
 					//Flag to benchmark selected routines
 					network_properties.flags.bench = true;
 				else if (!strcmp("beta", longOpts[longIndex].name)) {
@@ -394,37 +301,12 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					network_properties.flags.calc_components = true;
 				else if (!strcmp("curvature", longOpts[longIndex].name)) {
 					//Flag for setting spatial curvature
-					/*if (!strcmp(optarg, "flat"))
-						network_properties.spacetime |= FLAT;
-					else if (!strcmp(optarg, "positive"))
-						network_properties.spacetime |= POSITIVE;
-					else if (!strcmp(optarg, "negative"))
-						network_properties.spacetime |= NEGATIVE;
-					else
-						throw CausetException("Invalid argument for 'curvature' parameter!\n");*/
 					if (std::find(Spacetime::curvatures, Spacetime::curvatures + Spacetime::ncurvatures, std::string(optarg)) == Spacetime::curvatures + Spacetime::ncurvatures)
 						throw CausetException("Invalid argument for 'curvature' parameter!\n");
-					//strcpy(curvature, optarg);
 					curvature.assign(optarg);
 				} else if (!strcmp("datdir", longOpts[longIndex].name))
 					//Set I/O directory for data
 					network_properties.datdir.assign(optarg);
-				else if (!strcmp("distances", longOpts[longIndex].name)) {
-					//Flag for comparing distance methods
-					network_properties.flags.validate_distances = true;
-					network_properties.N_dst = atof(optarg);
-					if (network_properties.N_dst <= 0.0)
-						throw CausetException("Invalid argument for 'distances' parameter!\n");
-				} else if (!strcmp("embedding", longOpts[longIndex].name)) {
-					//Flag to validate embedding of FLRW into de Sitter
-					network_properties.flags.validate_embedding = true;
-					network_properties.N_emb = atof(optarg);
-					if (network_properties.N_emb <= 0.0)
-						throw CausetException("Invalid argument for 'embedding' parameter!\n");
-				} else if (!strcmp("gen-ds-table", longOpts[longIndex].name))
-					network_properties.flags.gen_ds_table = true;
-				else if (!strcmp("gen-flrw-table", longOpts[longIndex].name))
-					network_properties.flags.gen_flrw_table = true;
 				else if (!strcmp("geo-discon", longOpts[longIndex].name)) {
 					network_properties.flags.calc_geo_dis = true;
 					network_properties.N_gd = atof(optarg);
@@ -484,18 +366,10 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					//ss << std::hex << optarg;
 					//ss >> network_properties.spacetime;
 					//printf("spacetime: %d\n", network_properties.spacetime);
-				} else if (!strcmp("split-action", longOpts[longIndex].name))
-					//Perform only part of the action calculation
-					network_properties.split_action = atoi(optarg);
-				else if (!strcmp("stdim", longOpts[longIndex].name)) {
-					//Spacetime dimensions (2 or 4 right now)
-					//if (atoi(optarg) >= 2 && atoi(optarg) <= 4)
-					//	network_properties.spacetime |= atoi(optarg);
-					//else
-					//	throw CausetException("Invalid argument for 'stdim' parameter!\n");
+				} else if (!strcmp("stdim", longOpts[longIndex].name)) {
+					//Spacetime dimensions
 					if (std::find(Spacetime::stdims, Spacetime::stdims + Spacetime::nstdims, std::string(optarg)) == Spacetime::stdims + Spacetime::nstdims)
 						throw CausetException("Invalid argument for 'stdim' parameter!\n");
-					//strcpy(stdim, optarg);
 					stdim.assign(optarg);
 				} else if (!strcmp("stretch", longOpts[longIndex].name)) {
 					//Stretch across greedy paths
@@ -510,15 +384,8 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					network_properties.flags.strict_routing = true;
 				else if (!strcmp("symmetry", longOpts[longIndex].name)) {
 					//Symmetric about temporal axis
-					/*if (!strcmp(optarg, "symmetric"))
-						network_properties.spacetime |= SYMMETRIC;
-					else if (!strcmp(optarg, "asymmetric"))
-						network_properties.spacetime |= ASYMMETRIC;
-					else
-						throw CausetException("Invalid argument for 'symmetry' parameter!\n");*/
 					if (std::find(Spacetime::symmetries, Spacetime::symmetries + Spacetime::nsymmetries, std::string(optarg)) == Spacetime::symmetries + Spacetime::nsymmetries)
 						throw CausetException("Invalid argument for 'symmetry' parameter!\n");
-					//strcpy(symmetry, optarg);
 					symmetry.assign(optarg);
 				} else if (!strcmp("test", longOpts[longIndex].name))
 					//Test parameters
@@ -560,7 +427,6 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -a, --age\t\tRescaled (Conformal) Age of\n");
 				printf_mpi(rank, "\t\t\tFLRW (de Sitter) Spacetime\t0.85\n");
 				printf_mpi(rank, "      --alpha\t\tSpatial Scaling/Cutoff\t\t2.0\n");
-				//printf_mpi(rank, "      --autocorr\tCalculate Autocorrelations\n");
 				printf_mpi(rank, "      --benchmark\tBenchmark Algorithms\n");
 				printf_mpi(rank, "      --beta\t\tInverse Temperature\t\t0.5, \"infinity\"\n");
 				printf_mpi(rank, "  -b, --buffer\t\tEdge Buffer\t\t\t0.3\n");
@@ -568,16 +434,10 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -C, --clustering\tMeasure Clustering\n");
 				printf_mpi(rank, "      --components\tMeasure Graph Components\n");
 				printf_mpi(rank, "  -c, --core\t\tCore Edge Fraction\t\t0.01\n");
-				printf_mpi(rank, "      --curvature\tSpatial Curvature\t\t\"flat\", \"positive\", \"negative\"\n");
+				printf_mpi(rank, "      --curvature\tSpatial Curvature\t\t\"Flat\", \"Positive\", \"Negative\"\n");
 				printf_mpi(rank, "      --datdir\t\tData Directory\t\t\t\"./dat/\"\n");
 				printf_mpi(rank, "  -d, --delta\t\tNode Density\t\t\t10000\n");
-				printf_mpi(rank, "      --distances\tValidate Distance Methods\t0.01, 10000\n");
-				printf_mpi(rank, "      --embedding\tValidate Embedding\t\t0.01, 10000\n");
 				printf_mpi(rank, "  -e, --energy\t\tDark Energy Density\t\t0.73\n");
-				printf_mpi(rank, "  -F, --fields\t\tMeasure Degree Fields\n");
-				printf_mpi(rank, "      --gen-ds-table\tGenerate de Sitter\n");
-				printf_mpi(rank, "\t\t\tGeodesic Table\n");
-				printf_mpi(rank, "      --gen-flrw-table\tGenerate FLRW Geodesic Table\n");
 				printf_mpi(rank, "      --geo-discon\tFrac. Geodesic Discon. Pairs\t10000\n");
 				#ifdef CUDA_ENABLED
 				printf_mpi(rank, "      --gpu\t\tUse GPU Acceleration\n");
@@ -588,8 +448,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -H, --hubs\t\tCalculate Hub Density\t\t20\n");
 				printf_mpi(rank, "      --link\t\tLink Nodes to Create Graph\n");
 				printf_mpi(rank, "      --link-epso\tLink Nodes using EPSO Rule\n");
-				printf_mpi(rank, "  -m, --manifold\tManifold\t\t\t\"minkowski\", \"desitter\", \"dust\",\n");
-				printf_mpi(rank, "\t\t\t\t\t\t\t\"flrw\", \"hyperbolic\"\n");
+				printf_mpi(rank, "  -m, --manifold\tSpacetime Manifold\t\t\"Minkowski\", \"De_Sitter\",\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"Anti_de_Sitter\", \"Dust\", \"FLRW\",\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"Hyperbolic\"\n");
 				printf_mpi(rank, "      --mu\t\tChemical Potential\t\t10.0\n");
 				printf_mpi(rank, "  -n, --nodes\t\tNumber of Nodes\t\t\t1000, 10000, 100000\n");
 				printf_mpi(rank, "      --nopos\t\tNo Node Positions\n");
@@ -600,24 +461,20 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "\t\t\treading graph\n");
 				printf_mpi(rank, "      --radius\t\tRadius of Spatial Dimension\t1.0\n");
 				printf_mpi(rank, "      --read-old-format\tRead Positions in Old Format\n");
-				printf_mpi(rank, "  -r, --region\t\tSpacetime Region\t\t\"slab\", \"slab_t1\", \"slab_t2\",\n");
-				printf_mpi(rank, "\t\t\t\t\t\t\t\"slab_s1\", \"slab_s2\", \"slab_n1\",\n");
-				printf_mpi(rank, "\t\t\t\t\t\t\t\"slab_n2\", \"slab_n3\",\n");
-				printf_mpi(rank, "\t\t\t\t\t\t\t\"half_diamond\", \"diamond\",\n");
-				printf_mpi(rank, "\t\t\t\t\t\t\t\"saucer\", \"saucer_t\",\n");
-				printf_mpi(rank, "\t\t\t\t\t\t\t\"triangle_t\", \"triangle_s\",\n");
-				printf_mpi(rank, "\t\t\t\t\t\t\t\"triangle_n\"\n");
+				printf_mpi(rank, "  -r, --region\t\tSpacetime Region\t\t\"Slab\", \"Slab_T1\", \"Slab_T2\", \"Slab_S1\",\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"Slab_S2\", \"Slab_N1\", \"Slab_N2\", \"Slab_N3\"\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"Half_Diamond\", \"Diamond\", \"Saucer_T\"\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"Saucer_S\", \"Triangle_T\", \"Triangle_S\"\n");
+				printf_mpi(rank, "\t\t\t\t\t\t\t\"Triangle_N\", \"Cube\"\n");
 				printf_mpi(rank, "      --relink\t\tIgnore Pre-Existing Links\n");
 				printf_mpi(rank, "  -s, --seed\t\tRandom Seed\t\t\t18100\n");
-				printf_mpi(rank, "      --spacetime\tSpacetime ID\t\t\tSee doc/VERSION\n");
-				printf_mpi(rank, "      --split-action\tComputers Used for Action\t4\n");
+				printf_mpi(rank, "      --spacetime\tSpacetime ID\t\t\tSee VERSION\n");
 				printf_mpi(rank, "      --stdim\t\tSpacetime Dimensions\t\t2, 3, 4\n");
 				printf_mpi(rank, "      --stretch\t\tMeasure Stretch of Greedy Paths\n");
 				printf_mpi(rank, "      --strict-routing\tUse Strict Routing Protocol\n");
 				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.01, 10000\n");
-				printf_mpi(rank, "      --symmetry\tTemporal Symmetry\t\t\"symmetric\", \"asymmetric\"\n");
+				printf_mpi(rank, "      --symmetry\tTemporal Symmetry\t\t\"None\", \"Temporal\"\n");
 				printf_mpi(rank, "      --test\t\tTest Parameters Only\n");
-				printf_mpi(rank, "  -V, --vecprod\t\tCalculate Vector Products\t0.01, 10000\n");
 				printf_mpi(rank, "      --verbose\t\tVerbose Output\n");
 				printf_mpi(rank, "  -y\t\t\tSuppress User Queries\n");
 				printf_mpi(rank, "  -z, --zeta\t\tHyperbolic Curvature\t\t1.0\n");
@@ -686,11 +543,6 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 	if (network_properties.seed == 12345L) {
 		srand(time(NULL));
 		network_properties.seed = static_cast<long>(time(NULL));
-	} else {
-		/*#ifdef _OPENMP
-		printf_dbg("NOTE: OpenMP produces non-deterministic behavior.\nCompile without OpenMP to set the seed.\nProgram will abort.\n\n");
-		network_properties.flags.test = true;
-		#endif*/
 	}
 	#ifdef MPI_ENABLED
 	network_properties.seed ^= rank;
@@ -698,7 +550,6 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 	network_properties.mrng.rng.engine().seed(network_properties.seed);
 	network_properties.mrng.rng.distribution().reset();
 
-	//printf("Exiting function.\n");
 	return network_properties;
 }
 
@@ -713,8 +564,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	#endif
 
 	int rank = network->network_properties.cmpi.rank;
-	int nb = static_cast<int>(network->network_properties.flags.bench) * NBENCH;
-	//double scale;
+	int nb = static_cast<int>(network->network_properties.flags.bench) * (NBENCH - 1);
 	int i;
 
 	#ifdef _OPENMP
@@ -768,18 +618,16 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	}
 
 	#ifdef MPI_ENABLED
-	if (!rank) {
+	if (!rank)
 	#endif
+	{
 	if (!nb) {
 		printf("\tQuick Sort Successfully Performed.\n");
 		Spacetime st = network->network_properties.spacetime;
-		//if (get_symmetry(network->network_properties.spacetime) & ASYMMETRIC && !(get_manifold(network->network_properties.spacetime) & HYPERBOLIC && get_curvature(network->network_properties.spacetime) & FLAT)) {
 		if (st.symmetryIs("None") && !(st.manifoldIs("Hyperbolic") && st.curvatureIs("Flat"))) {
 			printf_cyan();
 			float min_time = 0.0;
-			//if (get_manifold(network->network_properties.spacetime) & MINKOWSKI) {
 			if (st.manifoldIs("Minkowski")) {
-				//if (get_stdim(network->network_properties.spacetime) == 2)
 				if (st.stdimIs("2"))
 					min_time = network->nodes.crd->x(0);
 			} else
@@ -795,19 +643,6 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	if (network->network_properties.flags.verbose)
 		printf("\t\tExecution Time: %5.6f sec\n", cp->sQuicksort.elapsedTime);
 	fflush(stdout);
-	#ifdef MPI_ENABLED
-	}
-	#endif
-
-	//Artificially place nodes in certain locations
-	//This is easier to perform before linking
-	if (network->network_properties.flags.calc_chain) {
-		network->nodes.crd->x(0) = -network->network_properties.eta0;
-		network->nodes.crd->y(0) = 0.0;
-		//network->nodes.crd->y(0) = network->network_properties.r_max;
-		network->nodes.crd->x(network->network_properties.N_tar - 1) = network->network_properties.eta0;
-		network->nodes.crd->y(network->network_properties.N_tar - 1) = 0.0;
-		//network->nodes.crd->y(network->network_properties.N_tar - 1) = network->network_properties.r_max;
 	}
 
 	//Identify edges as points connected by timelike intervals
@@ -827,11 +662,6 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 		}
 	}
 
-	//scale = get_manifold(network->network_properties.spacetime) & HYPERBOLIC ? network->network_properties.zeta : network->network_properties.a;
-	//Use this statement if you're creating a degree lookup table
-	//if (network->network_properties.flags.link)
-	//	printf_mpi(rank, "rad: %.16f\n", network->network_observables.k_res / (network->network_properties.delta * pow(scale, (double)get_stdim(network->network_properties.spacetime))));
-
 	InitExit:
 	if (checkMpiErrors(network->network_properties.cmpi))
 		return false;
@@ -850,7 +680,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 	assert (bm != NULL);
 	#endif
 
-	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.validate_embedding && !network->network_properties.flags.calc_success_ratio && !network->network_properties.flags.calc_deg_field && !network->network_properties.flags.validate_distances && !network->network_properties.flags.calc_action && !network->network_properties.flags.calc_action_theory && !network->network_properties.flags.calc_vecprod && !network->network_properties.flags.calc_chain && !network->network_properties.flags.calc_hubs && !network->network_properties.flags.calc_geo_dis)
+	if (!network->network_properties.flags.calc_clustering && !network->network_properties.flags.calc_components && !network->network_properties.flags.calc_success_ratio && !network->network_properties.flags.calc_action && !network->network_properties.flags.calc_action_theory && !network->network_properties.flags.calc_chain && !network->network_properties.flags.calc_hubs && !network->network_properties.flags.calc_geo_dis)
 		return true;
 
 	int rank = network->network_properties.cmpi.rank;
@@ -880,7 +710,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				fflush(stdout);
 
 				network->network_properties.flags.calc_clustering = false;
-				goto ConnComp;
+				break;
 			} else if (network->network_properties.flags.use_bit) {
 				if (!rank) printf_red();
 				printf_mpi(rank, "\tCannot calculate clustering with only the bit array.\n");
@@ -889,10 +719,10 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				fflush(stdout);
 
 				network->network_properties.flags.calc_clustering = false;
-				goto ConnComp;
+				break;
 			}
 
-			if (!measureClustering(network->network_observables.clustering, network->nodes, network->edges, network->adj, network->network_observables.average_clustering, network->network_properties.N_tar, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, ca, cp->sMeasureClustering, network->network_properties.flags.calc_autocorr, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+			if (!measureClustering(network->network_observables.clustering, network->nodes, network->edges, network->adj, network->network_observables.average_clustering, network->network_properties.N_tar, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, ca, cp->sMeasureClustering, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
 				break;
 			}
@@ -905,8 +735,6 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 
 	if (checkMpiErrors(network->network_properties.cmpi))
 		return false;
-
-	ConnComp:
 
 	//----------------------//
 	// CONNECTED COMPONENTS //
@@ -922,7 +750,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				fflush(stdout);
 
 				network->network_properties.flags.calc_components = false;
-				goto ValidateEmbedding;
+				break;
 			}
 
 			if (!measureConnectedComponents(network->nodes, network->edges, network->adj, network->network_properties.N_tar, network->network_properties.cmpi, network->network_observables.N_cc, network->network_observables.N_gcc, ca, cp->sMeasureConnectedComponents, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench))
@@ -932,37 +760,6 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 		if (nb)
 			bm->bMeasureConnectedComponents = cp->sMeasureConnectedComponents.elapsedTime / NBENCH;
 	}
-
-	ValidateEmbedding:
-
-	//-------------------------------------------//
-	// VALIDATE EMBEDDING INTO (D+1,1) SPACETIME //
-	//-------------------------------------------//
-
-	if (network->network_properties.flags.validate_embedding) {
-		if (network->network_properties.flags.no_pos) {
-			if (!rank) printf_red();
-			printf_mpi(rank, "\tCannot validate embedding if positions do not exist!\n");
-			printf_mpi(rank, "\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n\n");
-			if (!rank) printf_std();
-			fflush(stdout);
-			network->network_properties.flags.validate_embedding = false;
-			goto MeasureNav;
-		} else if (network->network_properties.flags.use_bit) {
-			if (!rank) printf_red();
-			printf_mpi(rank, "\tCannot validate embedding with only the bit array.\n");
-			printf_mpi(rank, "\tImplement new algorithm to proceed.\n\tSkipping this subroutine.\n\n");
-			if (!rank) printf_std();
-			fflush(stdout);
-			network->network_properties.flags.validate_embedding = false;
-			goto MeasureNav;
-		}
-
-		if (!validateEmbedding(network->network_observables.evd, network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_emb, network->network_observables.N_res, network->network_observables.k_res, network->network_properties.a, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sValidateEmbedding, network->network_properties.flags.verbose))
-			return false;
-	}
-
-	MeasureNav:
 
 	#ifdef MPI_ENABLED
 	if (!rank)
@@ -983,7 +780,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				fflush(stdout);
 
 				network->network_properties.flags.calc_success_ratio = false;
-				goto DegreeFields;
+				break;
 			} else if (network->network_properties.flags.no_pos) {
 				if (!rank) printf_red();
 				printf_mpi(rank, "\tCannot calculate success ratio if positions do not exist!\n");
@@ -992,72 +789,22 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				fflush(stdout);
 
 				network->network_properties.flags.calc_success_ratio = false;
-				goto DegreeFields;
+				break;
 			}
 
-			if (!measureSuccessRatio(network->nodes, network->edges, network->adj, network->network_observables.success_ratio, network->network_observables.success_ratio2, network->network_observables.stretch, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureSuccessRatio, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.calc_stretch, network->network_properties.flags.strict_routing, network->network_properties.flags.verbose, network->network_properties.flags.bench))
-				return false;
+			if (!measureSuccessRatio(network->nodes, network->edges, network->adj, network->network_observables.success_ratio, network->network_observables.success_ratio2, network->network_observables.stretch, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.N_sr, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureSuccessRatio, network->network_properties.flags.link_epso, network->network_properties.flags.use_bit, network->network_properties.flags.calc_stretch, network->network_properties.flags.strict_routing, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				network->network_properties.cmpi.fail = 1;
+				break;
+			}
 		}
 
 		if (nb)
 			bm->bMeasureSuccessRatio = cp->sMeasureSuccessRatio.elapsedTime / NBENCH;
 	}
-
-	DegreeFields:
-
-	//---------------//
-	// DEGREE FIELDS //
-	//---------------//
-
-	if (network->network_properties.flags.calc_deg_field) {
-		for (i = 0; i <= nb; i++) {
-			if (network->network_properties.flags.no_pos) {
-				printf_red();
-				printf("\tCannot calculate degree fields if positions do not exist!\n");
-				printf("\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n\n");
-				printf_std();
-				fflush(stdout);
-
-				network->network_properties.flags.calc_deg_field = false;
-				goto ValidateDistance;
-			}
-
-			if (!measureDegreeField(network->network_observables.in_degree_field, network->network_observables.out_degree_field, network->network_observables.avg_idf, network->network_observables.avg_odf, network->nodes.crd, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.N_df, network->network_properties.tau_m, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.alpha, network->network_properties.delta, ca, cp->sMeasureDegreeField, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-				network->network_properties.cmpi.fail = 1;
-				goto MeasureExit;
-			}
-		}
-
-		if (nb)
-			bm->bMeasureDegreeField = cp->sMeasureDegreeField.elapsedTime / NBENCH;
 	}
 
-	ValidateDistance:
-
-	//------------------------------//
-	// VALIDATE DISTANCE ALGORITHMS //
-	//------------------------------//
-
-	if (network->network_properties.flags.validate_distances) {
-		if (network->network_properties.flags.no_pos) {
-			printf_red();
-			printf("\tCannot validate distances if positions do not exist!\n");
-			printf("\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n\n");
-			printf_std();
-			fflush(stdout);
-
-			network->network_properties.flags.validate_distances = false;
-			goto Action;
-		}
-
-		if (!validateDistances(network->network_observables.dvd, network->nodes, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.N_dst, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.mrng, ca, cp->sValidateDistances, network->network_properties.flags.verbose)) {
-			network->network_properties.cmpi.fail = 1;
-			goto MeasureExit;
-		}
-	}
-	}
-
-	Action:
+	if (checkMpiErrors(network->network_properties.cmpi))
+		return false;
 
 	//--------//
 	// ACTION //
@@ -1073,7 +820,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				fflush(stdout);
 
 				network->network_properties.flags.calc_action = false;
-				goto ActionTheory;
+				break;
 			}
 
 			//-------------------------//
@@ -1085,17 +832,17 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				if (network->network_properties.N_tar >= ACTION_MPI_V5) {
 					if (!measureAction_v5(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 						network->network_properties.cmpi.fail = 1;
-						goto MeasureExit;
+						break;
 					}
 				} else if (network->network_properties.flags.mpi_split || network->network_properties.N_tar >= ACTION_MPI_V4) {
 					if (!measureAction_v4(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 						network->network_properties.cmpi.fail = 1;
-						goto MeasureExit;
+						break;
 					}
 				} else {
 					if (!measureAction_v6(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 						network->network_properties.cmpi.fail = 1;
-						goto MeasureExit;
+						break;
 					}
 				}
 			} else
@@ -1105,16 +852,16 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			if (network->network_properties.flags.use_bit && (network->network_properties.flags.link || network->network_properties.flags.relink)) {
 				if (!measureAction_v3(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->nodes.k_in, network->nodes.k_out, network->network_properties.spacetime, network->network_properties.N_tar, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
-					goto MeasureExit;
+					break;
 				}
 			} else if (!measureAction_v2(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_properties.max_cardinality, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
-				goto MeasureExit;
+				break;
 			}
 			#else
 			if (!measureAction_v1(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.max_cardinality, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
-				goto MeasureExit;
+				break;
 			}
 			#endif
 			}
@@ -1163,7 +910,8 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			bm->bMeasureAction = cp->sMeasureAction.elapsedTime / NBENCH;
 	}
 
-	ActionTheory:
+	if (checkMpiErrors(network->network_properties.cmpi))
+		return false;
 
 	#ifdef MPI_ENABLED
 	if (!rank)
@@ -1183,7 +931,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			fflush(stdout);
 
 			network->network_properties.flags.calc_action_theory = false;
-			goto VectorProducts;
+			goto MeasureExit;
 		}
 
 		if (!measureTheoreticalAction(network->network_observables.actth, network->network_properties.N_actth, network->nodes, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.eta0, network->network_properties.delta, ca, cp->sMeasureThAction, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
@@ -1191,37 +939,6 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			goto MeasureExit;
 		}
 	}
-
-	VectorProducts:
-
-	//-----------------//
-	// VECTOR PRODUCTS //
-	//-----------------//
-
-	if (network->network_properties.flags.calc_vecprod) {
-		for (i = 0; i <= nb; i++) {
-			if (network->network_properties.flags.no_pos) {
-				if (!rank) printf_red();
-				printf_mpi(rank, "\tCannot calculate vector products if positions do not exist!\n");
-				printf_mpi(rank, "\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n\n");
-				if (!rank) printf_std();
-				fflush(stdout);
-
-				network->network_properties.flags.calc_vecprod = false;
-				goto MaximalChain;
-			}
-
-			if (!measureVecprod(network->network_observables.vecprods, network->nodes, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.N_vp, network->network_properties.a, network->network_properties.zeta, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.mrng, ca, cp->sMeasureVecprod, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
-				network->network_properties.cmpi.fail = 1;
-				goto MeasureExit;
-			}
-		}
-
-		if (nb)
-			bm->bMeasureVecprod = cp->sMeasureVecprod.elapsedTime / NBENCH;
-	}
-
-	MaximalChain:
 
 	//---------------//
 	// MAXIMAL CHAIN //
@@ -1244,7 +961,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 					candidates.push_back(j);
 			if (!configureSubgraph(&subgraph, network->nodes, candidates, ca, ctx)) {
 				network->network_properties.cmpi.fail = 1;
-				goto MeasureExit;
+				break;
 			}
 
 			printValues(subgraph.nodes, subgraph.network_properties.spacetime, subgraph.network_properties.N_tar, "eta_dist_sub.cset.dbg.dat", "x");
@@ -1252,7 +969,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 
 			if (!measureChain(network->network_observables.chain_sym, network->network_observables.chain_asym, network->adj, subgraph.adj, network->network_properties.spacetime, network->network_properties.N_tar, subgraph.network_properties.N_tar, ca, cp->sMeasureChain, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
-				goto MeasureExit;
+				break;
 			}
 
 			destroyNetwork(&subgraph, ca->hostMemUsed, ca->devMemUsed);
@@ -1276,12 +993,12 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				fflush(stdout);
 
 				network->network_properties.flags.calc_hubs = false;
-				goto GeodesicDisconnect;
+				break;
 			}
 			
 			if (!measureHubDensity(network->network_observables.hub_density, network->network_observables.hub_densities, network->adj, network->nodes.k_in, network->nodes.k_out, network->network_properties.N_tar, network->network_properties.N_hubs, ca, cp->sMeasureHubs, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
-				goto MeasureExit;
+				break;
 			}
 		}
 
@@ -1289,34 +1006,32 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			bm->bMeasureHubs = cp->sMeasureHubs.elapsedTime / NBENCH;
 	}
 
-	GeodesicDisconnect:
-
 	//---------------------------------------------//
 	// FRACTION OF GEODESICALLY DISCONNECTED PAIRS //
 	//---------------------------------------------//
 
 	if (network->network_properties.flags.calc_geo_dis) {
-		if (network->network_properties.flags.no_pos) {
-			if (!rank) printf_red();
-			printf_mpi(rank, "\tCannot calculate geodesically disconnected pairs if positions do not exist!\n");
-			printf_mpi(rank, "\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n\n");
-			if (!rank) printf_std();
-			fflush(stdout);
-
-			network->network_properties.flags.calc_geo_dis = false;
-			goto MeasureExit;
-		} else if (!links_exist) {
-			if (!rank) printf_red();
-			printf_mpi(rank, "\tCannot calculate geodesically disconnectd pairs if links do not exist!\n");
-			printf_mpi(rank, "\tUse flag '--link' or '--relink' to generate links.\n\tSkipping this subroutine.\n\n");
-			if (!rank) printf_std();
-			fflush(stdout);
-
-			network->network_properties.flags.calc_geo_dis = false;
-			goto MeasureExit;
-		}
-
 		for (i = 0; i <= nb; i++) {
+			if (network->network_properties.flags.no_pos) {
+				if (!rank) printf_red();
+				printf_mpi(rank, "\tCannot calculate geodesically disconnected pairs if positions do not exist!\n");
+				printf_mpi(rank, "\tRemove flag '--nopos' to read node positions.\n\tSkipping this subroutine.\n\n");
+				if (!rank) printf_std();
+				fflush(stdout);
+
+				network->network_properties.flags.calc_geo_dis = false;
+				goto MeasureExit;
+			} else if (!links_exist) {
+				if (!rank) printf_red();
+				printf_mpi(rank, "\tCannot calculate geodesically disconnectd pairs if links do not exist!\n");
+				printf_mpi(rank, "\tUse flag '--link' or '--relink' to generate links.\n\tSkipping this subroutine.\n\n");
+				if (!rank) printf_std();
+				fflush(stdout);
+
+				network->network_properties.flags.calc_geo_dis = false;
+				goto MeasureExit;
+			}
+
 			if (!measureGeoDis(network->network_observables.geo_discon, network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.N_gd, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.mrng, cp->sMeasureGeoDis, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
 				goto MeasureExit;
@@ -1349,9 +1064,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 	assert (network != NULL);
 	assert (ca != NULL);
 	assert (cp != NULL);
-
-	//Values in Correct Ranges (add this)
-
+	assert (bm != NULL);
 	assert (network->network_properties.graphID);
 	assert (!network->network_properties.flags.bench);
 	#endif
@@ -1361,7 +1074,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 	return false;
 	#endif
 
-	//unsigned int spacetime = network->network_properties.spacetime;
 	Spacetime spacetime = network->network_properties.spacetime;
 	int rank = network->network_properties.cmpi.rank;
 
@@ -1388,7 +1100,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		IntData idata = IntData();
 		idata.limit = 50;
 		idata.tol = 1e-4;
-		//if (USE_GSL && get_manifold(spacetime) & FLRW && !network->network_properties.flags.no_pos)
 		if (USE_GSL && spacetime.manifoldIs("FLRW") && !network->network_properties.flags.no_pos)
 			idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
@@ -1498,15 +1209,11 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 				for (i = 0; i < network->network_properties.N_tar; i++) {
 					getline(dataStream, line);
 
-					//if (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW)) {
 					if (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
-						//if (get_stdim(spacetime) == 2) {
 						if (spacetime.stdimIs("2")) {
 							network->nodes.crd->x(i) = atof(strtok((char*)line.c_str(), delimeters));
 							network->nodes.crd->y(i) = atof(strtok(NULL, delimeters));
-						//} else if (get_stdim(spacetime) == 4) {
 						} else if (spacetime.stdimIs("4")) {
-							//if (get_manifold(spacetime) & FLRW) {
 							if (spacetime.manifoldIs("FLRW")) {
 								network->nodes.id.tau[i] = atof(strtok((char*)line.c_str(), delimeters));
 								if (USE_GSL) {
@@ -1514,17 +1221,13 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 									network->nodes.crd->w(i) = integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * network->network_properties.a / network->network_properties.alpha;
 								} else
 									network->nodes.crd->w(i) = tauToEtaFLRWExact(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
-							//} else if (get_manifold(spacetime) & DUST) {
 							} else if (spacetime.manifoldIs("Dust")) {
 								network->nodes.id.tau[i] = atof(strtok((char*)line.c_str(), delimeters));
 								network->nodes.crd->w(i) = tauToEtaDust(network->nodes.id.tau[i], network->network_properties.a, network->network_properties.alpha);
-							//} else if (get_manifold(spacetime) & DE_SITTER) {
 							} else if (spacetime.manifoldIs("De_Sitter")) {
 								network->nodes.crd->w(i) = atof(strtok((char*)line.c_str(), delimeters));
-								//if (get_curvature(spacetime) & FLAT)
 								if (spacetime.curvatureIs("Flat"))
 									network->nodes.id.tau[i] = etaToTauFlat(network->nodes.crd->w(i));
-								//else if (get_curvature(spacetime) & POSITIVE)
 								else if (spacetime.curvatureIs("Positive"))
 									network->nodes.id.tau[i] = etaToTauSph(network->nodes.crd->w(i));
 							}
@@ -1539,7 +1242,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 								network->nodes.crd->z(i) = atof(strtok(NULL, delimeters));
 							}
 						}
-					//} else if (get_manifold(spacetime) & HYPERBOLIC) {
 					} else if (spacetime.manifoldIs("Hyperbolic")) {
 						network->nodes.id.AS[i] = atoi(strtok((char*)line.c_str(), delimeters));
 						network->nodes.crd->x(i) = atof(strtok(NULL, delimeters));
@@ -1547,29 +1249,23 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 					}
 
 					if (!network->network_properties.flags.quiet_read) {
-						//if (get_stdim(spacetime) == 2) {
 						if (spacetime.stdimIs("2")) {
-							//if (get_symmetry(spacetime) & ASYMMETRIC && network->nodes.crd->x(i) < 0.0) {
 							if (spacetime.symmetryIs("None") && network->nodes.crd->x(i) < 0.0) {
 								message = "Invalid value parsed for 'eta/r' in node position file!\n";
 								network->network_properties.cmpi.fail = 1;
 								goto LoadPoint2;
 							}
-							//if (get_manifold(spacetime) & ~MINKOWSKI && (network->nodes.crd->y(i) < 0.0 || network->nodes.crd->y(i) > TWO_PI)) {
 							if (!spacetime.manifoldIs("Minkowski") && (network->nodes.crd->y(i) < 0.0 || network->nodes.crd->y(i) > TWO_PI)) {
 								message = "Invalid value for 'theta' in node position file!\n";
 								network->network_properties.cmpi.fail = 1;
 								goto LoadPoint2;
 							}
-						//} else if (get_stdim(spacetime) == 4 && get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
 						} else if (spacetime.stdimIs("4") && (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))) {
-							//if ((get_curvature(spacetime) & POSITIVE && ((get_symmetry(spacetime) & SYMMETRIC && fabs(network->nodes.crd->w(i)) > static_cast<float>(HALF_PI - network->network_properties.zeta)) || (get_symmetry(spacetime) & ASYMMETRIC && (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > static_cast<float>(HALF_PI - network->network_properties.zeta))))) || (get_curvature(spacetime) & FLAT && ((get_manifold(spacetime) & DE_SITTER && (network->nodes.crd->w(i) < HALF_PI - network->network_properties.zeta || network->nodes.crd->w(i) > HALF_PI - network->network_properties.zeta1)) || (get_manifold(spacetime) & (DUST | FLRW) && (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > HALF_PI - network->network_properties.zeta))))) {
 							if ((spacetime.curvatureIs("Positive") && ((spacetime.symmetryIs("Temporal") && fabs(network->nodes.crd->w(i)) > static_cast<float>(HALF_PI - network->network_properties.zeta)) || (spacetime.symmetryIs("None") && (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > static_cast<float>(HALF_PI - network->network_properties.zeta))))) || (spacetime.curvatureIs("Flat") && ((spacetime.manifoldIs("De_Sitter") && (network->nodes.crd->w(i) < HALF_PI - network->network_properties.zeta || network->nodes.crd->w(i) > HALF_PI - network->network_properties.zeta1)) || ((spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) && (network->nodes.crd->w(i) < 0.0 || network->nodes.crd->w(i) > HALF_PI - network->network_properties.zeta))))) {
 								message = "Invalid value for 'eta' in node position file!\n";
 								network->network_properties.cmpi.fail = 1;
 								goto LoadPoint2;
 							}
-							//if (network->nodes.crd->x(i) < 0.0 || (get_curvature(spacetime) & POSITIVE && network->nodes.crd->x(i) > M_PI) || (get_curvature(spacetime) & FLAT && network->nodes.crd->x(i) > network->network_properties.r_max)) {
 							if (network->nodes.crd->x(i) < 0.0 || (spacetime.curvatureIs("Positive") && network->nodes.crd->x(i) > M_PI) || (spacetime.curvatureIs("Flat") && network->nodes.crd->x(i) > network->network_properties.r_max)) {
 								message = "Invalid value for 'theta_1' in node position file!\n";
 								network->network_properties.cmpi.fail = 1;
@@ -1598,7 +1294,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			printf("\t\tCompleted.\n");
 			fflush(stdout);
 
-			//if (USE_GSL && get_manifold(spacetime) & FLRW)
 			if (USE_GSL && spacetime.manifoldIs("FLRW"))
 				gsl_integration_workspace_free(idata.workspace);
 
@@ -1606,11 +1301,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			quicksort(network->nodes, network->network_properties.spacetime, 0, network->network_properties.N_tar - 1);
 		}
 		}
-
-		/*MPI_Barrier(MPI_COMM_WORLD);
-		printf("Rank [%d] reporting!\n", rank);
-		fflush(stdout); sleep(1);
-		MPI_Barrier(MPI_COMM_WORLD);*/
 
 		//Broadcast
 		#ifdef MPI_ENABLED
@@ -1630,7 +1320,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		#endif
 
 		//Re-Link Using linkNodes Subroutine
-		//if (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW) && network->network_properties.flags.relink && !network->network_properties.flags.no_pos) {
 		if ((spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) && network->network_properties.flags.relink && !network->network_properties.flags.no_pos) {
 			if (!linkNodes(network, ca, cp, ctx))
 				network->network_properties.cmpi.fail = 1;
@@ -1639,7 +1328,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			goto LoadPoint2;
 
 		//Populate Hashmap
-		//if (get_manifold(spacetime) & HYPERBOLIC)
 		if (spacetime.manifoldIs("Hyperbolic"))
 			for (i = 0; i < network->network_properties.N_tar; i++)
 				network->nodes.AS_idx.insert(std::make_pair(network->nodes.id.AS[i], i));
@@ -1689,11 +1377,9 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 					e0 = atoi(strtok((char*)line.c_str(), delimeters));
 					e1 = atoi(strtok(NULL, delimeters));
 
-					//if (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW)) {
 					if (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 						idx0 = e0;
 						idx1 = e1;
-					//} else if (get_manifold(spacetime) & HYPERBOLIC) {
 					} else if (spacetime.manifoldIs("Hyperbolic")) {
 						idx0 = network->nodes.AS_idx.at(e0);
 						idx1 = network->nodes.AS_idx.at(e1);
@@ -1816,7 +1502,6 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 				return false;
 		}
 		
-		//if ((get_manifold(spacetime) & (DE_SITTER | DUST | FLRW) && network->network_properties.flags.relink) || !network->network_properties.flags.link)
 		if (((spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) && network->network_properties.flags.relink) || !network->network_properties.flags.link)
 			return true;
 
@@ -1910,13 +1595,11 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 		Spacetime spacetime = network.network_properties.spacetime;
 		bool links_exist = network.network_properties.flags.link || network.network_properties.flags.relink;
 
-		//if (get_manifold(spacetime) & (DUST | FLRW)) {
 		if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 			outputStream << "\nCauset Initial Parameters:" << std::endl;
 			outputStream << "--------------------------" << std::endl;
 			outputStream << "Number of Nodes (N_tar)\t\t\t" << network.network_properties.N_tar << std::endl;
 			outputStream << "Expected Degrees (k_tar)\t\t" << network.network_properties.k_tar << std::endl;
-			//if (get_manifold(spacetime) & FLRW)
 			if (spacetime.manifoldIs("FLRW"))
 				outputStream << "Dark Energy Density (omegaL)\t\t" << network.network_properties.omegaL << std::endl;
 			outputStream << "Rescaled Age (tau0)\t\t\t" << network.network_properties.tau0 << std::endl;
@@ -1931,28 +1614,23 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 				outputStream << "Resulting Average Degrees (k_res)\t" << network.network_observables.k_res << std::endl;
 				outputStream << "Resulting Error in <k>\t\t\t" << (fabs(network.network_properties.k_tar - network.network_observables.k_res) / network.network_properties.k_tar) << std::endl;
 			}
-			//if (get_symmetry(network.network_properties.spacetime) & ASYMMETRIC && !(get_manifold(network.network_properties.spacetime) & HYPERBOLIC))
 			if (spacetime.symmetryIs("None") && !spacetime.manifoldIs("Hyperbolic"))
 				outputStream << "Minimum Rescaled Time\t\t\t" << network.nodes.id.tau[0] << std::endl;
-		//} else if (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | HYPERBOLIC)) {
 		} else if (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Hyperbolic")) {
 			outputStream << "\nCauset Input Parameters:" << std::endl;
 			outputStream << "------------------------" << std::endl;
 			outputStream << "Number of Nodes (N_tar)\t\t\t" << network.network_properties.N_tar << std::endl;
 			outputStream << "Expected Degrees (k_tar)\t\t" << network.network_properties.k_tar << std::endl;
-			//if (get_manifold(spacetime) & HYPERBOLIC) {
 			if (spacetime.manifoldIs("Hyperbolic")) {
 				outputStream << "Max. Radius (r_max)\t\t\t" << network.network_properties.r_max << std::endl;
 				outputStream << "Hyperbolic Curvature (zeta)\t\t" << network.network_properties.zeta << std::endl;
 			} else {
 				outputStream << "Max. Conformal Time (eta_0)\t\t";
-				//if (get_manifold(network.network_properties.spacetime) & DE_SITTER && get_curvature(network.network_properties.spacetime) & FLAT)
 				if (spacetime.manifoldIs("De Sitter") && spacetime.curvatureIs("Flat"))
 					outputStream << HALF_PI - network.network_properties.zeta1 << std::endl;
 				else
 					outputStream << HALF_PI - network.network_properties.zeta << std::endl;
 			}
-			//if (get_manifold(spacetime) & DE_SITTER)
 			if (spacetime.manifoldIs("De_Sitter"))
 				outputStream << "Pseudoradius (a)\t\t\t" << network.network_properties.a << std::endl;
 
@@ -1964,10 +1642,8 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 				outputStream << "    Incl. Isolated Nodes\t\t" << (network.network_observables.k_res * network.network_observables.N_res) / network.network_properties.N_tar << std::endl;
 				outputStream << "Resulting Error in <k>\t\t\t" << (fabs(network.network_properties.k_tar - network.network_observables.k_res) / network.network_properties.k_tar) << std::endl;
 			}
-			//if (get_manifold(spacetime) & DE_SITTER)
 			if (spacetime.manifoldIs("De_Sitter"))
 				outputStream << "Minimum Rescaled Time\t\t\t" << network.nodes.id.tau[0] << std::endl;
-			//else if (get_manifold(spacetime) & HYPERBOLIC)
 			else if (spacetime.manifoldIs("Hyperbolic"))
 				outputStream << "Minimum Radial Coordinate\t\t" << network.nodes.crd->x(0) << std::endl;
 		}
@@ -1989,13 +1665,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 				outputStream << "Stretch\t\t\t\t\t" << network.network_observables.stretch << std::endl;
 		}
 
-		if (network.network_properties.flags.calc_deg_field) {
-			outputStream << "Degree Field Measurement Time\t\t" << network.network_properties.tau_m << std::endl;
-			outputStream << "Average In-Degree Field Value\t\t" << network.network_observables.avg_idf << std::endl;
-			outputStream << "Average Out-Degree Field Value\t\t" << network.network_observables.avg_odf << std::endl;
-		}
-
-		if (network.network_properties.flags.calc_action && network.network_properties.split_action == 1)
+		if (network.network_properties.flags.calc_action)
 			outputStream << "Action\t\t\t\t\t" << network.network_observables.action << std::endl;
 
 		if (network.network_properties.flags.calc_hubs)
@@ -2017,23 +1687,11 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			outputStream << "Clustering by Degree Data:\t\t" << "cdk/" << network.network_properties.graphID << ".cset.cdk.dat" << std::endl;
 		}
 
-		if (network.network_properties.flags.validate_embedding)
-			outputStream << "Embedding Confusion Matrix Data:\t" << "emb/" << network.network_properties.graphID << ".cset.emb.dat" << std::endl;
-
-		if (network.network_properties.flags.calc_deg_field) {
-			outputStream << "In-Degree Field Data:\t\t" << "idf/" << network.network_properties.graphID << ".cset.idf.dat" << std::endl;
-			outputStream << "Out-Degree Field Data: \t\t" << "odf/" << network.network_properties.graphID << ".cset.odf.dat" << std::endl;
-		}
-
 		if (network.network_properties.flags.calc_action)
 			outputStream << "Action/Cardinality Data:\t\t" << "act/" << network.network_properties.graphID << ".cset.act.dat" << std::endl;
 
-		if (network.network_properties.flags.calc_vecprod)
-			outputStream << "Vector Product Data:\t\t\t" << "vpd/" << network.network_properties.graphID << ".cset.vpd.dat" << std::endl;
-
 		outputStream << "\nAlgorithmic Performance:" << std::endl;
 		outputStream << "--------------------------" << std::endl;
-		//if (get_manifold(spacetime) & (DUST | FLRW))
 		if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
 			outputStream << "calcDegrees:\t\t\t\t" << cp.sCalcDegrees.elapsedTime << " sec" << std::endl;
 		outputStream << "createNetwork:\t\t\t\t" << cp.sCreateNetwork.elapsedTime << " sec" << std::endl;
@@ -2050,16 +1708,10 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			outputStream << "measureClustering:\t\t\t" << cp.sMeasureClustering.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_components)
 			outputStream << "measureComponents:\t\t\t" << cp.sMeasureConnectedComponents.elapsedTime << " sec" << std::endl;
-		if (network.network_properties.flags.validate_embedding)
-			outputStream << "validateEmbedding:\t\t\t" << cp.sValidateEmbedding.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_success_ratio)
 			outputStream << "measureSuccessRatio:\t\t\t" << cp.sMeasureSuccessRatio.elapsedTime << " sec" << std::endl;
-		if (network.network_properties.flags.calc_deg_field)
-			outputStream << "measureDegreeField:\t\t" << cp.sMeasureDegreeField.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_action)
 			outputStream << "measureAction:\t\t\t\t" << cp.sMeasureAction.elapsedTime << " sec" << std::endl;
-		if (network.network_properties.flags.calc_vecprod)
-			outputStream << "measureVecprod:\t\t\t\t" << cp.sMeasureVecprod.elapsedTime << " sec" << std::endl;
 		if (network.network_properties.flags.calc_hubs)
 			outputStream << "measureHubDensity:\t\t\t\t" << cp.sMeasureHubs.elapsedTime << " sec" << std::endl;
 
@@ -2089,26 +1741,20 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			throw CausetException("Failed to open node position file!\n");
 		dataStream << std::fixed << std::setprecision(9);
 		for (i = 0; i < network.network_properties.N_tar; i++) {
-			//if (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER | DUST | FLRW)) {
 			if (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
-				//if (get_stdim(spacetime) == 4) {
 				if (spacetime.stdimIs("4")) {
-					//if (get_manifold(spacetime) & (DUST | FLRW))
 					if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
 						dataStream << network.nodes.id.tau[i];
-					//else if (get_manifold(spacetime) & DE_SITTER)
 					else if (spacetime.manifoldIs("De_Sitter"))
 						dataStream << network.nodes.crd->w(i);
 					dataStream << " " << network.nodes.crd->x(i) << " " << network.nodes.crd->y(i) << " " << network.nodes.crd->z(i);
-				//} else if (get_stdim(spacetime) == 2)
-				} else if (spacetime.stdimIs("2"))
+				} else if (spacetime.stdimIs("3"))
+					dataStream << network.nodes.crd->x(i) << " " << network.nodes.crd->y(i) << " " << network.nodes.crd->z(i);
+				else if (spacetime.stdimIs("2"))
 					dataStream << network.nodes.crd->x(i) << " " << network.nodes.crd->y(i);
-			//} else if (get_manifold(spacetime) & HYPERBOLIC) {
 			} else if (spacetime.manifoldIs("Hyperbolic")) {
-				//if (get_curvature(spacetime) & FLAT)
 				if (spacetime.curvatureIs("Flat"))
 					dataStream << network.nodes.id.AS[i] << " " << network.nodes.crd->x(i) << " " << network.nodes.crd->y(i);
-				//else if (get_curvature(spacetime) & POSITIVE)
 				else if (spacetime.curvatureIs("Positive"))
 					dataStream << network.nodes.id.tau[i] << " " << network.nodes.crd->x(i) << " " << network.nodes.crd->y(i);
 			}
@@ -2268,48 +1914,6 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			dataStream.close();
 		}
 
-		if (network.network_properties.flags.validate_embedding) {
-			sstm.str("");
-			sstm.clear();
-			sstm << prefix << "emb/" << network.network_properties.graphID << ".cset.emb.dat";
-			dataStream.open(sstm.str().c_str());
-			if (!dataStream.is_open())
-				throw CausetException("Failed to open embedding confusion matrix file!\n");
-			dataStream << "True Positives:  " << static_cast<double>(network.network_observables.evd.confusion[0]) / network.network_observables.evd.A1S << std::endl;
-			dataStream << "True Negatives:  " << static_cast<double>(network.network_observables.evd.confusion[1]) / network.network_observables.evd.A1T << std::endl;
-			dataStream << "False Positives: " << static_cast<double>(network.network_observables.evd.confusion[2]) / network.network_observables.evd.A1T << std::endl;
-			dataStream << "False Negatives: " << static_cast<double>(network.network_observables.evd.confusion[3]) / network.network_observables.evd.A1S << std::endl;
-
-			dataStream.flush();
-			dataStream.close();
-		}
-
-		if (network.network_properties.flags.calc_deg_field) {
-			sstm.str("");
-			sstm.clear();
-			sstm << prefix << "idf/" << network.network_properties.graphID << ".cset.idf.dat";
-			dataStream.open(sstm.str().c_str());
-			if (!dataStream.is_open())
-				throw CausetException("Failed to open in-degree field file!\n");
-			for (i = 0; i < network.network_properties.N_df; i++)
-				dataStream << network.network_observables.in_degree_field[i] << "\n";
-
-			dataStream.flush();
-			dataStream.close();
-
-			sstm.str("");
-			sstm.clear();
-			sstm << prefix << "odf/" << network.network_properties.graphID << ".cset.odf.dat";
-			dataStream.open(sstm.str().c_str());
-			if (!dataStream.is_open())
-				throw CausetException("Failed to open out-degree field file!\n");
-			for (i = 0; i < network.network_properties.N_df; i++)
-				dataStream << network.network_observables.out_degree_field[i] << "\n";
-
-			dataStream.flush();
-			dataStream.close();
-		}
-
 		if (network.network_properties.flags.calc_action) {
 			sstm.str("");
 			sstm.clear();
@@ -2319,20 +1923,6 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 				throw CausetException("Failed to open action file!\n");
 			for (i = 0; i < network.network_properties.max_cardinality; i++)
 				dataStream << network.network_observables.cardinalities[i] << "\n";
-
-			dataStream.flush();
-			dataStream.close();
-		}
-
-		if (network.network_properties.flags.calc_vecprod) {
-			sstm.str("");
-			sstm.clear();
-			sstm << prefix << "vpd/" << network.network_properties.graphID << ".cset.vpd.dat";
-			dataStream.open(sstm.str().c_str());
-			if (!dataStream.is_open())
-				throw CausetException("Failed to open vector product file!\n");
-			for (uint64_t m = 0; m < static_cast<uint64_t>(network.network_properties.N_vp); m++)
-				dataStream << network.network_observables.vecprods[m] << "\n";
 
 			dataStream.flush();
 			dataStream.close();
@@ -2399,12 +1989,8 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link
 			fprintf(f, "\tmeasureComponents:\t%5.6f sec\n", bm.bMeasureConnectedComponents);
 		if (cf.calc_success_ratio)
 			fprintf(f, "\tmeasureSuccessRatio:\t%5.6f sec\n", bm.bMeasureSuccessRatio);
-		if (cf.calc_deg_field)
-			fprintf(f, "\tmeasureDegreeField:\t%5.6f sec\n", bm.bMeasureDegreeField);
 		if (cf.calc_action)
 			fprintf(f, "\tmeasureAction:\t%5.6f sec\n", bm.bMeasureAction);
-		if (cf.calc_vecprod)
-			fprintf(f, "\tmeasureVecprod:\t%5.6f sec\n", bm.bMeasureVecprod);
 
 		fclose(f);
 	} catch (CausetException c) {
@@ -2435,12 +2021,8 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link
 		printf("\tmeasureConnectedComponents:\t%5.6f sec\n", bm.bMeasureConnectedComponents);
 	if (cf.calc_success_ratio)
 		printf("\tmeasureSuccessRatio:\t%5.6f sec\n", bm.bMeasureSuccessRatio);
-	if (cf.calc_deg_field)
-		printf("\tmeasureDegreeField:\t%5.6f sec\n", bm.bMeasureDegreeField);
 	if (cf.calc_action)
 		printf("\tmeasureAction:\t\t%5.6f sec\n", bm.bMeasureAction);
-	if (cf.calc_vecprod)
-		printf("\tmeasureVecprod:\t\t%5.6f sec\n", bm.bMeasureVecprod);
 	printf("\n");
 	fflush(stdout);
 
@@ -2455,19 +2037,16 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 	bool links_exist = network->network_properties.flags.link || network->network_properties.flags.relink;
 
 	if (!network->network_properties.flags.no_pos) {
-		//if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW) || (get_manifold(spacetime) & HYPERBOLIC && get_curvature(spacetime) & POSITIVE)) {
 		if ((spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) || (spacetime.manifoldIs("Hyperbolic") && spacetime.curvatureIs("Positive"))) {
 			free(network->nodes.id.tau);
 			network->nodes.id.tau = NULL;
 			hostMemUsed -= sizeof(float) * network->network_properties.N_tar;
-		//} else if (get_manifold(spacetime) & HYPERBOLIC && get_curvature(spacetime) & POSITIVE) {
 		} else if (spacetime.manifoldIs("Hyperbolic") && spacetime.curvatureIs("Flat")) {
 			free(network->nodes.id.AS);
 			network->nodes.id.AS = NULL;
 			hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 		}
 
-		//if (get_stdim(spacetime) == 4) {
 		if (spacetime.stdimIs("4")) {
 			#if EMBED_NODES
 			free(network->nodes.crd->v());
@@ -2488,7 +2067,6 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 			network->nodes.crd->z() = NULL;
 
 			hostMemUsed -= sizeof(float) * network->network_properties.N_tar * 4;
-		//} else if (get_stdim(spacetime) == 3) {
 		} else if (spacetime.stdimIs("3")) {
 			free(network->nodes.crd->x());
 			network->nodes.crd->x() = NULL;
@@ -2500,7 +2078,6 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 			network->nodes.crd->z() = NULL;
 
 			hostMemUsed -= sizeof(float) * network->network_properties.N_tar * 3;
-		//} else if (get_stdim(spacetime) == 2) {
 		} else if (spacetime.stdimIs("2")) {
 			free(network->nodes.crd->x());
 			network->nodes.crd->x() = NULL;
@@ -2586,30 +2163,6 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		hostMemUsed -= sizeof(int) * network->network_properties.N_tar;
 	}
 
-	if (network->network_properties.flags.validate_embedding) {
-		free(network->network_observables.evd.confusion);
-		network->network_observables.evd.confusion = NULL;
-		hostMemUsed -= sizeof(uint64_t) * 4;
-	}
-
-	if (!rank) {
-		if (network->network_properties.flags.calc_deg_field) {
-			free(network->network_observables.in_degree_field);
-			network->network_observables.in_degree_field = NULL;
-			hostMemUsed -= sizeof(int) * network->network_properties.N_df;
-
-			free(network->network_observables.out_degree_field);
-			network->network_observables.out_degree_field = NULL;
-			hostMemUsed -= sizeof(int) * network->network_properties.N_df;
-		}
-
-		if (network->network_properties.flags.validate_distances) {
-			free(network->network_observables.dvd.confusion);
-			network->network_observables.dvd.confusion = NULL;
-			hostMemUsed -= sizeof(uint64_t) * 2;
-		}
-	}
-
 	if (network->network_properties.flags.calc_action) {
 		free(network->network_observables.cardinalities);
 		network->network_observables.cardinalities = NULL;
@@ -2637,12 +2190,6 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		network->network_observables.hub_densities = NULL;
 		hostMemUsed -= sizeof(float) * (network->network_properties.N_hubs + 1);
 	}
-
-	if (network->network_properties.flags.calc_vecprod) {
-		free(network->network_observables.vecprods);
-		network->network_observables.vecprods = NULL;
-		hostMemUsed -= sizeof(float) * network->network_properties.N_vp;
-	}
 }
 
 //--------------------//
@@ -2654,7 +2201,7 @@ bool linkNodes(Network * const network, CaResources * const ca, CausetPerformanc
 	#ifdef CUDA_ENABLED
 	if (network->network_properties.flags.use_gpu && network->network_properties.N_tar >= GPU_MIN) {
 		#if LINK_NODES_GPU_V2
-		if (!linkNodesGPU_v2(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sLinkNodesGPU, ctx, network->network_properties.flags.decode_cpu, network->network_properties.flags.link_epso, network->network_properties.flags.has_exact_k, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+		if (!linkNodesGPU_v2(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.r_max, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sLinkNodesGPU, ctx, network->network_properties.flags.decode_cpu, network->network_properties.flags.link_epso, network->network_properties.flags.has_exact_k, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 			return false;
 		#else
 		if (!linkNodesGPU_v1(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N_tar, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, ca, cp->sLinkNodesGPU, network->network_properties.flags.link_epso, network->network_properties.flags.has_exact_k, network->network_properties.flags.verbose, network->network_properties.flags.bench))
@@ -2694,27 +2241,17 @@ bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigne
 	subgraph->network_properties.flags.has_exact_k = false;
 
 	subgraph->network_properties.flags.use_bit = true;
-	subgraph->network_properties.flags.gen_ds_table = false;
-	subgraph->network_properties.flags.gen_flrw_table = false;
 
 	subgraph->network_properties.flags.calc_clustering = false;
 	subgraph->network_properties.flags.calc_components = false;
 	subgraph->network_properties.flags.calc_success_ratio = false;
-	subgraph->network_properties.flags.calc_autocorr = false;
-	subgraph->network_properties.flags.calc_deg_field = false;
 	subgraph->network_properties.flags.calc_action = false;
-	subgraph->network_properties.flags.calc_vecprod = false;
-	subgraph->network_properties.flags.validate_embedding = false;
-	subgraph->network_properties.flags.validate_distances = false;
 
 	subgraph->network_properties.flags.verbose = false;
 	subgraph->network_properties.flags.bench = false;
 
 	subgraph->network_observables.clustering = NULL;
-	subgraph->network_observables.in_degree_field = NULL;
-	subgraph->network_observables.out_degree_field = NULL;
 	subgraph->network_observables.cardinalities = NULL;
-	subgraph->network_observables.vecprods = NULL;
 
 	CausetPerformance cp = CausetPerformance();
 	if (!createNetwork(subgraph->nodes, subgraph->edges, subgraph->adj, subgraph->network_properties.spacetime, subgraph->network_properties.N_tar, subgraph->network_properties.k_tar, subgraph->network_properties.core_edge_fraction, subgraph->network_properties.edge_buffer, subgraph->network_properties.cmpi, subgraph->network_properties.group_size, ca, cp.sCreateNetwork, subgraph->network_properties.flags.use_gpu, subgraph->network_properties.flags.decode_cpu, subgraph->network_properties.flags.link, subgraph->network_properties.flags.relink, subgraph->network_properties.flags.no_pos, subgraph->network_properties.flags.use_bit, subgraph->network_properties.flags.mpi_split, subgraph->network_properties.flags.verbose, subgraph->network_properties.flags.bench, subgraph->network_properties.flags.yes))

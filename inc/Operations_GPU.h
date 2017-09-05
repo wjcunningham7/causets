@@ -1,3 +1,9 @@
+/////////////////////////////
+//(C) Will Cunningham 2014 //
+//         DK Lab          //
+// Northeastern University //
+/////////////////////////////
+
 #ifndef OPERATIONS_GPU_H_
 #define OPERATIONS_GPU_H_
 
@@ -5,11 +11,7 @@
 #include "CuResources.h"
 #include "Subroutines_GPU.h"
 
-/////////////////////////////
-//(C) Will Cunningham 2014 //
-//         DK Lab          //
-// Northeastern University //
-/////////////////////////////
+#define POW2_GPU(x) ((x)*(x))
 
 __device__ float X1_GPU(const float &theta1);
 
@@ -33,6 +35,8 @@ __device__ float flatProduct_GPU_v1(const float4 &sc0, const float4 &sc1);
 
 __device__ float flatProduct_GPU_v2(const float4 &sc0, const float4 &sc1);
 
-__device__ float POW2_GPU(const float &x);
+__device__ float flatProduct3_GPU(const float4 &sc0, const float4 &sc1);
+
+__device__ float sphProduct3_GPU(const float4 &sc0, const float4 &sc1);
 
 #endif

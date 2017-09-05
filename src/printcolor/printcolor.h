@@ -1,3 +1,9 @@
+/////////////////////////////
+//(C) Will Cunningham 2017 //
+//         DK Lab          //
+// Northeastern University //
+/////////////////////////////
+
 #ifndef PRINT_COLOR_H_
 #define PRINT_COLOR_H_
 

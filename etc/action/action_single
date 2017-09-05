@@ -7,23 +7,18 @@
 ###########################
 
 # Concatenates cardinalities, and then calculates average action and std. dev.
-# The theoretical action is calculated assuming a K = 1 de Sitter slab
 
 import glob
 import math
 import numpy as np
 import sys
 
-#stdim = 2
 smeared = True
-#symmetric = True
 
 if len(sys.argv) < 2:
 	sys.stdout.write('Specify the spacetime dimension.\n')
 	sys.exit(1)
 
-#eta0 = float(sys.argv[1])
-#n = int(sys.argv[2])
 stdim = int(sys.argv[1])
 
 if not (stdim == 2 or stdim == 4):
@@ -52,7 +47,6 @@ for file in act_files:
 		c.append(int(line))
 		c_idx += 1
 	h.close()
-#	n = c_idx + 1
 	
 	if smeared:
 		lk = 2.0
@@ -99,19 +93,5 @@ for i in range(0,len(act_files)):
 	h.write(str(a[i]) + '\n')
 h.close()
 
-#if stdim == 2:
-#	v = 2.0 * math.pi * math.tan(eta0)
-#elif stdim == 4:
-#	v = (2.0 / 3.0) * math.pow(math.pi, 2.0) * (2.0 + 1.0 / math.pow(math.cos(eta0), 2.0)) * math.tan(eta0)
-
-#if symmetric:
-#	v *= 2.0
-
-#if stdim == 2:
-#	th_action = v
-#elif stdim == 4:
-#	th_action = 6.0 * math.sqrt(n * v)
-
 sys.stdout.write('Average Action: %f \xC2\xB1 %f\n' % (avg_action, stderr))
-#sys.stdout.write('Theor. Action:  %f\n' % th_action)
 sys.stdout.write('Completed ACT.\n')

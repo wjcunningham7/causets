@@ -1,14 +1,14 @@
-#include "Measurements.h"
-
 /////////////////////////////
 //(C) Will Cunningham 2014 //
 //         DK Lab          //
 // Northeastern University //
 /////////////////////////////
 
+#include "Measurements.h"
+
 //Calculates clustering coefficient for each node in network
 //O(N*k^3) Efficiency
-bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const Bitvector &adj, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &calc_autocorr, const bool &verbose, const bool &bench)
+bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges, const Bitvector &adj, float &average_clustering, const int &N_tar, const int &N_deg2, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureClustering, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (edges.past_edges != NULL);
@@ -50,12 +50,6 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 	#pragma omp parallel for schedule (dynamic, 1) reduction(+ : c_avg) if (N_tar > 10000)
 	#endif
 	for (int i = 0; i < N_tar; i++) {
-		//printf("\nNode %d:\n", i);
-		//printf("\tDegrees: %d\n", (nodes.k_in[i] + nodes.k_out[i]));
-		//printf("\t\tIn-Degrees: %d\n", nodes.k_in[i]);
-		//printf("\t\tOut-Degrees: %d\n", nodes.k_out[i]);
-		//fflush(stdout);
-
 		//Ingore nodes of degree 0 and 1
 		if (nodes.k_in[i] + nodes.k_out[i] < 2) {
 			clustering[i] = 0.0f;
@@ -109,11 +103,6 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 
 		clustering[i] = c_i;
 		c_avg += c_i;
-
-		//printf("\tConnected Triplets: %f\n", (c_i * c_max));
-		//printf("\tMaximum Triplets: %f\n", c_max);
-		//printf("\tClustering Coefficient: %f\n\n", c_i);
-		//fflush(stdout);
 	}
 
 	average_clustering = c_avg / N_deg2;
@@ -129,17 +118,6 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 		printf("\t\tAverage Clustering: %f\n", average_clustering);
 		printf_std();
 		fflush(stdout);
-		if (calc_autocorr) {
-			autocorr2 acClust(5);
-			for (int i = 0; i < N_tar; i++)
-				acClust.accum_data(clustering[i]);
-			acClust.analysis();
-			std::ofstream fout("clustAutoCorr.dat");
-			acClust.fout_txt(fout);
-			fout.close();
-			printf("\t\tCalculated Autocorrelation.\n");
-			fflush(stdout);
-		}
 	}
 
 	if (verbose) {
@@ -171,9 +149,6 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitvector 
 	int rank = cmpi.rank;
 	int elements;
 	int i;
-
-	//if (use_bit) printf_dbg("Using version 2\n");
-	//else printf_dbg("Using version 1\n");
 
 	stopwatchStart(&sMeasureConnectedComponents);
 
@@ -262,26 +237,28 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitvector 
 bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &adj, float &success_ratio, float &success_ratio2, float &stretch, const Spacetime &spacetime, const int &N_tar, const float &k_tar, const long double &N_sr, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureSuccessRatio, const bool &link_epso, const bool &use_bit, const bool &calc_stretch, const bool &strict_routing, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	/*assert (!nodes.crd->isNull());
-	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
+	assert (!nodes.crd->isNull());
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("4"));
+	assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic"));
 
-	if (get_manifold(spacetime) & HYPERBOLIC)
-		assert (get_stdim(spacetime) == 2);
+	if (spacetime.manifoldIs("Hyperbolic"))
+		assert (spacetime.stdimIs("2"));
 
-	if (get_stdim(spacetime) == 2) {
+	if (spacetime.stdimIs("2")) {
 		assert (nodes.crd->getDim() == 2);
 		assert (TRAVERSE_V2 && use_bit && TRAVERSE_VECPROD);
-	} else if (get_stdim(spacetime) == 4) {
+	} else if (spacetime.stdimIs("4")) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
-		assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
+		assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"));
 	}
 
 	assert (nodes.crd->x() != NULL);
 	assert (nodes.crd->y() != NULL);
-	if (!use_bit) {
+	if (use_bit)
+		assert (adj.size() >= N_tar);
+	else {
 		assert (edges.past_edges != NULL);
 		assert (edges.future_edges != NULL);
 		assert (edges.past_edge_row_start != NULL);
@@ -291,10 +268,9 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 
 	assert (N_tar > 0);
 	assert (N_sr > 0 && N_sr <= ((uint64_t)N_tar * (N_tar - 1)) >> 1);
-	if (get_manifold(spacetime) & (DUST | FLRW))
+	if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
 		assert (alpha > 0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);*/
 	#endif
 
 	static const bool SR_DEBUG = false;
@@ -359,14 +335,11 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 	if (verbose)
 		printMemUsed("to Measure Success Ratio", ca->hostMemUsed, ca->devMemUsed, rank);
 
-	//Debugging geodesic distance approximations
-	//validateDistApprox(nodes, edges, N_tar, stdim, manifold, a, zeta, zeta1, r_max, alpha, compact);
-	//printChk();
-
 	unsigned int seed;
 	unsigned int nthreads;
 
-	//SuccessRatioLoop:
+	uint64_t min_samples = 500;
+	SuccessRatioLoop:
 
 	#ifdef _OPENMP
 	seed = static_cast<unsigned int>(mrng.rng() * 4000000000);
@@ -474,13 +447,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 			n_trav++;
 			if (success) {
 				n_succ++;
-				if (calc_stretch) {
+				if (calc_stretch)
 					loc_stretch += nsteps / static_cast<double>(shortestPath(nodes, edges, N_tar, &distances[offset], i, j));
-					/*int shortest = shortestPath(nodes, edges, N_tar, &distances[offset], i, j);
-					printf("\nnsteps: %d\n", nsteps);
-					printf("shortest: %d\n", shortest);
-					stretch += nsteps / (double)shortest;*/
-				}
 			}
 			#if !TRAVERSE_V2
 			if (success2)		//Trivially false if past_horizon = true
@@ -493,9 +461,8 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 	}
 	#endif
 
-	//if (n_trav < finish - start)
-	//if (n_trav < 500)
-	//	goto SuccessRatioLoop;
+	if (n_trav < min_samples)
+		goto SuccessRatioLoop;
 
 	free(used);
 	used = NULL;
@@ -566,21 +533,21 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const Spacetime &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const bool &strict_routing, int source, int dest, bool &success)
 {
 	#if DEBUG
-	/*assert (!nodes.crd->isNull());
-	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
+	assert (!nodes.crd->isNull());
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("4"));
+	assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic"));
 
-	if (get_manifold(spacetime) & HYPERBOLIC)
-		assert (get_stdim(spacetime) == 2);
+	if (spacetime.manifoldIs("Hyperbolic"))
+		assert (spacetime.stdimIs("2"));
 
-	if (get_stdim(spacetime) == 2) {
+	if (spacetime.stdimIs("2")) {
 		assert (nodes.crd->getDim() == 2);
-		assert (get_manifold(spacetime) & (DE_SITTER | HYPERBOLIC));
-	} else if (get_stdim(spacetime) == 4) {
+		assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Hyperbolic"));
+	} else if (spacetime.stdimIs("4")) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
-		assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
+		assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"));
 	}
 
 	assert (nodes.crd->x() != NULL);
@@ -594,29 +561,29 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitvector &adj,
 	assert (used != NULL);
 		
 	assert (N_tar > 0);
-	if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
+	if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 		assert (a > 0.0);
-		if (get_manifold(spacetime) & (DUST | FLRW)) {
+		if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 			assert (zeta < HALF_PI);
 			assert (alpha > 0.0);
 		} else {
-			if (get_curvature(spacetime) & POSITIVE) {
+			if (spacetime.curvatureIs("Positive")) {
 				assert (zeta > 0.0);
 				assert (zeta < HALF_PI);
-			} else if (get_curvature(spacetime) & FLAT) {
+			} else if (spacetime.curvatureIs("Flat")) {
 				assert (zeta > HALF_PI);
 				assert (zeta1 > HALF_PI);
 				assert (zeta > zeta1);
 			}
 		}
 	}	
-	if (get_curvature(spacetime) & FLAT)
+	if (spacetime.curvatureIs("Flat"))
 		assert (r_max > 0.0);
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	assert (!strict_routing);
 	assert (source >= 0 && source < N_tar);
 	assert (dest >= 0 && dest < N_tar);
-	assert (source != dest);*/
+	assert (source != dest);
 	#endif
 
 	static const bool TRAV_DEBUG = false;
@@ -675,10 +642,8 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitvector &adj,
 				continue;
 
 			//Otherwise find the minimal element closest to the destination
-			//if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW))
 			if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
 				nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b, &dist);
-			//else if (get_manifold(spacetime) & HYPERBOLIC)
 			else if (spacetime.manifoldIs("Hyperbolic"))
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 			else
@@ -700,10 +665,8 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitvector &adj,
 				continue;
 
 			//Otherwise find the minimal element closest to the destination
-			//if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW))
 			if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
 				nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b, &dist);
-			//else if (get_manifold(spacetime) & HYPERBOLIC)
 			else if (spacetime.manifoldIs("Hyperbolic"))
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 			else
@@ -747,21 +710,22 @@ bool traversePath_v2(const Node &nodes, const Edge &edges, const Bitvector &adj,
 bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used, const Spacetime &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const bool &link_epso, const bool &strict_routing, int source, int dest, bool &success)
 {
 	#if DEBUG
-	/*assert (!nodes.crd->isNull());
-	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW | HYPERBOLIC));
+	assert (!nodes.crd->isNull());
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("4"));
+	assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic"));
+	assert (adj.size() >= N_tar);
 
-	if (get_manifold(spacetime) & HYPERBOLIC)
-		assert (get_stdim(spacetime) == 2);
+	if (spacetime.manifoldIs("Hyperbolic"))
+		assert (spacetime.stdimIs("2"));
 
-	if (get_stdim(spacetime) == 2) {
+	if (spacetime.stdimIs("2")) {
 		assert (nodes.crd->getDim() == 2);
-		assert (get_manifold(spacetime) & (DE_SITTER | HYPERBOLIC));
-	} else if (get_stdim(spacetime) == 4) {
+		assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Hyperbolic"));
+	} else if (spacetime.stdimIs("4")) {
 		assert (nodes.crd->getDim() == 4);
 		assert (nodes.crd->w() != NULL);
 		assert (nodes.crd->z() != NULL);
-		assert (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW));
+		assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"));
 	}
 
 	assert (nodes.crd->x() != NULL);
@@ -772,30 +736,30 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 		assert (used != NULL);
 		
 	assert (N_tar > 0);
-	if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW)) {
+	if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 		assert (a > 0.0);
-		if (get_manifold(spacetime) & (DUST | FLRW)) {
+		if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 			assert (zeta < HALF_PI);
 			assert (alpha > 0.0);
 		} else {
-			if (get_curvature(spacetime) & POSITIVE) {
+			if (spacetime.curvatureIs("Positive")) {
 				assert (zeta > 0.0);
 				assert (zeta < HALF_PI);
-			} else if (get_curvature(spacetime) & FLAT) {
+			} else if (spacetime.curvatureIs("Flat")) {
 				assert (zeta > HALF_PI);
 				assert (zeta1 > HALF_PI);
 				assert (zeta > zeta1);
 			}
 		}
 	}	
-	if (get_curvature(spacetime) & FLAT)
+	if (spacetime.curvatureIs("Flat"))
 		assert (r_max > 0.0);
 	#if TRAVERSE_VECPROD
-	assert (get_curvature(spacetime) & POSITIVE && get_stdim(spacetime) == 2);
+	assert (spacetime.curvatureIs("Positive") && spacetime.stdimIs("2"));
 	#endif
 	assert (source >= 0 && source < N_tar);
 	assert (dest >= 0 && dest < N_tar);
-	//assert (source != dest);*/
+	assert (source != dest);
 	#endif
 
 	static const bool TRAV_DEBUG = false;
@@ -825,17 +789,13 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 			//with a distance to the destination shorter than the distance
 			//between the current node and the destination
 			#if TRAVERSE_VECPROD	//Use vector products in the embedded spacetime
-			//if (get_manifold(spacetime) & DE_SITTER)
 			if (spacetime.manifoldIs("De_Sitter"))
 				deSitterInnerProduct(nodes, spacetime, N_tar, loc, dest, &min_dist);
-			//else if (get_manifold(spacetime) & HYPERBOLIC)
 			else if (spacetime.manifoldIs("Hyperbolic"))
 				nodesAreRelatedHyperbolic(nodes, spacetime, N_tar, zeta, r_max, link_epso, loc, dest, &min_dist);
 			#else	//Use spatial distances
-			//if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW))
 			if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
 				nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, loc, dest, &min_dist);
-			//else if (get_manifold(spacetime) & HYPERBOLIC)
 			else if (spacetime.manifoldIs("Hyperbolic"))
 				min_dist = distanceH(nodes.crd->getFloat2(loc), nodes.crd->getFloat2(dest), spacetime, zeta);
 			#endif
@@ -871,10 +831,8 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 
 			//Otherwise find the element closest to the destination
 			#if TRAVERSE_VECPROD
-			//if (get_manifold(spacetime) & DE_SITTER)
 			if (spacetime.manifoldIs("De_Sitter"))
 				deSitterInnerProduct(nodes, spacetime, N_tar, m, dest, &dist);
-			//else if (get_manifold(spacetime) & HYPERBOLIC)
 			else if (spacetime.manifoldIs("Hyperbolic"))
 				nodesAreRelatedHyperbolic(nodes, spacetime, N_tar, zeta, r_max, link_epso, m, dest, &dist);
 			#else
@@ -882,10 +840,8 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 			if ((m < loc && !!nodes.k_in[m]) || (m > loc && !!nodes.k_out[m]))
 				continue;
 
-			//if (get_manifold(spacetime) & (DE_SITTER | DUST | FLRW))
 			if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
 				nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, m, dest, &dist);
-			//else if (get_manifold(spacetime) & HYPERBOLIC)
 			else if (spacetime.manifoldIs("Hyperbolic"))
 				dist = distanceH(nodes.crd->getFloat2(m), nodes.crd->getFloat2(dest), spacetime, zeta);
 			#endif
@@ -936,242 +892,6 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 	return retval;
 }
 
-//Takes N_df measurements of in-degree and out-degree fields at time tau_m
-//O(xxx) Efficiency (revise this)
-bool measureDegreeField(int *& in_degree_field, int *& out_degree_field, float &avg_idf, float &avg_odf, Coordinates *& c, const Spacetime &spacetime, const int &N_tar, int &N_df, const double &tau_m, const double &a, const double &zeta, const double &zeta1, const double &alpha, const double &delta, CaResources * const ca, Stopwatch &sMeasureDegreeField, const bool &verbose, const bool &bench)
-{
-	#if DEBUG
-	/*assert (c->getDim() == 4);
-	assert (!c->isNull());
-	assert (c->w() != NULL);
-	assert (c->x() != NULL);
-	assert (c->y() != NULL);
-	assert (c->z() != NULL);
-	assert (ca != NULL);
-
-	assert (N_tar > 0);
-	assert (N_df > 0);
-	assert (tau_m > 0.0);
-	assert (get_stdim(spacetime) == 4);
-	assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
-	assert (a > 0.0);
-	if (get_manifold(spacetime) & DE_SITTER) {
-		if (get_curvature(spacetime) & POSITIVE) {
-			assert (HALF_PI > 0.0);
-			assert (HALF_PI < HALF_PI);
-		} else if (get_curvature(spacetime) & FLAT) {
-			assert (zeta > HALF_PI);
-			assert (zeta1 > HALF_PI);
-			assert (zeta > zeta1);
-		}
-	} else if (get_manifold(spacetime) & FLRW) {
-		assert (zeta < HALF_PI);
-		assert (alpha > 0.0);
-	}*/
-	#endif
-
-	double *table;
-	float4 test_node;
-	double eta_m;
-	double d_size/*, x, rval*/;
-	float dt = 0.0f, dx = 0.0f;
-	long size = 0L;
-	int k_in, k_out;
-	int i, j;
-
-	//Numerical Integration Parameters
-	double *params = NULL;
-
-	//Calculate theoretical values
-	double k_in_theory = 0.0;
-	double k_out_theory = 0.0;
-	//bool theoretical = (get_manifold(spacetime) & FLRW) && verbose;
-	bool theoretical = spacetime.manifoldIs("FLRW") && verbose;
-
-	//Modify number of samples
-	N_df = 1;
-
-	IntData idata = IntData();
-	//Modify these two parameters to trade off between speed and accuracy
-	idata.limit = 50;
-	idata.tol = 1e-5;
-	//if (get_manifold(spacetime) & FLRW && (USE_GSL || theoretical))
-	if (spacetime.manifoldIs("FLRW") && (USE_GSL || theoretical))
-		idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
-
-	stopwatchStart(&sMeasureDegreeField);
-
-	//Allocate memory for data
-	try {
-		in_degree_field = (int*)malloc(sizeof(int) * N_df);
-		if (in_degree_field == NULL)
-			throw std::bad_alloc();
-		memset(in_degree_field, 0, sizeof(int) * N_df);
-		ca->hostMemUsed += sizeof(int) * N_df;
-
-		out_degree_field = (int*)malloc(sizeof(int) * N_df);
-		if (out_degree_field == NULL)
-			throw std::bad_alloc();
-		memset(out_degree_field, 0, sizeof(int) * N_df);
-		ca->hostMemUsed += sizeof(int) * N_df;
-
-		if (theoretical) {
-			if (!getLookupTable("./etc/tables/ctuc_table.cset.bin", &table, &size))
-				return false;
-			ca->hostMemUsed += size;
-
-			params = (double*)malloc(size + sizeof(double) * 4);
-			if (params == NULL)
-				throw std::bad_alloc();
-			ca->hostMemUsed += size + sizeof(double) * 4;
-		}
-	} catch (std::bad_alloc) {
-		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
-		return false;
-	}
-
-	memoryCheckpoint(ca->hostMemUsed, ca->maxHostMemUsed, ca->devMemUsed, ca->maxDevMemUsed);
-	if (verbose)
-		printMemUsed("to Measure Degree Fields", ca->hostMemUsed, ca->devMemUsed, 0);
-	
-	//Calculate eta_m
-	//if (get_manifold(spacetime) & FLRW) {
-	if (spacetime.manifoldIs("FLRW")) {
-		if (USE_GSL) {
-			//Numerical Integration
-			idata.upper = tau_m;
-			eta_m = integrate1D(&tauToEtaFLRW, NULL, &idata, QAGS) * a / alpha;
-		} else
-			//Exact Solution
-			eta_m = tauToEtaFLRWExact(tau_m, a, alpha);
-	//} else if (get_manifold(spacetime) & DE_SITTER) {
-	} else if (spacetime.manifoldIs("De_Sitter")) {
-		//if (get_curvature(spacetime) & POSITIVE)
-		if (spacetime.curvatureIs("Positive"))
-			eta_m = tauToEtaSph(tau_m);
-		//else if (get_curvature(spacetime) & FLAT)
-		else if (spacetime.curvatureIs("Flat"))
-			eta_m = tauToEtaFlat(tau_m);
-	} else
-		eta_m = 0.0;
-	test_node.w = static_cast<float>(eta_m);
-	
-	if (theoretical) {	
-		d_size = static_cast<double>(size);
-		memcpy(params, &eta_m, sizeof(double));
-		memcpy(params + 1, &a, sizeof(double));
-		memcpy(params + 2, &alpha, sizeof(double));
-		memcpy(params + 3, &d_size, sizeof(double));
-		memcpy(params + 4, table, size);
-	
-		idata.limit = 100;
-		idata.tol = 1e-4;
-	
-		//Theoretical Average In-Degree
-		idata.lower = 0.0;
-		idata.upper = eta_m;
-		k_in_theory = (4.0 * M_PI * delta * POW2(POW2(alpha, EXACT), EXACT) / 3.0) * integrate1D(&degreeFieldTheory, params, &idata, QAGS);
-
-		//Theoretical Average Out-Degree
-		idata.lower = eta_m;
-		idata.upper = HALF_PI - zeta;
-		k_out_theory = (4.0 * M_PI * delta * POW2(POW2(alpha, EXACT), EXACT) / 3.0) * integrate1D(&degreeFieldTheory, params, &idata, QAGS);
-
-		free(params);
-		params = NULL;
-		ca->hostMemUsed -= size + sizeof(double) * 4;
-
-		free(table);
-		table = NULL;
-	}
-
-	//Take N_df measurements of the fields
-	for (i = 0; i < N_df; i++) {
-		test_node.x = 1.0f;
-		test_node.y = 1.0f;
-		test_node.z = 1.0f;
-
-		k_in = 0;
-		k_out = 0;
-
-		//Compare test node to N_tar other nodes
-		float4 new_node;
-		for (j = 0; j < N_tar; j++) {
-			//Calculate sign of spacetime interval
-			new_node = c->getFloat4(j);
-			dt = static_cast<float>(ABS(static_cast<double>(c->w(j) - test_node.w), STL));
-
-			//if (get_curvature(spacetime) & POSITIVE) {
-			if (spacetime.curvatureIs("Positive")) {
-				#if DIST_V2
-					dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v2(new_node, test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-				#else
-					dx = static_cast<float>(ACOS(static_cast<double>(sphProduct_v1(new_node, test_node)), APPROX ? INTEGRATION : STL, VERY_HIGH_PRECISION));
-				#endif
-			//} else if (get_curvature(spacetime) & FLAT) {
-			} else if (spacetime.curvatureIs("Flat")) {
-				#if DIST_V2
-					dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v2(new_node, test_node)), APPROX ? BITWISE : STL));
-				#else
-					dx = static_cast<float>(SQRT(static_cast<double>(flatProduct_v1(new_node, test_node)), APPROX ? BITWISE : STL));
-				#endif
-			}
-
-			if (dx < dt) {
-				//They are connected
-				if (new_node.w < test_node.w)
-					k_in++;
-				else
-					k_out++;
-			}
-		}
-
-		//Save measurements
-		in_degree_field[i] = k_in;
-		out_degree_field[i] = k_out;
-
-		avg_idf += k_in;
-		avg_odf += k_out;
-	}
-
-	//Normalize averages
-	avg_idf /= N_df;
-	avg_odf /= N_df;
-
-	stopwatchStop(&sMeasureDegreeField);
-
-	//if (get_manifold(spacetime) & FLRW && (USE_GSL || theoretical))
-	if (spacetime.manifoldIs("FLRW") && (USE_GSL || theoretical))
-		gsl_integration_workspace_free(idata.workspace);
-
-	if (!bench) {
-		printf("\tCalculated Degree Field Values.\n");
-		printf_cyan();
-		printf("\t\tMeasurement Time: %f\n", tau_m);
-		printf("\t\tAverage In-Degree Field: %f\n", avg_idf);
-		if (theoretical) {
-			printf_red();
-			printf("\t\t\tTheory: %f\n", k_in_theory);
-			printf_cyan();
-		}
-		printf("\t\tAverage Out-Degree Field: %f\n", avg_odf);
-		if (theoretical) {
-			printf_red();
-			printf("\t\t\tTheory: %f\n", k_out_theory);
-			printf_std();
-		}
-		printf_std();
-		fflush(stdout);
-	}
-
-	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sMeasureDegreeField.elapsedTime);
-		fflush(stdout);
-	}
-
-	return true;
-}
-
 //Action kernel used with PTHREAD
 //This is called from measureAction_v5()
 void* actionKernel(void *params)
@@ -1218,10 +938,7 @@ void* actionKernel(void *params)
 		if (!nodesAreConnected_v2(p->adj[0], p->N_tar, static_cast<int>(i), static_cast<int>(glob_j))) continue;
 
 		//Save the cardinality
-		uint64_t length = glob_j - glob_i + 1;
-		p->adj[0][i].clone(p->workspace[0][tid], 0ULL, p->clone_length);
-		p->workspace[0][tid].partial_intersection(p->adj[0][j], glob_i, length);
-		p->cardinalities[tid*p->N_tar+p->workspace[0][tid].partial_count(glob_i, length)+1]++;
+		p->cardinalities[tid*p->N_tar+p->adj[0][i].partial_vecprod(p->adj[0][j], glob_i, glob_j - glob_i + 1)+1]++;
 	}
 	if (ACTION_DEBUG)
 		printf("Rank [%d] has completed the action kernel.\n", p->rank);
@@ -1233,9 +950,10 @@ void* actionKernel(void *params)
 bool measureAction_v6(uint64_t *& cardinalities, float &action, Bitvector &adj, const Spacetime &spacetime, const int N_tar, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureAction, const bool use_bit, const bool split_mpi, const bool verbose, const bool bench)
 {
 	#if DEBUG
-	assert (adj.size() > 0);
+	assert (adj.size() >= N_tar);
 	assert (N_tar > 0);
 	assert (ca != NULL);
+	assert (use_bit);
 	assert (!split_mpi);
 	#endif
 
@@ -1252,30 +970,20 @@ bool measureAction_v6(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		#endif
 	}
 
-	int *indices = NULL;
 	int n = N_tar + N_tar % (2 * cmpi.num_mpi_threads);
 	uint64_t npairs = static_cast<uint64_t>(n) * (n - 1) / (2 * cmpi.num_mpi_threads);
 	uint64_t start = rank * npairs;
 	uint64_t finish = start + npairs;
-	//unsigned int nthreads = omp_get_max_threads();
-	unsigned int nthreads = 28;
-	printf_mpi(rank, "Using [%d] OpenMP threads.\n", nthreads);
+	unsigned int nthreads = omp_get_max_threads();
 	double lk = 2.0;
 
-	//stopwatchStart(&sMeasureAction);
+	stopwatchStart(&sMeasureAction);
 
 	try {
 		cardinalities = (uint64_t*)calloc(N_tar * nthreads, sizeof(uint64_t));
 		if (cardinalities == NULL)
 			throw std::bad_alloc();
 		ca->hostMemUsed += sizeof(uint64_t) * N_tar * nthreads;
-
-		if (cmpi.num_mpi_threads > 1) {
-			indices = (int*)calloc(N_tar, sizeof(int));
-			if (indices == NULL)
-				throw std::bad_alloc();
-			ca->hostMemUsed += sizeof(int) * N_tar;
-		}
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -1285,26 +993,8 @@ bool measureAction_v6(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	if (verbose)
 		printMemUsed("to Measure B-D Action", ca->hostMemUsed, ca->devMemUsed, rank);
 
-	if (cmpi.num_mpi_threads > 1) {
-		if (!rank) {
-			std::iota(indices, indices + N_tar, 0);
-			for (int i = N_tar - 1; i > 0; i--) {
-				int j = (int)(mrng.rng() * i);
-				indices[j] ^= indices[i];
-				indices[i] ^= indices[j];
-				indices[j] ^= indices[i];
-			}
-		}
-		MPI_Barrier(MPI_COMM_WORLD);
-		MPI_Bcast(indices, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-	}
-
-	unsigned int runs = 0;
-
-	Action6:
-	stopwatchStart(&sMeasureAction);
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (static, 1) num_threads(nthreads) //if (npairs >= 1024)
+	#pragma omp parallel for schedule (static, 256) num_threads(nthreads) if (npairs >= 1024)
 	#endif
 	for (uint64_t k = start; k < finish; k++) {
 		unsigned int tid = omp_get_thread_num();
@@ -1317,45 +1007,17 @@ bool measureAction_v6(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		if (static_cast<int>(i) >= N_tar || static_cast<int>(j) >= N_tar || !nodesAreConnected_v2(adj, N_tar, static_cast<int>(i), static_cast<int>(j)))
 			continue;
 
-		/*if (static_cast<int>(i) >= N_tar || static_cast<int>(j) >= N_tar) continue;
-		i = indices[i];
-		j = indices[j];
-		if (i > j) {
-			i ^= j;
-			j ^= i;
-			i ^= j;
-		}
-		if (!nodesAreConnected_v2(adj, N_tar, (int)i, (int)j)) continue;*/		
-
 		cardinalities[tid*N_tar+adj[i].partial_vecprod(adj[j], i, j - i + 1)+1]++;
 	}
 
-	for (int i = 1; i < nthreads; i++)
+	for (unsigned int i = 1; i < nthreads; i++)
 		for (int j = 0; j < N_tar; j++)
 			cardinalities[j] += cardinalities[i*N_tar+j];
 
-	stopwatchStop(&sMeasureAction);
-	printf("Rank [%d] time: %5.6f\n", rank, sMeasureAction.elapsedTime);
-	stopwatchStart(&sMeasureAction);
 	#ifdef MPI_ENABLED
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Allreduce(MPI_IN_PLACE, cardinalities, N_tar, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
 	#endif
-
-	stopwatchStop(&sMeasureAction);
-	runs++;
-	printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sMeasureAction.elapsedTime);
-	fflush(stdout);
-	if (runs < NBENCH) {
-		stopwatchReset(&sMeasureAction);
-		goto Action6;
-	}
-
-	if (cmpi.num_mpi_threads > 1) {
-		free(indices);
-		indices = NULL;
-		ca->hostMemUsed -= sizeof(int) * N_tar;
-	}
 
 	cardinalities[0] = N_tar;
 	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, true);
@@ -1388,14 +1050,11 @@ bool measureAction_v6(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, const Spacetime &spacetime, const int &N_tar, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	/*assert (adj.size() > 0);
-	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER));
+	assert (adj.size() >= N_tar);
 	assert (N_tar > 0);
 	assert (ca != NULL);
-	assert (use_bit);*/
+	assert (use_bit);
 	#endif
-
 
 	#ifdef MPI_ENABLED
 	if (verbose || bench) {
@@ -1413,11 +1072,8 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		printf_dbg("Using Version 5 (measureAction).\n");
 	#endif
 
-	Bitvector workspace;
-	uint64_t clone_length = adj[0].getNumBlocks();
 	int rank = cmpi.rank;
 	double lk = 2.0;
-	bool split_job = false;
 
 	stopwatchStart(&sMeasureAction);
 
@@ -1428,13 +1084,6 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			throw std::bad_alloc();
 		memset(cardinalities, 0, sizeof(uint64_t) * N_tar * omp_get_max_threads());
 		ca->hostMemUsed += sizeof(uint64_t) * N_tar * omp_get_max_threads();
-
-		workspace.reserve(omp_get_max_threads());
-		for (int i = 0; i < omp_get_max_threads(); i++) {
-			FastBitset fb(static_cast<uint64_t>(N_tar));
-			workspace.push_back(fb);
-			ca->hostMemUsed += sizeof(BlockType) * fb.getNumBlocks();
-		}
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -1458,7 +1107,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	//First compare all pairs of elements on each computer
 	//If only one computer is being used then this step completes the algorithm
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 64) if (npairs > 10000) num_threads (nthreads)
+	#pragma omp parallel for schedule (static, 256) if (npairs >= 1024) num_threads (nthreads)
 	#endif
 	for (uint64_t k = 0; k < npairs; k++) {
 		unsigned int tid = omp_get_thread_num();
@@ -1481,10 +1130,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		if (!nodesAreConnected_v2(adj, N_tar, static_cast<int>(i), static_cast<int>(glob_j))) continue;
 
 		//Save the cardinality
-		uint64_t length = glob_j - glob_i + 1;
-		adj[i].clone(workspace[tid], 0ULL, clone_length);
-		workspace[tid].partial_intersection(adj[j], glob_i, length);
-		cardinalities[tid*N_tar+workspace[tid].partial_count(glob_i, length)+1]++;
+		cardinalities[tid*N_tar+adj[i].partial_vecprod(adj[j], glob_i, glob_j - glob_i + 1)+1]++;
 	}
 
 	#ifdef MPI_ENABLED
@@ -1512,11 +1158,6 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		printCardinalities(cardinalities, N_tar, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
 	}
 
-	//DEBUG
-	/*for (std::unordered_set<std::pair<int,int> >::iterator it = new_pairs.begin(); it != new_pairs.end(); it++) {
-		printf_mpi(rank, "(%d, %d)\n", std::get<0>(*it), std::get<1>(*it));
-	}*/
-
 	//These next four steps identify the swaps necessary
 	//to obtain the first memory permutation
 	std::vector<unsigned int> next;
@@ -1537,9 +1178,6 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	mpi_swaps(swaps, adj, cmpi.adj_buf, N_tar, cmpi.num_mpi_threads, cmpi.rank);
 	MPI_Barrier(MPI_COMM_WORLD);
 	current = next;
-	//printf_mpi(rank, "Current permutation:\t");
-	//if (!rank) print_pairs(current);
-	//fflush(stdout);
 
 	//The spinlock is created and initialized so all locks are unlocked
 	//and no computer owns the spinlock
@@ -1603,7 +1241,6 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 					fflush(stdout); sleep(1);
 				}
 				sleep(2);
-				//printf("Rank [%d] operating on [%d] and [%d]\n", rank, current[rank<<1], current[(rank<<1)+1]);
 				//Launch a pthread to do work in actionKernel
 				pthread_create(&thread, &attr, actionKernel, (void*)&p);
 			} else {
@@ -1768,7 +1405,6 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 				MPI_Bcast(&avail.front(), avail.size(), MPI_INT, source, MPI_COMM_WORLD);
 				if (ACTION_DEBUG_VERBOSE) {
 					printf("Rank [%d] has updated the list of available trades.\n", rank);
-					//printf("Rank [%d] sees: %d and %d\n", rank, avail[0], avail[1]);
 					printf("Rank [%d] sees: (", rank);
 					for (int i = 0; i < size; i++)
 						printf("%d, ", avail[i]);
@@ -1852,7 +1488,6 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			for (std::unordered_set<std::pair<int,int> >::iterator it = new_pairs.begin(); it != new_pairs.end(); it++)
 				printf("(%d, %d)\n", std::get<0>(*it), std::get<1>(*it));
 		}
-		//printCardinalities(cardinalities, N_tar - 1, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
 
 		sendSignal(REQUEST_UPDATE_NEW, rank, cmpi.num_mpi_threads);
 		MPI_Bcast(pair, 2, MPI_INT, rank, MPI_COMM_WORLD);
@@ -1950,9 +1585,6 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
-	//printf("Rank [%d] made it out!\n", rank);
-	//fflush(stdout); sleep(1);
-	//MPI_Barrier(MPI_COMM_WORLD);
 
 	pthread_attr_destroy(&attr);
 
@@ -1965,42 +1597,28 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 	#endif
 
-	if (!split_job) {
-		//OpenMP Reduction
-		for (int i = 1; i < omp_get_max_threads(); i++)
-			for (int j = 0; j < N_tar; j++)
-				cardinalities[j] += cardinalities[i*N_tar+j];
+	//OpenMP Reduction
+	for (int i = 1; i < omp_get_max_threads(); i++)
+		for (int j = 0; j < N_tar; j++)
+			cardinalities[j] += cardinalities[i*N_tar+j];
 
-		//MPI Reduction
-		#ifdef MPI_ENABLED
-		MPI_Allreduce(MPI_IN_PLACE, cardinalities, N_tar, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
-		#endif
-		cardinalities[0] = N_tar;
-	}
+	//MPI Reduction
+	#ifdef MPI_ENABLED
+	MPI_Allreduce(MPI_IN_PLACE, cardinalities, N_tar, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
+	#endif
+	cardinalities[0] = N_tar;
 
-	//Free Workspace
-	ca->hostMemUsed -= sizeof(BlockType) * clone_length * omp_get_max_threads();
-	workspace.clear();
-	workspace.swap(workspace);
-
-	if (!split_job) {
-		//action = calcAction(cardinalities, get_stdim(spacetime), lk, true);
-		action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, true);
-		assert (action == action);
-	}
+	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, true);
+	assert (action == action);
 
 	stopwatchStop(&sMeasureAction);
 
 	if (!bench) {
 		printf_mpi(rank, "\tCalculated Action.\n");
 		printf_mpi(rank, "\t\tTerms Used: %d\n", N_tar);
-		if (split_job) {
-			printf_mpi(rank, "\t\tConcatenate all cardinality files in ./dat/act to calculate action.\n");
-		} else {
-			if (!rank) printf_cyan();
-			printf_mpi(rank, "\t\tCausal Set Action: %f\n", action);
-			if (!rank) printf_std();
-		}
+		if (!rank) printf_cyan();
+		printf_mpi(rank, "\t\tCausal Set Action: %f\n", action);
+		if (!rank) printf_std();
 	}
 
 	if (verbose)
@@ -2019,12 +1637,10 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, const Spacetime &spacetime, const int &N_tar, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	/*assert (adj.size() > 0);
-	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER));
+	assert (adj.size() >= N_tar);
 	assert (N_tar > 0);
 	assert (ca != NULL);
-	assert (use_bit);*/
+	assert (use_bit);
 	#endif
 
 	if (verbose || bench) {
@@ -2040,9 +1656,6 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	}
 
 	static const bool ACTION_DEBUG = false;
-
-	Bitvector workspace;
-	uint64_t clone_length = adj[0].getNumBlocks();
 	double lk = 2.0;
 
 	stopwatchStart(&sMeasureAction);
@@ -2054,13 +1667,6 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			throw std::bad_alloc();
 		memset(cardinalities, 0, sizeof(uint64_t) * N_tar * omp_get_max_threads());
 		ca->hostMemUsed += sizeof(uint64_t) * N_tar * omp_get_max_threads();
-
-		workspace.reserve(omp_get_max_threads());
-		for (int i = 0; i < omp_get_max_threads(); i++) {
-			FastBitset fb(static_cast<uint64_t>(N_tar));
-			workspace.push_back(fb);
-			ca->hostMemUsed += sizeof(BlockType) * fb.getNumBlocks();
-		}
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -2082,7 +1688,6 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		for (std::unordered_set<FastBitset>::iterator fb = permutations.begin(); fb != permutations.end(); fb++) {
 			std::vector<unsigned int> p;
 			binary_to_perm(p, *fb, nbuf);
-			if (!cmpi.rank) print_pairs(p);
 		}
 		printf_mpi(cmpi.rank, "\n");
 		fflush(stdout); sleep(1);
@@ -2109,7 +1714,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	//First compare all pairs of elements on each computer
 	//If only one computer is being used then this step completes the algorithm
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 64) if (npairs > 10000) num_threads (nthreads)
+	#pragma omp parallel for schedule (static, 256) if (npairs >= 1024) num_threads (nthreads)
 	#endif
 	for (uint64_t k = 0; k < npairs; k++) {
 		unsigned int tid = omp_get_thread_num();
@@ -2131,11 +1736,6 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		if (!nodesAreConnected_v2(adj, N_tar, static_cast<int>(i), static_cast<int>(glob_j))) continue;
 
 		//Save the cardinality
-		/*uint64_t length = glob_j - glob_i + 1;
-		adj[i].clone(workspace[tid], 0ULL, clone_length);
-		workspace[tid].partial_intersection(adj[j], glob_i, length);
-		cardinalities[tid*N_tar+workspace[tid].partial_count(glob_i, length)+1]++;*/
-		
 		cardinalities[tid*N_tar+adj[i].partial_vecprod(adj[j], glob_i, glob_j - glob_i + 1)+1]++;
 	}
 
@@ -2210,7 +1810,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		//Compare pairs between the two buffers
 		//Pairs within a single buffer are not compared
 		#ifdef _OPENMP
-		#pragma omp parallel for schedule (dynamic, 64) if (npairs > 10000) num_threads (nthreads)
+		#pragma omp parallel for schedule (static, 256) if (npairs >= 1024) num_threads (nthreads)
 		#endif
 		for (uint64_t k = 0; k < npairs; k++) {
 			unsigned int tid = omp_get_thread_num();
@@ -2235,11 +1835,6 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			}
 
 			if (!nodesAreConnected_v2(adj, N_tar, static_cast<int>(i), static_cast<int>(glob_j))) continue;
-
-			/*uint64_t length = glob_j - glob_i + 1;
-			adj[i].clone(workspace[tid], 0ULL, clone_length);
-			workspace[tid].partial_intersection(adj[j], glob_i, length);
-			cardinalities[tid*N_tar+workspace[tid].partial_count(glob_i, length)+1]++;*/
 
 			cardinalities[tid*N_tar+adj[i].partial_vecprod(adj[j], glob_i, glob_j - glob_i + 1)+1]++;
 		}
@@ -2269,12 +1864,6 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	//The first element will be N_tar
 	cardinalities[0] = N_tar;
 
-	//Free Workspace
-	ca->hostMemUsed -= sizeof(BlockType) * clone_length * omp_get_max_threads();
-	workspace.clear();
-	workspace.swap(workspace);
-
-	//action = calcAction(cardinalities, get_stdim(spacetime), lk, true);
 	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, true);
 	assert (action == action);
 
@@ -2301,42 +1890,30 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 //Algorithm has been optimized using minimal bitwise operations
 //Requires the existence of the whole adjacency matrix
 //This will calculate all cardinality intervals by construction
-bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, const int * const k_in, const int * const k_out, const Spacetime &spacetime, const int &N_tar, CaResources * const ca, Stopwatch &sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, const int * const k_in, const int * const k_out, const Spacetime &spacetime, const int N_tar, CaResources * const ca, Stopwatch &sMeasureAction, const bool use_bit, const bool verbose, const bool bench)
 {
 	#if DEBUG
-	/*assert (adj.size() > 0);
-	assert (get_stdim(spacetime) >= 2 && get_stdim(spacetime) <= 4);
-	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER));
+	assert (adj.size() >= N_tar);
 	assert (N_tar > 0);
 	assert (ca != NULL);
-	assert (use_bit);*/
+	assert (use_bit);
 	#endif
 
 	if (verbose || bench)
 		printf_dbg("Using Version 3 (measureAction).\n");
 
-	Bitvector workspace;
 	int n = N_tar + N_tar % 2;
 	uint64_t npairs = static_cast<uint64_t>(n) * (n - 1) / 2;
-	uint64_t clone_length = adj[0].getNumBlocks();
 	double lk = 2.0;
 
-	//stopwatchStart(&sMeasureAction);
+	stopwatchStart(&sMeasureAction);
 
 	//Allocate memory for cardinality measurements and workspace
 	try {
-		cardinalities = (uint64_t*)malloc(sizeof(uint64_t) * N_tar * omp_get_max_threads());
+		cardinalities = (uint64_t*)calloc(N_tar * omp_get_max_threads(), sizeof(uint64_t));
 		if (cardinalities == NULL)
 			throw std::bad_alloc();
-		memset(cardinalities, 0, sizeof(uint64_t) * N_tar * omp_get_max_threads());
 		ca->hostMemUsed += sizeof(uint64_t) * N_tar * omp_get_max_threads();
-
-		workspace.reserve(omp_get_max_threads());
-		for (int i = 0; i < omp_get_max_threads(); i++) {
-			FastBitset fb(static_cast<uint64_t>(N_tar));
-			workspace.push_back(fb);
-			ca->hostMemUsed += sizeof(BlockType) * fb.getNumBlocks();
-		}
 	} catch (std::bad_alloc) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
@@ -2350,19 +1927,13 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	cardinalities[0] = N_tar;
 
 	unsigned int nthreads = omp_get_max_threads();
-	/*#ifdef AVX2_ENABLED
+	#ifdef AVX2_ENABLED
 	nthreads >>= 1;
-	#endif*/
-	//unsigned int nthreads = 1;
-	printf("Using [%d] OpenMP threads.\n", nthreads);
+	#endif
 
-	unsigned int runs = 0;
-
-	Action3:
-	stopwatchStart(&sMeasureAction);
 	//Compare all pairs of elements
 	#ifdef _OPENMP
-	#pragma omp parallel for schedule (static, 256) num_threads (nthreads) //if (npairs >= 1024)
+	#pragma omp parallel for schedule (static, 256) num_threads (nthreads) if (npairs >= 1024)
 	#endif
 	for (uint64_t k = 0; k < npairs; k++) {
 		unsigned int tid = omp_get_thread_num();
@@ -2386,21 +1957,6 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		for (int j = 0; j < N_tar; j++)
 			cardinalities[j] += cardinalities[i*N_tar+j];
 
-	stopwatchStop(&sMeasureAction);
-	runs++;
-	printf("\t\tExecution Time: %5.6f sec\n", sMeasureAction.elapsedTime);
-	fflush(stdout);
-	if (runs < NBENCH) {
-		stopwatchReset(&sMeasureAction);
-		goto Action3;
-	}
-
-	//Free Workspace
-	ca->hostMemUsed -= sizeof(BlockType) * clone_length * omp_get_max_threads();
-	workspace.clear();
-	workspace.swap(workspace);
-
-	//action = calcAction(cardinalities, get_stdim(spacetime), lk, true);
 	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, true);
 	assert (action == action);
 
@@ -2426,12 +1982,12 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 bool timelikeActionCandidates(std::vector<unsigned int> &candidates, int *chaintime, const Node &nodes, Bitvector &adj, const int * const k_in, const int * const k_out, const Spacetime &spacetime, const int &N_tar, CaResources * const ca, Stopwatch sMeasureActionTimelike, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
-	/*assert (adj.size() > 0);
-	assert (get_stdim(spacetime) & (2 | 4));
-	assert (get_manifold(spacetime) & (MINKOWSKI | DE_SITTER));
+	assert (adj.size() > 0);
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("4"));
+	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter"));
 	assert (N_tar > 0);
 	assert (ca != NULL);
-	assert (use_bit);*/
+	assert (use_bit);
 	#endif
 
 	static const bool ACTION_DEBUG = true;
@@ -2951,12 +2507,12 @@ bool measureTimelikeAction(Network * const graph, Network * const subgraph, cons
 bool measureTheoreticalAction(double *& actth, int N_actth, const Node &nodes, Bitvector &adj, const Spacetime &spacetime, const int N_tar, const double eta0, const double delta, CaResources * const ca, Stopwatch &sMeasureThAction, const bool verbose, const bool bench)
 {
 	#if DEBUG
-	/*assert (N_actth > 0);
+	assert (N_actth > 0);
 	assert (adj.size() > 0);
-	assert (spacetime == (4 | DE_SITTER | SLAB | POSITIVE | SYMMETRIC));
+	assert (spacetime.spacetimeIs("4", "De_Sitter", "Slab", "Positive", "Temporal"));
 	assert (N_tar > 0);
 	assert (delta > 0.0);
-	assert (ca != NULL);*/
+	assert (ca != NULL);
 	#endif
 
 	double volume = static_cast<double>(N_tar) / delta;
@@ -2994,7 +2550,8 @@ bool measureTheoreticalAction(double *& actth, int N_actth, const Node &nodes, B
 		if (j == N_tar) continue;
 		if (!adj[i].read(j)) continue;
 
-		double reduced_volume = volume_9000114_3(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)) / volume;
+		//double reduced_volume = volume_9000114_3(nodes.crd->getFloat4(i), nodes.crd->getFloat4(j)) / volume;
+		double reduced_volume = 0.0;
 		if (reduced_volume == 0) continue;
 		for (int m = 0; m < nsamples; m++) {
 			double xi = M[m] * reduced_volume;
@@ -3037,112 +2594,14 @@ bool measureTheoreticalAction(double *& actth, int N_actth, const Node &nodes, B
 	return true;
 }
 
-//Save the inner products of pairs of elements in the higher-dimensional embedding
-bool measureVecprod(float *& vecprods, const Node &nodes, const Spacetime &spacetime, const int N_tar, const long double N_vp, const double a, const double zeta, const double r_max, const double tau0, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureVecprod, const bool verbose, const bool bench)
-{
-	#if DEBUG
-	/*assert (get_stdim(spacetime) == 2);
-	assert (get_manifold(spacetime) & (DE_SITTER | HYPERBOLIC));
-	assert (get_curvature(spacetime) & POSITIVE);
-	assert (N_tar > 0);
-	assert (N_vp > 0 && N_vp <= ((uint64_t)N_tar * (N_tar - 1)) >> 1);
-	assert (zeta > 0.0);
-	if (get_manifold(spacetime) & DE_SITTER) {
-		assert (a > 0.0);
-		assert (zeta < HALF_PI);
-	}*/
-	#endif
-
-	stopwatchStart(&sMeasureVecprod);
-
-	//Allocate memory for vector product measurements
-	int n = N_tar + N_tar % 2;
-	uint64_t max_pairs = static_cast<uint64_t>(n) * (n - 1) / 2;
-	#if !VP_RANDOM
-	uint64_t stride = static_cast<uint64_t>(max_pairs / N_vp);
-	#endif
-	uint64_t npairs = static_cast<uint64_t>(N_vp);
-	try {
-		vecprods = (float*)malloc(sizeof(float) * npairs);
-		if (vecprods == NULL)
-			throw std::bad_alloc();
-		memset(vecprods, 0, sizeof(float) * npairs);
-		ca->hostMemUsed += sizeof(float) * npairs;
-	} catch (std::bad_alloc) {
-		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
-		return false;
-	}
-
-	float ds_norm = 1.0 / cosh(2.0 * tau0);
-	float h_norm = 1.0 / cosh(2.0 * r_max / zeta);
-	//float norm = get_manifold(spacetime) & DE_SITTER ? ds_norm : h_norm;
-	float norm = spacetime.manifoldIs("De_Sitter") ? ds_norm : h_norm;
-
-	#ifdef _OPENMP
-	unsigned int seed = static_cast<unsigned int>(mrng.rng() * 4000000000);
-	#pragma omp parallel if (npairs > 10000)
-	{
-	Engine eng(seed ^ omp_get_thread_num());
-	UDistribution dst(0.0, 1.0);
-	UGenerator rng(eng, dst);
-	#pragma omp for schedule (dynamic, 32)
-	#else
-	UGenerator &rng = mrng.rng;
-	#endif
-	for (uint64_t k = 0; k < npairs; k++) {
-		//Choose a pair
-		uint64_t vec_idx;
-		#if VP_RANDOM
-		//Random choice
-		vec_idx = static_cast<uint64_t>(rng() * (max_pairs - 1)) + 1;
-		#else
-		vec_idx = k * stride;
-		#endif
-		int i = static_cast<int>(vec_idx / (n - 1));
-		int j = static_cast<int>(vec_idx % (n - 1) + 1);
-		int do_map = i >= j;
-		i += do_map * ((((n >> 1) - i) << 1) - 1);
-		j += do_map * (((n >> 1) - j) << 1);
-		if (j == N_tar) continue;
-
-		//Inner product formulae
-		float sinh_ab = sinh(nodes.id.tau[i]) * sinh(nodes.id.tau[j]);
-		float cosh_ab = cosh(nodes.id.tau[i]) * cosh(nodes.id.tau[j]);
-		float theta_ab = cos(nodes.crd->y(i) - nodes.crd->y(j));
-		vecprods[k] = (cosh_ab - sinh_ab * theta_ab) * norm;
-	}
-	#ifdef _OPENMP
-	}
-	#endif
-
-	stopwatchStop(&sMeasureVecprod);
-
-	if (!bench) {
-		printf("\tCalculated Vector Products.\n");
-		fflush(stdout);
-	}
-
-	if (verbose) {
-		printf("\t\tExecution Time: %5.6f sec\n", sMeasureVecprod.elapsedTime);
-		fflush(stdout);
-	}
-
-	return true;
-}
-
 bool measureChain(int &chain_sym, int &chain_asym, Bitvector &adj, Bitvector &subadj, const Spacetime &spacetime, const int N, const int N_sub, CaResources * const ca, Stopwatch &sMeasureChain, const bool verbose, const bool bench)
 {
 	#if DEBUG
-	/*assert (adj.size() > 0);
+	assert (adj.size() > 0);
 	assert (subadj.size() > 0);
-	assert (get_stdim(spacetime) == 2);
-	assert (get_manifold(spacetime) & MINKOWSKI);
-	assert (get_region(spacetime) & (SLAB | DIAMOND));
-	assert (get_curvature(spacetime) & FLAT);
-	assert (get_symmetry(spacetime) & SYMMETRIC);
 	assert (N > 0);
 	assert (N_sub > 0);
-	assert (ca != NULL);*/
+	assert (ca != NULL);
 	#endif
 
 	FastBitset workspace = FastBitset(N);
@@ -3201,11 +2660,6 @@ bool measureHubDensity(float &hub_density, float *& hub_densities, Bitvector &ad
 
 	stopwatchStart(&sMeasureHubs);
 
-	//DEBUG
-	//for (int i = 0; i < 100; i++)
-	//	printf("Degree of Node [%d]: %" PRIu64 "\n", i, adj[i].count_bits());
-	//printf("\n\n\n");
-
 	if (N_hubs > N_tar)
 		N_hubs = N_tar;
 
@@ -3244,11 +2698,6 @@ bool measureHubDensity(float &hub_density, float *& hub_densities, Bitvector &ad
 		hubs.push_back(idx);
 	}
 
-	printf("HERE\n");
-
-	//for (int i = 0; i < N_hubs; i++)
-	//	printf("Degree of Hub [%d] at Index [%d]: %" PRIu64 "\n", i, hubs[i], adj[hubs[i]].count_bits());
-
 	hub_densities[0] = hub_densities[1] = 0.0;
 	for (int k = 2; k <= N_hubs; k++) {
 		uint64_t tot = 0;
@@ -3258,7 +2707,6 @@ bool measureHubDensity(float &hub_density, float *& hub_densities, Bitvector &ad
 					tot++;
 		hub_densities[k] = static_cast<float>(static_cast<long double>(tot << 1) / (k * (k - 1)));
 	}
-	//hub_density = static_cast<float>(static_cast<long double>(tot << 1) / (N_hubs * (N_hubs - 1)));
 	hub_density = hub_densities[N_hubs];
 
 	hubs.clear();
@@ -3289,10 +2737,10 @@ bool measureHubDensity(float &hub_density, float *& hub_densities, Bitvector &ad
 bool measureGeoDis(float &geo_discon, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int N_tar, const long double N_gd, const double a, const double zeta, const double zeta1, const double r_max, const double alpha, const float core_edge_fraction, MersenneRNG &mrng, Stopwatch &sMeasureGeoDis, const bool use_bit, const bool verbose, const bool bench)
 {
 	#if DEBUG
-	/*assert (!nodes.crd->isNull());
-	assert (get_stdim(spacetime) == 4);
-	assert (get_manifold(spacetime) & (DE_SITTER | FLRW));
-	assert (get_curvature(spacetime) & FLAT);
+	assert (!nodes.crd->isNull());
+	assert (spacetime.stdimIs("4"));
+	assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("FLRW"));
+	assert (spacetime.curvatureIs("Flat"));
 	assert (nodes.crd->getDim() == 4);
 	assert (nodes.crd->w() != NULL);
 	assert (nodes.crd->x() != NULL);
@@ -3304,13 +2752,13 @@ bool measureGeoDis(float &geo_discon, const Node &nodes, const Edge &edges, cons
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
 	} else
-		assert (adj.size() > 0);
+		assert (adj.size() >= N_tar);
 
 	assert (N_tar > 0);
 	assert (N_gd > 0 && N_gd <= ((uint64_t)N_tar * (N_tar - 1)) >> 1);
-	if (get_manifold(spacetime) & FLRW)
+	if (spacetime.manifoldIs("FLRW"))
 		assert (alpha > 0.0);
-	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);*/
+	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	#endif
 
 	int n = N_tar + N_tar % 2;
@@ -3348,10 +2796,8 @@ bool measureGeoDis(float &geo_discon, const Node &nodes, const Edge &edges, cons
 			continue;
 
 		float dist = 0.0;
-		//if (get_manifold(spacetime) & DE_SITTER)
 		if (spacetime.manifoldIs("De_Sitter"))
 			dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j);
-		//else if (get_manifold(spacetime) & FLRW)
 		else if (spacetime.manifoldIs("FLRW"))
 			dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j);
 

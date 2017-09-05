@@ -1,16 +1,14 @@
-#ifndef SUBROUTINES_GPU_H_
-#define SUBROUTINES_GPU_H_
-
-#include "CuResources.h"
-#include "Constants.h"
-
 /////////////////////////////
 //(C) Will Cunningham 2014 //
 //         DK Lab          //
 // Northeastern University //
 /////////////////////////////
 
-__host__ __device__ uint64_t vec2MatIdx(const int &N, const uint64_t &vecIdx);
+#ifndef SUBROUTINES_GPU_H_
+#define SUBROUTINES_GPU_H_
+
+#include "CuResources.h"
+#include "Constants.h"
 
 __global__ void BitonicSort(uint64_t *edges, int j, int k);
 

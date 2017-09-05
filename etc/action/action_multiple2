@@ -1,0 +1,98 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2017 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# This version keeps l_k constant, so that epsilon decreases as N increases
+
+import glob
+import math
+import numpy as np
+import os
+import sys
+
+basedir='/gss_gpfs_scratch/cunningham'
+
+if (len(sys.argv) < 5):
+	sys.stdout.write('Arguments are [jobstart] [jobend] [stdim] [epsilon_max].\n')
+	sys.exit(0)
+
+jobstart = int(sys.argv[1])
+jobend = int(sys.argv[2])
+stdim = int(sys.argv[3])
+epsilon = float(sys.argv[4])
+
+if stdim < 2 or stdim > 4:
+	sys.stdout.write('Invalid argument: [stdim].\n')
+	sys.exit(1)
+
+if epsilon <= 0.0 or epsilon > 1.0:
+	sys.stdout.write('Invalid argument: [epsilon_max].\n')
+	sys.exit(2)
+
+njobs = jobend - jobstart + 1
+action = np.zeros(njobs)
+err = np.zeros(njobs)
+n0 = 0
+e0 = epsilon
+i = 0
+
+for job in range(jobstart, jobend + 1):
+	files = glob.glob(basedir + '/causet' + str(job) + '/dat/act/*.cset.act.dat')
+	a = np.zeros(len(files))
+	j = 0
+
+	for file in files:
+		f = open(file)
+		lines = f.readlines()
+		c = []
+
+		for line in lines:
+			c.append(int(line))
+		f.close()
+
+		if n0 != 0 and file == files[0]:
+			epsilon = e0 * float(n0) / float(c[0])
+		eps1 = epsilon / (1.0 - epsilon)
+
+		for k in range(0, c[0] - 2):
+			n = float(c[k+1])
+			if stdim == 2:
+				a[j] += n * math.pow(1.0 - epsilon, k) * (1.0 - 2.0 * eps1 * k + 0.5 * eps1 * eps1 * k * (k - 1.0))
+			elif stdim == 4:
+				a[j] += n * math.pow(1.0 - epsilon, k) * (1.0 - 9.0 * eps1 * k + 8.0 * eps1 * eps1 * k * (k - 1.0) - (4.0 / 3.0) * eps1 * eps1 * eps1 * k * (k - 1.0) * (k - 2.0))
+
+		if stdim == 2:
+			a[j] = 2.0 * epsilon * (c[0] - 2.0 * epsilon * a[j])
+		elif stdim == 4:
+			a[j] = (4.0 / math.sqrt(6.0)) * (math.sqrt(epsilon) * c[0] - math.pow(epsilon, 1.5) * a[j])
+
+		j += 1
+
+	if n0 == 0:
+		n0 = c[0]
+
+	action[i] = np.mean(a)
+	err[i] = np.std(a) / math.sqrt(len(a))
+	i += 1
+
+basedir = os.environ['CAUSET_HOME_DIR']
+
+if stdim == 2:
+	filename = 'd2_'
+elif stdim == 4:
+	filename = 'd4_'
+filename += 'smeared'
+
+f = open(basedir + '/action_' + filename + '.cset.act.ref', 'a')
+g = open(basedir + '/stderr_' + filename + '.cset.act.ref', 'a')
+for i in range(njobs):
+	f.write(str(action[i]) + '\n')
+	g.write(str(err[i]) + '\n')
+f.close()
+g.close()
+
+sys.stdout.write('Completed ACT3.\n')

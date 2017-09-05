@@ -1,11 +1,11 @@
-#ifndef CONSTANTS_H_
-#define CONSTANTS_H_
-
 /////////////////////////////
 //(C) Will Cunningham 2014 //
 //         DK Lab          //
 // Northeastern University //
 /////////////////////////////
+
+#ifndef CONSTANTS_H_
+#define CONSTANTS_H_
 
 //Numerical Constants
 #define TOL (1e-28)	//Zero
@@ -31,13 +31,7 @@
 
 #define SPECIAL_SAUCER false	//The special saucer has surfaces which intersect at right angles
 
-#define VE_RANDOM true	//Pick random pairs when performing embedding validation test
-
-#define VD_RANDOM true	//Pick random pairs when performing distance validation test
-
 #define SR_RANDOM true	//Pick random pairs when calculating success ratio
-
-#define VP_RANDOM true	//Pick random pairs when calculating vector products
 
 #define TRAVERSE_V2 false	//Version 2 (and 3) uses spatial distances rather than geodesics
 
@@ -50,12 +44,6 @@
 #define ACTION_MPI_V5 1000000	//Size limit which determines which MPI algorithm is used
 
 #define ACTION_MPI_V4 800000
-
-#define GEODESIC_LOWER 0.95	//Boundary between Region I and Region II approximations
-				//Should be less than 1.0
-
-#define GEODESIC_UPPER 1.05	//Boundary between Region II and Region III approximations
-				//Should be greater than 1.0
 
 //Debugging Flags
 #define DEBUG true	//Determines whether unit testing is in effect

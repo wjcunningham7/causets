@@ -1,10 +1,10 @@
-#include "Operations_GPU.h"
-
 /////////////////////////////
 //(C) Will Cunningham 2014 //
 //         DK Lab          //
 // Northeastern University //
 /////////////////////////////
+
+#include "Operations_GPU.h"
 
 __device__ float X1_SPH_GPU(const float &theta1)
 {
@@ -73,20 +73,12 @@ __device__ float flatProduct_GPU_v2(const float4 &sc0, const float4 &sc1)
 	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z));
 }
 
-__device__ float POW2_GPU(const float &x)
+__device__ float flatProduct3_GPU(const float4 &sc0, const float4 &sc1)
 {
-	return x * x;
+	return POW2_GPU(sc0.y) + POW2_GPU(sc1.y) - 2.0f * sc0.y * sc1.y * cosf(sc0.z - sc1.z);
 }
 
-/*__device__ double atomicAdd(double* address, double val)
+__device__ float sphProduct3_GPU(const float4 &sc0, const float4 &sc1)
 {
-	unsigned long long int* address_as_ull = (unsigned long long int*)address;
-	unsigned long long int old = *address_as_ull, assumed;
-	
-	do {
-		assumed = old;
-		old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val + __longlong_as_double(assumed)));
-	} while (assumed != old);
-
-	return __longlong_as_double(old);
-}*/
+	return cosf(sc0.y) * cosf(sc1.y) + sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z);
+}

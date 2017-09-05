@@ -1,3 +1,9 @@
+/////////////////////////////
+//(C) Will Cunningham 2014 //
+//         DK Lab          //
+// Northeastern University //
+/////////////////////////////
+
 #ifndef NETWORK_CREATOR_H_
 #define NETWORK_CREATOR_H_
 
@@ -8,12 +14,6 @@
 #include "NetworkCreator_GPU.h"
 #endif
 #include "Validate.h"
-
-/////////////////////////////
-//(C) Will Cunningham 2014 //
-//         DK Lab          //
-// Northeastern University //
-/////////////////////////////
 
 bool initVars(NetworkProperties * const network_properties, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm);
 

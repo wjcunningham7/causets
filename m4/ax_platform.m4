@@ -1,3 +1,9 @@
+###########################
+#(C) Will Cunningham 2017 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
 AC_DEFUN([AX_PLATFORM],
 [
 AC_PROVIDE([AX_PLATFORM])
