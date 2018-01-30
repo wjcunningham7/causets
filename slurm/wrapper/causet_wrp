@@ -162,5 +162,6 @@ for (( i=${istart}; i<${njobs}+${istart}; i++ )) ; do
   mkdir -p /gss_gpfs_scratch/cunningham
   mkdir -p /gss_gpfs_scratch/cunningham/causet${jobid}
   sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%partition%:$partition:g;s:%ncores%:$ncores:g;s:%nnodes%:$nnodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%waitfor%:$waitfor:g;s:%exclude%:$exclude:g" < $CAUSET_HOME_DIR/slurm/batch/causet_slm | sbatch
+  #sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%partition%:$partition:g;s:%ncores%:$ncores:g;s:%nnodes%:$nnodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%waitfor%:$waitfor:g;s:%exclude%:$exclude:g" < $CAUSET_HOME_DIR/slurm/batch/causet_slm > $CAUSET_HOME_DIR/batch_test$jobid
   sleep 1
 done

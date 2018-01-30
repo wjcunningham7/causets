@@ -9,7 +9,6 @@
 template<bool compact, bool hyp, bool epso, bool diag, int stdim>
 __global__ void GenerateAdjacencyLists_v2(float *w0, float *x0, float *y0, float *z0, float *w1, float *x1, float *y1, float *z1, int *k_in, int *k_out, bool *edges, size_t size0, size_t size1, float hyp_r)
 {
-
 	__shared__ float shr_w1[THREAD_SIZE];
 	__shared__ float shr_x1[THREAD_SIZE];
 	__shared__ float shr_y1[THREAD_SIZE];
@@ -837,6 +836,7 @@ bool generateLists_v2(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 				printf("stdim:     %d\n", stdim);
 				printf("flags:     %d\n", flags);*/
 
+				//Template order: compact, hyp, epso, diag, stdim
 				switch (flags) {
 				case 2:
 					GenerateAdjacencyLists_v2<false, false, false, false, 2><<<blocks_per_grid, threads_per_block, 0, stream[m]>>>((float*)d_w0[m], (float*)d_x0[m], (float*)d_y0[m], (float*)d_z0[m], (float*)d_w1[m], (float*)d_x1[m], (float*)d_y1[m], (float*)d_z1[m], (int*)d_k_in[m], (int*)d_k_out[m], (bool*)d_edges[m], size0, size1, r_max);

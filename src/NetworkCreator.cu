@@ -97,9 +97,9 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 		if (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 			if (!network_properties->N_tar)
 				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
-			if (!network_properties->tau0 && !((spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T")) && SPECIAL_SAUCER))
+			if (!network_properties->tau0 && !((spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T")) && SPECIAL_SAUCER) && !spacetime.regionIs("Slab_N3"))
 				throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
-			if ((spacetime.curvatureIs("Flat") || spacetime.curvatureIs("Negative")) && (spacetime.regionIs("Slab") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Triangle_T") || spacetime.regionIs("Triangle_S") || spacetime.regionIs("Cube")) && !((spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T")) && SPECIAL_SAUCER)) {
+			if ((spacetime.curvatureIs("Flat") || spacetime.curvatureIs("Negative")) && (spacetime.regionIs("Slab") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Slab_TS") || spacetime.regionIs("Triangle_T") || spacetime.regionIs("Triangle_S") || spacetime.regionIs("Cube")) && !((spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T")) && SPECIAL_SAUCER)) {
 				if ((spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter")) && !network_properties->r_max)
 					throw CausetException("Flag '--radius', spatial scaling, must be specified!\n");
 				else if ((spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) && !network_properties->alpha)
@@ -112,6 +112,13 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
 			if (!network_properties->r_max)
 				throw CausetException("Flag '--radius', maximum radius, must be specified!\n");
+		} else if (spacetime.manifoldIs("Polycone")) {
+			if (!network_properties->N_tar)
+				throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
+			if (!network_properties->tau0)
+				throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
+			if (!network_properties->gamma)
+				throw CausetException("Flag '--gamma', degree exponent, must be specified!\n");
 		}
 
 		//Default constraints
@@ -125,6 +132,10 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->r_max = 1.0;
 			} else
 			#endif
+			if (spacetime.regionIs("Slab_N3")) {
+				network_properties->tau0 = network_properties->eta0 = 1.5;
+				network_properties->r_max = 0.5;
+			} else
 				network_properties->eta0 = network_properties->tau0;
 			eta0 = network_properties->eta0;
 			network_properties->zeta = HALF_PI - eta0;
@@ -177,7 +188,19 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			//The hyperbolic curvature takes a default value of 1
 			if (!network_properties->zeta)
 				network_properties->zeta = 1.0;
+		} else if (spacetime.manifoldIs("Polycone")) {
+			if (!network_properties->delta)
+				network_properties->a = 1.0;
+			network_properties->eta0 = tauToEtaPolycone(network_properties->tau0, network_properties->a, network_properties->gamma);
+			eta0 = network_properties->eta0;
 		}
+
+		/*printf("stdim: %s\n", Spacetime::stdims[spacetime.get_stdim()]);
+		printf("manifold: %s\n", Spacetime::manifolds[spacetime.get_manifold()]);
+		printf("region: %s\n", Spacetime::regions[spacetime.get_region()]);
+		printf("curvature: %s\n", Spacetime::curvatures[spacetime.get_curvature()]);
+		printf("symmetry: %s\n", Spacetime::symmetries[spacetime.get_symmetry()]);*/
+		//printChk(2);
 
 		//Solve for the remaining constraints
 		if (spacetime.spacetimeIs("2", "Minkowski", "Slab", "Flat", "Temporal")) {
@@ -186,6 +209,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->delta = network_properties->N_tar / (4.0 * network_properties->eta0 * network_properties->r_max);
 			network_properties->flags.has_exact_k = false;
 		} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab", "Positive", "Temporal")) {
+			//Assumes a light cones never 'wrap around' the cylinder
 			network_properties->k_tar = 2.0 * network_properties->N_tar * network_properties->tau0 / (3.0 * M_PI);
 			network_properties->delta = network_properties->N_tar / (4.0 * M_PI * network_properties->tau0);
 			network_properties->flags.has_exact_k = true;
@@ -201,6 +225,14 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			network_properties->flags.has_exact_k = false;
 			double volume = 2.0 * volume_75499530_2(eta0, network_properties->r_max);
 			network_properties->delta = static_cast<double>(network_properties->N_tar) / volume;
+		} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_TS", "Flat", "Temporal")) {
+			network_properties->k_tar = network_properties->N_tar / 2.0;
+			network_properties->flags.has_exact_k = false;
+			network_properties->delta = network_properties->N_tar;	//Volume is 1
+		} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_N3", "Flat", "None")) {
+			network_properties->k_tar = network_properties->N_tar / 2.0;
+			network_properties->flags.has_exact_k = false;
+			network_properties->delta = network_properties->N_tar / 1.5;
 		} else if (spacetime.spacetimeIs("2", "Minkowski", "Diamond", "Flat", "None")) {
 			network_properties->k_tar = network_properties->N_tar / 2.0;
 			network_properties->delta = 2.0 * static_cast<double>(network_properties->N_tar) / POW2(network_properties->eta0, EXACT);
@@ -228,6 +260,11 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			#endif
 			network_properties->delta = static_cast<double>(network_properties->N_tar) / volume;
 		} else if (spacetime.spacetimeIs("2", "Minkowski", "Triangle_T", "Flat", "Temporal")) {
+			network_properties->k_tar = network_properties->N_tar / 2.0;
+			network_properties->flags.has_exact_k = false;
+			double volume = network_properties->eta0 * network_properties->r_max;
+			network_properties->delta = static_cast<double>(network_properties->N_tar) / volume;
+		} else if (spacetime.spacetimeIs("2", "Minkowski", "Triangle_S", "Flat", "None")) {
 			network_properties->k_tar = network_properties->N_tar / 2.0;
 			network_properties->flags.has_exact_k = false;
 			double volume = network_properties->eta0 * network_properties->r_max;
@@ -270,6 +307,14 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			else
 				network_properties->delta = network_properties->N_tar / (volume * POW2(network_properties->zeta));
 			network_properties->tau0 = network_properties->r_max / network_properties->zeta;
+		} else if (spacetime.spacetimeIs("2", "Polycone", "Slab", "Positive", "None")) {
+			double g = network_properties->gamma / (network_properties->gamma - 2.0);
+			network_properties->k_tar = network_properties->N_tar * (g + 1.0) * pow(network_properties->tau0, 1.0 - g) / ((3.0 + g) * M_PI);
+			network_properties->flags.has_exact_k = true;
+
+			double volume = TWO_PI * pow(network_properties->a, g - 1.0) * pow(network_properties->tau0, g + 1.0) / (g + 1.0);
+			printf("volume: %f\n", volume);
+			network_properties->delta = static_cast<double>(network_properties->N_tar) / volume;
 		} else if (spacetime.spacetimeIs("3", "Minkowski", "Slab", "Flat", "Temporal")) {
 			network_properties->k_tar = 10.0;
 			network_properties->flags.has_exact_k = false;
@@ -459,7 +504,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			throw CausetException("Spacetime parameters not supported!\n");
 		}
 
-		if (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic")) {
+		if (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone")) {
 			#if DEBUG
 			assert (network_properties->k_tar > 0.0);
 			if (spacetime.manifoldIs("Hyperbolic"))
@@ -501,14 +546,15 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			if (!rank) printf_cyan();
 			printf_mpi(rank, "\t > Number of Nodes:\t\t%d\n", network_properties->N_tar);
 			printf_mpi(rank, "\t > Node Density:\t\t%.6f\n", network_properties->delta);
-			printf_mpi(rank, "\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
+			if (network_properties->flags.has_exact_k)
+				printf_mpi(rank, "\t > Expected Degrees:\t\t%.6f\n", network_properties->k_tar);
 			if (spacetime.symmetryIs("Temporal")) {
 				printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", -eta0);
 				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
 			} else if (spacetime.manifoldIs("De_Sitter") && spacetime.curvatureIs("Flat")) {
 				printf_mpi(rank, "\t > Min. Conformal Time:\t\t%.6f\n", eta0);
 				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta1);
-			} else if (spacetime.manifoldIs("De_Sitter") && spacetime.curvatureIs("Negative")) {
+			} else if ((spacetime.manifoldIs("De_Sitter") && spacetime.curvatureIs("Negative")) || spacetime.manifoldIs("Polycone")) {
 				printf_mpi(rank, "\t > Min. Conformal Time:\t\t-\u221E\n");
 				printf_mpi(rank, "\t > Max. Conformal Time:\t\t%.6f\n", eta0);
 			} else if (!spacetime.manifoldIs("Hyperbolic")) {
@@ -524,10 +570,12 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				printf_mpi(rank, "\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
 			if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
 				printf_mpi(rank, "\t > Spatial Scaling:\t\t%.6f\n", network_properties->alpha);
-			if (spacetime.curvatureIs("Flat") && (spacetime.regionIs("Slab") || spacetime.regionIs("Slab_T1") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T") || spacetime.regionIs("Triangle_T")))
+			if (spacetime.curvatureIs("Flat") && (spacetime.regionIs("Slab") || spacetime.regionIs("Slab_T1") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Slab_TS") || spacetime.regionIs("Slab_N3") || spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T") || spacetime.regionIs("Triangle_T") || spacetime.regionIs("Triangle_S")))
 				printf_mpi(rank, "\t > Spatial Cutoff:\t\t%.6f\n", network_properties->r_max);
-			if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
+			if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Polycone"))
 				printf_mpi(rank, "\t > Temporal Scaling:\t\t%.6f\n", network_properties->a);
+			if (spacetime.manifoldIs("Polycone"))
+				printf_mpi(rank, "\t > Degree Exponent:\t\t%.6f\n", network_properties->gamma);
 			printf_mpi(rank, "\t > Random Seed:\t\t\t%Ld\n", network_properties->seed);
 			if (!rank) { printf_std(); printf("\n"); }
 			fflush(stdout);
@@ -812,8 +860,8 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const Spacetime &sp
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
 	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
-	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic"));
-	if (spacetime.manifoldIs("Hyperbolic"))
+	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"));
+	if (spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"))
 		assert (spacetime.stdimIs("2"));
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
@@ -833,7 +881,7 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const Spacetime &sp
 			#endif
 			if (spacetime.manifoldIs("Hyperbolic"))
 				mem += sizeof(int) * N_tar;		//For AS
-			else if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
+			else if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Polycone"))
 				mem += sizeof(float) * N_tar;		//For tau
 		}
 		if (links_exist) {
@@ -901,7 +949,7 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const Spacetime &sp
 
 	try {
 		if (!no_pos) {
-			if ((spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) || (spacetime.manifoldIs("Hyperbolic") && spacetime.curvatureIs("Positive"))) {
+			if ((spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) || (spacetime.manifoldIs("Hyperbolic") && spacetime.curvatureIs("Positive")) || spacetime.manifoldIs("Polycone")) {
 				nodes.id.tau = (float*)malloc(sizeof(float) * N_tar);
 				if (nodes.id.tau == NULL)
 					throw std::bad_alloc();
@@ -1106,7 +1154,7 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const Spacetime &sp
 
 //Poisson Sprinkling
 //O(N) Efficiency
-bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N_tar, const float &k_tar, const double &a, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, CausetMPI &cmpi, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &growing, const bool &verbose, const bool &bench)
+bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N_tar, const float &k_tar, const double &a, const double &eta0, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const double gamma, CausetMPI &cmpi, MersenneRNG &mrng, Stopwatch &sGenerateNodes, const bool &growing, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	//Values are in correct ranges
@@ -1114,7 +1162,7 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N_tar, co
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
 	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
-	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic"));
+	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"));
 	if (!spacetime.manifoldIs("Hyperbolic")) {
 		assert (a >= 0.0);
 		assert (tau0 > 0.0);
@@ -1139,7 +1187,8 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N_tar, co
 	} else if (spacetime.manifoldIs("Hyperbolic")) {
 		assert (r_max > 0.0);
 		assert (zeta > 0.0);
-	}
+	} else if (spacetime.manifoldIs("Polycone"))
+		assert (gamma > 0.0);
 	if (spacetime.curvatureIs("Flat"))
 		assert (r_max > 0.0);
 	#endif
@@ -1162,7 +1211,7 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N_tar, co
 	bool use_rejection = false;
 	if (DEBUG_DIAMOND && spacetime.regionIs("Diamond"))
 		use_rejection = true;
-	if (spacetime.regionIs("Slab_T1") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T") || spacetime.regionIs("Triangle_T"))
+	if (spacetime.regionIs("Slab_T1") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Slab_TS") || spacetime.regionIs("Slab_N3") || spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T") || spacetime.regionIs("Triangle_T") || spacetime.regionIs("Triangle_S"))
 		use_rejection = true;
 
 	//Initialize GSL integration structure
@@ -1194,7 +1243,9 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N_tar, co
 		mu1 = volume_77834_1(1.5);
 		mu2 = volume_77834_1(-1.5);
 		mu = mu1 - mu2;
-	} else if (spacetime.spacetimeIs("4", "De_Sitter", "Diamond", "Flat", "None"))
+	} else if (spacetime.spacetimeIs("2", "Polycone", "Slab", "Positive", "None"))
+		mu = gamma / (gamma - 2.0);
+	else if (spacetime.spacetimeIs("4", "De_Sitter", "Diamond", "Flat", "None"))
 		mu = LOG(POW2(w + 2.0 * xi, EXACT) / (4.0 * xi * (w + xi)), STL) - POW2(w / (w + 2.0 * xi), EXACT);
 	else if (spacetime.spacetimeIs("4", "De_Sitter", "Diamond", "Positive", "None"))
 		mu = LOG(0.5 * (1.0 / COS(sqrt(2.0) * xi, APPROX ? FAST : STL) + 1.0), STL) - 1.0 / POW2(COS(xi / sqrt(2.0), APPROX ? FAST : STL), EXACT) + 1.0;
@@ -1263,6 +1314,17 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N_tar, co
 				nodes.crd->y(i) = (2.0 * urng() - 1.0) * r_max;
 				if (fabs(nodes.crd->x(i)) > eta_75499530_2(nodes.crd->y(i), eta0, r_max))
 					continue;
+			} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_TS", "Flat", "Temporal")) {
+				nodes.crd->x(i) = urng() - 0.5;
+				nodes.crd->y(i) = (2.0 * urng() - 1.0) * r_max;
+				if (fabs(nodes.crd->y(i)) <= 0.5 && fabs(nodes.crd->x(i)) > eta_75499530_2(nodes.crd->y(i), eta0, 0.5) ||
+				    fabs(nodes.crd->y(i)) > 0.5 && fabs(nodes.crd->y(i)) > eta_75499530_2(nodes.crd->x(i), r_max, 0.5))
+					continue;
+			} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_N3", "Flat", "None")) {
+				nodes.crd->x(i) = 1.5 * urng();
+				nodes.crd->y(i) = urng() - 0.5;
+				if (nodes.crd->x(i) <= 0.5 && (fabs(nodes.crd->y(i)) > nodes.crd->x(i)))
+					continue;
 			} else if (spacetime.spacetimeIs("2", "Minkowski", "Saucer_T", "Flat", "Temporal")) {
 				#if SPECIAL_SAUCER
 				nodes.crd->x(i) = 3.0 * urng() - 1.5;
@@ -1279,6 +1341,11 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N_tar, co
 				nodes.crd->x(i) = (2.0 * urng() - 1.0) * eta0;
 				nodes.crd->y(i) = urng() * r_max;
 				if (fabs(nodes.crd->x(i)) > eta_76546058_2(nodes.crd->y(i), eta0, r_max))
+					continue;
+			} else if (spacetime.spacetimeIs("2", "Minkowski", "Triangle_S", "Flat", "None")) {
+				nodes.crd->x(i) = urng() * eta0;
+				nodes.crd->y(i) = (2.0 * urng() - 1.0) * r_max;
+				if (fabs(nodes.crd->y(i)) > eta_76546058_2(nodes.crd->x(i), r_max, eta0))
 					continue;
 			} else if (spacetime.spacetimeIs("4", "De_Sitter", "Diamond", "Flat", "None")) {
 				#if EMBED_NODES
@@ -1458,6 +1525,10 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N_tar, co
 						nodes.crd->x(i) = get_2d_asym_sph_hyperbolic_slab_radius(urng, r_max, zeta);
 					nodes.id.tau[i] = nodes.crd->x(i) / zeta;
 					nodes.crd->y(i) = get_2d_asym_sph_hyperbolic_slab_theta(urng);
+				} else if (spacetime.spacetimeIs("2", "Polycone", "Slab", "Positive", "None")) {
+					nodes.id.tau[i] = get_2d_asym_sph_polycone_slab_tau(urng, tau0, mu);
+					nodes.crd->x(i) = tauToEtaPolycone(nodes.id.tau[i], a, gamma);
+					nodes.crd->y(i) = get_2d_asym_sph_polycone_slab_theta(urng);
 				} else if (spacetime.spacetimeIs("3", "Minkowski", "Slab", "Flat", "Temporal")) {
 					assert (!EMBED_NODES);
 					nodes.crd->x(i) = get_3d_sym_flat_minkowski_slab_eta(urng, eta0);
@@ -1732,15 +1803,15 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N_tar, co
 	return true;
 }
 
-bool linkNodes_v2(Node &nodes, Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, CausetMPI &cmpi, Stopwatch &sLinkNodes, const bool &link_epso, const bool &has_exact_k, const bool &use_bit, const bool &mpi_split, const bool &verbose, const bool &bench)
+bool linkNodes_v2(Node &nodes, Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &tau0, const double &alpha, const double gamma, CausetMPI &cmpi, Stopwatch &sLinkNodes, const bool &link_epso, const bool &has_exact_k, const bool &use_bit, const bool &mpi_split, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (adj.size() >= N_tar);
+	assert (adj.size() >= (size_t)N_tar);
 	assert (N_tar > 0);
 	assert (k_tar > 0.0f);
-	assert (spacetime.stdimIs("2") || spacetime.stdimIs("4"));
-	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic"));
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
+	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"));
 	if (!spacetime.manifoldIs("Hyperbolic"))
 		assert (a > 0.0);
 	assert (tau0 > 0.0);
@@ -1765,7 +1836,8 @@ bool linkNodes_v2(Node &nodes, Bitvector &adj, const Spacetime &spacetime, const
 	} else if (spacetime.manifoldIs("Hyperbolic")) {
 		assert (zeta > 0.0);
 		assert (r_max > 0.0);
-	}
+	} else if (spacetime.manifoldIs("Polycone"))
+		assert (gamma > 2.0);
 	if (spacetime.curvatureIs("Flat"))
 		assert (r_max > 0.0);
 	assert (use_bit);
@@ -1928,7 +2000,7 @@ bool linkNodes_v1(Node &nodes, Edge &edges, Bitvector &adj, const Spacetime &spa
 		assert (edges.past_edge_row_start != NULL);
 		assert (edges.future_edge_row_start != NULL);
 	} else {
-		assert (adj.size() >= N_tar);
+		assert (adj.size() >= (size_t)N_tar);
 		assert (core_edge_fraction == 1.0f);
 	}
 	assert (N_tar > 0);

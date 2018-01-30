@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -eu -o pipefail
+
+prefix="$1"
+if [[ "$prefix" != "" ]] ; then
+  prefix="_$prefix"
+fi
+
+dir=$CAUSET_HOME_DIR
+for f in $dir/dat/fol/tl/*.dat ; do
+  awk 'BEGIN { ORS = " " } { print } END { printf("\n"); }' $f >> $dir/timelike_foliation${prefix}.cset.fol.ref
+done
+for f in $dir/dat/fol/sl/*.dat ; do
+  awk 'BEGIN { ORS = " " } { print } END { printf("\n"); }' $f >> $dir/spacelike_foliation${prefix}.cset.fol.ref
+done
+for f in $dir/dat/fol/as/*.dat ; do
+  awk 'BEGIN { ORS = " " } { print } END { printf("\n"); }' $f >> $dir/alexandroff_foliation${prefix}.cset.fol.ref
+done

@@ -28,7 +28,7 @@ fi
 # Set up peripheral files
 sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphid%:g;s:@partition@:%partition%:g" < $homedir/slurm/setup/causet_setup | source /dev/stdin
 
-export LD_LIBRARY_PATH=/shared/apps/cuda8.0/lib64:$LD_LIBRARY_PATH
+#export LD_LIBRARY_PATH=/shared/apps/cuda7.0/lib64:$LD_LIBRARY_PATH
 
 # OpenMP environment variables
 export OMP_NUM_THREADS=%ncores%

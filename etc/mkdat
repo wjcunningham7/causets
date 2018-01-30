@@ -25,6 +25,10 @@ mkdir -p $basedir/dat/cls
 mkdir -p $basedir/dat/dst
 mkdir -p $basedir/dat/dot
 mkdir -p $basedir/dat/edg
+mkdir -p $basedir/dat/fol
+mkdir -p $basedir/dat/fol/as
+mkdir -p $basedir/dat/fol/tl
+mkdir -p $basedir/dat/fol/sl
 mkdir -p $basedir/dat/hub
 mkdir -p $basedir/dat/idd
 mkdir -p $basedir/dat/odd

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2018 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+set -eu -o pipefail
+
+#basedir=$CAUSET_HOME_DIR
+basedir=/gss_gpfs_scratch/cunningham
+
+if [[ "$#" -eq 1 ]] ; then
+  basedir=$basedir/causet$1
+fi
+
+#rm -f $CAUSET_HOME_DIR/output.dat
+for file in $basedir/dat/act/*.cset.act.dat ; do
+  tr '\n' ' ' < $file | awk 'NR==1' >> $CAUSET_HOME_DIR/output.dat
+done

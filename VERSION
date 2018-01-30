@@ -119,3 +119,62 @@ STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
 3+1     FLRW            SLAB            FLAT            ASYMMETRIC      4800144 
 3+1     FLRW            SLAB            POSITIVE        ASYMMETRIC      5000144 
 3+1     FLRW            DIAMOND         FLAT            ASYMMETRIC      4820044 
+
+VERSION 4.x
+===========
+
+STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
+================================================================================
+2       Minkowski       Slab            Flat            Temporal        24000209000
+2       Minkowski       Slab            Positive        Temporal        22000209000
+2       Minkowski       Diamond         Flat            None            14040009000
+2       Minkowski       Saucer_T        Flat            Temporal        24080009000
+2       Minkowski       Saucer_S        Flat            Temporal        24100009000
+2       Minkowski       Triangle_T      Flat            Temporal        24200009000
+2       De_Sitter       Slab            Positive        None            12000211000
+2       De_Sitter       Slab            Positive        Temporal        22000211000
+2       Hyperbolic      Slab            Flat            None            14000301000
+2       Hyperbolic      Slab            Positive        None            12000301000
+3       Minkowski       Slab            Flat            Temporal        2400020a000
+3       Minkowski       Cube            Flat            None            1500000a000
+4       De_Sitter       Slab            Flat            None            14000214000
+4       De_Sitter       Slab            Positive        None            12000214000
+4       De_Sitter       Slab            Positive        Temporal        22000214000
+4       De_Sitter       Diamond         Flat            None            14040014000
+4       De_Sitter       Diamond         Positive        None            12040014000
+4       Dust            Slab            Flat            None            14000244000
+4       Dust            Diamond         Flat            None            14040044000
+4       FLRW            Slab            Flat            None            14000284000
+4       FLRW            Slab            Positive        None            12000284000
+4       FLRW            Diamond         Flat            None            14040084000
+
+VERSION 5.x
+===========
+
+STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
+================================================================================
+2       Minkowski       Slab            Flat            Temporal        90000409000
+2       Minkowski       Slab            Positive        Temporal        88000409000
+2       Minkowski       Slab_TS         Flat            Temporal        90002009000
+2       Minkowski       Slab_N3         Flat            None            50040009000
+2       Minkowski       Diamond         Flat            None            50100009000
+2       Minkowski       Saucer_T        Flat            Temporal        90200009000
+2       Minkowski       Saucer_S        Flat            Temporal        90400009000
+2       Minkowski       Triangle_T      Flat            Temporal        90800009000
+2       Minkowski       Triangle_S      Flat            None            51000009000
+2       De_Sitter       Slab            Positive        None            48000411000
+2       De_Sitter       Slab            Positive        Temporal        88000411000
+2       Hyperbolic      Slab            Flat            None            50000501000
+2       Hyperbolic      Slab            Positive        None            48000501000
+3       Minkowski       Slab            Flat            Temporal        9000040a000
+3       Minkowski       Cube            Flat            None            5400000a000
+4       De_Sitter       Slab            Flat            None            50000414000
+4       De_Sitter       Slab            Positive        None            48000414000
+4       De_Sitter       Slab            Positive        Temporal        88000414000
+4       De_Sitter       Diamond         Flat            None            50100014000
+4       De_Sitter       Diamond         Positive        None            48100014000
+4       Dust            Slab            Flat            None            50000444000
+4       Dust            Diamond         Flat            None            50100044000
+4       FLRW            Slab            Flat            None            50000484000
+4       FLRW            Slab            Positive        None            48000484000
+4       FLRW            Diamond         Flat            None            50100084000

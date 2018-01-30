@@ -50,22 +50,26 @@ set -eu -o pipefail
 # These are experimental parameters #
 #####################################
 
-#platform=krioukov_gpu
-platform=par-gpu
+platform=krioukov_gpu
+#platform=par-gpu-3
 binary="$CAUSET_HOME_DIR/bin/CausalSet_${platform}"
 
 stdim=2
 manifold=Minkowski
-region=Saucer_T
+region=Diamond
 curvature=Flat
-symmetry=Temporal
+symmetry=None
 spacetime="--stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry"
 
-nodes=1024
-age=0.5
+nodes=100
+#nodes=10240
+#nodes=16384
+#nodes=6
+age=1.0
 radius=0.5
+gamma=5
+#constraints="--nodes $nodes --age $age --radius $radius --gamma $gamma"
 constraints="--nodes $nodes --age $age --radius $radius"
-#constraints="--nodes $nodes"
 
 makenew=true
 if [[ "$makenew" == "false" ]] ; then
@@ -75,14 +79,17 @@ if [[ "$makenew" == "false" ]] ; then
   #graph=${graphs[${#graphs[@]}-1]}
   graph=${graphs[0]}
 
-  link="--relink --core 1 --gpu"
-  measure="--action smeared"
-  xtra="--verbose -y --graph ${graph}"
+  link="--link --core 1"
+  measure="--antichain"
+  xtra="--verbose -y --graph ${graph} --nopos"
 else
   graph=0
 
-  link="--link --core 1 --gpu"
+  link="--link --core 1"
   measure="--action smeared"
+  #measure="--foliation"
+  #measure="--foliation --antichain"
+  #measure=""
   xtra="--verbose -y --print"
 fi
 
@@ -91,7 +98,10 @@ fi
 #xtra="--verbose -y --graph ${graph} --datdir=/gss_gpfs_scratch/cunningham/ctest/dat/"
 
 #mpirun -prot -hostfile $CAUSET_HOME_DIR/hostfile \
+for i in $(seq 1) ; do
 $binary $spacetime $constraints $link $measure $xtra
+sleep 1
+done
 
 ######################################
 # These will reproduce known results #

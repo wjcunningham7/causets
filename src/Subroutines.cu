@@ -122,8 +122,8 @@ void quicksort(Node &nodes, const Spacetime &spacetime, int low, int high)
 	#if DEBUG
 	assert (!nodes.crd->isNull());
 	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
-	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic"));
-	if (spacetime.manifoldIs("Hyperbolic"))
+	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"));
+	if (spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"))
 		assert (spacetime.stdimIs("2"));
 	#endif
 
@@ -196,8 +196,8 @@ void swap(Node &nodes, const Spacetime &spacetime, const int i, const int j)
 	#if DEBUG
 	assert (!nodes.crd->isNull());
 	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
-	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic"));
-	if (spacetime.manifoldIs("Hyperbolic"))
+	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"));
+	if (spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"))
 		assert (spacetime.stdimIs("2"));
 	#endif
 
@@ -227,7 +227,7 @@ void swap(Node &nodes, const Spacetime &spacetime, const int i, const int j)
 	}
 	#endif
 
-	if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
+	if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Polycone")) {
 		float tau = nodes.id.tau[i];
 		nodes.id.tau[i] = nodes.id.tau[j];
 		nodes.id.tau[j] = tau;
@@ -2032,4 +2032,51 @@ int findLongestMinimal(Bitvector &adj, const int *k_in, int *lengths, const int 
 	}
 
 	return min_idx;
+}
+
+int maximalAntichain(FastBitset &antichain, const Bitvector &adj, const int N_tar, const int seed)
+{
+	#if DEBUG
+	assert (adj.size() >= (size_t)N_tar);
+	assert (N_tar > 0);
+	assert (seed >= 0 && seed < N_tar);
+	#endif
+
+	FastBitset candidates(N_tar);
+	FastBitset workspace(N_tar);
+	FastBitset workspace2(N_tar);
+
+	adj[seed].clone(antichain);	//1's indicate relations to 'seed'
+	antichain.flip();		//1's indicate elements unrelated to 'seed'
+
+	antichain.clone(candidates);
+	while (candidates.any()) {
+		uint64_t max_left = 0;
+		uint64_t remove_me = 0;
+		antichain.clone(workspace);
+		//Go through the antichain, and see which element decreases the set size the least when removed
+		//This is a 'good' element of the antichain, which should maximize the size
+		while (workspace.any()) {
+			//This is your test element
+			uint64_t element = workspace.next_bit();
+			//If this one has already passed a test and been kept, ignore it
+			if (!candidates.read(element)) { workspace.unset(element); continue; }
+			antichain.clone(workspace2);
+			//Remove the element
+			workspace2.setDifference(adj[element]);
+			//The size of the antichain afterwards
+			uint64_t left = workspace2.count_bits();
+			//Remember which one keeps the most
+			if (left > max_left) { max_left = left; remove_me = element; }
+
+			workspace.unset(element);
+		}
+		//Remove this candidate's neighbors from the antichain and candidates
+		antichain.setDifference(adj[remove_me]);
+		candidates.setDifference(adj[remove_me]);
+		//Do not re-consider this candidate
+		candidates.unset(remove_me);
+	}
+
+	return (int)antichain.count_bits();
 }

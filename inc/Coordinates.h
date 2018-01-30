@@ -52,9 +52,9 @@ inline float get_azimuthal_angle(UGenerator &rng)
 }
 
 //Returns a radius distributed in r^(d-2)
-inline float get_radius(UGenerator &rng, const float r_max, const int d)
+inline float get_radius(UGenerator &rng, const float r_max, const float d)
 {
-	return r_max * pow(rng(), 1.0 / (d - 1));
+	return r_max * pow(rng(), 1.0 / (d - 1.0));
 }
 
 //Returns (x,y) uniformly
@@ -105,7 +105,7 @@ inline float4 get_sph_d4(NGenerator &rng)
 //distributed inside a sphere of radius r_max
 inline float3 get_flat_d3(UGenerator &urng, NGenerator &nrng, const float r_max)
 {
-	float r = get_radius(urng, r_max, 4);
+	float r = get_radius(urng, r_max, 4.0);
 	float3 f = get_sph_d3(nrng);
 	f.x *= r;
 	f.y *= r;
@@ -263,6 +263,20 @@ inline float get_2d_asym_sph_hyperbolic_slab_nonuniform_radius(UGenerator &rng, 
 #define get_2d_asym_sph_hyperbolic_slab_theta(rng) \
 	get_azimuthal_angle(rng)
 
+//////////////////////////
+// 2-D Polycone Slab    //
+// Positive Curvature   //
+// Asymmetric About Tau //
+//////////////////////////
+
+//Returns a value for tau
+#define get_2d_asym_sph_polycone_slab_tau(rng, tau0, mu) \
+	get_radius(rng, tau0, mu + 2.0)
+
+//Returns a value for theta
+#define get_2d_asym_sph_polycone_slab_theta(rng) \
+	get_azimuthal_angle(rng)
+
 /////////////////////////
 // 3-D Minkowski Slab  //
 // Flat Curvature      //
@@ -277,7 +291,7 @@ inline float get_3d_sym_flat_minkowski_slab_eta(UGenerator &rng, const double et
 
 //Returns a value for radius
 #define get_3d_sym_flat_minkowski_slab_radius(rng, r_max) \
-	get_radius(rng, r_max, 3)
+	get_radius(rng, r_max, 3.0)
 
 //Returns a value for azimuthal angle
 #define get_3d_sym_flat_minkowski_slab_theta(rng) \
@@ -449,7 +463,7 @@ inline float get_4d_asym_flat_deSitter_slab_eta(UGenerator &rng, const double et
 
 //Returns a value for radius
 #define get_4d_asym_flat_deSitter_slab_radius(rng, r_max) \
-	get_radius(rng, r_max, 4)
+	get_radius(rng, r_max, 4.0)
 
 //Returns a value for theta2
 #define get_4d_asym_flat_deSitter_slab_theta2(rng) \
@@ -523,7 +537,7 @@ inline float get_4d_asym_flat_dust_slab_tau(UGenerator &rng, const double tau0)
 
 //Returns a value for radius
 #define get_4d_asym_flat_dust_slab_radius(rng, r_max) \
-	get_radius(rng, r_max, 4)
+	get_radius(rng, r_max, 4.0)
 
 //Returns a value for theta2
 #define get_4d_asym_flat_dust_slab_theta2(rng) \
@@ -634,7 +648,7 @@ inline float get_4d_asym_sph_flrw_slab_tau(UGenerator &rng, const double tau0)
 
 //Returns a value for radius
 #define get_4d_asym_flat_flrw_slab_radius(rng, r_max) \
-	get_radius(rng, r_max, 4)
+	get_radius(rng, r_max, 4.0)
 
 //Returns a value for theta2
 #define get_4d_asym_flat_flrw_slab_theta2(rng) \
@@ -710,7 +724,7 @@ inline float get_4d_asym_flat_flrw_diamond_radius(UGenerator &rng, const double 
 		r_max = eta;
 	else
 		r_max = (HALF_PI - zeta) - eta;
-	r = get_radius(rng, r_max, 4);
+	r = get_radius(rng, r_max, 4.0);
 	return r;
 }
 

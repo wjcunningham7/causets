@@ -1,3 +1,29 @@
+===================
+SUPERVISED LEARNING
+===================
+> Training data for SL DNN
+> Manifold:	Minkowski
+> Region:	Interval
+> Curvature:	Flat
+> Symmetry:	None
+> N:		100
+> Age:		1.0
+
+Job:		2902
+Dimension:	2
+Samples:	10000
+Waiting:	NONE
+
+Job:		2903
+Dimension:	3
+Samples:	10000
+Waiting:	ALL (NSUB)
+
+Job:		2904
+Dimension:	4
+Samples:	10000
+Waiting:	ALL (NSUB)
+
 ===============
 TIMELIKE ACTION
 ===============
@@ -46,6 +72,7 @@ Jobs:		2616-2637
 Waiting:	NONE
 
 > Region:	Saucer_T
+> Age:		0.5
 Jobs:		2638-2659
 Waiting:	NONE
 
@@ -55,8 +82,35 @@ Waiting:	NONE
 
 > Region:	Saucer_T
 > Samples:	100
-> Jobs:		2682-2703
-> Waiting:	2702-2703
+Jobs:		2682-2703
+Waiting:	NONE
+
+> Region:	Saucer_T
+> Samples:	10
+> Age:		0.9
+Jobs:		2704-2725
+Waiting:	NONE
+
+> Region:	Saucer_T
+> Age:		0.3
+Jobs:		2726-2747
+Waiting:	NONE
+
+> Region:	Triangle_T
+> Age:		1.0
+> Radius:	0.3
+Jobs:		2748-2769
+Waiting:	NONE
+
+> Radius:	0.2
+Jobs:		2770-2791
+Waiting:	NONE
+
+> Region:	Slab
+> Age:		0.8
+> Radius:	0.8
+Jobs:		2792-2813
+Waiting:	ALL
 
 ===================
 ACTION BENCHMARKING
@@ -115,7 +169,6 @@ Task:		ACTION_V4
 Computers:	2
 Waiting:	NONE
  > 2409 cannot finish in time
- > Need to re-do 2404
 
 Jobs:		2410-2425
 Task:		ACTION_V4
@@ -127,13 +180,13 @@ Jobs:		2429-2444
 Task:		ACTION_V5
 Computers:	2
 Waiting:	NONE
- > Re-submit jobs 2430-2431
+ > 2430-2431 failed, were not re-submitted
  > 2443,2444 cannot finish in time
 
 Jobs:		2445-2460
 Task:		ACTION_V5
 Computers:	4
-Waiting:	2453-2460
+Waiting:	NONE
 
 Jobs:		2461-2482
 Task:		Mean Action

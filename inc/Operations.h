@@ -124,6 +124,16 @@ inline double volume_75499530_2(const double eta0, const double r_max)
 	return r_max * POW2(beta) * t2 / t1;
 }
 
+inline double mmdim(const double dim, const double rval)
+{
+	#if DEBUG
+	assert (dim > 0.0);
+	assert (rval > 0.0);
+	#endif
+
+	return (GAMMA(dim + 1.0) * GAMMA(0.5 * dim) / (4.0 * GAMMA(1.5 * dim))) - rval;
+}
+
 //Returns eta Residual
 //Used in 3+1 K = 1 Asymmetric de Sitter Slab
 inline double solve_eta_12836_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
@@ -250,6 +260,18 @@ inline double solve_v_11332_0_bisec(const double &x, const double * const p1, co
 	return v_11332_0(x, p1[0], p1[1]);
 }
 
+//Returns dimension Residual in Bisection Algorithm
+//Used for Myrheim Meyer Dimension
+inline double solve_mmdim_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+{
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0);	//rval
+	#endif
+
+	return mmdim(x, p1[0]);
+}
+
 //=========================//
 // Spatial Length Formulae //
 //=========================//
@@ -359,7 +381,7 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime spacetime, const int
 	#if DEBUG
 	assert (!c->isNull());
 	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
-	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"));
+	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Polycone"));
 
 	if (spacetime.stdimIs("2"))
 		assert (c->getDim() == 2);
@@ -416,14 +438,14 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime spacetime, const int
 
 	#if DEBUG
 	assert (dt >= 0.0f);
-	if (spacetime.curvatureIs("Flat") && spacetime.manifoldIs("De_Sitter"))
+	/*if (spacetime.curvatureIs("Flat") && spacetime.manifoldIs("De_Sitter"))
 		assert (dt <= zeta - zeta1);
 	else {
 		if (spacetime.symmetryIs("Temporal"))
 			assert (dt <= 2.0f * static_cast<float>(HALF_PI - zeta));
 		else
 			assert (dt <= static_cast<float>(HALF_PI - zeta));
-	}
+	}*/
 	#endif
 
 	//Spatial Interval
@@ -717,6 +739,34 @@ inline double etaToTauFLRW(const double &eta, const double &a, const double &alp
 	#endif
 
 	return g;
+}
+
+//-----------------------//
+// Formulae for Polycone //
+//-----------------------//
+
+inline double etaToTauPolycone(const double eta, const double a, const double gamma)
+{
+	#if DEBUG
+	assert (eta < 0.0);
+	assert (a > 0.0);
+	assert (gamma > 2.0);
+	#endif
+
+	double g = gamma / (gamma - 2.0);
+	return pow((1 - g) * eta / pow(a, -g), 1.0 / (1.0 - g));
+}
+
+inline double tauToEtaPolycone(const double tau, const double a, const double gamma)
+{
+	#if DEBUG
+	assert (tau > 0.0);
+	assert (a > 0.0);
+	assert (gamma > 2.0);
+	#endif
+
+	double g = gamma / (gamma - 2.0);
+	return pow(a, -g) * pow(tau, 1.0 - g) / (1.0 - g);
 }
 
 //=====================================//

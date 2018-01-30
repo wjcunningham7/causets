@@ -132,4 +132,6 @@ int findLongestMinimal(Bitvector &adj, const int *k_in, int *lengths, const int 
 
 Network find_subgraph(const Network &network, std::vector<unsigned int> candidates, CaResources * const ca);
 
+int maximalAntichain(FastBitset &antichain, const Bitvector &adj, const int N_tar, const int seed);
+
 #endif

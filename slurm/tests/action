@@ -24,12 +24,12 @@ fi
 
 stdim=2
 manifold=Minkowski
-region=Saucer_T
+region=Diamond
 curvature=Flat
-symmetry=Temporal
+symmetry=None
 spacetime="--stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry"
 
-age=0.5
+age=1.0
 radius=0.5
 makeparfile=false
 
@@ -40,12 +40,12 @@ nnum=5
 source /home/cunningham.wi/.queues
 jobstart=$NEXT_JOB
 readstart=0
-samples=100
+samples=10000
 partition="krioukov_gpu"
-#partition=par-gpu-2
+#partition=par-gpu-3
 mpi=1
 ncores=$(sinfo -p $partition -o "%c" | awk 'NR==2 {print $1}')
-exclude="compute-0-000"
+exclude="compute-4-017"
 
 makeparfile=false
 if [[ "$makeparfile" == "true" ]] ; then
@@ -81,7 +81,7 @@ for i in $(seq ${#vars[@]}) ; do
     readjob=0
   fi
 
-  $CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags "$spacetime"' --nodes '"$nodes"' --radius '"$radius"' --age '"$age"' --link --gpu --core 1 --verbose -y --print --action smeared' --partition $partition --nsamples $samples --exclude $exclude
+  $CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags "$spacetime"' --nodes '"$nodes"' --radius '"$radius"' --age '"$age"' --link --core 1 --verbose -y --print --action smeared' --partition $partition --nsamples $samples --exclude $exclude
 done
 
 setnextjob $(($job+1))

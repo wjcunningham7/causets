@@ -14,11 +14,12 @@ if [[ "$#" -lt 1 ]] ; then
 fi
 
 version=$1
-outfile=$CAUSET_HOME_DIR/VERSION_new
+outfile=$CAUSET_HOME_DIR/VERSION
+#outfile=/home/cunningham.wi/projects/causalsetgenerator/VERSION
 
-stdims=(2 4)
-manifolds=(Minkowski De_Sitter Anti_de_Sitter Dust FLRW Hyperbolic)
-regions=(Slab Slab_T1 Slab_T2 Slab_S1 Slab_S2 Slab_N1 Slab_N2 Slab_N3 Half_Diamond Diamond Saucer_T Saucer_S Triangle_T Triangle_S Triangle_N)
+stdims=(2 3 4)
+manifolds=(Minkowski De_Sitter Anti_de_Sitter Dust FLRW Hyperbolic Polycone)
+regions=(Slab Slab_T1 Slab_T2 Slab_TS Slab_S1 Slab_S2 Slab_N1 Slab_N2 Slab_N3 Half_Diamond Diamond Saucer_T Saucer_S Triangle_T Triangle_S Triangle_N Cube)
 curvatures=(Flat Positive Negative)
 symmetries=(None Temporal)
 
@@ -28,6 +29,7 @@ scut=0.5
 
 platform=_krioukov_gpu
 binary=$CAUSET_HOME_DIR/bin/CausalSet$platform
+#binary=/home/cunningham.wi/projects/causalsetgenerator/bin/CausalSet$platform
 
 echo -e "\nVERSION ${version}.x" >> $outfile
 echo -e "===========\n" >> $outfile
@@ -42,7 +44,8 @@ for stdim in ${stdims[@]} ; do
         for symmetry in ${symmetries[@]} ; do
           id=$($binary --stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry --nodes $nodes --age $tcut --radius $scut --alpha $scut --test 2>&- | awk '/Spacetime ID:/ {print $4}')
           if [[ "$id" != "" ]] ; then
-            printf "%-8s%-16s%-16s%-16s%-16s%-8s\n" "$sdim+1" $manifold $region $curvature $symmetry $id | awk '{print toupper($0)}' >> $outfile
+            #printf "%-8s%-16s%-16s%-16s%-16s%-8s\n" "$sdim+1" $manifold $region $curvature $symmetry $id | awk '{print toupper($0)}' >> $outfile
+            printf "%-8s%-16s%-16s%-16s%-16s%-8s\n" $stdim $manifold $region $curvature $symmetry $id | awk '{print $0}' >> $outfile
           fi
         done
       done

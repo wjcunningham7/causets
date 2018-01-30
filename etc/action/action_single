@@ -49,7 +49,7 @@ for file in act_files:
 	h.close()
 	
 	if smeared:
-		lk = 2.0
+		lk = 9.0
 		epsilon = math.pow(lk, -stdim)
 		eps1 = epsilon / (1.0 - epsilon)
 		for i in range(0, c[0] - 2):
@@ -74,7 +74,7 @@ for file in act_files:
 
 avg_action = np.mean(a)
 std_action = np.std(a)
-stderr = std_action / math.sqrt(len(act_files))
+stderr = std_action #/ math.sqrt(len(act_files))
 
 basedir = './dat/ref/'
 
