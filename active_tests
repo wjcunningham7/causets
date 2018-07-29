@@ -98,6 +98,16 @@ Dimension:	2
 Samples:	10000
 Waiting:	NONE
 
+> Ensemble:	KR Orders
+Job:		3593
+Samples:	10000
+Waiting:	ALL
+
+> Ensemble:	Random Partial Orders
+Job:		3594
+Samples:	10000
+Waiting:	ALL
+
 ===============
 TIMELIKE ACTION
 ===============
