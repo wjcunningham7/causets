@@ -193,7 +193,7 @@ inline double deSitterLookupKernel(double x, void *params)
 //=====================//
 
 //Returns the distance between two nodes in the non-compact K = 0 FLRW manifold
-inline double distanceFLRW(Coordinates *c, const float * const tau, const Spacetime &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
+inline double distanceFLRW(Coordinates *c, const float * const tau, const Spacetime &spacetime, const int &N, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (c != NULL);
@@ -204,7 +204,7 @@ inline double distanceFLRW(Coordinates *c, const float * const tau, const Spacet
 	assert (c->y() != NULL);
 	assert (c->z() != NULL);
 	assert (tau != NULL);
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (spacetime.stdimIs("4"));
 	assert (spacetime.manifoldIs("FLRW"));
 	assert (a > 0.0);
@@ -212,7 +212,7 @@ inline double distanceFLRW(Coordinates *c, const float * const tau, const Spacet
 	assert (r_max > 0.0);
 	assert (alpha > 0.0);
 	assert (spacetime.curvatureIs("Flat"));
-	assert (past_idx >= 0 && past_idx < N_tar);
+	assert (past_idx >= 0 && past_idx < N);
 	#endif
 
 	if (future_idx < past_idx) {
@@ -231,7 +231,7 @@ inline double distanceFLRW(Coordinates *c, const float * const tau, const Spacet
 	double omega12;
 	double lambda;
 
-	bool timelike = nodesAreRelated(c, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, spacetime, N, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
 	omega12 *= alpha / a;
 
 	//Bisection Method
@@ -347,7 +347,7 @@ inline double distanceFLRW(Coordinates *c, const float * const tau, const Spacet
 }
 
 //Returns the geodesic distance for two points on a K = 0 dust manifold
-inline double distanceDust(Coordinates *c, const float * const tau, const Spacetime &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
+inline double distanceDust(Coordinates *c, const float * const tau, const Spacetime &spacetime, const int &N, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (c != NULL);
@@ -358,7 +358,7 @@ inline double distanceDust(Coordinates *c, const float * const tau, const Spacet
 	assert (c->y() != NULL);
 	assert (c->z() != NULL);
 	assert (tau != NULL);
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (spacetime.stdimIs("4"));
 	assert (spacetime.manifoldIs("Dust"));
 	assert (a > 0.0);
@@ -366,8 +366,8 @@ inline double distanceDust(Coordinates *c, const float * const tau, const Spacet
 	assert (r_max > 0.0);
 	assert (alpha > 0.0);
 	assert (spacetime.curvatureIs("Flat"));
-	assert (past_idx >= 0 && past_idx < N_tar);
-	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (past_idx >= 0 && past_idx < N);
+	assert (future_idx >= 0 && future_idx < N);
 	#endif
 
 	if (future_idx < past_idx) {
@@ -386,7 +386,7 @@ inline double distanceDust(Coordinates *c, const float * const tau, const Spacet
 	double omega12;
 	double lambda;
 
-	bool timelike = nodesAreRelated(c, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, spacetime, N, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
 	omega12 *= alpha / a;
 
 	//Bisection Method
@@ -514,7 +514,7 @@ inline double distanceDust(Coordinates *c, const float * const tau, const Spacet
 }
 
 //Returns the geodesic distance for two points on a K = 1 de Sitter manifold
-inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const Spacetime &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
+inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const Spacetime &spacetime, const int &N, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (!c->isNull());
@@ -524,15 +524,15 @@ inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const
 	assert (c->y() != NULL);
 	assert (c->z() != NULL);
 	assert (tau != NULL);
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (spacetime.stdimIs("4"));
 	assert (spacetime.manifoldIs("De_Sitter"));
 	assert (a > 0.0);
 	assert (zeta > 0.0);
 	assert (zeta < HALF_PI);
 	assert (spacetime.curvatureIs("Positive"));
-	assert (past_idx >= 0 && past_idx < N_tar);
-	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (past_idx >= 0 && past_idx < N);
+	assert (future_idx >= 0 && future_idx < N);
 	#endif
 
 	if (future_idx < past_idx) {
@@ -548,7 +548,7 @@ inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const
 	idata.workspace = gsl_integration_workspace_alloc(idata.nintervals);
 
 	double omega12, lambda;
-	bool timelike = nodesAreRelated(c, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, spacetime, N, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
 
 	//Bisection Method
 	double res = 1.0, tol = 1.0e-5;
@@ -635,7 +635,7 @@ inline double distanceDeSitterSph(Coordinates *c, const float * const tau, const
 }
 
 //Returns the geodesic distance for two points on a K = 0 de Sitter manifold
-inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, const Spacetime &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
+inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, const Spacetime &spacetime, const int &N, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, int past_idx, int future_idx)
 {
 	#if DEBUG
 	assert (c != NULL);
@@ -646,7 +646,7 @@ inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, cons
 	assert (c->y() != NULL);
 	assert (c->z() != NULL);
 	assert (tau != NULL);
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (spacetime.stdimIs("4"));
 	assert (spacetime.manifoldIs("De_Sitter"));
 	assert (a > 0.0);
@@ -654,7 +654,7 @@ inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, cons
 	assert (zeta1 > HALF_PI);
 	assert (zeta > zeta1);
 	assert (spacetime.curvatureIs("Flat"));
-	assert (past_idx >= 0 && past_idx < N_tar);
+	assert (past_idx >= 0 && past_idx < N);
 	#endif
 
 	if (future_idx < past_idx) {
@@ -667,7 +667,7 @@ inline double distanceDeSitterFlat(Coordinates *c, const float * const tau, cons
 	double omega12, lambda;
 	double x1 = tauToEtaFlat(tau[past_idx]);
 	double x2 = tauToEtaFlat(tau[future_idx]);
-	bool timelike = nodesAreRelated(c, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
+	bool timelike = nodesAreRelated(c, spacetime, N, a, zeta, zeta1, r_max, alpha, past_idx, future_idx, &omega12);
 
 	//Bisection Method
 	double res = 1.0, tol = 1.0e-5;

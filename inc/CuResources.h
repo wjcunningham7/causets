@@ -7,6 +7,11 @@
 #ifndef CU_RESOURCES_H_
 #define CU_RESOURCES_H_
 
+#ifdef __CUDACC_VER__
+#undef __CUDACC_VER__
+#define __CUDACC_VER__ 90000
+#endif
+
 #include <cassert>
 #include <iostream>
 #include <math.h>

@@ -47,23 +47,23 @@ void swap(const int * const *& list0, const int * const *& list1, int64_t &idx0,
 void cyclesort(unsigned int &writes, std::vector<unsigned int> elements, std::vector<std::pair<int,int> > *swaps);
 
 //Bisection Algorithm
-bool bisection(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const float * const p2, const int * const p3);
+bool bisection(double (*solve)(const double x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const float * const p2, const int * const p3);
 
 //Newton-Raphson Algorithm
-bool newton(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double tol, const double * const p1, const float * const p2, const int * const p3);
+bool newton(double (*solve)(const double x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double tol, const double * const p1, const float * const p2, const int * const p3);
 
 //Causal Relation Identification Algorithm
-bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int64_t * const future_edge_row_start, const Bitvector &adj, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx);
+bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int64_t * const future_edge_row_start, const Bitvector &adj, const int &N, const float &core_edge_fraction, int past_idx, int future_idx);
 
-bool nodesAreConnected_v2(const Bitvector &adj, const int &N_tar, int past_idx, int future_idx);
+bool nodesAreConnected_v2(const Bitvector &adj, const int &N, int past_idx, int future_idx);
 
 //Depth First Search Algorithm
 void dfsearch(const Node &nodes, const Edge &edges, const int index, const int id, int &elements, int level);
 
-void dfsearch_v2(const Node &nodes, const Bitvector &adj, const int &N_tar, const int index, const int id, int &elements);
+void dfsearch_v2(const Node &nodes, const Bitvector &adj, const int &N, const int index, const int id, int &elements);
 
 //Breadth First Search Algorithm
-int shortestPath(const Node &nodes, const Edge &edges, const int &N_tar, int * const distances, const int start, const int end);
+int shortestPath(const Node &nodes, const Edge &edges, const int &N, int * const distances, const int start, const int end);
 
 //Array Intersection Algorithms
 void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int64_t &pstart, const int64_t &fstart, bool &too_many);
@@ -76,7 +76,7 @@ void readDegrees(int * const &degrees, const int * const h_k, const size_t &offs
 void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &adj, int64_t * const &g_idx, const unsigned int &core_limit_row, const unsigned int &core_limit_col, const size_t &d_edges_size, const size_t &mthread_size, const size_t &size0, const size_t &size1, const int x, const int y, const bool &use_bit, const bool &use_mpi);
 
 //Prefix Sum Algorithm
-void scan(const int * const k_in, const int * const k_out, int64_t * const &past_edge_pointers, int64_t * const &future_edge_pointers, const int &N_tar);
+void scan(const int * const k_in, const int * const k_out, int64_t * const &past_edge_pointers, int64_t * const &future_edge_pointers, const int &N);
 
 //Overloaded Print Statements
 int printf_dbg(const char * format, ...);
@@ -103,11 +103,11 @@ void perm_to_binary(FastBitset &fb, const std::vector<unsigned int> perm);
 
 void binary_to_perm(std::vector<unsigned int> &perm, const FastBitset &fb, const unsigned int len);
 
-unsigned int loc_to_glob_idx(std::vector<unsigned int> perm, const unsigned int idx, const int N_tar, const int num_mpi_threads, const int rank);
+unsigned int loc_to_glob_idx(std::vector<unsigned int> perm, const unsigned int idx, const int N, const int num_mpi_threads, const int rank);
 
 //MPI Trading: Signals and Swaps
 #ifdef MPI_ENABLED
-void mpi_swaps(const std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N_tar, const int num_mpi_threads, const int rank);
+void mpi_swaps(const std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N, const int num_mpi_threads, const int rank);
 
 void sendSignal(const MPISignal signal, const int rank, const int num_mpi_threads);
 #endif
@@ -116,22 +116,24 @@ std::vector<std::tuple<FastBitset, int, int>> getPossibleChains(Bitvector &adj, 
 
 std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, FastBitset *subworkspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level);
 
-int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level);
+int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level);
 
-int longestChain_v2r(Bitvector &adj, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level);
+int longestChain_v2r(Bitvector &adj, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level);
 
-int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level);
+int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level);
 
-int longestChain_v1(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, int j, unsigned int level);
+int longestChain_v1(Bitvector &adj, FastBitset *workspace, const int N, int i, int j, unsigned int level);
 
-int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * const k_in, const int * const k_out, int *lengths, const int N_tar);
+int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * const k_in, const int * const k_out, int *lengths, const int N);
 
-int findLongestMaximal(Bitvector &adj, const int *k_out, int *lengths, const int N_tar, const int idx);
+int findLongestMaximal(Bitvector &adj, const int *k_out, int *lengths, const int N, const int idx);
 
-int findLongestMinimal(Bitvector &adj, const int *k_in, int *lengths, const int N_tar, const int idx);
+int findLongestMinimal(Bitvector &adj, const int *k_in, int *lengths, const int N, const int idx);
 
 Network find_subgraph(const Network &network, std::vector<unsigned int> candidates, CaResources * const ca);
 
-int maximalAntichain(FastBitset &antichain, const Bitvector &adj, const int N_tar, const int seed);
+int maximalAntichain(FastBitset &antichain, const Bitvector &adj, const int N, const int seed);
+
+void transitiveClosure(Bitvector &adj, const int N);
 
 #endif

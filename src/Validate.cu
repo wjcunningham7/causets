@@ -103,17 +103,17 @@ void compareAdjacencyListIndices(const Node &nodes, const Edge &edges)
 	}
 }
 
-bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int64_t * const future_edge_row_start, const Bitvector &adj, const int &N_tar, const float &core_edge_fraction)
+bool compareCoreEdgeExists(const int * const k_out, const int * const future_edges, const int64_t * const future_edge_row_start, const Bitvector &adj, const int &N, const float &core_edge_fraction)
 {
 	#if DEBUG
 	assert (k_out != NULL);
 	assert (future_edges != NULL);
 	assert (future_edge_row_start != NULL);
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	#endif
 	
-	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
+	int core_limit = static_cast<int>(core_edge_fraction * N);
 	int idx1, idx2;
 	int i, j;
 
@@ -279,7 +279,7 @@ __global__ void GenerateAdjacencyLists_v1(float *w, float *x, float *y, float *z
 }
 
 //Note that adj has not been implemented in this version of the linkNodesGPU subroutine.
-bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &link_epso, const bool &has_exact_k, const bool &verbose, const bool &bench)
+bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Spacetime &spacetime, const int &N, const float &k_tar, int &N_res, float &k_res, int &N_deg2, const float &core_edge_fraction, const float &edge_buffer, CaResources * const ca, Stopwatch &sLinkNodesGPU, const bool &link_epso, const bool &has_exact_k, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (nodes.crd->getDim() == 4);
@@ -295,7 +295,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	assert (ca != NULL);
 
 	assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"));
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (k_tar > 0.0f);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (edge_buffer >= 0.0f && edge_buffer <= 1.0f);
@@ -349,21 +349,21 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	}
 
 	//Allocate Global Device Memory
-	checkCudaErrors(cuMemAlloc(&d_w, sizeof(float) * N_tar));
-	checkCudaErrors(cuMemAlloc(&d_x, sizeof(float) * N_tar));
-	checkCudaErrors(cuMemAlloc(&d_y, sizeof(float) * N_tar));
-	checkCudaErrors(cuMemAlloc(&d_z, sizeof(float) * N_tar));
-	ca->devMemUsed += sizeof(float) * N_tar * 4;
+	checkCudaErrors(cuMemAlloc(&d_w, sizeof(float) * N));
+	checkCudaErrors(cuMemAlloc(&d_x, sizeof(float) * N));
+	checkCudaErrors(cuMemAlloc(&d_y, sizeof(float) * N));
+	checkCudaErrors(cuMemAlloc(&d_z, sizeof(float) * N));
+	ca->devMemUsed += sizeof(float) * N * 4;
 
-	size_t d_edges_size = pow(2.0, ceil(log2(N_tar * k_tar * (1.0 + edge_buffer) / 2)));
+	size_t d_edges_size = pow(2.0, ceil(log2(N * k_tar * (1.0 + edge_buffer) / 2)));
 	checkCudaErrors(cuMemAlloc(&d_edges, sizeof(uint64_t) * d_edges_size));
 	ca->devMemUsed += sizeof(uint64_t) * d_edges_size;
 
-	checkCudaErrors(cuMemAlloc(&d_k_in, sizeof(int) * N_tar));
-	ca->devMemUsed += sizeof(int) * N_tar;
+	checkCudaErrors(cuMemAlloc(&d_k_in, sizeof(int) * N));
+	ca->devMemUsed += sizeof(int) * N;
 
-	checkCudaErrors(cuMemAlloc(&d_k_out, sizeof(int) * N_tar));
-	ca->devMemUsed += sizeof(int) * N_tar;
+	checkCudaErrors(cuMemAlloc(&d_k_out, sizeof(int) * N));
+	ca->devMemUsed += sizeof(int) * N;
 	
 	checkCudaErrors(cuMemAlloc(&d_g_idx, sizeof(unsigned long long int)));
 	ca->devMemUsed += sizeof(unsigned long long int);
@@ -373,15 +373,15 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 		printMemUsed("for Parallel Node Linking", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//Copy Memory from Host to Device
-	checkCudaErrors(cuMemcpyHtoD(d_w, nodes.crd->w(), sizeof(float) * N_tar));
-	checkCudaErrors(cuMemcpyHtoD(d_x, nodes.crd->x(), sizeof(float) * N_tar));
-	checkCudaErrors(cuMemcpyHtoD(d_y, nodes.crd->y(), sizeof(float) * N_tar));
-	checkCudaErrors(cuMemcpyHtoD(d_z, nodes.crd->z(), sizeof(float) * N_tar));
+	checkCudaErrors(cuMemcpyHtoD(d_w, nodes.crd->w(), sizeof(float) * N));
+	checkCudaErrors(cuMemcpyHtoD(d_x, nodes.crd->x(), sizeof(float) * N));
+	checkCudaErrors(cuMemcpyHtoD(d_y, nodes.crd->y(), sizeof(float) * N));
+	checkCudaErrors(cuMemcpyHtoD(d_z, nodes.crd->z(), sizeof(float) * N));
 
 	//Initialize Memory on Device
 	checkCudaErrors(cuMemsetD32(d_edges, 0, d_edges_size << 1));
-	checkCudaErrors(cuMemsetD32(d_k_in, 0, N_tar));
-	checkCudaErrors(cuMemsetD32(d_k_out, 0, N_tar));
+	checkCudaErrors(cuMemsetD32(d_k_in, 0, N));
+	checkCudaErrors(cuMemsetD32(d_k_out, 0, N));
 	checkCudaErrors(cuMemsetD32(d_g_idx, 0, 2));
 
 	//Synchronize
@@ -390,15 +390,15 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	stopwatchStop(&sGPUOverhead);
 
 	//CUDA Grid Specifications
-	unsigned int gridx_GAL = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / 2));
-	unsigned int gridy_GAL = static_cast<unsigned int>(ceil((static_cast<float>(N_tar) / 2) / BLOCK_SIZE));
+	unsigned int gridx_GAL = static_cast<unsigned int>(ceil(static_cast<float>(N) / 2));
+	unsigned int gridy_GAL = static_cast<unsigned int>(ceil((static_cast<float>(N) / 2) / BLOCK_SIZE));
 	dim3 blocks_per_grid_GAL(gridx_GAL, gridy_GAL, 1);
 	dim3 threads_per_block_GAL(1, BLOCK_SIZE, 1);
 	
 	stopwatchStart(&sGenAdjList);
 
 	//Execute Kernel
-	GenerateAdjacencyLists_v1<<<blocks_per_grid_GAL, threads_per_block_GAL>>>((float*)d_w, (float*)d_x, (float*)d_y, (float*)d_z, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (unsigned long long int*)d_g_idx, N_tar >> 1, compact);
+	GenerateAdjacencyLists_v1<<<blocks_per_grid_GAL, threads_per_block_GAL>>>((float*)d_w, (float*)d_x, (float*)d_y, (float*)d_z, (uint64_t*)d_edges, (int*)d_k_in, (int*)d_k_out, (unsigned long long int*)d_g_idx, N >> 1, compact);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.GenerateAdjacencyLists' Failed to Execute!\n");
 
 	//Synchronize
@@ -424,14 +424,14 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	cuMemFree(d_z);
 	d_z = 0;
 
-	ca->devMemUsed -= sizeof(float) * N_tar * 4;
+	ca->devMemUsed -= sizeof(float) * N * 4;
 
 	cuMemFree(d_g_idx);
 	d_g_idx = 0;
 	ca->devMemUsed -= sizeof(unsigned long long int);
 
 	try {
-		if (*g_idx + 1 >= static_cast<uint64_t>(N_tar * k_tar * (1.0 + edge_buffer) / 2))
+		if (*g_idx + 1 >= static_cast<uint64_t>(N * k_tar * (1.0 + edge_buffer) / 2))
 			throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
@@ -560,13 +560,13 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	stopwatchStop(&sGPUOverhead);
 
 	//CUDA Grid Specifications
-	unsigned int gridx_res_prop = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / BLOCK_SIZE));
+	unsigned int gridx_res_prop = static_cast<unsigned int>(ceil(static_cast<float>(N) / BLOCK_SIZE));
 	dim3 blocks_per_grid_res_prop(gridx_res_prop, 1, 1);
 
 	stopwatchStart(&sProps);
 
 	//Execute Kernel
-	ResultingProps<<<gridx_res_prop, threads_per_block>>>((int*)d_k_in, (int*)d_k_out, (int*)d_N_res, (int*)d_N_deg2, N_tar);
+	ResultingProps<<<gridx_res_prop, threads_per_block>>>((int*)d_k_in, (int*)d_k_out, (int*)d_N_res, (int*)d_N_deg2, N);
 	getLastCudaError("Kernel 'NetworkCreator_GPU.ResultingProps' Failed to Execute!\n");
 	checkCudaErrors(cuCtxSynchronize());
 
@@ -574,8 +574,8 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	stopwatchStart(&sGPUOverhead);
 
 	//Copy Memory from Device to Host
-	checkCudaErrors(cuMemcpyDtoH(nodes.k_in, d_k_in, sizeof(int) * N_tar));
-	checkCudaErrors(cuMemcpyDtoH(nodes.k_out, d_k_out, sizeof(int) * N_tar));
+	checkCudaErrors(cuMemcpyDtoH(nodes.k_in, d_k_in, sizeof(int) * N));
+	checkCudaErrors(cuMemcpyDtoH(nodes.k_out, d_k_out, sizeof(int) * N));
 	checkCudaErrors(cuMemcpyDtoH(&N_res, d_N_res, sizeof(int)));
 	checkCudaErrors(cuMemcpyDtoH(&N_deg2, d_N_deg2, sizeof(int)));
 
@@ -583,10 +583,10 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	checkCudaErrors(cuCtxSynchronize());
 
 	//Prefix Sum of 'k_in' and 'k_out'
-	scan(nodes.k_in, nodes.k_out, edges.past_edge_row_start, edges.future_edge_row_start, N_tar);
+	scan(nodes.k_in, nodes.k_out, edges.past_edge_row_start, edges.future_edge_row_start, N);
 
-	N_res = N_tar - N_res;
-	N_deg2 = N_tar - N_deg2;
+	N_res = N - N_res;
+	N_deg2 = N - N_deg2;
 	k_res = static_cast<float>(static_cast<long double>(*g_idx) * 2 / N_res);
 
 	#if DEBUG
@@ -598,11 +598,11 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	//Free Device Memory
 	cuMemFree(d_k_in);
 	d_k_in = 0;
-	ca->devMemUsed -= sizeof(int) * N_tar;
+	ca->devMemUsed -= sizeof(int) * N;
 
 	cuMemFree(d_k_out);
 	d_k_out = 0;
-	ca->devMemUsed -= sizeof(int) * N_tar;
+	ca->devMemUsed -= sizeof(int) * N;
 
 	cuMemFree(d_N_res);
 	d_N_res = 0;
@@ -618,10 +618,11 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	if (!bench) {
 		printf("\tCausets Successfully Connected.\n");
 		printf_cyan();
-		printf("\t\tUndirected Links:         %" PRId64 "\n", *g_idx);
+		//printf("\t\tUndirected Links:         %" PRIu64 "\n", *g_idx);
+		printf("\t\tUndirected Links:         %llu\n", *g_idx);
 		printf("\t\tResulting Network Size:   %d\n", N_res);
 		printf("\t\tResulting Average Degree: %f\n", k_res);
-		printf("\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N_tar));
+		printf("\t\t    Incl. Isolated Nodes: %f\n", k_res * (N_res / N));
 		if (has_exact_k) {
 			printf_red();
 			printf("\t\tResulting Error in <k>:   %f\n", fabs(k_tar - k_res) / k_tar);
@@ -630,13 +631,13 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 		fflush(stdout);
 	}
 	
-	//if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction))
+	//if(!compareCoreEdgeExists(nodes.k_out, edges.future_edges, edges.future_edge_row_start, adj, N, core_edge_fraction))
 	//	return false;
 
 	//Print Results
-	/*if (!printDegrees(nodes, N_tar, "in-degrees_GPU_v1.cset.dbg.dat", "out-degrees_GPU_v1.cset.dbg.dat")) return false;
+	/*if (!printDegrees(nodes, N, "in-degrees_GPU_v1.cset.dbg.dat", "out-degrees_GPU_v1.cset.dbg.dat")) return false;
 	if (!printEdgeLists(edges, *g_idx, "past-edges_GPU_v1.cset.dbg.dat", "future-edges_GPU_v1.cset.dbg.dat")) return false;
-	if (!printEdgeListPointers(edges, N_tar, "past-edge-pointers_GPU_v1.cset.dbg.dat", "future-edge-pointers_GPU_v1.cset.dbg.dat")) return false;
+	if (!printEdgeListPointers(edges, N, "past-edge-pointers_GPU_v1.cset.dbg.dat", "future-edge-pointers_GPU_v1.cset.dbg.dat")) return false;
 	printf_red();
 	printf("Check files now.\n");
 	printf_std();
@@ -662,7 +663,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	return true;
 }
 
-bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const Spacetime &spacetime, const int &N_tar, const double &r_max, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench)
+bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int64_t * const &g_idx, const Spacetime &spacetime, const int &N, const double &r_max, const float &core_edge_fraction, const size_t &d_edges_size, const int &group_size, CaResources * const ca, const bool &link_epso, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -674,11 +675,11 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	assert (g_idx != NULL);
 	assert (ca != NULL);
 	assert (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"));
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
 	assert (!link_epso);
 	if (use_bit) {
-		assert (adj.size() >= N_tar);
+		assert (adj.size() >= N);
 		assert (core_edge_fraction == 1.0f);
 	}
 	#endif
@@ -696,7 +697,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	int *h_k_out;
 	bool *h_edges;
 
-	unsigned int core_limit = static_cast<unsigned int>(core_edge_fraction * N_tar);
+	unsigned int core_limit = static_cast<unsigned int>(core_edge_fraction * N);
 	unsigned int i, j;
 	bool diag;
 
@@ -704,7 +705,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	bool compact = spacetime.curvatureIs("Positive");
 
 	//Thread blocks are grouped into "mega" blocks
-	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N_tar) / (BLOCK_SIZE * group_size)));
+	size_t mblock_size = static_cast<unsigned int>(ceil(static_cast<float>(N) / (BLOCK_SIZE * group_size)));
 	size_t mthread_size = mblock_size * BLOCK_SIZE;
 	size_t m_edges_size = mthread_size * mthread_size;
 
@@ -773,7 +774,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 	dim3 threads_per_block(1, BLOCK_SIZE, 1);
 	dim3 blocks_per_grid(gridx, gridy, 1);
 
-	size_t final_size = N_tar - mthread_size * (group_size - 1);
+	size_t final_size = N - mthread_size * (group_size - 1);
 	size_t size0, size1;
 
 	//Index 'i' marks the row and 'j' marks the column
@@ -1050,7 +1051,7 @@ bool printValues(Node &nodes, const Spacetime &spacetime, const int num_vals, co
 
 	try {
 		char full_name[80] = "ST-";
-		snprintf(&full_name[3], 80, "%s", spacetime.toHexString());
+		snprintf(&full_name[3], 77, "%s", spacetime.toHexString());
 		strcat(full_name, "_");
 		strcat(full_name, filename);
 
@@ -1092,11 +1093,15 @@ bool printValues(Node &nodes, const Spacetime &spacetime, const int num_vals, co
 					outputStream << (nodes.crd->x(i) + nodes.crd->y(i)) / sqrt(2.0) << std::endl;
 				else if (spacetime.stdimIs("4"))
 					outputStream << (nodes.crd->w(i) + nodes.crd->x(i)) / sqrt(2.0) << std::endl;
+				else if (spacetime.stdimIs("5"))
+					outputStream << (nodes.crd->v(i) + nodes.crd->w(i)) / sqrt(2.0) << std::endl;
 			} else if (!strcmp(coord, "v")) {
 				if (spacetime.stdimIs("2") || spacetime.stdimIs("3"))
 					outputStream << (nodes.crd->x(i) - nodes.crd->y(i)) / sqrt(2.0) << std::endl;
 				else if (spacetime.stdimIs("4"))
 					outputStream << (nodes.crd->w(i) - nodes.crd->x(i)) / sqrt(2.0) << std::endl;
+				else if (spacetime.stdimIs("5"))
+					outputStream << (nodes.crd->v(i) - nodes.crd->w(i)) / sqrt(2.0) << std::endl;
 			} else
 				throw CausetException("Unrecognized value in 'coord' parameter!\n");
 		}
@@ -1304,7 +1309,7 @@ bool printAdjMatrix(const Bitvector &adj, const int N, const char *filename, con
 //Node Traversal Algorithm
 //Not accelerated with OpenMP
 //Uses geodesic distances
-bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const Spacetime &spacetime, const int &N_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const bool &strict_routing, int source, int dest, int &nsteps, bool &success, bool &success2, bool &past_horizon)
+bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj, bool * const &used, const Spacetime &spacetime, const int &N, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const bool &strict_routing, int source, int dest, int &nsteps, bool &success, bool &success2, bool &past_horizon)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -1334,7 +1339,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 	assert (edges.future_edge_row_start != NULL);
 	assert (used != NULL);
 
-	assert (N_tar > 0);
+	assert (N > 0);
 	if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
 		assert (a > 0.0);
 		if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) {
@@ -1355,8 +1360,8 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 		assert (r_max > 0.0);
 	assert (core_edge_fraction >= 0.0 && core_edge_fraction <= 1.0);
 	assert (!strict_routing);
-	assert (source >= 0 && source < N_tar);
-	assert (dest >= 0 && dest < N_tar);
+	assert (source >= 0 && source < N);
+	assert (dest >= 0 && dest < N);
 	#endif
 
 	bool TRAV_DEBUG = false;
@@ -1376,13 +1381,13 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 		if (spacetime.curvatureIs("Positive"))
 			dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
 		else if (spacetime.curvatureIs("Flat"))
-			dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
+			dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 		else
 			return false;
 	} else if (spacetime.manifoldIs("FLRW"))
-			dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
+			dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 	else if (spacetime.manifoldIs("Dust"))
-		dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
+		dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 	else if (spacetime.manifoldIs("Hyperbolic"))
 		dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 	else
@@ -1448,7 +1453,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 			}
 
 			//(B) If the current location's past neighbor is directly connected to the destination then return true
-			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, idx_a, idx_b)) {
+			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N, core_edge_fraction, idx_a, idx_b)) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
 					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_a, nodes.id.tau[idx_a], nodes.crd->z(idx_a));
@@ -1468,13 +1473,13 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 				if (spacetime.curvatureIs("Positive"))
 					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
 				else if (spacetime.curvatureIs("Flat"))
-					dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
+					dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 				else
 					return false;
 			} else if (spacetime.manifoldIs("FLRW"))
-					dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
+					dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 			else if (spacetime.manifoldIs("Dust"))
-				dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
+				dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 			else if (spacetime.manifoldIs("Hyperbolic"))
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 			else
@@ -1517,7 +1522,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 			}
 
 			//(E) If the current location's future neighbor is directly connected to the destination then return true
-			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, idx_a, idx_b)) {
+			if (nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N, core_edge_fraction, idx_a, idx_b)) {
 				if (TRAV_DEBUG) {
 					printf_cyan();
 					printf("Moving to [%d : (%.4f, %.4f)].\n", idx_a, nodes.id.tau[idx_a], nodes.crd->z(idx_a));
@@ -1537,13 +1542,13 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 				if (spacetime.curvatureIs("Positive"))
 					dist = fabs(distanceEmb(nodes.crd->getFloat4(idx_a), nodes.id.tau[idx_a], nodes.crd->getFloat4(idx_b), nodes.id.tau[idx_b], spacetime, a, alpha));
 				else if (spacetime.curvatureIs("Flat"))
-					dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
+					dist = distanceDeSitterFlat(nodes.crd, nodes.id.tau, spacetime, N, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 				else
 					return false;
 			} else if (spacetime.manifoldIs("FLRW"))
-					dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
+					dist = distanceFLRW(nodes.crd, nodes.id.tau, spacetime, N, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 			else if (spacetime.manifoldIs("Dust"))
-				dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
+				dist = distanceDust(nodes.crd, nodes.id.tau, spacetime, N, a, zeta, zeta1, r_max, alpha, idx_a, idx_b);
 			else if (spacetime.manifoldIs("Hyperbolic"))
 				dist = distanceH(nodes.crd->getFloat2(idx_a), nodes.crd->getFloat2(idx_b), spacetime, zeta);
 			else
@@ -1592,7 +1597,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 //Measure Causal Set Action
 //O(N*k^2*ln(k)) Efficiency (Linked)
 //O(N^2*k) Efficiency (No Links)
-bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -1621,7 +1626,7 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 	}
 	assert (ca != NULL);
 		
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (max_cardinality > 0);
 	assert (a > 0.0);
 	if (spacetime.curvatureIs("Positive")) {
@@ -1639,8 +1644,8 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 		printf_dbg("Using Version 1 (measureAction).\n");
 
 	double lk = 2.0;
-	bool smeared = max_cardinality == N_tar;
-	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
+	bool smeared = max_cardinality == N;
+	int core_limit = static_cast<int>(core_edge_fraction * N);
 	int elements;
 	int64_t fstart, pstart;
 	int i, j, k;
@@ -1664,17 +1669,17 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 	if (verbose)
 		printMemUsed("to Measure B-D Action", ca->hostMemUsed, ca->devMemUsed, 0);
 
-	cardinalities[0] = N_tar;
+	cardinalities[0] = N;
 
 	if (max_cardinality == 1)
 		goto ActionExit;
 
 	too_many = false;
-	for (i = 0; i < N_tar - 1; i++) {
-		for (j = i + 1; j < N_tar; j++) {
+	for (i = 0; i < N - 1; i++) {
+		for (j = i + 1; j < N; j++) {
 			elements = 0;
 			if (!use_bit && (link || relink)) {
-				if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, i, j))
+				if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N, core_edge_fraction, i, j))
 					continue;
 
 				//These indicate corrupted data
@@ -1685,7 +1690,7 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 				assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
 				#endif
 
-				if (core_limit == N_tar) {
+				if (core_limit == N) {
 					uint64_t col0 = static_cast<uint64_t>(i) * core_limit;
 					uint64_t col1 = static_cast<uint64_t>(j) * core_limit;
 					for (k = i + 1; k < j; k++)
@@ -1699,11 +1704,11 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 					causet_intersection_v2(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], max_cardinality, pstart, fstart, too_many);
 				}
 			} else {
-				if (!nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, NULL))
+				if (!nodesAreRelated(nodes.crd, spacetime, N, a, zeta, zeta1, r_max, alpha, i, j, NULL))
 					continue;
 
 				for (k = i + 1; k < j; k++) {
-					if (nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, alpha, r_max, i, k, NULL) && nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, k, j, NULL))
+					if (nodesAreRelated(nodes.crd, spacetime, N, a, zeta, zeta1, alpha, r_max, i, k, NULL) && nodesAreRelated(nodes.crd, spacetime, N, a, zeta, zeta1, r_max, alpha, k, j, NULL))
 						elements++;
 					if (elements >= max_cardinality - 1) {
 						too_many = true;
@@ -1750,7 +1755,7 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 
 //Measure Causal Set Action
 //Algorithm has been parallelized on the CPU
-bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N_tar, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -1779,7 +1784,7 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 	}
 	assert (ca != NULL);
 
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (k_tar > 0.0f);
 	assert (max_cardinality > 0);
 	assert (a > 0.0);
@@ -1798,19 +1803,19 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 	if (verbose || bench)
 		printf_dbg("Using Version 2 (measureAction).\n");
 
-	int n = N_tar + N_tar % 2;
+	int n = N + N % 2;
 	uint64_t npairs = static_cast<uint64_t>(n) * (n - 1) / 2;
 	uint64_t start = 0;
 	uint64_t finish = npairs;
-	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
+	int core_limit = static_cast<int>(core_edge_fraction * N);
 	int rank = cmpi.rank;
-	bool smeared = (max_cardinality == N_tar);
+	bool smeared = (max_cardinality == N);
 	double lk = 2.0;
 
 	#ifdef MPI_ENABLED
 	assert (false);	//MPI code not maintained
-	//uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N_tar, EXACT));
-	//uint64_t edges_size = static_cast<uint64_t>(N_tar) * k_tar * (1.0 + edge_buffer) / 2;
+	//uint64_t core_edges_size = static_cast<uint64_t>(POW2(core_edge_fraction * N, EXACT));
+	//uint64_t edges_size = static_cast<uint64_t>(N) * k_tar * (1.0 + edge_buffer) / 2;
 	#endif
 
 	stopwatchStart(&sMeasureAction);
@@ -1841,25 +1846,25 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 	if (verbose)
 		printMemUsed("to Measure B-D Action", ca->hostMemUsed, ca->devMemUsed, rank);
 
-	//The first element will be N_tar
-	cardinalities[0] = N_tar;
+	//The first element will be N
+	cardinalities[0] = N;
 
 	#ifdef MPI_ENABLED
 	/*MPI_Barrier(MPI_COMM_WORLD);
 	if (!use_bit && (link || relink)) {
-		MPI_Bcast(nodes.k_in, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(nodes.k_out, N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(nodes.k_in, N, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(nodes.k_out, N, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(edges.past_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Bcast(edges.future_edges, edges_size, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(edges.past_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(edges.future_edge_row_start, 2 * N_tar, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(edges.past_edge_row_start, 2 * N, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(edges.future_edge_row_start, 2 * N, MPI_INT, 0, MPI_COMM_WORLD);
 		//MPI_Bcast(adj, core_edges_size, MPI_C_BOOL, 0, MPI_COMM_WORLD);
 	} else {
-		MPI_Bcast(nodes.crd->x(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-		MPI_Bcast(nodes.crd->y(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(nodes.crd->x(), N, MPI_FLOAT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(nodes.crd->y(), N, MPI_FLOAT, 0, MPI_COMM_WORLD);
 		if (get_stdim(spacetime) == 4) {
-			MPI_Bcast(nodes.crd->w(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
-			MPI_Bcast(nodes.crd->z(), N_tar, MPI_FLOAT, 0, MPI_COMM_WORLD);
+			MPI_Bcast(nodes.crd->w(), N, MPI_FLOAT, 0, MPI_COMM_WORLD);
+			MPI_Bcast(nodes.crd->z(), N, MPI_FLOAT, 0, MPI_COMM_WORLD);
 		}
 	}
 
@@ -1885,14 +1890,14 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 			j = j + do_map * (((n >> 1) - j) << 1);
 		}
 
-		if (j == N_tar) continue;
+		if (j == N) continue;
 
 		int elements = 0;
 		bool too_many = false;
 
 		if (!use_bit && (link || relink)) {
 			//If the nodes have been linked, use edge lists / adjacency matrix
-			if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N_tar, core_edge_fraction, i, j))
+			if (!nodesAreConnected(nodes, edges.future_edges, edges.future_edge_row_start, adj, N, core_edge_fraction, i, j))
 				continue;
 
 			#if DEBUG
@@ -1902,7 +1907,7 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 			assert (!(edges.future_edge_row_start[i] != -1 && nodes.k_out[i] == 0));
 			#endif
 
-			if (core_limit == N_tar) {
+			if (core_limit == N) {
 				uint64_t col0 = static_cast<uint64_t>(i) * core_limit;
 				uint64_t col1 = static_cast<uint64_t>(j) * core_limit;
 
@@ -1922,11 +1927,11 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 			}
 		} else {
 			//If nodes have not been linked, do each comparison
-			if (!nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, j, NULL))
+			if (!nodesAreRelated(nodes.crd, spacetime, N, a, zeta, zeta1, r_max, alpha, i, j, NULL))
 				continue;
 
 			for (int k = i + 1; k < j; k++) {
-				if (nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, i, k, NULL) && nodesAreRelated(nodes.crd, spacetime, N_tar, a, zeta, zeta1, r_max, alpha, k, j, NULL))
+				if (nodesAreRelated(nodes.crd, spacetime, N, a, zeta, zeta1, r_max, alpha, i, k, NULL) && nodesAreRelated(nodes.crd, spacetime, N, a, zeta, zeta1, r_max, alpha, k, j, NULL))
 					elements++;
 
 				if (elements >= max_cardinality - 1) {
@@ -2051,6 +2056,14 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.id.tau[i] < tau0)) return false;
 		if (!(nodes.crd->x(i) < eta0)) return false;
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("2", "De_Sitter", "Diamond", "Flat", "None")) {
+		if (!(nodes.id.tau[i] < tau0)) return false;
+		if (!(nodes.crd->x(i) > HALF_PI - zeta && nodes.crd->x(i) < HALF_PI - zeta1)) return false;
+		if (!iad(nodes.crd->x(i), nodes.crd->y(i), HALF_PI - zeta, HALF_PI - zeta1)) return false;
+	} else if (spacetime.spacetimeIs("2", "Dust", "Diamond", "Flat", "None")) {
+		if (!(nodes.id.tau[i] < tau0)) return false;
+		if (!(nodes.crd->x(i) > 0.0 && nodes.crd->x(i) < eta0)) return false;
+		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
 	} else if (spacetime.spacetimeIs("2", "Hyperbolic", "Slab", "Positive", "None")) {
 		if (!(nodes.id.tau[i] > 0.0 && nodes.id.tau[i] <= tau0)) return false;
 		if (!(nodes.crd->x(i) > 0.0 && nodes.crd->x(i) <= r_max)) return false;
@@ -2063,10 +2076,29 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
 		if (!(nodes.crd->y(i) < r_max)) return false;
 		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("3", "Minkowski", "Diamond", "Flat", "None")) {
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
+		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
+		if (!(nodes.crd->z(i) > 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
 	} else if (spacetime.spacetimeIs("3", "Minkowski", "Cube", "Flat", "None")) {
 		if (!(nodes.crd->x(i) >= 0.0 && nodes.crd->x(i) <= eta0)) return false;
 		if (!(nodes.crd->y(i) >= 0.0 && nodes.crd->y(i) <= r_max)) return false;
 		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) <= r_max)) return false;
+	} else if (spacetime.spacetimeIs("3", "De_Sitter", "Diamond", "Flat", "None")) {
+		if (!(nodes.id.tau[i] < tau0)) return false;
+		if (!(nodes.crd->x(i) > -1.0f && nodes.crd->x(i) < HALF_PI - zeta1)) return false;
+		if (!iad(nodes.crd->x(i), nodes.crd->y(i), -1.0, HALF_PI - zeta1)) return false;
+		if (!(nodes.crd->z(i) > 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("3", "Dust", "Diamond", "Flat", "None")) {
+		if (!(nodes.id.tau[i] < tau0)) return false;
+		if (!(nodes.crd->x(i) > 0.0 && nodes.crd->x(i) < eta0)) return false;
+		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
+		if (!(nodes.crd->z(i) > 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("4", "Minkowski", "Diamond", "Flat", "None")) {
+		if (!(nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < eta0)) return false;
+		if (!iad(nodes.crd->w(i), nodes.crd->x(i), 0.0, eta0)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 	} else if (spacetime.spacetimeIs("4", "De_Sitter", "Slab", "Flat", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -2181,6 +2213,12 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 		#endif
+	} else if (spacetime.spacetimeIs("5", "Minkowski", "Diamond", "Flat", "None")) {
+		if (!(nodes.crd->v(i) > 0.0f && nodes.crd->v(i) < eta0)) return false;
+		if (!iad(nodes.crd->v(i), nodes.crd->w(i), 0.0, eta0)) return false;
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < M_PI)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 	} else {
 		fprintf(stderr, "Spacetime parameters not supported!\n");
 		assert (false);

@@ -14,7 +14,8 @@ import numpy as np
 import os
 import sys
 
-basedir='/gss_gpfs_scratch/cunningham'
+#basedir='/gss_gpfs_scratch/cunningham'
+basedir='/krioukov/will'
 
 if (len(sys.argv) < 5):
 	sys.stdout.write('Arguments are [jobstart] [jobend] [stdim] [epsilon_max].\n')
@@ -85,7 +86,7 @@ if stdim == 2:
 	filename = 'd2_'
 elif stdim == 4:
 	filename = 'd4_'
-filename += 'smeared'
+filename += 'smeared_lk'
 
 f = open(basedir + '/action_' + filename + '.cset.act.ref', 'a')
 g = open(basedir + '/stderr_' + filename + '.cset.act.ref', 'a')

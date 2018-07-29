@@ -1,0 +1,93 @@
+#!/usr/bin/env python
+
+###########################
+#(C) Will Cunningham 2015 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Use this script to find the optimal flag values to set in inc/Constants.h
+# This script may be outdated since a few data structures have changed:
+#  > Check src/NetworkCreator.cu:initVars() for details
+
+import math
+import sys
+
+#========================#
+# SIMULATION CONSTRAINTS #
+#========================#
+
+# Number of nodes
+n = 7440640
+
+# Expected average degree
+# If this is not known beforehand, run ./bin/CausalSet with additional flag --test
+k = 272.011
+
+# Buffer used in edge list
+# The default value is +20%
+ebuf = 0.2
+
+#======================#
+# HARDWARE CONSTRAINTS #
+#======================#
+
+# Block size is architecture-dependent - do not change
+block_size = 128
+
+# Number of operations per thread
+# This is dependent on the cache size - do not change
+thread_size = 4
+
+# Number of concurrent buffers used on the GPU
+# This is dependent on the cache size - do not change
+nbuffers = 4
+
+# Maximum global memory on the GPU (in bytes)
+# For the K20m it is 5 GB
+glob_mem = 5000000000
+
+###################
+# FIND GROUP_SIZE #
+###################
+
+d_edges_size = math.pow(2, math.ceil(math.log(n * k * (1 + ebuf) / 2.0, 2)))
+group_size = 0.5
+mem = glob_mem + 1
+decode_cpu = 0
+
+while mem > glob_mem:
+	group_size *= 2
+	mblock_size = int(n / (block_size * group_size * 2))
+	mthread_size = mblock_size * block_size
+	m_edges_size = math.pow(mthread_size, 2)
+	g_mblock_size = int(n * k * (1 + ebuf) / (block_size * group_size * 2))
+	g_mthread_size = g_mblock_size * block_size
+
+	mem1 = (40 * mthread_size + m_edges_size) * nbuffers
+	mem2 = 4 * (2 * d_edges_size + g_mthread_size)
+	mem3 = 8 * (n + 2 * block_size)
+	sys.stdout.write('\nmem1: %d\n' % mem1)
+	sys.stdout.write('mem2: %d\n' % mem2)
+	sys.stdout.write('mem3: %d\n' % mem3)
+
+	if mem2 > glob_mem / 4:
+		mem2 = 0
+		decode_cpu = 1
+		
+
+	mem = max(mem1, mem2, mem3)
+
+sys.stdout.write('\nCausalSet Flags for GPU Optimization:\n')
+sys.stdout.write('=====================================\n')
+sys.stdout.write('Set BLOCK_SIZE = %d\n' % block_size)
+sys.stdout.write('\033[94mSet GROUP_SIZE = %d\n\033[0m' % group_size)
+sys.stdout.write('Set THREAD_SIZE = %d\n' % thread_size)
+sys.stdout.write('Set NBUFFERS = %d\n\n' % nbuffers)
+sys.stdout.write('Set LINK_NODES_GPU_V2 = True\n')
+sys.stdout.write('Set GEN_ADJ_LISTS_GPU_V2 = True\n')
+if decode_cpu:
+	sys.stdout.write('\033[94mSet DECODE_CPU = True\n\033[0m')
+else:
+	sys.stdout.write('\033[94mSet DECODE_CPU = False\n\033[0m')
+sys.stdout.write('Set DECODE_LISTS_GPU_V2 = True\n\n')

@@ -1,0 +1,285 @@
+###########################
+#(C) Will Cunningham 2015 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+#---------------------------#
+# CAUSAL SET SOFTWARE GUIDE #
+#---------------------------#
+
+=================
+Usage Guidelines:
+=================
+
+When first downloading, use 'configure' to create directories.
+To compile, use 'make'.  To compile for the GPU, use 'make gpu'.
+
+NOTE: This requires a number of external source and header files:
+ > ran2.cpp, ran2.h
+ > stopwatch.cpp, stopwatch.h
+ > nintlib.hpp
+ > printcolor.h
+
+as well as the following static libraries:
+ > libfastmath.a
+ > libnint.a
+ > libprintcolor.a
+
+These are not currently included here.
+
+To run, see examples in the 'test' executable.
+To run on LSF, see examples in the lsf/test executable.
+
+A summary of the simulation is printed to stdout when the program is run, and
+when the '--print' flag is included, all data is printed to file in the 
+'dat' directory.
+
+For a full set of options, run the program with the '--help' flag.
+
+A series of scripts used for analysis are included in the 'etc' directory.
+Lookup tables used in the program are also stored here.
+
+=====================================
+Summary of Files and Functions (CPU):
+=====================================
+
+-------------
+(1) Causet.cu
+-------------
+ > main:			The main method
+ > parseArgs:			Parses command line arguments
+ > initializeNetwork:		Initializes data structures in memory
+				Generates nodes and links of a network
+ > measureNetworkObservables:	Measure observables specified on cmd line
+ > loadNetwork:			Loads a network from file
+				Requires node positions at minimum
+				Can also read edge list
+ > printNetwork:		Print all simulation data to file
+ > printBenchmark:		Print performance to file and cmd line
+ > destroyNetwork:		Free all previously allocated memory
+
+---------------------
+(2) NetworkCreator.cu
+---------------------
+ > initVars:			Solve for constrained vars using cmd line params
+ > solveExpAvgDegree:		Solve for expected average degree
+ > createNetwork:		Allocate memory for data structures
+ > solveMaxTime:		Solve for maximum time in network
+ > generateNodes:		Generate node coordinates
+ > linkNodes:			Link nodes using light cone condition
+
+-------------------------
+(3) NetworkCreator_GPU.cu
+-------------------------
+ > linkNodesGPU_v2:		Wrapper for GPU linking routines
+ > generateLists_v2:		Generate encoded edge list on GPU
+ > decodeLists_v2:		Decode edge list on GPU
+ > scanLists:			Gather info for sparse edge lists on GPU
+ > identifyListProperties:	Get the rest of the properties on GPU
+
+-------------------
+(4) Measurements.cu
+-------------------
+ > measureClustering:		Measure clustering coefficients
+ > measureConnectedComponents:	Label each node by component ID
+ > measureSuccessRatio:		Measure success ratio
+ > traversePath:		Move across network using greedy routing
+ > measureDegreeField:		Measure degree of artificially placed node
+
+---------------
+(5) Validate.cu
+---------------
+ > compareAdjacencyLists:	Print first 20 entries of edge lists
+ > compareAdjacencyListIndices:	Print first 20 entries of sparse list pointers
+ > linkNodesGPU_v1:		See notes for implementation details
+ > generateLists_v1:		See notes for implementation details
+ > decodeLists_v1:		See notes for implementation details
+ > validateEmbedding:		Validation test for FLRW into de Sitter
+ > validateDistances:		Compare exact vs embedded geodesics w/ de Sitter
+ > printValues:			Print node coordinates to file
+ > printDegrees:		Print degree sequences to file
+ > printEdgeLists:		print past, future edge lists to file
+ > printEdgeListPointers:	print past, future sparse list pointers to file
+
+------------------
+(6) Subroutines.cu
+------------------
+ > getLookupTable:		Read a lookup table from file
+ > lookupValue:			Return a value from a 2-D lookup table
+ > lookupValue4D:		Return a value from a 4-D lookup table
+ > quicksort:			Sort nodes by first coordinate entry
+ > quicksort:			Sort edge list (used in Causet.cu:loadNetwork)
+ > swap:			Exchange two nodes
+ > swap:			Exchange two edges
+ > bisection:			Solve for a function's zero w/ bisection method
+ > newton:			Solve for a function's zero w/ newton method
+ > nodesAreConnected:		Returns true if two given nodes are linked
+ > bfsearch:			Breadth First Search algorithm
+ > readDegrees:			Read subset of degree sequence to global list
+ > readEdges:			Read subset of edge list to global list
+ > printf_mpi:			Leading MPI thread prints to cmd line
+
+------------------
+(7) CuResources.cu
+------------------
+ > checkCudaErrors:		Signals a GPU error if appropriate
+ > getLastCudaError:		Signals a GPU error if appropriate
+ > printStart:			Print startup info to cmd line
+ > printFinish:			Print finalization info to cmd line
+ > findExeNameStart:		Return name of executable
+ > printCPUInfo:		Print information about CPU
+ > printMemUsed:		Print total memory allocated to cmd line
+ > memoryCheckpoint:		Check if current alloc. is max. alloc.
+ > connectToGPU:		Connect to a GPU
+ > findCudaDevice:		Find GPU device by ID
+
+----------------
+(8) Operations.h
+----------------
+ > eta02D
+ > eta0Prime2D
+ > zeta4D
+ > zetaPrime4D
+ > tau0Compact
+ > tau0Flat
+ > tau0Prime
+ > tau4D
+ > tauPrime4D
+ > tauUniverse
+ > tauPrimeUniverse
+ > theta1_4D
+ > theta1_Prime4D
+ > solveZeta
+ > solveTau0Compact
+ > solveTau0Flat
+ > solveTau
+ > solveTauUniverse
+ > solveTauUnivBisec
+ > solveTheta1
+ > solveDeltaCompact
+ > solveDeltaFlat
+ > solveNtarCompact
+ > solveNtarFlat
+ > solveAlphaCompact
+ > solveAlphaFlat
+ > _2F1_tau
+ > _2F1_r
+ > X1_SPH
+ > X2_SPH
+ > X3_SPH
+ > X4_SPH
+ > X_FLAT
+ > Y_FLAT
+ > Z_FLAT
+ > sphProduct_v1
+ > sphProduct_v2
+ > flatProduct_v1
+ > flatProduct_v2
+ > etaToTau
+ > tauToEta
+ > tToEtaUniverse
+ > tauToEtaUniverseExact
+ > etaToTauUniverse
+ > xi
+ > rescaledDegreeUniverse
+ > rescaledScaleFactor
+ > averageDegreeUniverse
+ > psi
+ > degreeFieldTheory
+ > embeddedZ1
+ > geodesicMaxRescaledTime
+ > deSitterDistKernel
+ > flrwDistKernel
+ > distance
+ > distanceEmb
+ > distanceH
+
+=========================
+Summary of GPU Functions:
+=========================
+
+-------------------------
+(1) NetworkCreator_GPU.cu
+-------------------------
+ > GenerateAdjacencyLists_v2:	Kernel to generate encoded lists
+ > GenerateAdjacencyLists_v1:	See notes for implementation details
+ > DecodeFutureEdges:		Kernel to decode future edge list
+ > DecodePastEdges:		Kernel to decode past edge list
+ > ResultingProps:		Kernel to find resulting properties of network
+
+----------------------
+(2) Subroutines_GPU.cu
+----------------------
+ > BitonicSort:			Kernel to perform bitonic sort of edge list
+ > swap:			Swap two elements in edge list
+ > Scan:			Kernel to perform scan algorithm
+ > PostScan:			Kernel to assist in scan algorithm
+
+---------------------
+(3) Operations_GPU.cu
+---------------------
+ > X1_GPU
+ > X2_GPU
+ > X3_GPU
+ > X4_GPU
+ > X_FLAT_GPU
+ > Y_FLAT_GPU
+ > Z_FLAT_GPU
+ > sphProduct_GPU_v1
+ > sphProduct_GPU_v2
+ > flatProduct_GPU_v1
+ > flatProduct_GPU_v2
+ > POW2_GPU
+
+================================================
+Summary of FastMath Library Files and Functions:
+================================================
+
+----------------
+(1) FastMath.cpp
+----------------
+ > POW2
+ > POW3
+ > POW
+ > SQRT
+ > ABS
+ > LOG
+ > SGN
+ > SIN
+ > COS
+ > TAN
+ > ACOS
+ > ATAN
+ > SINH
+ > COSH
+ > ASINH
+ > ACOSH
+ > GAMMA
+ > LOGGAMMA
+ > POCHHAMMER
+ > _2F1
+
+------------------
+(2) FastNumInt.cpp
+------------------
+ > integrate1D:			Perform 1-D numerical integration using GSL
+ > integrate2D:			Perform 2-D numerical integration using NINTLIB
+
+Data Folders:
+=============
+
+act --> m-element inclusive order interval cardinalities
+pos -->	node position list (t x y z)
+edg -->	node edge list (n1 n2)
+dst -->	degree distribution list (k_in(n)+k_out(n))
+idd --> in-degree distribution list (k_in(n))
+idf --> in-degree field (k_i)
+odd --> out-degree distribution list (k_out(n))
+odf --> out-degree field (k_o)
+cls --> clustering coefficient list (c(n))
+cdk --> clustering of degree k (c(k(n)))
+emb --> confusion matrix for embedding of 3+1 DS with matter
+ tn --> true  negatives (d_eta d_theta)
+ fp --> false positives (d_eta d_theta)
+ref --> refined data (created with scripts found in ../etc)

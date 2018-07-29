@@ -9,13 +9,19 @@
 set -eu -o pipefail
 
 #basedir=$CAUSET_HOME_DIR
-basedir=/gss_gpfs_scratch/cunningham
+#basedir=/gss_gpfs_scratch/cunningham
+basedir=/home/will/projects/causets
 
-if [[ "$#" -eq 1 ]] ; then
+if [[ "$#" -ge 1 ]] ; then
   basedir=$basedir/causet$1
 fi
 
-#rm -f $CAUSET_HOME_DIR/output.dat
+outfile=output.dat
+if [[ "$#" -eq 2 ]] ; then
+  outfile=$2
+fi
+
+rm -f $CAUSET_HOME_DIR/$outfile
 for file in $basedir/dat/act/*.cset.act.dat ; do
-  tr '\n' ' ' < $file | awk 'NR==1' >> $CAUSET_HOME_DIR/output.dat
+  tr '\n' ' ' < $file | awk 'NR==1' >> $CAUSET_HOME_DIR/$outfile
 done

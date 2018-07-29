@@ -121,7 +121,7 @@ void quicksort(Node &nodes, const Spacetime &spacetime, int low, int high)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4") || spacetime.stdimIs("5"));
 	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"));
 	if (spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"))
 		assert (spacetime.stdimIs("2"));
@@ -132,7 +132,7 @@ void quicksort(Node &nodes, const Spacetime &spacetime, int low, int high)
 	#if EMBED_NODES
 	float *& time = spacetime.stdimIs("2") ? nodes.crd->x() : nodes.crd->v();
 	#else
-	float *& time = (spacetime.stdimIs("2") || spacetime.stdimIs("3")) ? nodes.crd->x() : nodes.crd->w();
+	float *& time = (spacetime.stdimIs("2") || spacetime.stdimIs("3")) ? nodes.crd->x() : (spacetime.stdimIs("4") ? nodes.crd->w() : nodes.crd->v());
 	#endif
 
 	if (low < high) {
@@ -195,7 +195,7 @@ void swap(Node &nodes, const Spacetime &spacetime, const int i, const int j)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
-	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4") | spacetime.stdimIs("5"));
 	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"));
 	if (spacetime.manifoldIs("Hyperbolic") || spacetime.manifoldIs("Polycone"))
 		assert (spacetime.stdimIs("2"));
@@ -224,6 +224,10 @@ void swap(Node &nodes, const Spacetime &spacetime, const int i, const int j)
 		float4 sc = nodes.crd->getFloat4(i);
 		nodes.crd->setFloat4(nodes.crd->getFloat4(j), i);
 		nodes.crd->setFloat4(sc, j);
+	} else if (spacetime.stdimIs("5")) {
+		float5 sc = nodes.crd->getFloat5(i);
+		nodes.crd->setFloat5(nodes.crd->getFloat5(j), i);
+		nodes.crd->setFloat5(sc, j);
 	}
 	#endif
 
@@ -330,7 +334,7 @@ void cyclesort(unsigned int &writes, std::vector<unsigned int> elements, std::ve
 
 //Bisection Method
 //Use when Newton-Raphson fails
-bool bisection(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const float * const p2, const int * const p3)
+bool bisection(double (*solve)(const double x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double lower, const double upper, const double tol, const bool increasing, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (solve != NULL);
@@ -385,7 +389,7 @@ bool bisection(double (*solve)(const double &x, const double * const p1, const f
 
 //Newton-Raphson Method
 //Solves Transcendental Equations
-bool newton(double (*solve)(const double &x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double tol, const double * const p1, const float * const p2, const int * const p3)
+bool newton(double (*solve)(const double x, const double * const p1, const float * const p2, const int * const p3), double *x, const int max_iter, const double tol, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (solve != NULL);
@@ -428,7 +432,7 @@ bool newton(double (*solve)(const double &x, const double * const p1, const floa
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency for Adjacency Matrix
 //O(<k>) Efficiency for Adjacency List
-bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int64_t * const future_edge_row_start, const Bitvector &adj, const int &N_tar, const float &core_edge_fraction, int past_idx, int future_idx)
+bool nodesAreConnected(const Node &nodes, const int * const future_edges, const int64_t * const future_edge_row_start, const Bitvector &adj, const int &N, const float &core_edge_fraction, int past_idx, int future_idx)
 {
 	#if DEBUG
 	//No null pointers
@@ -437,15 +441,15 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 
 	//Parameters in correct ranges
 	assert (core_edge_fraction >= 0.0f && core_edge_fraction <= 1.0f);
-	assert (past_idx >= 0 && past_idx < N_tar);
-	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (past_idx >= 0 && past_idx < N);
+	assert (future_idx >= 0 && future_idx < N);
 	assert (past_idx != future_idx);
 
 	assert (!(future_edge_row_start[past_idx] == -1 && nodes.k_out[past_idx] > 0));
 	assert (!(future_edge_row_start[past_idx] != -1 && nodes.k_out[past_idx] == 0));
 	#endif
 
-	int core_limit = static_cast<int>(core_edge_fraction * N_tar);
+	int core_limit = static_cast<int>(core_edge_fraction * N);
 	int i;
 
 	//Make sure past_idx < future_idx
@@ -473,11 +477,11 @@ bool nodesAreConnected(const Node &nodes, const int * const future_edges, const 
 //Returns true if two nodes are causally connected
 //Note: past_idx must be less than future_idx
 //O(1) Efficiency
-bool nodesAreConnected_v2(const Bitvector &adj, const int &N_tar, int past_idx, int future_idx)
+bool nodesAreConnected_v2(const Bitvector &adj, const int &N, int past_idx, int future_idx)
 {
 	#if DEBUG
-	assert (past_idx >= 0 && past_idx < N_tar);
-	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (past_idx >= 0 && past_idx < N);
+	assert (future_idx >= 0 && future_idx < N);
 	#endif
 
 	return (bool)adj[past_idx].read(future_idx);
@@ -528,27 +532,27 @@ void dfsearch(const Node &nodes, const Edge &edges, const int index, const int i
 //Depth First Search
 //Uses adjacency matrix only
 //O(N+E) Efficiency
-void dfsearch_v2(const Node &nodes, const Bitvector &adj, const int &N_tar, const int index, const int id, int &elements)
+void dfsearch_v2(const Node &nodes, const Bitvector &adj, const int &N, const int index, const int id, int &elements)
 {
 	#if DEBUG
 	assert (nodes.cc_id != NULL);
-	assert (N_tar >= 0);
-	assert (index >= 0 && index < N_tar);
-	assert (id >= 0 && id <= N_tar / 2);
-	assert (elements >= 0 && elements < N_tar);
+	assert (N >= 0);
+	assert (index >= 0 && index < N);
+	assert (id >= 0 && id <= N / 2);
+	assert (elements >= 0 && elements < N);
 	#endif
 
 	nodes.cc_id[index] = id;
 	elements++;
 
 	int i;
-	for (i = 0; i < N_tar; i++)
+	for (i = 0; i < N; i++)
 		if (adj[index].read(i) && !nodes.cc_id[i])
-			dfsearch_v2(nodes, adj, N_tar, i, id, elements);
+			dfsearch_v2(nodes, adj, N, i, id, elements);
 }
 
 //BFS Shortest Path
-int shortestPath(const Node &nodes, const Edge &edges, const int &N_tar, int * const distances, const int start, const int end)
+int shortestPath(const Node &nodes, const Edge &edges, const int &N, int * const distances, const int start, const int end)
 {
 	#if DEBUG
 	assert (nodes.k_in != NULL);
@@ -558,9 +562,9 @@ int shortestPath(const Node &nodes, const Edge &edges, const int &N_tar, int * c
 	assert (edges.future_edges != NULL);
 	assert (edges.past_edge_row_start != NULL);
 	assert (edges.future_edge_row_start != NULL);
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (distances != NULL);
-	assert (start >= 0 && start < N_tar);
+	assert (start >= 0 && start < N);
 	#endif
 
 	static const bool SP_DEBUG = false;
@@ -576,7 +580,7 @@ int shortestPath(const Node &nodes, const Edge &edges, const int &N_tar, int * c
 	std::deque<unsigned int> next;
 	int shortest = -1;
 
-	memset(distances, -1, sizeof(int) * N_tar);
+	memset(distances, -1, sizeof(int) * N);
 	distances[start] = 0;
 	next.push_back(start);
 
@@ -803,12 +807,12 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &a
 
 //Scanning algorithm used when decoding
 //lists found using GPU algorithms
-void scan(const int * const k_in, const int * const k_out, int64_t * const &past_edge_pointers, int64_t * const &future_edge_pointers, const int &N_tar)
+void scan(const int * const k_in, const int * const k_out, int64_t * const &past_edge_pointers, int64_t * const &future_edge_pointers, const int &N)
 {
 	int64_t past_idx = 0, future_idx = 0;
 	int i;
 
-	for (i = 0; i < N_tar; i++) {
+	for (i = 0; i < N; i++) {
 		if (k_in[i] != 0) {
 			past_edge_pointers[i] = past_idx;
 			past_idx += k_in[i];
@@ -1107,22 +1111,22 @@ void binary_to_perm(std::vector<unsigned int> &perm, const FastBitset &fb, const
 //When the adjacency matrix is broken across computers, local indices refer to those within
 //the sub-matrix stored in a particular buffer. When these buffers are shuffled, this subroutine will
 //return the global index, with respect to the whole unshuffled matrix, provided the current permutation
-unsigned int loc_to_glob_idx(std::vector<unsigned int> perm, const unsigned int idx, const int N_tar, const int num_mpi_threads, const int rank)
+unsigned int loc_to_glob_idx(std::vector<unsigned int> perm, const unsigned int idx, const int N, const int num_mpi_threads, const int rank)
 {
 	#if DEBUG
-	assert (idx < (unsigned int)N_tar);
-	assert (N_tar > 0);
+	assert (idx < (unsigned int)N);
+	assert (N > 0);
 	assert (num_mpi_threads > 1);
 	assert (rank >= 0);
 	#endif
 
 	//The number of rows in a single buffer (two buffers per computer)
-	int mpi_offset = N_tar / (num_mpi_threads << 1);
+	int mpi_offset = N / (num_mpi_threads << 1);
 	//Index local to a single buffer, whereas idx spans two buffers
 	int loc_idx = idx - (idx / mpi_offset) * mpi_offset;
 	//The sequence index - i.e. which buffer loc_idx belongs to
 	int seq_idx = perm[(rank << 1) + (idx / mpi_offset)];
-	//The original global index, spanning [0, N_tar)
+	//The original global index, spanning [0, N)
 	int glob_idx = seq_idx * mpi_offset + loc_idx;
 
 	return glob_idx;
@@ -1135,19 +1139,19 @@ unsigned int loc_to_glob_idx(std::vector<unsigned int> perm, const unsigned int 
 //the first buffer. Finally, the temporary storage is moved back to the second buffer. The index
 //used for "storage" is '-1'. The list of swaps needed is stored in 'swaps', and this variable
 //is populated using the 'cyclesort' algorithm.
-void mpi_swaps(const std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N_tar, const int num_mpi_threads, const int rank)
+void mpi_swaps(const std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bitvector &adj_buf, const int N, const int num_mpi_threads, const int rank)
 {
 	#if DEBUG
 	assert (swaps.size() > 0);
 	assert (adj.size() > 0);
 	assert (adj_buf.size() > 0);
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (num_mpi_threads > 1);
 	assert (rank >= 0);
 	#endif
 
 	//Number of rows per buffer
-	int mpi_offset = N_tar / (num_mpi_threads << 1);
+	int mpi_offset = N / (num_mpi_threads << 1);
 	//Number of rows per temporary buffer
 	int cpy_offset = mpi_offset / num_mpi_threads;
 
@@ -1542,7 +1546,7 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 //longest_chain - the longest chain between the source and destination
 //workspace - temporary workspace used for intersections
 //lengths - array of longest lengths from each node to the destination
-int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level)
+int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level)
 {
 	#if DEBUG
 	if (!level) {
@@ -1550,9 +1554,9 @@ int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain
 		assert (chains.size() > 0);
 		assert (workspace != NULL);
 		assert (lengths != NULL);
-		assert (N_tar > 0);
-		assert (i >= 0 && i < N_tar);
-		assert (j >= 0 && j < N_tar);
+		assert (N > 0);
+		assert (i >= 0 && i < N);
+		assert (j >= 0 && j < N);
 	}
 	assert (workspace != NULL);
 	#endif
@@ -1573,7 +1577,7 @@ int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain
 
 	if (!level) {
 		//If the nodes are not even related, return a distance of -1
-		if (!nodesAreConnected_v2(adj, N_tar, i, j)) { printChk(2); return 0; }
+		if (!nodesAreConnected_v2(adj, N, i, j)) { printChk(2); return 0; }
 		outer = true;
 
 		longest_chain.reset();
@@ -1583,16 +1587,16 @@ int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain
 		adj[i].clone(*workspace);
 		workspace->partial_intersection(adj[j], i, j - i + 1);
 
-		for (int k = 0; k < N_tar; k++) {
+		for (int k = 0; k < N; k++) {
 			chains[k].reset();
 			chains[k].set(k);
 		}
 
-		memset(lengths, -1, sizeof(int) * N_tar);
+		memset(lengths, -1, sizeof(int) * N);
 	}
 
-	FastBitset test_chain(N_tar);
-	FastBitset work(N_tar);
+	FastBitset test_chain(N);
+	FastBitset work(N);
 
 	for (uint64_t k = 0; k < workspace->getNumBlocks(); k++) {
 		uint64_t block;
@@ -1612,35 +1616,35 @@ int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain
 
 				//If there are other nodes in between, continue search
 				if (work.any_in_range(glob_idx, j - glob_idx + 1)) {
-					c = longestChain_v3(adj, chains, test_chain, &work, lengths, N_tar, glob_idx, j, level + 1);
+					c = longestChain_v3(adj, chains, test_chain, &work, lengths, N, glob_idx, j, level + 1);
 
 					lengths[glob_idx] = c;
 					chain_length = c;
 
 					if (chain_length > longest) {
-						test_chain.partial_clone(chains[i], i + 1, N_tar - i - 1);
+						test_chain.partial_clone(chains[i], i + 1, N - i - 1);
 						chains[i].set(glob_idx);
 						longest = chain_length;
-						chains[i].partial_clone(longest_chain, i + 1, N_tar - i - 1);
+						chains[i].partial_clone(longest_chain, i + 1, N - i - 1);
 					}
 				} else {
 					chain_length = 1;
 					lengths[glob_idx] = 1;
 					if (chain_length > longest) {
-						for (int m = i + 1; m < N_tar; m++)
+						for (int m = i + 1; m < N; m++)
 							chains[i].unset(m);
 						chains[i].set(glob_idx);
 						longest = 1;
-						chains[i].partial_clone(longest_chain, i + 1, N_tar - i - 1);
+						chains[i].partial_clone(longest_chain, i + 1, N - i - 1);
 					}
 				}
 			} else {
 				chain_length = lengths[glob_idx];	//longest path from glob_idx to j
 
 				if (chain_length > longest) {
-					chains[glob_idx].partial_clone(chains[i], i + 1, N_tar - i - 1);
+					chains[glob_idx].partial_clone(chains[i], i + 1, N - i - 1);
 					longest = chain_length;
-					chains[i].partial_clone(longest_chain, i + 1, N_tar - i - 1);
+					chains[i].partial_clone(longest_chain, i + 1, N - i - 1);
 				}
 			}
 
@@ -1657,16 +1661,16 @@ int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain
 
 //This version identifies paths in reverse, 
 //building up from minimal to maximal elements
-int longestChain_v2r(Bitvector &adj, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level)
+int longestChain_v2r(Bitvector &adj, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level)
 {
 	#if DEBUG
 	if (!level) {
 		assert (adj.size() > 0);
 		assert (workspace != NULL);
 		assert (lengths != NULL);
-		assert (N_tar > 0);
-		assert (i >= 0 && i < N_tar);
-		assert (j >= 0 && j < N_tar);
+		assert (N > 0);
+		assert (i >= 0 && i < N);
+		assert (j >= 0 && j < N);
 	} else
 		assert (workspace != NULL);
 	#endif
@@ -1686,16 +1690,16 @@ int longestChain_v2r(Bitvector &adj, FastBitset *workspace, int *lengths, const 
 
 	if (!level) {
 		//If the nodes are not even related, return a distance of 0
-		if (!nodesAreConnected_v2(adj, N_tar, i, j)) { printChk(3); return 0; }
+		if (!nodesAreConnected_v2(adj, N, i, j)) { printChk(3); return 0; }
 
 		//The workspace is used to identify which nodes to look at between i and j
 		adj[i].clone(*workspace);
 		workspace->partial_intersection(adj[j], i, j - i + 1);
 
-		memset(lengths, -1, sizeof(int) * N_tar);
+		memset(lengths, -1, sizeof(int) * N);
 	}
 
-	FastBitset work(N_tar);
+	FastBitset work(N);
 	for (uint64_t k = workspace->getNumBlocks(); k-- > 0; ) {
 		uint64_t block;
 		while ((block = workspace->readBlock(k))) {	//If all bits are zero, continue to the next block
@@ -1710,7 +1714,7 @@ int longestChain_v2r(Bitvector &adj, FastBitset *workspace, int *lengths, const 
 				work.partial_intersection(adj[glob_idx], i, glob_idx - i + 1);
 
 				if (work.any_in_range(i, glob_idx - i + 1)) {
-					c = longestChain_v2r(adj, &work, lengths, N_tar, i, glob_idx, level + 1);
+					c = longestChain_v2r(adj, &work, lengths, N, i, glob_idx, level + 1);
 					lengths[glob_idx] = c;
 					chain_length = c;
 				} else {
@@ -1732,16 +1736,16 @@ int longestChain_v2r(Bitvector &adj, FastBitset *workspace, int *lengths, const 
 
 //Version 2 uses 'lengths' which adds a memory to graph traversal
 //so the same path is not traversed twice
-int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const int N_tar, int i, int j, unsigned int level)
+int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level)
 {
 	#if DEBUG
 	if (!level) {
 		assert (adj.size() > 0);
 		assert (workspace != NULL);
 		assert (lengths != NULL);
-		assert (N_tar > 0);
-		assert (i >= 0 && i < N_tar);
-		assert (j >= 0 && j < N_tar);
+		assert (N > 0);
+		assert (i >= 0 && i < N);
+		assert (j >= 0 && j < N);
 	} else
 		assert (workspace != NULL);
 	#endif
@@ -1761,16 +1765,16 @@ int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const i
 
 	if (!level) {
 		//If the nodes are not even related, return a distance of 0
-		if (!nodesAreConnected_v2(adj, N_tar, i, j)) { printChk(3); return 0; }
+		if (!nodesAreConnected_v2(adj, N, i, j)) { printChk(3); return 0; }
 
 		//The workspace is used to identify which nodes to look at between i and j
 		adj[i].clone(*workspace);
 		workspace->partial_intersection(adj[j], i, j - i + 1);
 
-		memset(lengths, -1, sizeof(int) * N_tar);
+		memset(lengths, -1, sizeof(int) * N);
 	}
 
-	FastBitset work(N_tar);
+	FastBitset work(N);
 	for (uint64_t k = 0; k < workspace->getNumBlocks(); k++) {
 		uint64_t block;
 		while ((block = workspace->readBlock(k))) {	//If all bits are zero, continue to the next block
@@ -1786,7 +1790,7 @@ int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const i
 				work.partial_intersection(adj[glob_idx], glob_idx, j - glob_idx + 1);
 
 				if (work.any_in_range(glob_idx, j - glob_idx + 1)) {
-					c = longestChain_v2(adj, &work, lengths, N_tar, glob_idx, j, level + 1);
+					c = longestChain_v2(adj, &work, lengths, N, glob_idx, j, level + 1);
 					lengths[glob_idx] = c;
 					chain_length = c;
 				} else {
@@ -1806,14 +1810,14 @@ int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const i
 	return longest;
 }
 
-int longestChain_v1(Bitvector &adj, FastBitset *workspace, const int N_tar, int i, int j, unsigned int level)
+int longestChain_v1(Bitvector &adj, FastBitset *workspace, const int N, int i, int j, unsigned int level)
 {
 	#if DEBUG
 	assert (adj.size() > 0);
 	assert (workspace != NULL);
-	assert (N_tar > 0);
-	assert (i >= 0 && i < N_tar);
-	assert (j >= 0 && j < N_tar);
+	assert (N > 0);
+	assert (i >= 0 && i < N);
+	assert (j >= 0 && j < N);
 	#endif
 
 	static const bool CHAIN_DEBUG = true;
@@ -1838,7 +1842,7 @@ int longestChain_v1(Bitvector &adj, FastBitset *workspace, const int N_tar, int 
 			printf("Searching for the longest chain between [%d] and [%d]\n", i, j);
 
 		//If the nodes are not even related, return a distance of -1
-		if (!nodesAreConnected_v2(adj, N_tar, i, j)) { printChk(4); return 0; }
+		if (!nodesAreConnected_v2(adj, N, i, j)) { printChk(4); return 0; }
 
 		//The workspace is used to identify which nodes to look at between i and j
 		adj[i].clone(*workspace);
@@ -1848,8 +1852,8 @@ int longestChain_v1(Bitvector &adj, FastBitset *workspace, const int N_tar, int 
 
 	//These variables are used for the next
 	//iteration of the recursion
-	FastBitset work(N_tar);
-	FastBitset used(N_tar);
+	FastBitset work(N);
+	FastBitset used(N);
 	//The outer two loops will iterate through all blocks in the FastBitset
 	for (uint64_t k = 0; k < workspace->getNumBlocks(); k++) {
 		uint64_t block;
@@ -1872,7 +1876,7 @@ int longestChain_v1(Bitvector &adj, FastBitset *workspace, const int N_tar, int 
 
 			//If there are other elements, between glob_idx and j, find the longest chain
 			if (work.partial_count(glob_idx, j - glob_idx + 1)) {
-				c = longestChain_v1(adj, &work, N_tar, glob_idx, j, level + 1);
+				c = longestChain_v1(adj, &work, N, glob_idx, j, level + 1);
 				//This helps reduce some of the steps performed
 				//workspace->setDisjointUnion(work);
 				if (CHAIN_DEBUG) {
@@ -1900,7 +1904,7 @@ int longestChain_v1(Bitvector &adj, FastBitset *workspace, const int N_tar, int 
 	return longest;
 }
 
-int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * const k_in, const int * const k_out, int *lengths, const int N_tar)
+int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * const k_in, const int * const k_out, int *lengths, const int N)
 {
 	#if DEBUG
 	assert (adj.size() > 0);
@@ -1908,14 +1912,14 @@ int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * 
 	assert (k_in != NULL);
 	assert (k_out != NULL);
 	assert (lengths != NULL);
-	assert (N_tar > 0);
+	assert (N > 0);
 	#endif
 
 	if (!chain.any()) return 0;
 
-	FastBitset workspace(N_tar);
-	FastBitset longest(N_tar);
-	FastBitset fb(N_tar);
+	FastBitset workspace(N);
+	FastBitset longest(N);
+	FastBitset fb(N);
 
 	uint64_t block, loc_idx;
 	int first = -1, last = -1;
@@ -1942,9 +1946,9 @@ int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * 
 
 	for (int i = 0; i < first; i++) {
 		if (!!k_in[i]) continue;
-		if (!nodesAreConnected_v2(adj, N_tar, i, first)) continue;
+		if (!nodesAreConnected_v2(adj, N, i, first)) continue;
 
-		int first_length = longestChain_v3(adj, chains, fb, &workspace, lengths, N_tar, i, first, 0);
+		int first_length = longestChain_v3(adj, chains, fb, &workspace, lengths, N, i, first, 0);
 		if (first_length > first_longest) {
 			first_longest = first_length;
 			fb.clone(longest);
@@ -1955,11 +1959,11 @@ int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * 
 	chain.setUnion(longest);
 	longest.reset();
 
-	for (int i = last + 1; i < N_tar; i++) {
+	for (int i = last + 1; i < N; i++) {
 		if (!!k_out[i]) continue;
-		if (!nodesAreConnected_v2(adj, N_tar, last, i)) continue;
+		if (!nodesAreConnected_v2(adj, N, last, i)) continue;
 
-		int last_length = longestChain_v3(adj, chains, fb, &workspace, lengths, N_tar, last, i, 0);
+		int last_length = longestChain_v3(adj, chains, fb, &workspace, lengths, N, last, i, 0);
 		if (last_length > last_longest) {
 			last_longest = last_length;
 			fb.clone(longest);
@@ -1973,24 +1977,24 @@ int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * 
 }
 
 //Find the farthest maximal element
-int findLongestMaximal(Bitvector &adj, const int *k_out, int *lengths, const int N_tar, const int idx)
+int findLongestMaximal(Bitvector &adj, const int *k_out, int *lengths, const int N, const int idx)
 {
 	#if DEBUG
 	assert (adj.size() > 0);
 	assert (lengths != NULL);
-	assert (N_tar > 0);
-	assert (idx >= 0 && idx < N_tar);
+	assert (N > 0);
+	assert (idx >= 0 && idx < N);
 	#endif
 
-	FastBitset workspace = FastBitset(N_tar);
+	FastBitset workspace = FastBitset(N);
 	int longest = -1;
 	int max_idx = 0;
 
-	//#pragma omp parallel for schedule (dynamic, 1) if (N_tar > 1000)
-	for (int i = 0; i < N_tar; i++) {
+	//#pragma omp parallel for schedule (dynamic, 1) if (N > 1000)
+	for (int i = 0; i < N; i++) {
 		if (k_out[i]) continue;
-		if (!nodesAreConnected_v2(adj, N_tar, idx, i)) continue;
-		int length = longestChain_v2(adj, &workspace, lengths, N_tar, idx, i, 0);
+		if (!nodesAreConnected_v2(adj, N, idx, i)) continue;
+		int length = longestChain_v2(adj, &workspace, lengths, N, idx, i, 0);
 		//#pragma omp critical
 		{
 		if (length > longest) {
@@ -2004,24 +2008,24 @@ int findLongestMaximal(Bitvector &adj, const int *k_out, int *lengths, const int
 }
 
 //Find the farthest minimal element
-int findLongestMinimal(Bitvector &adj, const int *k_in, int *lengths, const int N_tar, const int idx)
+int findLongestMinimal(Bitvector &adj, const int *k_in, int *lengths, const int N, const int idx)
 {
 	#if DEBUG
 	assert (adj.size() > 0);
 	assert (lengths != NULL);
-	assert (N_tar > 0);
-	assert (idx >= 0 && idx < N_tar);
+	assert (N > 0);
+	assert (idx >= 0 && idx < N);
 	#endif
 
-	FastBitset workspace = FastBitset(N_tar);
+	FastBitset workspace = FastBitset(N);
 	int longest = -1;
-	int min_idx = N_tar - 1;
+	int min_idx = N - 1;
 
-	//#pragma omp parallel for schedule (dynamic, 1) if (N_tar > 1000)
-	for (int i = 0; i < N_tar; i++) {
+	//#pragma omp parallel for schedule (dynamic, 1) if (N > 1000)
+	for (int i = 0; i < N; i++) {
 		if (k_in[i]) continue;
-		if (!nodesAreConnected_v2(adj, N_tar, i, idx)) continue;
-		int length = longestChain_v2(adj, &workspace, lengths, N_tar, i, idx, 0);
+		if (!nodesAreConnected_v2(adj, N, i, idx)) continue;
+		int length = longestChain_v2(adj, &workspace, lengths, N, i, idx, 0);
 		//#pragma omp critical
 		{
 		if (length > longest) {
@@ -2034,17 +2038,17 @@ int findLongestMinimal(Bitvector &adj, const int *k_in, int *lengths, const int 
 	return min_idx;
 }
 
-int maximalAntichain(FastBitset &antichain, const Bitvector &adj, const int N_tar, const int seed)
+int maximalAntichain(FastBitset &antichain, const Bitvector &adj, const int N, const int seed)
 {
 	#if DEBUG
-	assert (adj.size() >= (size_t)N_tar);
-	assert (N_tar > 0);
-	assert (seed >= 0 && seed < N_tar);
+	assert (adj.size() >= (size_t)N);
+	assert (N > 0);
+	assert (seed >= 0 && seed < N);
 	#endif
 
-	FastBitset candidates(N_tar);
-	FastBitset workspace(N_tar);
-	FastBitset workspace2(N_tar);
+	FastBitset candidates(N);
+	FastBitset workspace(N);
+	FastBitset workspace2(N);
 
 	adj[seed].clone(antichain);	//1's indicate relations to 'seed'
 	antichain.flip();		//1's indicate elements unrelated to 'seed'
@@ -2079,4 +2083,23 @@ int maximalAntichain(FastBitset &antichain, const Bitvector &adj, const int N_ta
 	}
 
 	return (int)antichain.count_bits();
+}
+
+void transitiveClosure(Bitvector &adj, const int N)
+{
+	#if DEBUG
+	assert (adj.size() >= (size_t)N);
+	assert (N > 0);
+	#endif
+
+	for (int i = 0; i < N - 1; i++) {
+		for (int j = i + 1; j < N; j++) {
+			if (nodesAreConnected_v2(adj, N, i, j)) continue;
+
+			if (adj[i].partial_vecprod(adj[j], i, j - i + 1)) {
+				adj[i].set(j);
+				adj[j].set(i);
+			}
+		}
+	}
 }

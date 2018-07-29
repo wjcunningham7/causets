@@ -6,6 +6,8 @@
 # Northeastern University #
 ###########################
 
+#set -eu -o pipefail
+
 # This script is used to generate a new doc/VERSION block when spacetime IDs are updated
 
 if [[ "$#" -lt 1 ]] ; then
@@ -17,7 +19,7 @@ version=$1
 outfile=$CAUSET_HOME_DIR/VERSION
 #outfile=/home/cunningham.wi/projects/causalsetgenerator/VERSION
 
-stdims=(2 3 4)
+stdims=(2 3 4 5)
 manifolds=(Minkowski De_Sitter Anti_de_Sitter Dust FLRW Hyperbolic Polycone)
 regions=(Slab Slab_T1 Slab_T2 Slab_TS Slab_S1 Slab_S2 Slab_N1 Slab_N2 Slab_N3 Half_Diamond Diamond Saucer_T Saucer_S Triangle_T Triangle_S Triangle_N Cube)
 curvatures=(Flat Positive Negative)

@@ -36,3 +36,6 @@ inc/stamp-h1
 printcolor/.deps/**
 printcolor/Makefile
 printcolor/Makefile.in
+
+.stfolder/**
+.stignore

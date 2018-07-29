@@ -17,12 +17,86 @@ Waiting:	NONE
 Job:		2903
 Dimension:	3
 Samples:	10000
-Waiting:	ALL (NSUB)
+Waiting:	NONE
 
 Job:		2904
 Dimension:	4
 Samples:	10000
-Waiting:	ALL (NSUB)
+Waiting:	NONE
+
+Job:		2905
+Dimension:	5
+Samples:	10000
+Waiting:	NONE
+
+> Manifold:	De Sitter
+Job:		2906
+Dimension:	2
+Samples:	10000
+Waiting:	NONE
+
+Job:		2931
+Dimension:	3
+Samples:	10000
+Waiting:	NONE
+
+Job:		2932
+Dimension:	4
+Samples:	10000
+Waiting:	NONE
+
+> Manifold:	Dust
+Job:		2933
+Dimension:	2
+Samples:	10000
+Waiting:	NONE
+
+> Manifold:	De Sitter (large V)
+Job:		2934
+Dimension:	2
+Samples:	10000
+Waiting:	NONE
+
+> Manifold:	Dust
+Job:		2935
+Dimension:	4
+Samples:	10000
+Waiting:	NONE
+
+Job:		2936
+Dimension:	3
+Samples:	10000
+Waiting:	NONE
+
+> Manifold:	Minkowski
+> N:		1000
+Job:		2937
+Dimension:	2
+Samples:	10000
+Waiting:	NONE
+
+Job:		2938
+Dimension:	3
+Samples:	10000
+Waiting:	NONE
+
+Job:		2939
+Dimension:	4
+Samples:	10000
+Waiting:	NONE
+
+> Manifold:	Dust (large V)
+> N:		100
+Job:		2940
+Dimension:	2
+Samples:	10000
+Waiting:	NONE
+
+> Manifold:	Dust (larger V)
+Job:		2941
+Dimension:	2
+Samples:	10000
+Waiting:	NONE
 
 ===============
 TIMELIKE ACTION

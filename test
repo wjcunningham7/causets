@@ -50,29 +50,38 @@ set -eu -o pipefail
 # These are experimental parameters #
 #####################################
 
-platform=krioukov_gpu
+#platform=krioukov_gpu
 #platform=par-gpu-3
-binary="$CAUSET_HOME_DIR/bin/CausalSet_${platform}"
+platform=$PLATFORM
+binary="./bin/CausalSet_${platform}"
 
+type="kr-order"
 stdim=2
-manifold=Minkowski
+manifold=De_Sitter
 region=Diamond
 curvature=Flat
 symmetry=None
-spacetime="--stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry"
+#spacetime="--type $type --stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry"
+spacetime="--type $type"
 
 nodes=100
-#nodes=10240
-#nodes=16384
-#nodes=6
 age=1.0
-radius=0.5
-gamma=5
-#constraints="--nodes $nodes --age $age --radius $radius --gamma $gamma"
-constraints="--nodes $nodes --age $age --radius $radius"
+alpha=1.0
+#constraints="--nodes $nodes --age $age --alpha $alpha"
+constraints="--nodes $nodes"
 
 makenew=true
-if [[ "$makenew" == "false" ]] ; then
+if [[ "$makenew" == "true" ]] ; then
+  graph=0
+
+  link="--link --core 1"
+  #link=""
+  measure="--action smeared"
+  #measure="--foliation"
+  #measure="--foliation --antichain"
+  #measure=""
+  xtra="--verbose -y --print"
+else
   basedir=$CAUSET_HOME_DIR
   #basedir=/gss_gpfs_scratch/cunningham/ctest
   graphs=($(awk '{print $1}' $basedir/etc/data_keys.cset.key))
@@ -82,20 +91,7 @@ if [[ "$makenew" == "false" ]] ; then
   link="--link --core 1"
   measure="--antichain"
   xtra="--verbose -y --graph ${graph} --nopos"
-else
-  graph=0
-
-  link="--link --core 1"
-  measure="--action smeared"
-  #measure="--foliation"
-  #measure="--foliation --antichain"
-  #measure=""
-  xtra="--verbose -y --print"
 fi
-
-#link="--link --core 1"
-#measure="--action smeared"
-#xtra="--verbose -y --graph ${graph} --datdir=/gss_gpfs_scratch/cunningham/ctest/dat/"
 
 #mpirun -prot -hostfile $CAUSET_HOME_DIR/hostfile \
 for i in $(seq 1) ; do

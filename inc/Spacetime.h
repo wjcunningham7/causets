@@ -14,7 +14,7 @@
 class Spacetime
 {
 public:
-	static constexpr const char *stdims[] = { "2", "3", "4" };
+	static constexpr const char *stdims[] = { "2", "3", "4", "5" };
 	static constexpr const char *manifolds[] = { "Minkowski", "De_Sitter", "Anti_de_Sitter", "Dust", "FLRW", "Hyperbolic", "Polycone" };
 	static constexpr const char *regions[] = { "Slab", "Slab_T1", "Slab_T2", "Slab_TS", "Slab_S1", "Slab_S2", "Slab_N1", "Slab_N2", "Slab_N3", "Half_Diamond", "Diamond", "Saucer_T", "Saucer_S", "Triangle_T", "Triangle_S", "Triangle_N", "Cube" };
 	static constexpr const char *curvatures[] = { "Positive", "Flat", "Negative" };

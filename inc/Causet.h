@@ -7,6 +7,11 @@
 #ifndef CAUSET_H_
 #define CAUSET_H_
 
+#ifdef __CUDACC_VER__
+#undef __CUDACC_VER__
+#define __CUDACC_VER__ 90000
+#endif
+
 #ifdef AVX2_ENABLED
 #include <intrinsics/x86intrin.h>
 #endif
@@ -22,6 +27,7 @@
 #include <iostream>
 #include <limits>
 #include <math.h>
+#include <numeric>
 #include <pthread.h>
 #include <sstream>
 #include <stdarg.h>
@@ -397,6 +403,13 @@ struct Coordinates5D : Coordinates {
 	}
 };
 
+enum GraphType {
+	RGG,
+	KR_ORDER,
+	RANDOM,
+	_2D_ORDER
+};
+
 //Node ID
 //This is a bit of a messy hack to deal with extra variables
 //in both causal sets and hyperbolic models which don't fit elsewhere.
@@ -465,7 +478,7 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), print_dot(false), growing(false), link(false), relink(false), link_epso(false), has_exact_k(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), mpi_split(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_stretch(false), calc_action(false), calc_action_theory(false), calc_chain(false), calc_hubs(false), calc_geo_dis(false), calc_antichain(false), calc_entanglement_entropy(false), calc_foliation(false), calc_dimension(false), strict_routing(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), print_dot(false), growing(false), link(false), relink(false), link_epso(false), has_exact_k(false), binomial(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), mpi_split(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_stretch(false), calc_action(false), calc_action_theory(false), calc_chain(false), calc_hubs(false), calc_geo_dis(false), calc_antichain(false), calc_entanglement_entropy(false), calc_foliation(false), calc_dimension(false), strict_routing(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
 	bool decode_cpu;		//Decode edge list using serial sort
@@ -477,6 +490,8 @@ struct CausetFlags {
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
 	bool link_epso;			//Link Nodes in H2 Using EPSO Rule
 	bool has_exact_k;		//True if there exists an exact expression for <k>
+	bool binomial;			//Use exactly N_tar elements; otherwise choose a Poisson
+					//random variable with mean N_tar
 
 	bool read_old_format;		//Read Node Positions in the Format (theta3, theta2, theta1)
 	bool quiet_read;		//Ignore Warnings when Reading Graph
@@ -509,13 +524,14 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), spacetime(Spacetime()), N_tar(0), k_tar(0.0), N_sr(0.0), max_cardinality(0), N_hubs(0), N_gd(0.0), entropy_size(0.0), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), beta(0.0), mu(0.0), gamma(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1), datdir("./dat/") {}
+	NetworkProperties() : flags(CausetFlags()), spacetime(Spacetime()), N_tar(0), k_tar(0.0), N(0), N_sr(0.0), max_cardinality(0), N_hubs(0), N_gd(0.0), entropy_size(0.0), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), beta(0.0), mu(0.0), gamma(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), gt(RGG), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1), datdir("./dat/") {}
 
 	CausetFlags flags;
 	Spacetime spacetime;		//Encodes dimension, manifold, region, curvature, and symmetry
 
 	int N_tar;			//Target Number of Nodes
 	float k_tar;			//Target Average Degree
+	int N;				//Actual Number of Nodes
 
 	long double N_sr;		//Number of Pairs Used in Success Ratio
 	int max_cardinality;		//Elements used in Action Calculation
@@ -544,6 +560,7 @@ struct NetworkProperties {
 	float core_edge_fraction;	//Fraction of nodes designated as having core edges
 	float edge_buffer;		//Fraction of edge list added as a buffer
 
+	GraphType gt;			//Type of graph
 	long seed;			//Random Seed
 	int graphID;			//Unique Simulation ID
 
@@ -614,13 +631,15 @@ struct Network {
 
 //Algorithmic Performance
 struct CausetPerformance {
-	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureAction(Stopwatch()), sMeasureActionTimelike(Stopwatch()), sMeasureThAction(Stopwatch()), sMeasureChain(Stopwatch()), sMeasureHubs(Stopwatch()), sMeasureGeoDis(Stopwatch()), sMeasureFoliation(Stopwatch()), sMeasureAntichain(Stopwatch()), sMeasureDimension(Stopwatch()), sMeasureEntanglementEntropy(Stopwatch()) {}
+	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sGenKR(Stopwatch()), sGenRandom(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureAction(Stopwatch()), sMeasureActionTimelike(Stopwatch()), sMeasureThAction(Stopwatch()), sMeasureChain(Stopwatch()), sMeasureHubs(Stopwatch()), sMeasureGeoDis(Stopwatch()), sMeasureFoliation(Stopwatch()), sMeasureAntichain(Stopwatch()), sMeasureDimension(Stopwatch()), sMeasureEntanglementEntropy(Stopwatch()) {}
 
 	Stopwatch sCauset;
 	Stopwatch sCalcDegrees;
 	Stopwatch sCreateNetwork;
 	Stopwatch sGenerateNodes;
 	Stopwatch sGenerateNodesGPU;
+	Stopwatch sGenKR;
+	Stopwatch sGenRandom;
 	Stopwatch sQuicksort;
 	Stopwatch sLinkNodes;
 	Stopwatch sLinkNodesGPU;
@@ -641,12 +660,13 @@ struct CausetPerformance {
 
 //Benchmark Statistics
 struct Benchmark {
-	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0), bMeasureAction(0.0), bMeasureChain(0.0), bMeasureHubs(0.0), bMeasureGeoDis(0.0), bMeasureFoliation(0.0), bMeasureAntichain(0.0), bMeasureDimension(0.0), bMeasureEntanglementEntropy(0.0) {}
+	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bGenKR(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0), bMeasureAction(0.0), bMeasureChain(0.0), bMeasureHubs(0.0), bMeasureGeoDis(0.0), bMeasureFoliation(0.0), bMeasureAntichain(0.0), bMeasureDimension(0.0), bMeasureEntanglementEntropy(0.0) {}
 
 	double bCalcDegrees;
 	double bCreateNetwork;
 	double bGenerateNodes;
 	double bGenerateNodesGPU;
+	double bGenKR;
 	double bQuicksort;
 	double bLinkNodes;
 	double bLinkNodesGPU;

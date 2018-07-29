@@ -1,0 +1,68 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2014 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# This is an older file which was used for smaller data sets.
+# Update before using if needed.
+
+exit 0
+
+if [ "$#" -ne 1 ]; then
+  echo "Must specify folder name!"
+  exit 1
+fi
+
+if [ ! -d net ]; then
+  echo "No network storage system detected!"
+  exit 2
+fi
+
+if [ ! -d net/"$1" ]; then
+  echo "Network data set not found!"
+  exit 3
+fi
+
+if [ ! net/"$1"/data_keys.cset.key ]; then
+  echo "data_keys.cset.key file not found!"
+  exit 4
+fi
+
+if [ ! "$(ls -A net/$1/*.cset.out)" ]; then
+  echo "No output files found!"
+  exit 5
+fi
+
+if [ ! -d net/"$1"/pos ]; then
+  echo "Node position folder not found!"
+  exit 6
+fi
+
+if [ ! "$(ls -A net/$1/pos/*.cset.pos.dat)" ]; then
+  echo "Node position files not found!"
+  exit 7
+fi
+
+if [ ! -d net/"$1"/edg ]; then
+  echo "Edge list folder not found!"
+  exit 8
+fi
+
+if [ ! "$(ls -A net/$1/edg/*.cset.edg.dat)" ]; then
+  echo "Edge list files not found!"
+  exit 9
+fi
+
+make cleandata
+
+mv net/"$1"/data_keys.cset.key etc/
+mv net/"$1"/*.cset.out dat/
+mv net/"$1"/pos/*.cset.pos.dat dat/pos/
+mv net/"$1"/edg/*.cset.edg.dat dat/edg/
+
+rm -rf net/"$1"
+
+echo "Completed!"

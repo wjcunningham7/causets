@@ -217,6 +217,26 @@ inline float get_2d_asym_hyp_deSitter_slab_tau(UGenerator &rng, const double tau
 
 ///////////////////////////
 // 2-D De Sitter Diamond //
+// Flat Foliation        //
+// Asymmetric About Eta  //
+///////////////////////////
+
+//Return a value for u
+inline float get_2d_asym_flat_deSitter_diamond_u(UGenerator &rng, const double mu, const double mu1, const double xi, const double w)
+{
+	double beta = mu1 * pow(mu, rng());
+	return (beta * (xi + w) - xi) / (1.0 - beta);
+}
+
+//Return a value for v
+inline float get_2d_asym_flat_deSitter_diamond_v(UGenerator &rng, const float u, const double xi, const double w)
+{
+	double gamma = w * rng() / (u + xi + w);
+	return (gamma * u + xi) / (1.0 - gamma);
+}
+
+///////////////////////////
+// 2-D De Sitter Diamond //
 // Spherical Foliation   //
 // Asymmetric About Eta  //
 ///////////////////////////
@@ -297,6 +317,27 @@ inline float get_3d_sym_flat_minkowski_slab_eta(UGenerator &rng, const double et
 #define get_3d_sym_flat_minkowski_slab_theta(rng) \
 	get_azimuthal_angle(rng)
 
+///////////////////////////
+// 3-D Minkowski Diamond //
+// Flat Curvature        //
+// Asymmetric About Eta  //
+///////////////////////////
+
+//Returns a value for u
+#define get_3d_asym_flat_minkowski_diamond_u(rng, eta0) \
+	get_radius(rng, eta0 / sqrtf(2.0), 4)
+
+//Returns a value for v
+inline float get_3d_asym_flat_minkowski_diamond_v(UGenerator &rng, const float u)
+{
+	double u2 = POW2(u);
+	return u - sqrtf(u2 - rng() * u2);
+}
+
+//Returns a value for theta
+#define get_3d_asym_flat_minkowski_diamond_theta(rng) \
+	get_azimuthal_angle(rng)
+
 //////////////////////////
 // 3-D Minkowski Cube   //
 // Flat Curvature       //
@@ -317,6 +358,42 @@ inline float get_3d_asym_flat_minkowski_cube_x(UGenerator &rng, const double r_m
 
 #define get_3d_asym_flat_minkowski_cube_y(rng, r_max) \
 	get_3d_asym_flat_minkowski_cube_x(rng, r_max)
+
+///////////////////////////
+// 4-D Minkowski Diamond //
+// Flat Curvature        //
+// Asymmetric About Eta  //
+///////////////////////////
+
+//Returns a value for u
+#define get_4d_asym_flat_minkowski_diamond_u(rng, eta0) \
+	get_radius(rng, eta0 / sqrtf(2.0), 5)
+
+//Returns a value for v
+inline float get_4d_asym_flat_minkowski_diamond_v(UGenerator &rng, const float eta0, const float u)
+{
+	double v = 0.2;
+	double p[2];
+	p[0] = u;
+	p[1] = rng();
+
+	if (!bisection(&solve_v_A04000C000_4_bisec, &v, 2000, 0.0, u, TOL, true, p, NULL, NULL))
+		v = NAN;
+
+	#if DEBUG
+	assert (v == v);
+	#endif
+
+	return v;
+}
+
+//Returns a value for theta2
+#define get_4d_asym_flat_minkowski_diamond_theta2(rng) \
+	get_zenith_angle(rng)
+
+//Returns a value for theta3
+#define get_4d_asym_flat_minkowski_diamond_theta3(rng) \
+	get_azimuthal_angle(rng)
 
 //////////////////////////
 // 4-D De Sitter Slab   //
@@ -529,7 +606,7 @@ inline float get_4d_asym_flat_deSitter_diamond_v(UGenerator &rng, const double u
 // Asymmetric About Eta //
 //////////////////////////
 
-//Returns a value for eta
+//Returns a value for tau
 inline float get_4d_asym_flat_dust_slab_tau(UGenerator &rng, const double tau0)
 {
 	return tau0 * pow(rng(), 1.0 / 3.0); 
@@ -739,5 +816,33 @@ inline float get_4d_asym_flat_flrw_diamond_radius(UGenerator &rng, const double 
 //Returns the Cartesian coordinates
 #define get_4d_asym_flat_flrw_diamond_cartesian(urng, nrng, r) \
 	get_flat_d3(urng, nrng, r)
+
+///////////////////////////
+// 5-D Minkowski Diamond //
+// Flat Curvature        //
+// Asymmetric About Eta  //
+///////////////////////////
+
+//Return a value for u
+#define get_5d_asym_flat_minkowski_diamond_u(rng, eta) \
+	get_radius(rng, eta / sqrt(2.0), 6)
+
+//Return a value for v
+inline float get_5d_asym_flat_minkowski_diamond_v(UGenerator &rng, const float u)
+{
+	return u * (1 - pow(1 - rng(), 0.25));
+}
+
+//Return a value for theta1
+#define get_5d_asym_flat_minkowski_diamond_theta1(rng) \
+	get_hyperzenith_angle(rng)
+
+//Return a value for theta2
+#define get_5d_asym_flat_minkowski_diamond_theta2(rng) \
+	get_zenith_angle(rng)
+
+//Return a value for theta3
+#define get_5d_asym_flat_minkowski_diamond_theta3(rng) \
+	get_azimuthal_angle(rng)
 
 #endif

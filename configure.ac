@@ -5,7 +5,7 @@
 ###########################
 
 AC_PREREQ([2.63])
-AC_INIT([CausalSet], [4.0], [w.cunningham@northeastern.edu])
+AC_INIT([CausalSet], [5.0], [w.cunningham@northeastern.edu])
 AM_INIT_AUTOMAKE
 
 if [[ -e /home/$USER/.causet ]] ; then

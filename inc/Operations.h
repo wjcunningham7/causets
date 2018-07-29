@@ -124,6 +124,11 @@ inline double volume_75499530_2(const double eta0, const double r_max)
 	return r_max * POW2(beta) * t2 / t1;
 }
 
+inline double v_A04000C000_4(const double x, const double u, const double rval)
+{
+	return -rval * POW3(u) + 3.0 * POW2(u) * x - 3.0 * u * POW2(x) + POW3(x);
+}
+
 inline double mmdim(const double dim, const double rval)
 {
 	#if DEBUG
@@ -136,7 +141,7 @@ inline double mmdim(const double dim, const double rval)
 
 //Returns eta Residual
 //Used in 3+1 K = 1 Asymmetric de Sitter Slab
-inline double solve_eta_12836_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solve_eta_12836_0(const double x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -148,7 +153,7 @@ inline double solve_eta_12836_0(const double &x, const double * const p1, const 
 
 //Returns tau Residual
 //Used in 3+1 Flat Asymmetric FLRW Slab
-inline double solve_tau_10884_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solve_tau_10884_0(const double x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -161,7 +166,7 @@ inline double solve_tau_10884_0(const double &x, const double * const p1, const 
 
 //Returns tau Residual in Bisection Algorithm
 //Used in 3+1 Flat Asymmetric FLRW Slab
-inline double solve_tau_10884_0_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solve_tau_10884_0_bisec(const double x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -174,7 +179,7 @@ inline double solve_tau_10884_0_bisec(const double &x, const double * const p1, 
 
 //Returns theta1 Residual
 //Used in causets with a "hyperzenith" angle
-inline double solve_hyperzenith(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solve_hyperzenith(const double x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -186,7 +191,7 @@ inline double solve_hyperzenith(const double &x, const double * const p1, const 
 
 //Returns u Residual
 //Used in 3+1 K = 1 de Sitter Diamond (Asymmetric)
-inline double solve_u_13348_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solve_u_13348_0(const double x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -198,7 +203,7 @@ inline double solve_u_13348_0(const double &x, const double * const p1, const fl
 
 //Returns u Residual in Bisection Algorithm
 //Used in 3+1 K = 1 de Sitter Diamond (Asymmetric)
-inline double solve_u_13348_0_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solve_u_13348_0_bisec(const double x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -210,7 +215,7 @@ inline double solve_u_13348_0_bisec(const double &x, const double * const p1, co
 
 //Returns v Residual
 //Used in 3+1 K = 1 de Sitter Diamond (Asymmetric)
-inline double solve_v_13348_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solve_v_13348_0(const double x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -223,7 +228,7 @@ inline double solve_v_13348_0(const double &x, const double * const p1, const fl
 
 //Returns v Residual in Bisection Algorithm
 //Used in 3+1 K = 1 de Sitter Diamond (Asymmetric)
-inline double solve_v_13348_0_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solve_v_13348_0_bisec(const double x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -236,7 +241,7 @@ inline double solve_v_13348_0_bisec(const double &x, const double * const p1, co
 
 //Returns v Residual
 //Used in 3+1 Flat Dust Diamond (Asymmetric)
-inline double solve_v_11332_0(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solve_v_11332_0(const double x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -249,7 +254,7 @@ inline double solve_v_11332_0(const double &x, const double * const p1, const fl
 
 //Returns v Residual in Bisection Algorithm
 //Used in 3+1 Flat Dust Diamond (Asymmetric)
-inline double solve_v_11332_0_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solve_v_11332_0_bisec(const double x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -260,9 +265,22 @@ inline double solve_v_11332_0_bisec(const double &x, const double * const p1, co
 	return v_11332_0(x, p1[0], p1[1]);
 }
 
+//Returns v Residual in Bisection Algorithm
+//Used in Flat 3+1 Minkowski Diamond
+inline double solve_v_A04000C000_4_bisec(const double x, const double * const p1, const float * const p2, const int * const p3)
+{
+	#if DEBUG
+	assert (p1 != NULL);
+	assert (p1[0] > 0.0);			//u
+	assert (p1[1] > 0.0 && p1[1] < 1.0);	//rval
+	#endif
+
+	return v_A04000C000_4(x, p1[0], p1[1]);
+}
+
 //Returns dimension Residual in Bisection Algorithm
 //Used for Myrheim Meyer Dimension
-inline double solve_mmdim_bisec(const double &x, const double * const p1, const float * const p2, const int * const p3)
+inline double solve_mmdim_bisec(const double x, const double * const p1, const float * const p2, const int * const p3)
 {
 	#if DEBUG
 	assert (p1 != NULL);
@@ -352,6 +370,14 @@ inline float flatProduct_v1(const float4 &sc0, const float4 &sc1)
 }
 
 //Factored form, fewer FLOPS than v1
+inline float flatProduct_v2(const float5 &sc0, const float5 &sc1)
+{
+	return POW2(sc0.w) + POW2(sc1.w) -
+	       2.0f * sc0.w * sc1.w * (cosf(sc0.x) * cosf(sc1.x) +
+	       sinf(sc0.x) * sinf(sc1.x) * (cosf(sc0.y) * cosf(sc1.y) +
+	       sinf(sc0.y) * sinf(sc1.y) * cosf(sc0.z - sc1.z)));
+}
+
 inline float flatProduct_v2(const float4 &sc0, const float4 &sc1)
 {
 	return POW2(sc0.x) + POW2(sc1.x) -
@@ -376,11 +402,11 @@ inline float flatEmbProduct(const float5 &sc0, const float5 &sc1)
 
 //Assumes coordinates have been temporally ordered
 //Used for relations in Lorentzian spaces
-inline bool nodesAreRelated(Coordinates *c, const Spacetime spacetime, const int N_tar, const double a, const double zeta, const double zeta1, const double r_max, const double alpha, int past_idx, int future_idx, double *omega12)
+inline bool nodesAreRelated(Coordinates *c, const Spacetime spacetime, const int N, const double a, const double zeta, const double zeta1, const double r_max, const double alpha, int past_idx, int future_idx, double *omega12)
 {
 	#if DEBUG
 	assert (!c->isNull());
-	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4"));
+	assert (spacetime.stdimIs("2") || spacetime.stdimIs("3") || spacetime.stdimIs("4") || spacetime.stdimIs("5"));
 	assert (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Polycone"));
 
 	if (spacetime.stdimIs("2"))
@@ -394,7 +420,7 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime spacetime, const int
 	assert (c->x() != NULL);
 	assert (c->y() != NULL);
 
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (a > 0.0);
 	if (spacetime.manifoldIs("De_Sitter")) {
 		if (spacetime.curvatureIs("Positive")) {
@@ -412,8 +438,8 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime spacetime, const int
 	if (spacetime.curvatureIs("Flat"))
 		assert (r_max > 0.0);
 		
-	assert (past_idx >= 0 && past_idx < N_tar);
-	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (past_idx >= 0 && past_idx < N);
+	assert (future_idx >= 0 && future_idx < N);
 	assert (past_idx != future_idx);
 	#endif
 
@@ -435,6 +461,8 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime spacetime, const int
 		#else
 		dt = fabs(c->w(future_idx) - c->w(past_idx));
 		#endif
+	else if (spacetime.stdimIs("5"))
+		dt = fabs(c->v(future_idx) - c->v(past_idx));
 
 	#if DEBUG
 	assert (dt >= 0.0f);
@@ -486,7 +514,8 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime spacetime, const int
 			#endif
 			#endif
 		}
-	}
+	} else if (spacetime.stdimIs("5"))
+		dx = sqrtf(flatProduct_v2(c->getFloat5(past_idx), c->getFloat5(future_idx)));
 
 	if (omega12 != NULL)
 		*omega12 = dx;
@@ -499,7 +528,7 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime spacetime, const int
 
 //Assumes coordinates have been temporally ordered
 //Used for relations in Hyperbolic spaces
-inline bool nodesAreRelatedHyperbolic(const Node &nodes, const Spacetime &spacetime, const int N_tar, const double zeta, const double r_max, const bool link_epso, int past_idx, int future_idx, double *product)
+inline bool nodesAreRelatedHyperbolic(const Node &nodes, const Spacetime &spacetime, const int N, const double zeta, const double r_max, const bool link_epso, int past_idx, int future_idx, double *product)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -512,11 +541,11 @@ inline bool nodesAreRelatedHyperbolic(const Node &nodes, const Spacetime &spacet
 	assert (nodes.crd->y() != NULL);
 	assert (nodes.id.tau != NULL);
 
-	assert (N_tar > 0);
+	assert (N > 0);
 	assert (zeta > 0.0);
 	assert (r_max > 0.0);
-	assert (past_idx >= 0 && past_idx < N_tar);
-	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (past_idx >= 0 && past_idx < N);
+	assert (future_idx >= 0 && future_idx < N);
 	assert (past_idx != future_idx);
 	#endif
 
@@ -549,7 +578,7 @@ inline bool nodesAreRelatedHyperbolic(const Node &nodes, const Spacetime &spacet
 		return false;
 }
 
-inline void deSitterInnerProduct(const Node &nodes, const Spacetime &spacetime, const int N_tar, int past_idx, int future_idx, double *product)
+inline void deSitterInnerProduct(const Node &nodes, const Spacetime &spacetime, const int N, int past_idx, int future_idx, double *product)
 {
 	#if DEBUG
 	assert (!nodes.crd->isNull());
@@ -563,9 +592,9 @@ inline void deSitterInnerProduct(const Node &nodes, const Spacetime &spacetime, 
 	assert (nodes.id.tau != NULL);
 	assert (product != NULL);
 
-	assert (N_tar > 0);
-	assert (past_idx >= 0 && past_idx < N_tar);
-	assert (future_idx >= 0 && future_idx < N_tar);
+	assert (N > 0);
+	assert (past_idx >= 0 && past_idx < N);
+	assert (future_idx >= 0 && future_idx < N);
 	assert (past_idx != future_idx);
 	#endif
 
@@ -1111,7 +1140,7 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 {
 	#if DEBUG
 	assert (cardinalities != NULL);
-	assert (stdim >= 2 && stdim <= 4);
+	assert (stdim >= 2 && stdim <= 5);
 	assert (lk > 0.0);
 	#endif
 
@@ -1138,6 +1167,8 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 				action += ni * epsi * (1.0 - c3_1 * i * eps1 + c3_2 * i * (i - 1.0) * eps2);
 			else if (stdim == 4)
 				action += ni * epsi * (1.0 - 9.0 * eps1 * i + 8.0 * eps2 * i * (i - 1.0) - c4_1 * eps3 * i * (i - 1.0) * (i - 2.0));
+			else if (stdim == 5)
+				action = 0.0;
 			else
 				action = NAN;
 			epsi *= (1.0 - epsilon);
@@ -1150,6 +1181,8 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 			action = pow(M_PI / (3.0 * sqrt(2.0)), 2.0 / 3.0) / GAMMA(5.0 / 3.0) * (pow(epsilon, 2.0 / 3.0) * cardinalities[0] - pow(epsilon, 5.0 / 3.0) * action);
 		else if (stdim == 4)
 			action = (4.0 / sqrt(6.0)) * (sqrt(epsilon) * cardinalities[0] - pow(epsilon, 1.5) * action);
+		else if (stdim == 5)
+			action = 0.0;
 		else
 			action = NAN;
 	} else {
@@ -1159,6 +1192,8 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 			action = pow(M_PI / (3.0 * sqrt(2.0)), 2.0 / 3.0) / GAMMA(5.0 / 3.0) * (cardinalities[0] - cardinalities[1] + (27.0 / 8.0) * cardinalities[2] - (9.0 / 4.0) * cardinalities[3]);
 		else if (stdim == 4)
 			action = (4.0 / sqrt(6.0)) * (cardinalities[0] - cardinalities[1] + 9.0 * cardinalities[2] - 16.0 * cardinalities[3] + 8.0 * cardinalities[4]);
+		else if (stdim == 5)
+			action = (pow(POW2(M_PI) / (20.0 * sqrt(2.0)), 0.4) / GAMMA(1.4)) * (cardinalities[0] - (3.0 / 8.0) * cardinalities[1] + (215.0 / 16.0) * cardinalities[2] - (225.0 / 8.0) * cardinalities[3] + (125.0 / 8.0) * cardinalities[4]);
 		else
 			action = NAN;
 	}
