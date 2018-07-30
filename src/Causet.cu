@@ -404,12 +404,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					network_properties.flags.relink = true;
 				else if (!strcmp("spacetime", longOpts[longIndex].name)) {
 					//Spacetime ID
-					printf("NOT SUPPORTED!\n");
-					throw CausetException("Invalid parameter: spacetime.\n");
-					//std::stringstream ss;
-					//ss << std::hex << optarg;
-					//ss >> network_properties.spacetime;
-					//printf("spacetime: %d\n", network_properties.spacetime);
+					network_properties.spacetime.fromHexString(optarg);
 				} else if (!strcmp("stdim", longOpts[longIndex].name)) {
 					//Spacetime dimensions
 					if (std::find(Spacetime::stdims, Spacetime::stdims + Spacetime::nstdims, std::string(optarg)) == Spacetime::stdims + Spacetime::nstdims)
@@ -520,7 +515,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --relink\t\tIgnore Pre-Existing Links\n");
 				printf_mpi(rank, "  -s, --seed\t\tRandom Seed\t\t\t18100\n");
 				printf_mpi(rank, "      --spacetime\tSpacetime ID\t\t\tSee VERSION\n");
-				printf_mpi(rank, "      --stdim\t\tSpacetime Dimensions\t\t2, 3, 4\n");
+				printf_mpi(rank, "      --stdim\t\tSpacetime Dimensions\t\t2, 3, 4, 5\n");
 				printf_mpi(rank, "      --stretch\t\tMeasure Stretch of Greedy Paths\n");
 				printf_mpi(rank, "      --strict-routing\tUse Strict Routing Protocol\n");
 				printf_mpi(rank, "  -S, --success\t\tCalculate Success Ratio\t\t0.01, 10000\n");

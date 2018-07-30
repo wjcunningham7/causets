@@ -55,20 +55,20 @@ set -eu -o pipefail
 platform=$PLATFORM
 binary="./bin/CausalSet_${platform}"
 
-type="kr-order"
-stdim=2
-manifold=De_Sitter
+type="rgg"
+stdim=5
+manifold=Minkowski
 region=Diamond
 curvature=Flat
 symmetry=None
-#spacetime="--type $type --stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry"
-spacetime="--type $type"
+spacetime="--type $type --stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry"
+#spacetime="--type $type"
 
 nodes=100
 age=1.0
 alpha=1.0
-#constraints="--nodes $nodes --age $age --alpha $alpha"
-constraints="--nodes $nodes"
+constraints="--nodes $nodes --age $age --alpha $alpha"
+#constraints="--nodes $nodes"
 
 makenew=true
 if [[ "$makenew" == "true" ]] ; then
@@ -80,7 +80,7 @@ if [[ "$makenew" == "true" ]] ; then
   #measure="--foliation"
   #measure="--foliation --antichain"
   #measure=""
-  xtra="--verbose -y --print"
+  xtra="--verbose -y --print --test"
 else
   basedir=$CAUSET_HOME_DIR
   #basedir=/gss_gpfs_scratch/cunningham/ctest

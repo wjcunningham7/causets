@@ -11,6 +11,27 @@
 #include <stdio.h>
 #include <FastBitset.h>
 
+inline uint64_t hex_to_u64(const char *hex64)
+{
+	uint64_t value = 0;
+	long upper;
+	char hex[17];
+
+	unsigned int hexlen = strlen(hex64);
+	if (hexlen < sizeof(hex)) {
+		strcpy(hex, hex64);
+		if (hexlen > 8) {
+			sscanf(&hex[hexlen-8], "%x", (unsigned*)&value);
+			hex[hexlen-8] = 0;
+			sscanf(hex, "%x", (unsigned*)&upper);
+			value |= ((uint64_t)upper << 32);
+		} else
+			sscanf(hex, "%x", (unsigned*)&value);
+	}
+
+	return value;
+}
+
 class Spacetime
 {
 public:
@@ -149,13 +170,22 @@ public:
 
 	const char* toHexString() const
 	{
+		char buffer[stsize];
+		for (uint64_t i = 0; i < stsize / 64; i++)
+			snprintf(&buffer[i*16], 16, "%lx", spacetime->readBlock(i));
+
 		std::ostringstream s;
-		if (spacetime->size() > 64)
-			s << std::setfill('0') << std::setw(64);
-		s << std::hex;
-		for (uint64_t i = 0; i < spacetime->getNumBlocks(); i++)
-			s << spacetime->readBlock(i);
+		s << buffer;
+
 		return s.str().c_str();
+	}
+
+	void fromHexString(char *hs)
+	{
+		std::stringstream s;
+		s << std::hex << hs;
+		for (uint64_t i = 0; i <= s.str().size() >> 16; i++)
+			this->spacetime->writeBlock(hex_to_u64(&hs[i<<16], i);
 	}
 
 private:

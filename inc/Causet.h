@@ -524,7 +524,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), spacetime(Spacetime()), N_tar(0), k_tar(0.0), N(0), N_sr(0.0), max_cardinality(0), N_hubs(0), N_gd(0.0), entropy_size(0.0), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), beta(0.0), mu(0.0), gamma(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(0.01), edge_buffer(0.0), gt(RGG), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1), datdir("./dat/") {}
+	NetworkProperties() : flags(CausetFlags()), spacetime(Spacetime()), N_tar(0), k_tar(0.0), N(0), N_sr(0.0), max_cardinality(0), N_hubs(0), N_gd(0.0), entropy_size(0.0), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), beta(0.0), mu(0.0), gamma(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(1.0), edge_buffer(0.0), gt(RGG), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1), datdir("./dat/") {}
 
 	CausetFlags flags;
 	Spacetime spacetime;		//Encodes dimension, manifold, region, curvature, and symmetry
