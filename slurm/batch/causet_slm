@@ -1,15 +1,19 @@
 #!/bin/bash
 
 #SBATCH -J CSET-%jobID%
-#SBATCH -o /gss_gpfs_scratch/cunningham/causet%jobID%/causet%jobID%.log
-#SBATCH -e /gss_gpfs_scratch/cunningham/causet%jobID%/causet%jobID%.err
+#SBATCH -o /scratch/cunningham/causet%jobID%/causet%jobID%.log
+#SBATCH -e /scratch/cunningham/causet%jobID%/causet%jobID%.err
 #SBATCH -p %partition%
 #SBATCH -N %nnodes%
 #SBATCH -c %ncores%
-#SBATCH --exclusive
-#SBATCH -D /gss_gpfs_scratch/cunningham/causet%jobID%
-#SBATCH -x %exclude%
+#SBATCH --gres=gpu:1
+#SBATCH --mem=50gb
+#SBATCH -D /scratch/cunningham/causet%jobID%
 #%waitfor%
+#SSBATCH --exclusive
+#SSBATCH -x %exclude%
+#SSBATCH --time 2-00:00:00
+#SSBATCH -A %account%
 
 ###########################
 #(C) Will Cunningham 2016 #
@@ -17,8 +21,8 @@
 # Northeastern University #
 ###########################
 
-homedir=$CAUSET_HOME_DIR
-work=/gss_gpfs_scratch/cunningham/causet%jobID%
+homedir=$CAUSET_HOME
+work=$SCRATCH_DIR/causet%jobID%
 if [[ %readjobid% -ne 0 && %readgraphid% -eq 0 ]] ; then
   usegraphlist=1
 else
@@ -31,7 +35,8 @@ sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphi
 #export LD_LIBRARY_PATH=/shared/apps/cuda7.0/lib64:$LD_LIBRARY_PATH
 
 # OpenMP environment variables
-export OMP_NUM_THREADS=%ncores%
+export OMP_NUM_THREADS=$((%ncores%*2))
+#export OMP_NUM_THREADS=%ncores%
 export OMP_SCHEDULE="dynamic"
 export OMP_NESTED=FALSE
 export OMP_STACKSIZE="20M"
@@ -67,6 +72,6 @@ fi
 wait
 
 # Clean up
-#if [ ${usegraphlist} -eq 1 ] ; then
-#  rm $graphfile
-#fi
+if [ ${usegraphlist} -eq 1 ] ; then
+  rm $graphfile
+fi

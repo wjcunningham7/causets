@@ -8,6 +8,12 @@
 #define SPACETIME_H_
 
 #include <algorithm>
+#ifdef _OPENMP
+#include <omp.h>
+#else
+#define omp_get_thread_num() 0
+#define omp_get_max_threads() 1
+#endif
 #include <stdio.h>
 #include <FastBitset.h>
 
@@ -52,6 +58,7 @@ public:
 	{
 		spacetime = new FastBitset(stsize);
 		create_masks();
+		this->set = false;
 	}
 
 	Spacetime(const char *stdim, const char *manifold, const char *region, const char *curvature, const char *symmetry)
@@ -66,6 +73,7 @@ public:
 		create_masks();
 		spacetime = new FastBitset(stsize);
 		other.spacetime->clone(*spacetime);
+		this->set = other.set;
 	}
 
 	Spacetime& operator= (const Spacetime &other)
@@ -74,6 +82,7 @@ public:
 		other.spacetime->clone(*_spacetime);
 		delete spacetime;
 		spacetime = _spacetime;
+		this->set = other.set;
 		return *this;
 	}
 
@@ -85,6 +94,8 @@ public:
 		delete region_mask;
 		delete curvature_mask;
 		delete symmetry_mask;
+		workspace->clear();
+		workspace->swap(*workspace);
 		delete workspace;
 	}
 
@@ -101,13 +112,19 @@ public:
 		spacetime->set(std::distance(regions, std::find(regions, regions + nregions, std::string(region))) + nstdims + nmanifolds);
 		spacetime->set(std::distance(curvatures, std::find(curvatures, curvatures + ncurvatures, std::string(curvature))) + nstdims + nmanifolds + nregions);
 		spacetime->set(std::distance(symmetries, std::find(symmetries, symmetries + nsymmetries, std::string(symmetry))) + nstdims + nmanifolds + nregions + ncurvatures);
+		this->set = true;
+	}
+
+	bool is_set() const
+	{
+		return this->set;
 	}
 
 	int get_stdim() const
 	{
-		stdim_mask->clone(*workspace);
-		workspace->setIntersection(*spacetime);
-		return workspace->next_bit();
+		stdim_mask->clone((*workspace)[omp_get_thread_num()]);
+		(*workspace)[omp_get_thread_num()].setIntersection(*spacetime);
+		return (*workspace)[omp_get_thread_num()].next_bit();
 	}
 
 	bool stdimIs(const char *stdim) const
@@ -117,9 +134,9 @@ public:
 
 	int get_manifold() const
 	{
-		manifold_mask->clone(*workspace);
-		workspace->setIntersection(*spacetime);
-		return workspace->next_bit() - nstdims;
+		manifold_mask->clone((*workspace)[omp_get_thread_num()]);
+		(*workspace)[omp_get_thread_num()].setIntersection(*spacetime);
+		return (*workspace)[omp_get_thread_num()].next_bit() - nstdims;
 	}
 
 	bool manifoldIs(const char *manifold) const
@@ -129,9 +146,9 @@ public:
 
 	int get_region() const
 	{
-		region_mask->clone(*workspace);
-		workspace->setIntersection(*spacetime);
-		return workspace->next_bit() - nstdims - nmanifolds;
+		region_mask->clone((*workspace)[omp_get_thread_num()]);
+		(*workspace)[omp_get_thread_num()].setIntersection(*spacetime);
+		return (*workspace)[omp_get_thread_num()].next_bit() - nstdims - nmanifolds;
 	}
 
 	bool regionIs(const char *region) const
@@ -141,9 +158,9 @@ public:
 
 	int get_curvature() const
 	{
-		curvature_mask->clone(*workspace);
-		workspace->setIntersection(*spacetime);
-		return workspace->next_bit() - nstdims - nmanifolds - nregions;
+		curvature_mask->clone((*workspace)[omp_get_thread_num()]);
+		(*workspace)[omp_get_thread_num()].setIntersection(*spacetime);
+		return (*workspace)[omp_get_thread_num()].next_bit() - nstdims - nmanifolds - nregions;
 	}
 
 	bool curvatureIs(const char *curvature) const
@@ -153,9 +170,9 @@ public:
 
 	int get_symmetry() const
 	{
-		symmetry_mask->clone(*workspace);
-		workspace->setIntersection(*spacetime);
-		return workspace->next_bit() - nstdims - nmanifolds - nregions - ncurvatures;
+		symmetry_mask->clone((*workspace)[omp_get_thread_num()]);
+		(*workspace)[omp_get_thread_num()].setIntersection(*spacetime);
+		return (*workspace)[omp_get_thread_num()].next_bit() - nstdims - nmanifolds - nregions - ncurvatures;
 	}
 
 	bool symmetryIs(const char *symmetry) const
@@ -171,11 +188,14 @@ public:
 	const char* toHexString() const
 	{
 		char buffer[stsize];
-		for (uint64_t i = 0; i < stsize / 64; i++)
-			snprintf(&buffer[i*16], 16, "%lx", spacetime->readBlock(i));
+		for (uint64_t i = 0; i < ceil((float)stsize / 64); i++)
+			sprintf(&buffer[i*8], "%lX", this->spacetime->readBlock(i));
+		//printf("block: %" PRIu64 "\n", spacetime->readBlock(0));
+		//printf("buffer: %s\n", buffer);
 
 		std::ostringstream s;
 		s << buffer;
+		//spacetime->printBitset();
 
 		return s.str().c_str();
 	}
@@ -185,7 +205,9 @@ public:
 		std::stringstream s;
 		s << std::hex << hs;
 		for (uint64_t i = 0; i <= s.str().size() >> 16; i++)
-			this->spacetime->writeBlock(hex_to_u64(&hs[i<<16], i);
+			this->spacetime->writeBlock(hex_to_u64(&hs[i<<16]), i);
+		//spacetime->printBitset();
+		this->set = true;
 	}
 
 private:
@@ -195,7 +217,8 @@ private:
 	FastBitset *region_mask;
 	FastBitset *curvature_mask;
 	FastBitset *symmetry_mask;
-	FastBitset *workspace;
+	Bitvector *workspace;
+	bool set;
 
 	void create_masks()
 	{
@@ -220,7 +243,12 @@ private:
 		while (i < stsize)
 			symmetry_mask->set(i++);
 
-		workspace = new FastBitset(stsize);
+		workspace = new std::vector<FastBitset>();
+		workspace->reserve(omp_get_max_threads());
+		for (i = 0; i < (unsigned)omp_get_max_threads(); i++) {
+			FastBitset fb(stsize);
+			workspace->push_back(fb);
+		}
 	}
 };
 

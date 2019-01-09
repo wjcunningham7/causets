@@ -136,6 +136,7 @@ inline double mmdim(const double dim, const double rval)
 	assert (rval > 0.0);
 	#endif
 
+	if (dim < TOL) return dim;
 	return (GAMMA(dim + 1.0) * GAMMA(0.5 * dim) / (4.0 * GAMMA(1.5 * dim))) - rval;
 }
 
@@ -1147,7 +1148,8 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 	long double action = 0.0;
 
 	if (smeared) {
-		long double epsilon = static_cast<long double>(pow(lk, -stdim));
+		//long double epsilon = static_cast<long double>(pow(lk, -stdim));
+		long double epsilon = 0.21;
 		long double eps1 = epsilon / (1.0 - epsilon);
 		long double eps2 = eps1 * eps1;
 		long double eps3 = eps2 * eps1;

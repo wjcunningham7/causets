@@ -8,10 +8,10 @@
 
 # Working directories
 work=$SCRATCH_DIR/causet@jobID@
-homedir=$CAUSET_HOME
+homedir=$CAUSET_HOME_DIR
 
 # Copy the binary
-cp $homedir/bin/CausalSet_@partition@ $work/
+cp $homedir/bin/CausalSet_@queue@ $work/
 
 # Create peripheral directories and copy relevant files
 mkdir -p $work/etc

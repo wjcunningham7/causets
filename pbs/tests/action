@@ -23,31 +23,30 @@ if [[ "$#" -lt 1 ]] ; then
 fi
 
 type="rgg"
-#st="120000811"
-#st="A0400011"
-#st="120000812"
-st="A8000012"
+st="A0200081"
+
 age=1.0
-radius=1.0
-
-source $HOME/.queues
-jobstart=$NEXT_JOB
-account="neu"
-readstart=0
-samples=10
-partition="multigpu"
-mpi=1
-#ncores=$(sinfo -p $partition -e -o "%c" | awk 'NR==2 {print $1}')
-ncores=8
-
-# Use this to generate a new parfile
+radius=0.5
 makeparfile=false
+
 nmin=1024
 nmax=16384
 nnum=5
+
+source $HOME/.queues
+jobstart=$NEXT_JOB
+readstart=0
+samples=10
+queue="qwork4"
+mpi=1
+ncores=12
+memory=31 #gigabytes
+runtime=24:00:00
+
+makeparfile=false
 if [[ "$makeparfile" == "true" ]] ; then
-  rm -f $CAUSET_HOME/causet.par
-  $CAUSET_HOME/etc/action/action_test $nmin $nmax $nnum
+  rm -f $CAUSET_HOME_DIR/causet.par
+  $CAUSET_HOME_DIR/etc/action/action_test $nmin $nmax $nnum
   exit 2
 fi
 
@@ -78,8 +77,7 @@ for i in $(seq ${#vars[@]}) ; do
     readjob=0
   fi
 
-  $CAUSET_HOME/slurm/wrapper/causet_wrp --account $account --partition $partition --ncores $ncores --start $job --nsamples $samples --flags "--type $type --spacetime $st --nodes $nodes --binomial --age $age --radius $radius --alpha 1 --link --core 1 --gpu --action smeared --verbose -y --print"
-  exit 1
+  $CAUSET_HOME_DIR/pbs/wrapper/causet_wrp --queue $queue --ncores $ncores --memory $memory --runtime $runtime --start $job --nsamples $samples --flags "--type $type --spacetime $st --nodes $nodes --binomial --age $age --radius $radius --alpha 1.0 --link --core 1 --action smeared --verbose -y --print --print-edges"
 done
 
 setnextjob $(($job+1))

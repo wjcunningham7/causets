@@ -126,7 +126,7 @@ if [[[ $USE_CUDA == "yes" ]]] ; then
     AC_SUBST([CUDA_SDK_PATH], [$CUDA_SDK_PATH])
     AC_SUBST([NVCC], [$NVCC])
 
-    CUDA_FLAGS="$CUDA_INCLUDE -O3 -G -g -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED -arch=$cuda_arch --std=c++11 -DBOOST_NO_FENV_H"
+    CUDA_FLAGS="$CUDA_INCLUDE -O3 -DBOOST_NOINLINE='__attribute__ ((noinline))' -DCUDA_ENABLED -arch=$cuda_arch --std=c++11 -DBOOST_NO_FENV_H"
     AC_SUBST([CUDA_FLAGS], [$CUDA_FLAGS])
     AC_SUBST([CUDA_LDFLAGS], [$CUDA_LDFLAGS])
     AC_SUBST([CUDA_ENABLED], [yes])

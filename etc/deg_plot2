@@ -14,5 +14,5 @@ jobend=1484
 outfile="degree_k-10_flrw.cset.deg.ref"
 
 for i in $(seq $jobstart $jobend) ; do
-  $CAUSET_HOME_DIR/etc/deg_plot $i >> $CAUSET_HOME_DIR/$outfile
+  $CAUSET_HOME/etc/deg_plot $i >> $CAUSET_HOME/$outfile
 done

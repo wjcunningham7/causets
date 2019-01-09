@@ -7,7 +7,7 @@ if [[ "$prefix" != "" ]] ; then
   prefix="_$prefix"
 fi
 
-dir=$CAUSET_HOME_DIR
+dir=$CAUSET_HOME
 for f in $dir/dat/fol/tl/*.dat ; do
   awk 'BEGIN { ORS = " " } { print } END { printf("\n"); }' $f >> $dir/timelike_foliation${prefix}.cset.fol.ref
 done

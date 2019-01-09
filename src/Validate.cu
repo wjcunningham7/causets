@@ -2002,6 +2002,9 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_T1", "Flat", "Temporal")) {
 		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
 		if (!(fabs(nodes.crd->y(i)) < eta0)) return false;
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_T2", "Flat", "Temporal")) {
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
 	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_S1", "Flat", "Temporal")) {
 		if (!(fabs(nodes.crd->x(i)) < r_max)) return false;
 		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
@@ -2014,6 +2017,9 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 	} else if (spacetime.spacetimeIs("2", "Minkowski", "Diamond", "Flat", "None")) {
 		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
 		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Saucer_T", "Flat", "None")) {
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
 	} else if (spacetime.spacetimeIs("2", "Minkowski", "Saucer_T", "Flat", "Temporal")) {
 		#if SPECIAL_SAUCER
 		if (!(nodes.crd->x(i) > -1.0 && nodes.crd->x(i) < 1.0)) return false;
@@ -2094,11 +2100,21 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->x(i) > 0.0 && nodes.crd->x(i) < eta0)) return false;
 		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
 		if (!(nodes.crd->z(i) > 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("4", "Minkowski", "Slab", "Flat", "None")) {
+		if (!(nodes.crd->w(i) >= 0.0 && nodes.crd->w(i) <= eta0)) return false;
+		if (!(nodes.crd->x(i) >= 0.0 && nodes.crd->x(i) <= r_max)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 	} else if (spacetime.spacetimeIs("4", "Minkowski", "Diamond", "Flat", "None")) {
 		if (!(nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < eta0)) return false;
 		if (!iad(nodes.crd->w(i), nodes.crd->x(i), 0.0, eta0)) return false;
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("4", "Minkowski", "Cube", "Flat", "None")) {
+		if (!(nodes.crd->w(i) >= 0.0 && nodes.crd->w(i) <= eta0)) return false;
+		if (!(nodes.crd->x(i) >= 0.0 && nodes.crd->x(i) <= r_max)) return false;
+		if (!(nodes.crd->y(i) >= 0.0 && nodes.crd->y(i) <= r_max)) return false;
+		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) <= r_max)) return false;
 	} else if (spacetime.spacetimeIs("4", "De_Sitter", "Slab", "Flat", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES

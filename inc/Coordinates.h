@@ -18,6 +18,18 @@
 // General Purpose Functions //
 ///////////////////////////////
 
+//Returns a uniform value in [0, max)
+inline float get_uniform(UGenerator &rng, const float max)
+{
+	return rng() * max;
+}
+
+//Returns a uniform value in [-max, max)
+inline float get_uniform_symmetric(UGenerator &rng, const float max)
+{
+	return (2.0 * rng() - 1.0) * max;
+}
+
 //Returns the first polar angle
 //on a hypersphere in the range [0, pi)
 inline float get_hyperzenith_angle(UGenerator &rng)
@@ -119,15 +131,11 @@ inline float3 get_flat_d3(UGenerator &urng, NGenerator &nrng, const float r_max)
 // Symmetric About Eta //
 /////////////////////////
 
-inline float get_2d_sym_flat_minkowski_slab_eta(UGenerator &rng, const double eta0)
-{
-	return (2.0 * eta0 * rng()) - eta0;
-}
+#define get_2d_sym_flat_minkowski_slab_eta(rng, eta0) \
+	get_uniform_symmetric(rng, eta0)
 
-inline float get_2d_sym_flat_minkowski_slab_radius(UGenerator &rng, const double r_max)
-{
-	return (2.0 * r_max * rng()) - r_max;
-}
+#define get_2d_sym_flat_minkowski_slab_radius(rng, r_max) \
+	get_uniform_symmetric(rng, r_max)
 
 /////////////////////////
 // 2-D Minkowski Slab  //
@@ -147,10 +155,8 @@ inline float get_2d_sym_flat_minkowski_slab_radius(UGenerator &rng, const double
 // Asymmetric About Eta  //
 ///////////////////////////
 
-inline float get_2d_asym_flat_minkowski_diamond_u(UGenerator &rng, const double xi)
-{
-	return rng() * xi;
-}
+#define get_2d_asym_flat_minkowski_diamond_u(rng, xi) \
+	get_uniform(rng, xi)
 
 #define get_2d_asym_flat_minkowski_diamond_v(rng, xi) \
 	get_2d_asym_flat_minkowski_diamond_u(rng, xi)
@@ -304,14 +310,12 @@ inline float get_2d_asym_sph_hyperbolic_slab_nonuniform_radius(UGenerator &rng, 
 /////////////////////////
 
 //Returns a value for eta
-inline float get_3d_sym_flat_minkowski_slab_eta(UGenerator &rng, const double eta0)
-{
-	return eta0 * (2.0 * rng() - 1.0);
-}
+#define get_3d_sym_flat_minkowski_slab_eta(rng, eta0) \
+	get_uniform_symmetric(rng, eta0)
 
 //Returns a value for radius
 #define get_3d_sym_flat_minkowski_slab_radius(rng, r_max) \
-	get_radius(rng, r_max, 3.0)
+	get_radius(rng, r_max, 3)
 
 //Returns a value for azimuthal angle
 #define get_3d_sym_flat_minkowski_slab_theta(rng) \
@@ -344,20 +348,32 @@ inline float get_3d_asym_flat_minkowski_diamond_v(UGenerator &rng, const float u
 // Asymmetric About Eta //
 //////////////////////////
 
-//Return a value for eta
-inline float get_3d_asym_flat_minkowski_cube_eta(UGenerator &rng, const double eta0)
-{
-	return rng() * eta0;
-}
+#define get_3d_asym_flat_minkowski_cube_eta(rng, eta0) \
+	get_uniform(rng, eta0)
 
-//Return a value for x
-inline float get_3d_asym_flat_minkowski_cube_x(UGenerator &rng, const double r_max)
-{
-	return rng() * r_max;
-}
+#define get_3d_asym_flat_minkowski_cube_x(rng, r_max) \
+	get_uniform(rng, r_max)
 
 #define get_3d_asym_flat_minkowski_cube_y(rng, r_max) \
-	get_3d_asym_flat_minkowski_cube_x(rng, r_max)
+	get_uniform(rng, r_max)
+
+//////////////////////////
+// 4-D Minkowski Slab   //
+// Flat Curvature       //
+// Asymmetric About Eta //
+//////////////////////////
+
+#define get_4d_asym_flat_minkowski_slab_eta(rng, eta0) \
+	get_uniform(rng, eta0)
+
+#define get_4d_asym_flat_minkowski_slab_radius(rng, r_max) \
+	get_radius(rng, eta0, 4)
+
+#define get_4d_asym_flat_minkowski_slab_theta2(rng) \
+	get_zenith_angle(rng)
+
+#define get_4d_asym_flat_minkowski_slab_theta3(rng) \
+	get_azimuthal_angle(rng)
 
 ///////////////////////////
 // 4-D Minkowski Diamond //
@@ -394,6 +410,25 @@ inline float get_4d_asym_flat_minkowski_diamond_v(UGenerator &rng, const float e
 //Returns a value for theta3
 #define get_4d_asym_flat_minkowski_diamond_theta3(rng) \
 	get_azimuthal_angle(rng)
+
+//////////////////////////
+// 4-D Minkowski Cube   //
+// Flat Curvature       //
+// Asymmetric About Eta //
+//////////////////////////
+
+#define get_4d_asym_flat_minkowski_cube_eta(rng, eta0) \
+	get_uniform(rng, eta0)
+
+#define get_4d_asym_flat_minkowski_cube_x(rng, r_max) \
+	get_uniform(rng, r_max)
+
+#define get_4d_asym_flat_minkowski_cube_y(rng, r_max) \
+	get_uniform(rng, r_max)
+
+#define get_4d_asym_flat_minkowski_cube_z(rng, r_max) \
+	get_uniform(rng, r_max)
+
 
 //////////////////////////
 // 4-D De Sitter Slab   //
@@ -607,14 +642,12 @@ inline float get_4d_asym_flat_deSitter_diamond_v(UGenerator &rng, const double u
 //////////////////////////
 
 //Returns a value for tau
-inline float get_4d_asym_flat_dust_slab_tau(UGenerator &rng, const double tau0)
-{
-	return tau0 * pow(rng(), 1.0 / 3.0); 
-}
+#define get_4d_asym_flat_dust_slab_tau(rng, tau0) \
+	get_radius(rng, tau0, 4)
 
 //Returns a value for radius
 #define get_4d_asym_flat_dust_slab_radius(rng, r_max) \
-	get_radius(rng, r_max, 4.0)
+	get_radius(rng, r_max, 4)
 
 //Returns a value for theta2
 #define get_4d_asym_flat_dust_slab_theta2(rng) \
@@ -635,10 +668,8 @@ inline float get_4d_asym_flat_dust_slab_tau(UGenerator &rng, const double tau0)
 //////////////////////////
 
 //Returns a value for u
-inline float get_4d_asym_flat_dust_diamond_u(UGenerator &rng, const double xi)
-{
-	return xi * pow(rng(), 1.0 / 12.0);
-}
+#define get_4d_asym_flat_dust_diamond_u(rng, xi) \
+	get_radius(rng, xi, 13)
 
 //Returns a value for v given u
 //This function can by OPTIMIZED by passing constants
@@ -725,7 +756,7 @@ inline float get_4d_asym_sph_flrw_slab_tau(UGenerator &rng, const double tau0)
 
 //Returns a value for radius
 #define get_4d_asym_flat_flrw_slab_radius(rng, r_max) \
-	get_radius(rng, r_max, 4.0)
+	get_radius(rng, r_max, 4)
 
 //Returns a value for theta2
 #define get_4d_asym_flat_flrw_slab_theta2(rng) \

@@ -22,6 +22,6 @@ flags='--stdim 4 --manifold desitter --region slab --curvature flat --symmetry a
 source /home/$USER/.queues
 job=$NEXT_JOB
 
-$CAUSET_HOME_DIR/slurm/wrapper/causet_wrp -f "$flags" -p krioukov_gpu -c 48 -J $job -x compute-4-017
+$CAUSET_HOME/slurm/wrapper/causet_wrp -f "$flags" -p krioukov_gpu -c 48 -J $job -x compute-4-017
 
 setnextjob $(($job+1))

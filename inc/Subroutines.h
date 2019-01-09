@@ -112,15 +112,15 @@ void mpi_swaps(const std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bit
 void sendSignal(const MPISignal signal, const int rank, const int num_mpi_threads);
 #endif
 
-std::vector<std::tuple<FastBitset, int, int>> getPossibleChains(Bitvector &adj, Bitvector &subadj, Bitvector &chains, FastBitset *excluded, std::vector<std::pair<int,int>> &endpoints, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, const int min_weight, int &max_weight, int &max_idx, int &end_idx);
+std::vector<std::tuple<FastBitset, int, int> > getPossibleChains(Bitvector &adj, Bitvector &subadj, Bitvector &chains, Bitvector &chains2, FastBitset *excluded, std::vector<std::pair<int,int> > &endpoints, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, const int min_weight, int &max_weight, int &max_idx, int &end_idx);
 
-std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, FastBitset *subworkspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level);
+std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvector &chains, Bitvector &chains2, FastBitset &longest_chain, FastBitset *workspace, FastBitset *subworkspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level);
 
 int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level);
 
 int longestChain_v2r(Bitvector &adj, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level);
 
-int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level);
+int longestChain_v2(const Bitvector &adj, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level);
 
 int longestChain_v1(Bitvector &adj, FastBitset *workspace, const int N, int i, int j, unsigned int level);
 
@@ -134,6 +134,18 @@ Network find_subgraph(const Network &network, std::vector<unsigned int> candidat
 
 int maximalAntichain(FastBitset &antichain, const Bitvector &adj, const int N, const int seed);
 
-void transitiveClosure(Bitvector &adj, const int N);
+void transitiveClosure(Bitvector &adj, Bitvector &links, const int N);
+
+void transitiveReduction(Bitvector &links, Bitvector &adj, const int N);
+
+std::pair<unsigned,unsigned> randomLink(Bitvector &links, FastBitset &workspace, MersenneRNG &mrng, const uint64_t nlinks);
+
+std::pair<unsigned, unsigned> randomAntiRelation(Bitvector &adj, Bitvector &links, FastBitset &workspace, const int N, MersenneRNG &mrng, uint64_t &nrel);
+
+void identifyTimelikeCandidates(std::vector<unsigned> &candidates, int *chaintime, int *iwork, Bitvector &fwork, const Node &nodes, const Bitvector &adj, const Spacetime &spacetime, const int N, Stopwatch &sMeasureExtrinsicCurvature, const bool verbose, const bool bench);
+
+bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigned int> candidates, CaResources * const ca, const CUcontext &ctx);
+
+void identifyBoundaryChains(std::vector<std::tuple<FastBitset, int, int>> &boundary_chains, std::vector<std::pair<int,int>> &pwork, int *iwork, std::pair<int,int> *i2work, Bitvector &fwork, Bitvector &fwork2, Network * const network, Network * const subnet, std::vector<unsigned> &candidates);
 
 #endif

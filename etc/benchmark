@@ -16,9 +16,9 @@ fi
 jobstart=$1
 jobend=$2
 
-basedir=/gss_gpfs_scratch/cunningham
+basedir=$SCRATCH_DIR
 match=measureAction
-outfile=$CAUSET_HOME_DIR/bench_${match}_v5-4.dat
+outfile=$CAUSET_HOME/bench_${match}_v5-4.dat
 
 for i in $(seq $jobstart $jobend) ; do
   dir=$basedir/causet$i

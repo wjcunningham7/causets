@@ -6,9 +6,6 @@
 # Northeastern University #
 ###########################
 
-# Account for billing
-account=default
-
 # Number of jobs to run in parallel in separate nodes
 njobs=1
 
@@ -27,8 +24,8 @@ readgraphid=0
 # Flags passed to CausalSet program
 flags=''
 
-# SLURM partition
-partition=''
+# PBS queue
+queue=''
 
 # Number of nodes
 nnodes=1
@@ -36,14 +33,14 @@ nnodes=1
 # Number of cores per node
 ncores=1
 
-# Dependency
-waitid=0
+# Memory per node (GB)
+mem=1
 
-# Nodes excluded
-exclude="c1065"
+# Runtime
+runtime=00:30:00
 
 # Parse command line parameters
-OPTIONS=`getopt -o a:c:f:G:hJ:j:n:p:R:s:w:x: -l account:,ncores:,flags:,graph:,'help',nodes:,start:,njobs:,partition:,readjob:,nsamples:,waitfor:,exclude: -n 'causet_wrp' -- "$@"`
+OPTIONS=`getopt -o c:f:G:hJ:j:m:n:q:R:s:t: -l ncores:,flags:,graph:,'help',nodes:,start:,njobs:,queue:,readjob:,nsamples:,memory:,runtime: -n 'causet_wrp' -- "$@"`
 
 if [ $? -ne 0 ] ; then
   echo "Unrecognized option. Try running with --help flag." >&2
@@ -54,11 +51,6 @@ eval set -- "$OPTIONS"
 
 while true ; do
   case "$1" in
-    -a|--account)
-      case "$2" in
-        "") shift 2 ;;
-        *) account=$2 ; shift 2 ;;
-      esac ;;
     -c|--ncores)
       case "$2" in
         "") shift 2 ;;
@@ -84,15 +76,20 @@ while true ; do
         "") shift 2 ;;
         *) njobs=$2 ; shift 2 ;;
       esac ;;
+    -m|--memory)
+      case "$2" in
+        "") shift 2 ;;
+        *) mem=$2 ; shift 2 ;;
+      esac ;;
     -n|--nodes)
       case "$2" in
         "") shift 2 ;;
         *) nnodes=$2 ; shift 2 ;;
       esac ;;
-    -p|--partition)
+    -q|--queue)
       case "$2" in
         "") shift 2 ;;
-        *) partition=$2 ; shift 2 ;;
+        *) queue=$2 ; shift 2 ;;
       esac ;;
     -R|--readjob)
       case "$2" in
@@ -104,33 +101,27 @@ while true ; do
         "") shift 2 ;;
         *) nsamples=$2 ; shift 2 ;;
       esac ;;
-    -w|--waitfor)
+    -t|--runtime)
       case "$2" in
         "") shift 2 ;;
-        *) waitid=$2 ; shift 2 ;;
-      esac ;;
-    -x|--exclude)
-      case "$2" in
-        "") shift 2 ;;
-        *) exclude=$2 ; shift 2 ;;
+        *) runtime=$2 ; shift 2 ;;
       esac ;;
     -h|--help)
       echo "Usage: causet_wrp [OPTION]..."
-      echo "Send CausalSet jobs to SLURM partitions."
+      echo "Send CausalSet jobs to PBS partitions on MP2 cluster."
       echo ""
-      echo "  -a, --account    account for billing"
       echo "  -c, --ncores     number of cores requested"
       echo "  -f, --flags      flags to pass to CausalSet program"
       echo "  -G, --graph      graph ID specified when reading a graph from another job"
       echo "  -h, --help       display this help and exit"
       echo "  -J, --start      job ID offset, used for naming directories"
       echo "  -j, --njobs      number of jobs to run in parallel on separate nodes"
+      echo "  -m, --memory     memory per job"
       echo "  -n, --nodes      number of nodes"
-      echo "  -p, --partition  SLURM partition"
+      echo "  -q, --queue      PBS partition"
       echo "  -R, --readjob    job ID specified when reading graph(s) from another job"
       echo "  -s, --nsamples   number of samples to run serially on a single node"
-      echo "  -w, --waitfor    job which must complete before this one starts"
-      echo "  -x, --exclude    exclude a certain host"
+      echo "  -t, --runtime    time limit"
       echo ""
       echo "Report causet_wrp bugs to wcunningham@perimeterinstitute.ca"
       echo "Bitbucket repository home page: <https://bitbucket.org/dk-lab/2015_code_causets>"
@@ -151,14 +142,10 @@ else
   istart=$jobstart
 fi
 
-# Format wait statement
-if [ ${waitid} -ne 0 ] ; then
-  waitfor="SBATCH -d afterany:${waitid}"
-else
-  waitfor=""
-fi
+# Format runtime
+runtime=$(echo $runtime | sed "s:\::\\\\\::g")
 
-# Send jobs to SLURM via sbatch
+# Send jobs to PBS via qsub
 jobid=$jobstart
 for (( i=${istart}; i<${njobs}+${istart}; i++ )) ; do
   if [ ${notnumber} -eq 0 ] ; then
@@ -170,8 +157,7 @@ for (( i=${istart}; i<${njobs}+${istart}; i++ )) ; do
   fi
   mkdir -p $SCRATCH_DIR
   mkdir -p $SCRATCH_DIR/causet${jobid}
-  #sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%partition%:$partition:g;s:%ncores%:$ncores:g;s:%nnodes%:$nnodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%waitfor%:$waitfor:g;s:%exclude%:$exclude:g;s:%account%:$account:g" < $CAUSET_HOME/slurm/batch/causet_slm | sbatch
-  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%partition%:$partition:g;s:%ncores%:$ncores:g;s:%nnodes%:$nnodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%waitfor%:$waitfor:g;s:%exclude%:$exclude:g" < $CAUSET_HOME/slurm/batch/causet_slm > $CAUSET_HOME/batch_test$jobid
-  exit 1
+  sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%nnodes%:$nnodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%mem%:$mem:g;s:%runtime%:$runtime:g" < $CAUSET_HOME_DIR/pbs/batch/causet_pbs | qsub
+  #sed "s:%flags%:$flags:g;s:%jobID%:$jobid:g;s:%nsamples%:$nsamples:g;s:%queue%:$queue:g;s:%ncores%:$ncores:g;s:%nnodes%:$nnodes:g;s:%readgraphid%:$readgraphid:g;s:%readjobid%:$readjobid:g;s:%mem%:$mem:g;s:%runtime%:$runtime:g" < $CAUSET_HOME_DIR/pbs/batch/causet_pbs > $CAUSET_HOME_DIR/batch_test$jobid
   sleep 1
 done

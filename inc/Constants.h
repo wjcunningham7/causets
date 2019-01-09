@@ -51,6 +51,8 @@
 			//In general it should be set to true since there
 			//is a minimal performance difference
 
+#define DEBUG_EVOL false	//Debug algorithms used for Monte Carlo evolution
+
 #define NPRINT 1000	//Used for debugging statements inside loops
 
 //Benchmarking Flags

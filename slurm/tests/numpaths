@@ -91,7 +91,7 @@ for i in $(seq ${#vars[@]}) ; do
     fi
   fi
   
-  $CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --link '"$gpu"' --verbose -y --quiet-read --print --success '"$npaths"' --stretch' --partition $partition --nsamples $samples --exclude $exclude
+  $CAUSET_HOME/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --link '"$gpu"' --verbose -y --quiet-read --print --success '"$npaths"' --stretch' --partition $partition --nsamples $samples --exclude $exclude
 done
 
 setnextjob $(($job+1))

@@ -1,0 +1,63 @@
+#!/bin/bash
+
+#PBS -A xkx-935-aa
+#PBS -N CSET-%jobID%
+#PBS -o /home/wjc/scratch/causet%jobID%/causet%jobID%.log
+#PBS -e /home/wjc/scratch/causet%jobID%/causet%jobID%.err
+#PBS -q %queue%
+#PBS -l nodes=%nnodes%:ppn=1
+#PBS -l walltime=%runtime%
+#QPBS -l mem=%mem%gb
+
+homedir=$CAUSET_HOME_DIR
+work=$SCRATCH_DIR/causet%jobID%
+if [[ %readjobid% -ne 0 && %readgraphid% -eq 0 ]] ; then
+  usegraphlist=1
+else
+  usegraphlist=0
+fi
+
+sed "s:@jobID@:%jobID%:g;s:@readjobid@:%readjobid%:g;s:@readgraphid@:%readgraphid%:g;s:@queue@:%queue%:g" < $homedir/pbs/setup/causet_setup | source /dev/stdin
+
+# OpenMP environment variables
+export OMP_NUM_THREADS=$((%ncores%*2))
+export OMP_SCHEDULE="dynamic"
+export OMP_NESTED=FALSE
+export OMP_STACKSIZE="20M"
+
+# Set stack size unlimited
+ulimit -s unlimited
+
+cd $work
+
+# Run binaries
+if [ "$usegraphlist" -eq 1 ] ; then # Use a list of graph IDs
+  graphfile=graphlist
+  readarray -t graphs < ${graphfile}
+  for (( i=1; i<=${#graphs[@]}; i++ )) ; do
+    echo "Reading graph ${graphs[$i-1]}."
+    #if [ %nnodes% -eq 1 ] ; then # Regular run
+      ./CausalSet_%queue% %flags% --graph ${graphs[$i-1]} > CausalSet_Job-%jobID%_Sample-${i}.log
+    #else # Use MPI
+    #  mpirun -prot -srun ./CausalSet_%queue% %flags% --graph ${graphs[$i-1]} > CausalSet_Job-%jobID%_Sample-${i}.log
+    #fi
+    sleep 1
+  done
+else # Use a single graph id or create new graphs
+  for (( i=1; i<=%nsamples%; i++ )) ; do
+    echo "Starting Trial $i of %nsamples%..."
+    #if [ %nnodes% -eq 1 ] ; then # Regular run
+      ./CausalSet_%queue% %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-${i}.log
+    #else # Use MPI
+    #  mpirun -prot -srun ./CausalSet_%queue% %flags% --graph %readgraphid% > CausalSet_Job-%jobID%_Sample-${i}.log
+    #fi
+    sleep 1
+  done
+fi
+
+wait
+
+# Clean up
+if [ ${usegraphlist} -eq 1 ] ; then
+  rm $graphfile
+fi

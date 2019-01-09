@@ -1,0 +1,21 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2018 #
+#    Perimeter Institute  #
+###########################
+
+set -eu -o pipefail
+
+if [[ "$TBDIR" == "" ]] ; then
+  echo "Variable TBDIR is not set."
+  exit 1
+fi
+
+homedir=$CAUSET_HOME_DIR
+tbdir=$TBDIR/causet
+mkdir -p $tbdir
+
+rm -rf $tbdir/*
+cp $homedir/bin/* $tbdir
+$homedir/etc/mkdat $tbdir

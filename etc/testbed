@@ -1,0 +1,22 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2018 #
+#    Perimeter Institute  #
+###########################
+
+set -eu -o pipefail
+
+if [[ "$TBDIR" == "" ]] ; then
+  echo "Variable TBDIR is not set."
+  echo "Recommend adding 'export TBDIR=$HOME/testbed' to your .bashrc"
+  exit 1
+fi
+
+homedir=$CAUSET_HOME
+tbdir=$TBDIR/causets
+mkdir -p $tbdir
+
+rm -rf $tbdir/*
+cp $homedir/bin/* $tbdir
+$homedir/etc/mkdat $tbdir

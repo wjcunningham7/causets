@@ -49,7 +49,7 @@ for file in act_files:
 	h.close()
 	
 	if smeared:
-		lk = 9.0
+		lk = 4.0
 		epsilon = math.pow(lk, -stdim)
 		eps1 = epsilon / (1.0 - epsilon)
 		for i in range(0, c[0] - 2):

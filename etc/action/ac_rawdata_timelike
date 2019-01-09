@@ -29,7 +29,7 @@ declare -a actions aerr
 declare -a timelike terr
 
 basedir=/gss_gpfs_scratch/cunningham
-homedir=$CAUSET_HOME_DIR
+homedir=$CAUSET_HOME
 
 if [[ ! -d $basedir ]] ; then
   echo "Base directory does not exist!"

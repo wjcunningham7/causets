@@ -16,7 +16,7 @@ import numpy as np
 import os
 import sys
 
-basedir = '/gss_gpfs_scratch/cunningham/'
+basedir = '/scratch/cunningham/'
 #basedir = '/krioukov/will/'
 
 if (len(sys.argv) < 4):
@@ -42,7 +42,7 @@ njobs = jobEnd - jobStart + 1
 lkmin = 5
 lkmax = 13
 lkstep = 1
-nlk = (lkmax - lkmin + 1) / lkstep
+nlk = int((lkmax - lkmin + 1) / lkstep)
 
 action = np.zeros((nlk, njobs))
 err = np.zeros((nlk, njobs))
@@ -61,6 +61,7 @@ for lk in range(lkmin, lkmax + lkstep, lkstep):
 		for file in files:
 			f = open(file)
 			lines = f.readlines()
+
 			c = []
 			c_idx = 0
 
@@ -107,7 +108,7 @@ for lk in range(lkmin, lkmax + lkstep, lkstep):
 		action[int((lk-lkmin)/lkstep)][int(job-jobStart)] = np.mean(a)
 		err[int((lk-lkmin)/lkstep)][int(job-jobStart)] = np.std(a) #/ math.sqrt(len(files))
 
-basedir = os.environ['CAUSET_HOME_DIR']
+basedir = os.environ['CAUSET_HOME']
 
 if stdim == 2:
 	filename = 'd2_'

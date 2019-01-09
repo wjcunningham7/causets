@@ -13,10 +13,9 @@ set -eu -o pipefail
 start=2382
 end=2393
 
-basedir=/gss_gpfs_scratch/cunningham
-#basedir=/krioukov/will
+basedir=$SCRATCH_DIR
 
-sourcefile=$CAUSET_HOME_DIR/etc/stretch
+sourcefile=$CAUSET_HOME/etc/stretch
 dest=etc
 
 for i in $(seq $start $end) ; do

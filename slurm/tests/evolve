@@ -1,0 +1,43 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2018 #
+#    Perimeter Institute  #
+###########################
+
+set -eu -o pipefail
+
+if [[ "$#" -lt 1 ]] ; then
+  echo "Arguments are [parfile]"
+  exit 1
+fi
+parfile=$1
+
+type="rgg"
+#st="A0200011" # 2D Minkowski Diamond
+#st="A0200012" # 3D Minkowski Diamond
+st="A0200014" # 4D Minkowski Diamond
+N=100
+age=1.0
+epsilon=0.21
+sweeps=495000
+
+source $HOME/.queues
+jobstart=$NEXT_JOB
+samples=1
+partition="fullnode"
+ncores=$(sinfo -p $partition -e -o "%c" | awk 'NR==2 {print $1}')
+
+readarray -t params < $parfile
+for i in $(seq ${#params[@]}) ; do
+  job=$(($i+$jobstart-1))
+  beta=${params[${i}-1]}
+  if [[ ${beta:0:1} == "#" ]] ; then
+    continue
+  fi
+
+  #$CAUSET_HOME/slurm/wrapper/causet_wrp --partition $partition --ncores $ncores --start $job --nsamples $samples --flags "--type $type --spacetime $st --nodes $N --binomial --age $age --link --core 1 --evolve --sweeps $sweeps --print --verbose -y"
+  $CAUSET_HOME/slurm/wrapper/causet_wrp --partition $partition --ncores $ncores --start $job --nsamples $samples --flags '--type '"$type"' --spacetime '"$st"' --nodes '"$N"' --binomial --age '"$age"' --link --core 1 --evolve --sweeps '"$sweeps"' --print --verbose -y'
+done
+
+setnextjob $(($job+1))

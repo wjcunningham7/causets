@@ -9,6 +9,7 @@
 
 #include "Operations.h"
 #include "Geodesics.h"
+#include "SMI.h"
 #ifdef CUDA_ENABLED
 #include "Operations_GPU.h"
 #endif
@@ -68,6 +69,10 @@ bool measureFoliation(Bitvector &timelike_foliation, Bitvector &spacelike_foliat
 bool measureAntichain(const Bitvector &adj, const Node &nodes, const int N, MersenneRNG &mrng, Stopwatch &sMeasureAntichain, const bool verbose, const bool bench);
 
 bool measureDimension(float &dimension, Bitvector &adj, const Spacetime &spacetime, const int N, std::pair<int,int> longest_pair, Stopwatch &sMeasureDimension, const bool verbose, const bool bench);
+
+bool measureSpacetimeMutualInformation(uint64_t *& smi, Bitvector &adj, const Node &nodes, const Spacetime &spacetime, const int N, const double eta0, const double r_max, CaResources * const ca, Stopwatch &sMeasureSMI, const bool verbose, const bool bench);
+
+bool measureExtrinsicCurvature(Network *network, CaResources * const ca, const CUcontext ctx);
 
 //bool measureEntanglementEntropy(const Bitvector &adj, const Spacetime &spacetime, const int N, Stopwatch &sMeasureEntanglementEntropy, const bool verbose, const bool bench);
 

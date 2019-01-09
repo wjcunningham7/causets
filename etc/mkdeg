@@ -27,9 +27,9 @@ tmax=4.75
 tstep=0.01
 
 for i in $(seq ${tmin} ${tstep} ${tmax}) ; do
-  echo "$i $($CAUSET_HOME_DIR/bin/CausalSet_${platform} --spacetime $id --nodes $n --age $i --slice 5.0 --link --gpu --core 1 | awk '/rad:/ {print $2}')" >> /tmp/adeg.tmp
+  echo "$i $($CAUSET_HOME/bin/CausalSet_${platform} --spacetime $id --nodes $n --age $i --slice 5.0 --link --gpu --core 1 | awk '/rad:/ {print $2}')" >> /tmp/adeg.tmp
 done
 
 cp /tmp/adeg.tmp .
 etc/degtable $id $ver
-mv /tmp/adeg.tmp $CAUSET_HOME_DIR/etc/tables/adeg_${id}_${ver}.tmp
+mv /tmp/adeg.tmp $CAUSET_HOME/etc/tables/adeg_${id}_${ver}.tmp

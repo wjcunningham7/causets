@@ -58,6 +58,6 @@ nodes=1048576
 age=1.0
 cutoff=32.362
 
-$CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $jobstart --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --link '"$gpu"' --verbose -y --print --hubs 5000' --partition $partition --nsamples $samples --exclude $exclude
+$CAUSET_HOME/slurm/wrapper/causet_wrp --start $jobstart --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --link '"$gpu"' --verbose -y --print --hubs 5000' --partition $partition --nsamples $samples --exclude $exclude
 
 setnextjob $(($jobstart+1))

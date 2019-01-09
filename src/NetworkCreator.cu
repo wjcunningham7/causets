@@ -121,7 +121,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 					throw CausetException("Flag '--nodes', number of nodes, must be specified!\n");
 				if (!network_properties->tau0 && !((spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T")) && SPECIAL_SAUCER) && !spacetime.regionIs("Slab_N3"))
 					throw CausetException("Flag '--age', temporal cutoff, must be specified!\n");
-				if ((spacetime.curvatureIs("Flat") || spacetime.curvatureIs("Negative")) && (spacetime.regionIs("Slab") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Slab_TS") || spacetime.regionIs("Triangle_T") || spacetime.regionIs("Triangle_S") || spacetime.regionIs("Cube")) && !((spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T")) && SPECIAL_SAUCER)) {
+				if ((spacetime.curvatureIs("Flat") || spacetime.curvatureIs("Negative")) && (spacetime.regionIs("Slab") || spacetime.regionIs("Slab_T1") || spacetime.regionIs("Slab_T2") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Slab_TS") || spacetime.regionIs("Triangle_T") || spacetime.regionIs("Triangle_S") || spacetime.regionIs("Cube")) && !((spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T")) && SPECIAL_SAUCER)) {
 					if ((spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter")) && !network_properties->r_max)
 						throw CausetException("Flag '--radius', spatial scaling, must be specified!\n");
 					else if ((spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW")) && !network_properties->alpha)
@@ -241,6 +241,14 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				network_properties->flags.has_exact_k = false;
 				double volume = 2.0 * volume_75499530_2(network_properties->r_max, eta0);
 				network_properties->delta = network_properties->N / volume;
+			} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_T2", "Flat", "Temporal")) {
+				network_properties->k_tar = 1.0;
+				network_properties->flags.has_exact_k = false;
+				double beta = sqrt(1.0 - POW2(eta0));
+				double volume = sqrt(1.0 - POW2(beta, EXACT)) - POW2(beta, EXACT) * log((1.0 + sqrt(1.0 - POW2(beta, EXACT))) / beta);
+				volume += 4.0 * eta0 * network_properties->r_max;
+				network_properties->r_max += 1.0 - beta;
+				network_properties->delta = static_cast<double>(network_properties->N) / volume;
 			} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_S1", "Flat", "Temporal")) {
 				//A guess - will be accurate when eta0 ~ r_max
 				network_properties->k_tar = 2.0 * network_properties->N * network_properties->eta0 / (3.0 * network_properties->r_max);
@@ -270,6 +278,13 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				double volume = 2.0 * (sqrt(1.0 - POW2(beta, EXACT)) - POW2(beta, EXACT) * log((1.0 + sqrt(1.0 - POW2(beta, EXACT))) / beta));
 				network_properties->r_max = sqrt(1.0 - POW2(beta, EXACT));
 				#endif
+				network_properties->delta = static_cast<double>(network_properties->N) / volume;
+			} else if (spacetime.spacetimeIs("2", "Minkowski", "Saucer_T", "Flat", "None")) {
+				network_properties->k_tar = network_properties->N / 2.0;
+				network_properties->flags.has_exact_k = false;
+				double beta = sqrt(1.0 - POW2(eta0));
+				double volume = sqrt(1.0 - POW2(beta, EXACT)) - POW2(beta, EXACT) * log((1.0 + sqrt(1.0 - POW2(beta, EXACT))) / beta);
+				network_properties->r_max = 1.0 - beta;
 				network_properties->delta = static_cast<double>(network_properties->N) / volume;
 			} else if (spacetime.spacetimeIs("2", "Minkowski", "Saucer_T", "Flat", "Temporal")) {
 				network_properties->k_tar = network_properties->N / 2.0;
@@ -393,12 +408,24 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 				eta0 = network_properties->eta0;
 				network_properties->zeta = HALF_PI - eta0;
 				network_properties->r_max = eta0 / 2.0;
+			} else if (spacetime.spacetimeIs("4", "Minkowski", "Slab", "Flat", "None")) {
+				network_properties->k_tar = 10.0;
+				network_properties->flags.has_exact_k = false;
+
+				double volume = (4.0 * M_PI / 3.0) * POW3(network_properties->r_max) * network_properties->tau0;
+				network_properties->delta = static_cast<double>(network_properties->N) / volume;
 			} else if (spacetime.spacetimeIs("4", "Minkowski", "Diamond", "Flat", "None")) {
 				network_properties->k_tar = 10.0;
 				network_properties->flags.has_exact_k = false;
 
 				network_properties->r_max = network_properties->eta0 / 2.0;
 				double volume = POW2(POW2(eta0)) * M_PI / 24.0;
+				network_properties->delta = static_cast<double>(network_properties->N) / volume;
+			} else if (spacetime.spacetimeIs("4", "Minkowski", "Cube", "Flat", "None")) {
+				network_properties->k_tar = 10.0;
+				network_properties->flags.has_exact_k = false;
+
+				double volume = POW3(network_properties->r_max) * network_properties->tau0;
 				network_properties->delta = static_cast<double>(network_properties->N) / volume;
 			} else if (spacetime.spacetimeIs("4", "De_Sitter", "Slab", "Flat", "None")) {
 				int seed = static_cast<int>(4000000000 * network_properties->mrng.rng());
@@ -650,7 +677,7 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 					printf_mpi(rank, "\t > Dark Energy Density:\t\t%.6f\n", network_properties->omegaL);
 				if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
 					printf_mpi(rank, "\t > Spatial Scaling:\t\t%.6f\n", network_properties->alpha);
-				if (spacetime.curvatureIs("Flat") && (spacetime.regionIs("Slab") || spacetime.regionIs("Slab_T1") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Slab_TS") || spacetime.regionIs("Slab_N3") || spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T") || spacetime.regionIs("Triangle_T") || spacetime.regionIs("Triangle_S")))
+				if (spacetime.curvatureIs("Flat") && (spacetime.regionIs("Slab") || spacetime.regionIs("Slab_T1") || spacetime.regionIs("Slab_T2") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Slab_TS") || spacetime.regionIs("Slab_N3") || spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T") || spacetime.regionIs("Triangle_T") || spacetime.regionIs("Triangle_S") || spacetime.regionIs("Cube")))
 					printf_mpi(rank, "\t > Spatial Cutoff:\t\t%.6f\n", network_properties->r_max);
 				if (spacetime.manifoldIs("De_Sitter") || spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW") || spacetime.manifoldIs("Polycone"))
 					printf_mpi(rank, "\t > Temporal Scaling:\t\t%.6f\n", network_properties->a);
@@ -671,8 +698,6 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			printf_mpi(rank, "\t > Graph Type:\t\t");
 			if (network_properties->gt == KR_ORDER)
 				printf_mpi(rank, "Kleitman-Rothschild partial order\n");
-			else if (network_properties->gt == RANDOM)
-				printf_mpi(rank, "Random partial order\n");
 			else if (network_properties->gt == _2D_ORDER)
 				printf_mpi(rank, "2D order\n");
 			printf_mpi(rank, "\t > Number of Nodes:\t%d\n", network_properties->N);
@@ -752,6 +777,8 @@ bool initVars(NetworkProperties * const network_properties, CaResources * const 
 			else
 				network_properties->max_cardinality = network_properties->N;
 		}
+		if (network_properties->flags.evolve)
+			network_properties->max_cardinality = network_properties->N;
 	} catch (CausetException c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		network_properties->cmpi.fail = 1;
@@ -953,7 +980,7 @@ bool solveExpAvgDegree(float &k_tar, const Spacetime &spacetime, const int &N, d
 
 //Allocates memory for network
 //O(1) Efficiency
-bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const Spacetime &spacetime, const int &N, const float &k_tar, const float &core_edge_fraction, const float &edge_buffer, const GraphType &gt, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &mpi_split, const bool &verbose, const bool &bench, const bool &yes)
+bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, Bitvector &links, const Spacetime &spacetime, const int &N, const float &k_tar, const float &core_edge_fraction, const float &edge_buffer, const GraphType &gt, CausetMPI &cmpi, const int &group_size, CaResources * const ca, Stopwatch &sCreateNetwork, const bool &use_gpu, const bool &decode_cpu, const bool &link, const bool &relink, const bool &evolve, const bool &no_pos, const bool &use_bit, const bool &mpi_split, const bool &verbose, const bool &bench, const bool &yes)
 {
 	#if DEBUG
 	assert (ca != NULL);
@@ -1229,6 +1256,15 @@ bool createNetwork(Node &nodes, Edge &edges, Bitvector &adj, const Spacetime &sp
 				ca->hostMemUsed += sizeof(BlockType) * fb.getNumBlocks();
 			}
 
+			if (evolve) {
+				links.reserve(length);
+				for (int i = 0; i < length; i++) {
+					FastBitset fb(N);
+					links.push_back(fb);
+					ca->hostMemUsed += sizeof(BlockType) * fb.getNumBlocks();
+				}
+			}
+
 			#ifdef MPI_ENABLED
 			if (mpi_split && cmpi.num_mpi_threads > 1) {
 				int buflen = length / (cmpi.num_mpi_threads << 1);
@@ -1317,7 +1353,7 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N, const 
 	bool DEBUG_COORDS = false;
 	//Enable this to validate the nodes are being generated with the correct
 	//distributions - it will use rejection sampling from the slab's distributions
-	bool DEBUG_DIAMOND = true;
+	bool DEBUG_DIAMOND = false;
 
 	stopwatchStart(&sGenerateNodes);
 
@@ -1332,7 +1368,7 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N, const 
 	bool use_rejection = false;
 	if (DEBUG_DIAMOND && spacetime.regionIs("Diamond"))
 		use_rejection = true;
-	if (spacetime.regionIs("Slab_T1") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Slab_TS") || spacetime.regionIs("Slab_N3") || spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T") || spacetime.regionIs("Triangle_T") || spacetime.regionIs("Triangle_S"))
+	if (spacetime.regionIs("Slab_T1") || spacetime.regionIs("Slab_T2") || spacetime.regionIs("Slab_S1") || spacetime.regionIs("Slab_TS") || spacetime.regionIs("Slab_N3") || spacetime.regionIs("Saucer_S") || spacetime.regionIs("Saucer_T") || spacetime.regionIs("Triangle_T") || spacetime.regionIs("Triangle_S"))
 		use_rejection = true;
 
 	//Initialize GSL integration structure
@@ -1364,7 +1400,9 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N, const 
 		mu1 = volume_77834_1(1.5);
 		mu2 = volume_77834_1(-1.5);
 		mu = mu1 - mu2;
-	} else if (spacetime.spacetimeIs("2", "De_Sitter", "Diamond", "Flat", "None")) {
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_T2", "Flat", "Temporal"))
+		mu = 1.0 - sqrt(1.0 - POW2(eta0));
+	else if (spacetime.spacetimeIs("2", "De_Sitter", "Diamond", "Flat", "None")) {
 		mu = POW2(2.0 * xi + w) / (4.0 * xi * (xi + w));
 		mu1 = (2.0 * xi) / (2.0 * xi + w);
 	} else if (spacetime.spacetimeIs("2", "Polycone", "Slab", "Positive", "None"))
@@ -1433,6 +1471,11 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N, const 
 				nodes.crd->y(i) = (2.0 * urng() - 1.0) * eta0;
 				if (fabs(nodes.crd->y(i)) > eta_75499530_2(nodes.crd->x(i), r_max, eta0))
 					continue;
+			} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_T2", "Flat", "Temporal")) {
+				nodes.crd->x(i) = (2.0 * urng() - 1.0) * eta0;
+				nodes.crd->y(i) = (2.0 * urng() - 1.0) * r_max;
+				if (fabs(nodes.crd->y(i)) > eta_77834_1(nodes.crd->x(i), mu) + r_max - mu)
+					continue;
 			} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_S1", "Flat", "Temporal")) {
 				nodes.crd->x(i) = (2.0 * urng() - 1.0) * r_max;
 				nodes.crd->y(i) = (2.0 * urng() - 1.0) * r_max;
@@ -1461,6 +1504,11 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N, const 
 				if (fabs(nodes.crd->y(i)) > eta_77834_1(nodes.crd->x(i), r_max))
 					continue;
 				#endif
+			} else if (spacetime.spacetimeIs("2", "Minkowski", "Saucer_T", "Flat", "None")) {
+				nodes.crd->x(i) = urng() * eta0;
+				nodes.crd->y(i) = (2.0 * urng() - 1.0) * r_max;
+				if (fabs(nodes.crd->y(i)) > eta_77834_1(nodes.crd->x(i), r_max))
+					continue;
 			} else if (spacetime.spacetimeIs("2", "Minkowski", "Triangle_T", "Flat", "Temporal")) {
 				nodes.crd->x(i) = (2.0 * urng() - 1.0) * eta0;
 				nodes.crd->y(i) = urng() * r_max;
@@ -1624,7 +1672,7 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N, const 
 
 		#ifdef _OPENMP
 		unsigned int seed = static_cast<unsigned int>(mrng.rng() * 400000000);
-		#pragma omp parallel if (N < 1000)
+		#pragma omp parallel if (N >= 1024)
 		{
 		//Initialize one RNG per thread
 		Engine eng(seed ^ omp_get_thread_num());
@@ -1644,6 +1692,7 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N, const 
 			double u, v;
 			int tid = omp_get_thread_num();
 
+			u = v = 0.;
 			do {
 				if (spacetime.spacetimeIs("2", "Minkowski", "Slab", "Flat", "Temporal")) {
 					nodes.crd->x(i) = get_2d_sym_flat_minkowski_slab_eta(urng, eta0);
@@ -1690,7 +1739,7 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N, const 
 					nodes.crd->x(i) = get_2d_asym_sph_deSitter_diamond_eta(urng);
 					nodes.id.tau[i] = etaToTauSph(nodes.crd->x(i));
 					#if EMBED_NODES
-					emb2 = get_2d_asym_sph_deSitter_diamond_emb(mrng.rng, nodes.crd->x(i));
+					emb2 = get_2d_asym_sph_deSitter_diamond_emb(urng, nodes.crd->x(i));
 					nodes.crd->y(i) = emb2.x;
 					nodes.crd->z(i) = emb2.y;
 					#else
@@ -1724,6 +1773,11 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N, const 
 					nodes.crd->x(i) = get_3d_asym_flat_minkowski_cube_eta(urng, eta0);
 					nodes.crd->y(i) = get_3d_asym_flat_minkowski_cube_x(urng, r_max);
 					nodes.crd->z(i) = get_3d_asym_flat_minkowski_cube_y(urng, r_max);
+				} else if (spacetime.spacetimeIs("4", "Minkowski", "Slab", "Flat", "None")) {
+					nodes.crd->w(i) = get_4d_asym_flat_minkowski_slab_eta(urng, eta0);
+					nodes.crd->x(i) = get_4d_asym_flat_minkowski_slab_radius(urng, r_max);
+					nodes.crd->y(i) = get_4d_asym_flat_minkowski_slab_theta2(urng);
+					nodes.crd->z(i) = get_4d_asym_flat_minkowski_slab_theta3(urng);
 				} else if (spacetime.spacetimeIs("4", "Minkowski", "Diamond", "Flat", "None")) {
 					u = get_4d_asym_flat_minkowski_diamond_u(urng, eta0);
 					v = get_4d_asym_flat_minkowski_diamond_v(urng, eta0, u);
@@ -1731,6 +1785,11 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N, const 
 					nodes.crd->x(i) = (u - v) / sqrt(2.0);
 					nodes.crd->y(i) = get_4d_asym_flat_minkowski_diamond_theta2(urng);
 					nodes.crd->z(i) = get_4d_asym_flat_minkowski_diamond_theta3(urng);
+				} else if (spacetime.spacetimeIs("4", "Minkowski", "Cube", "Flat", "None")) {
+					nodes.crd->w(i) = get_4d_asym_flat_minkowski_cube_eta(urng, eta0);
+					nodes.crd->x(i) = get_4d_asym_flat_minkowski_cube_x(urng, r_max);
+					nodes.crd->y(i) = get_4d_asym_flat_minkowski_cube_y(urng, r_max);
+					nodes.crd->z(i) = get_4d_asym_flat_minkowski_cube_z(urng, r_max);
 				} else if (spacetime.spacetimeIs("4", "De_Sitter", "Slab", "Flat", "None")) {
 					#if EMBED_NODES
 					nodes.crd->v(i) = get_4d_asym_flat_deSitter_slab_eta(urng, HALF_PI - zeta, HALF_PI - zeta1);
@@ -1742,9 +1801,9 @@ bool generateNodes(Node &nodes, const Spacetime &spacetime, const int &N, const 
 					#else
 					nodes.crd->w(i) = get_4d_asym_flat_deSitter_slab_eta(urng, HALF_PI - zeta, HALF_PI - zeta1);
 					nodes.id.tau[i] = etaToTauFlat(nodes.crd->w(i));
-					nodes.crd->x(i) = get_4d_asym_flat_deSitter_slab_radius(mrng.rng, r_max);
-					nodes.crd->y(i) = get_4d_asym_flat_deSitter_slab_theta2(mrng.rng);
-					nodes.crd->z(i) = get_4d_asym_flat_deSitter_slab_theta3(mrng.rng);
+					nodes.crd->x(i) = get_4d_asym_flat_deSitter_slab_radius(urng, r_max);
+					nodes.crd->y(i) = get_4d_asym_flat_deSitter_slab_theta2(urng);
+					nodes.crd->z(i) = get_4d_asym_flat_deSitter_slab_theta3(urng);
 					#endif
 				} else if (spacetime.spacetimeIs("4", "De_Sitter", "Slab", "Positive", "None")) {
 					#if EMBED_NODES
@@ -2076,62 +2135,6 @@ bool generateKROrder(Node &nodes, Bitvector &adj, const int N_tar, const int N, 
 
 	if (verbose) {
 		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sGenKR.elapsedTime);
-		fflush(stdout);
-	}
-
-	return true;
-}
-
-bool generateRandomOrder(Node &nodes, Bitvector &adj, const int N, int &N_res, float &k_res, int &N_deg2, MersenneRNG &mrng, Stopwatch &sGenRandom, const bool verbose, const bool bench)
-{
-	#if DEBUG
-	assert (adj.size() >= (size_t)N);
-	assert (N > 0);
-	#endif
-
-	int rank = 0;
-
-	stopwatchStart(&sGenRandom);
-
-	for (int i = 0; i < N - 1; i++) {
-		for (int j = i + 1; j < N; j++) {
-			if (mrng.rng() < 0.1) {
-				adj[i].set(j);
-				adj[j].set(i);
-			}
-		}
-	}
-
-	transitiveClosure(adj, N);
-
-	uint64_t nlinks = 0;
-	for (int i = 0; i < N; i++) {
-		if (i > 0)
-			nodes.k_in[i] = (int)adj[i].partial_count(0, i);
-		if (i < N - 1)
-			nodes.k_out[i] = (int)adj[i].partial_count(i, N - i + 1);
-		nlinks += nodes.k_out[i];
-	}
-
-	N_res = N;
-	N_deg2 = N;
-	k_res = (long double)nlinks / N_res;
-
-	//if (!printDegrees(nodes, N, "in-degrees_CPU.cset.dbg.dat", "out-degrees_CPU.cset.dbg.dat")) return false;
-
-	stopwatchStop(&sGenRandom);
-
-	if (!bench) {
-		printf_mpi(rank, "\tCauset Successfully Connected.\n");
-		if (!rank) printf_cyan();
-		printf_mpi(rank, "\t\tUndirected Relations:     %" PRIu64 "\n", nlinks);
-		printf_mpi(rank, "\t\tResulting Average Degree: %f\n", k_res);
-		if (!rank) printf_std();
-		if (!rank) fflush(stdout);
-	}
-
-	if (verbose) {
-		printf_mpi(rank, "\t\tExecution Time: %5.6f sec\n", sGenRandom.elapsedTime);
 		fflush(stdout);
 	}
 

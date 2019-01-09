@@ -16,7 +16,7 @@ import sys
 stid = sys.argv[1]
 ver = sys.argv[2]
 
-basedir = os.environ['CAUSET_HOME_DIR']
+basedir = os.environ['CAUSET_HOME']
 infile = open('/tmp/adeg.tmp', 'r')
 outfile = open(basedir + 'etc/tables/average_degree_' + stid + '_' + ver + '_table.cset.bin', 'wb')
 data = array('d')

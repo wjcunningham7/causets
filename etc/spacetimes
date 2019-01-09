@@ -16,8 +16,7 @@ if [[ "$#" -lt 1 ]] ; then
 fi
 
 version=$1
-outfile=$CAUSET_HOME_DIR/VERSION
-#outfile=/home/cunningham.wi/projects/causalsetgenerator/VERSION
+outfile=$CAUSET_HOME/VERSION
 
 stdims=(2 3 4 5)
 manifolds=(Minkowski De_Sitter Anti_de_Sitter Dust FLRW Hyperbolic Polycone)
@@ -29,9 +28,8 @@ nodes=1
 tcut=0.5
 scut=0.5
 
-platform=_krioukov_gpu
-binary=$CAUSET_HOME_DIR/bin/CausalSet$platform
-#binary=/home/cunningham.wi/projects/causalsetgenerator/bin/CausalSet$platform
+platform=_$PLATFORM
+binary=$CAUSET_HOME/bin/CausalSet$platform
 
 echo -e "\nVERSION ${version}.x" >> $outfile
 echo -e "===========\n" >> $outfile
@@ -44,7 +42,7 @@ for stdim in ${stdims[@]} ; do
     for region in ${regions[@]} ; do
       for curvature in ${curvatures[@]} ; do
         for symmetry in ${symmetries[@]} ; do
-          id=$($binary --stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry --nodes $nodes --age $tcut --radius $scut --alpha $scut --test 2>&- | awk '/Spacetime ID:/ {print $4}')
+          id=$($binary --type rgg --binomial --stdim $stdim --manifold $manifold --region $region --curvature $curvature --symmetry $symmetry --nodes $nodes --age $tcut --radius $scut --alpha $scut --test 2>&- | awk '/Spacetime ID:/ {print $4}')
           if [[ "$id" != "" ]] ; then
             #printf "%-8s%-16s%-16s%-16s%-16s%-8s\n" "$sdim+1" $manifold $region $curvature $symmetry $id | awk '{print toupper($0)}' >> $outfile
             printf "%-8s%-16s%-16s%-16s%-16s%-8s\n" $stdim $manifold $region $curvature $symmetry $id | awk '{print $0}' >> $outfile

@@ -52,15 +52,15 @@ fi
 
 makeparfile=false
 if [[ $makeparfile == "true" ]] ; then
-  rm -f $CAUSET_HOME_DIR/causet.par
+  rm -f $CAUSET_HOME/causet.par
   if [[ "$timecut" == "energy" ]] ; then
-    $CAUSET_HOME_DIR/etc/routing/gr_test_slab_density $spacetime $density
+    $CAUSET_HOME/etc/routing/gr_test_slab_density $spacetime $density
   else
-    $CAUSET_HOME_DIR/etc/routing/gr_test_slab_degree $spacetime $degree 0.01 4.6416 7
+    $CAUSET_HOME/etc/routing/gr_test_slab_degree $spacetime $degree 0.01 4.6416 7
   fi
   exit 1
 fi
-#parfile=$CAUSET_HOME_DIR/causet.par
+#parfile=$CAUSET_HOME/causet.par
 parfile=$1
 readarray -t vars < $parfile
 
@@ -100,7 +100,7 @@ for i in $(seq ${#vars[@]}) ; do
     if [[ $(ls $basedir/causet${readjob}/dat/edg | wc -l) -eq 0 ]] ; then
       link=relink
       #echo "Must relink job ${readjob}!"
-      #echo "${var[0]} ${var[1]} ${var[2]}" >> $CAUSET_HOME_DIR/causet.par
+      #echo "${var[0]} ${var[1]} ${var[2]}" >> $CAUSET_HOME/causet.par
       #continue
     else
       link=link
@@ -116,8 +116,8 @@ for i in $(seq ${#vars[@]}) ; do
     link=link
   fi
 
-  $CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' '"$gpu"' --verbose -y --quiet-read --print --geo-discon 10000000' --partition $partition --nsamples $samples --exclude $exclude
-  #$CAUSET_HOME_DIR/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' '"$gpu"' --verbose -y --core 1 --print' --partition $partition --nsamples $samples --exclude $exclude
+  $CAUSET_HOME/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' '"$gpu"' --verbose -y --quiet-read --print --geo-discon 10000000' --partition $partition --nsamples $samples --exclude $exclude
+  #$CAUSET_HOME/slurm/wrapper/causet_wrp --start $job --readjob $readjob --ncores $ncores --flags '--spacetime '"$spacetime"' --nodes '"$nodes"' --'"$timecut"' '"$age"' --'"$spacecut"' '"$cutoff"' --'"$link"' '"$gpu"' --verbose -y --core 1 --print' --partition $partition --nsamples $samples --exclude $exclude
 done
 
 setnextjob $(($job+1))

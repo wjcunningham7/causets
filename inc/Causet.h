@@ -72,6 +72,7 @@
 #include <FastNumInt.h>
 #include <stopwatch.h>
 #include <printcolor.h>
+#include <progressbar.h>
 
 //Local Files
 #include "Constants.h"
@@ -406,8 +407,16 @@ struct Coordinates5D : Coordinates {
 enum GraphType {
 	RGG,
 	KR_ORDER,
-	RANDOM,
 	_2D_ORDER
+};
+
+//Function used in the Metropolis step
+//of Monte Carlo evolutions of the causal set
+enum WeightFunction {
+	WEIGHTLESS,
+	BD_ACTION_2D,
+	BD_ACTION_3D,
+	BD_ACTION_4D
 };
 
 //Node ID
@@ -478,7 +487,7 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), print_dot(false), growing(false), link(false), relink(false), link_epso(false), has_exact_k(false), binomial(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(false), mpi_split(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_stretch(false), calc_action(false), calc_action_theory(false), calc_chain(false), calc_hubs(false), calc_geo_dis(false), calc_antichain(false), calc_entanglement_entropy(false), calc_foliation(false), calc_dimension(false), strict_routing(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), print_dot(false), growing(false), link(false), relink(false), link_epso(false), evolve(false), has_exact_k(false), binomial(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(true), mpi_split(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_stretch(false), calc_action(false), calc_action_theory(false), calc_chain(false), calc_hubs(false), calc_geo_dis(false), calc_antichain(false), calc_entanglement_entropy(false), calc_foliation(false), calc_dimension(false), calc_smi(false), calc_extrinsic_curvature(false), strict_routing(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
 	bool decode_cpu;		//Decode edge list using serial sort
@@ -489,6 +498,7 @@ struct CausetFlags {
 	bool link;			//Link Nodes after Generation
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
 	bool link_epso;			//Link Nodes in H2 Using EPSO Rule
+	bool evolve;			//Evolve using Metropolis Monte Carlo
 	bool has_exact_k;		//True if there exists an exact expression for <k>
 	bool binomial;			//Use exactly N_tar elements; otherwise choose a Poisson
 					//random variable with mean N_tar
@@ -513,6 +523,8 @@ struct CausetFlags {
 	bool calc_entanglement_entropy;	//Calculate the Entanglement Entropy
 	bool calc_foliation;		//Generate a spacetime foliation
 	bool calc_dimension;		//Estimate the spacetime dimension
+	bool calc_smi;			//Calculate the spacetime mutual information
+	bool calc_extrinsic_curvature;	//Calculate extrinsic curvature of boundaries
 
 	bool strict_routing;		//Use Strict Routing Protocol (see notes)
 	
@@ -524,7 +536,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), spacetime(Spacetime()), N_tar(0), k_tar(0.0), N(0), N_sr(0.0), max_cardinality(0), N_hubs(0), N_gd(0.0), entropy_size(0.0), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), beta(0.0), mu(0.0), gamma(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(1.0), edge_buffer(0.0), gt(RGG), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1), datdir("./dat/") {}
+	NetworkProperties() : flags(CausetFlags()), spacetime(Spacetime()), N_tar(0), k_tar(0.0), N(0), sweeps(0), N_sr(0.0), max_cardinality(0), N_hubs(0), N_gd(0.0), entropy_size(0.0), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), beta(0.0), epsilon(0.0), mu(0.0), gamma(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(1.0), edge_buffer(0.0), gt(RGG), wf(WEIGHTLESS), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1), datdir("./dat/") {}
 
 	CausetFlags flags;
 	Spacetime spacetime;		//Encodes dimension, manifold, region, curvature, and symmetry
@@ -532,6 +544,8 @@ struct NetworkProperties {
 	int N_tar;			//Target Number of Nodes
 	float k_tar;			//Target Average Degree
 	int N;				//Actual Number of Nodes
+
+	unsigned sweeps;		//Number of sweeps used for MMC
 
 	long double N_sr;		//Number of Pairs Used in Success Ratio
 	int max_cardinality;		//Elements used in Action Calculation
@@ -551,6 +565,7 @@ struct NetworkProperties {
 	double delta;			//Node Density
 
 	double beta;			//Inverse Temperature
+	double epsilon;			//Action Smearing Parameter
 	double mu;			//Chemical Potential
 	double gamma;			//Degree Exponent
 
@@ -561,6 +576,7 @@ struct NetworkProperties {
 	float edge_buffer;		//Fraction of edge list added as a buffer
 
 	GraphType gt;			//Type of graph
+	WeightFunction wf;		//Weight function used in MMC
 	long seed;			//Random Seed
 	int graphID;			//Unique Simulation ID
 
@@ -575,7 +591,7 @@ struct NetworkProperties {
 
 //Measured values of the network
 struct NetworkObservables {
-	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), success_ratio(0.0), success_ratio2(0.0), stretch(0.0), cardinalities(NULL), action(0.0f), chaintime(NULL), actth(NULL), longest_chain(0), hub_density(0.0), hub_densities(NULL), geo_discon(0.0), dimension(0.0) {}
+	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), success_ratio(0.0), success_ratio2(0.0), stretch(0.0), cardinalities(NULL), action(0.0f), chaintime(NULL), actth(NULL), longest_chain(0), hub_density(0.0), hub_densities(NULL), geo_discon(0.0), dimension(0.0), smi(NULL), extrinsic_curvature(0.0) {}
 	
 	int N_res;			//Resulting Number of Connected Nodes
 	float k_res;			//Resulting Average Degree
@@ -613,6 +629,10 @@ struct NetworkObservables {
 	std::vector<unsigned int> ax_set;	//Size of Alexandroff set of extremal elements
 
 	float dimension;		//Estimate of dimension (Myrheim-Meyer)
+
+	uint64_t *smi;			//Spacetime Mutual Information Cardinalities;
+
+	float extrinsic_curvature;	//Mean extrinsic curvature of timelike boundaries
 };
 
 //Network object containing minimal unique information
@@ -627,11 +647,12 @@ struct Network {
 	Node nodes;
 	Edge edges;
 	Bitvector adj;
+	Bitvector links;
 };
 
 //Algorithmic Performance
 struct CausetPerformance {
-	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sGenKR(Stopwatch()), sGenRandom(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureAction(Stopwatch()), sMeasureActionTimelike(Stopwatch()), sMeasureThAction(Stopwatch()), sMeasureChain(Stopwatch()), sMeasureHubs(Stopwatch()), sMeasureGeoDis(Stopwatch()), sMeasureFoliation(Stopwatch()), sMeasureAntichain(Stopwatch()), sMeasureDimension(Stopwatch()), sMeasureEntanglementEntropy(Stopwatch()) {}
+	CausetPerformance() : sCauset(Stopwatch()), sCalcDegrees(Stopwatch()), sCreateNetwork(Stopwatch()), sGenerateNodes(Stopwatch()), sGenerateNodesGPU(Stopwatch()), sGenKR(Stopwatch()), sGenRandom(Stopwatch()), sQuicksort(Stopwatch()), sLinkNodes(Stopwatch()), sLinkNodesGPU(Stopwatch()), sMeasureClustering(Stopwatch()), sMeasureConnectedComponents(Stopwatch()), sMeasureSuccessRatio(Stopwatch()), sMeasureAction(Stopwatch()), sMeasureActionTimelike(Stopwatch()), sMeasureThAction(Stopwatch()), sMeasureChain(Stopwatch()), sMeasureHubs(Stopwatch()), sMeasureGeoDis(Stopwatch()), sMeasureFoliation(Stopwatch()), sMeasureAntichain(Stopwatch()), sMeasureDimension(Stopwatch()), sMeasureEntanglementEntropy(Stopwatch()), sMeasureSMI(Stopwatch()), sMeasureExtrinsicCurvature(Stopwatch()) {}
 
 	Stopwatch sCauset;
 	Stopwatch sCalcDegrees;
@@ -656,11 +677,13 @@ struct CausetPerformance {
 	Stopwatch sMeasureAntichain;
 	Stopwatch sMeasureDimension;
 	Stopwatch sMeasureEntanglementEntropy;
+	Stopwatch sMeasureSMI;
+	Stopwatch sMeasureExtrinsicCurvature;
 };
 
 //Benchmark Statistics
 struct Benchmark {
-	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bGenKR(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0), bMeasureAction(0.0), bMeasureChain(0.0), bMeasureHubs(0.0), bMeasureGeoDis(0.0), bMeasureFoliation(0.0), bMeasureAntichain(0.0), bMeasureDimension(0.0), bMeasureEntanglementEntropy(0.0) {}
+	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bGenKR(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0), bMeasureAction(0.0), bMeasureChain(0.0), bMeasureHubs(0.0), bMeasureGeoDis(0.0), bMeasureFoliation(0.0), bMeasureAntichain(0.0), bMeasureDimension(0.0), bMeasureEntanglementEntropy(0.0), bMeasureSMI(0.0), bMeasureExtrinsicCurvature(0.0) {}
 
 	double bCalcDegrees;
 	double bCreateNetwork;
@@ -681,6 +704,8 @@ struct Benchmark {
 	double bMeasureAntichain;
 	double bMeasureDimension;
 	double bMeasureEntanglementEntropy;
+	double bMeasureSMI;
+	double bMeasureExtrinsicCurvature;
 };
 
 //Custom exception class used in this program
@@ -701,6 +726,8 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi);
 
 bool initializeNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
 
+bool evolveNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
+
 bool measureNetworkObservables(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
 
 bool loadNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
@@ -712,7 +739,5 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link
 void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed);
 
 bool linkNodes(Network * const network, CaResources * const ca, CausetPerformance * const cp, const CUcontext &ctx);
-
-bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigned int> candidates, CaResources * const ca, const CUcontext &ctx);
 
 #endif

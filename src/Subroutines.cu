@@ -1263,7 +1263,7 @@ void sendSignal(const MPISignal signal, const int rank, const int num_mpi_thread
 
 //Get all possible chains between a set of pairs of minimal/maximal elements
 //Return values are tuples containing {chain, weight, length}
-std::vector<std::tuple<FastBitset, int, int>> getPossibleChains(Bitvector &adj, Bitvector &subadj, Bitvector &chains, FastBitset *excluded, std::vector<std::pair<int,int>> &endpoints, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, const int min_weight, int &max_weight, int &max_idx, int &end_idx)
+std::vector<std::tuple<FastBitset, int, int> > getPossibleChains(Bitvector &adj, Bitvector &subadj, Bitvector &chains, Bitvector &chains2, FastBitset *excluded, std::vector<std::pair<int,int> > &endpoints, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, const int min_weight, int &max_weight, int &max_idx, int &end_idx)
 {
 	#if DEBUG
 	assert (adj.size() > 0);
@@ -1279,7 +1279,7 @@ std::vector<std::tuple<FastBitset, int, int>> getPossibleChains(Bitvector &adj, 
 
 	static const bool CHAIN_DEBUG = false;
 
-	std::vector<std::tuple<FastBitset, int, int>> possible_chains;
+	std::vector<std::tuple<FastBitset, int, int> > possible_chains;
 	possible_chains.reserve(100);
 
 	FastBitset workspace = FastBitset(N);
@@ -1297,7 +1297,7 @@ std::vector<std::tuple<FastBitset, int, int>> getPossibleChains(Bitvector &adj, 
 		}
 
 		FastBitset longest_chain(N);
-		std::pair<int, int> lw = longestChainGuided(adj, subadj, chains, longest_chain, &workspace, &subworkspace, candidates, lengths, sublengths, N, N_sub, std::get<0>(endpoints[i]), std::get<1>(endpoints[i]), 0);
+		std::pair<int, int> lw = longestChainGuided(adj, subadj, chains, chains2, longest_chain, &workspace, &subworkspace, candidates, lengths, sublengths, N, N_sub, std::get<0>(endpoints[i]), std::get<1>(endpoints[i]), 0);
 
 		if (CHAIN_DEBUG) {
 			printf("weight: %d\n", std::get<0>(lw));
@@ -1385,7 +1385,7 @@ std::vector<std::tuple<FastBitset, int, int>> getPossibleChains(Bitvector &adj, 
 // > and the second index is for the global graph length (used at the very end)
 //The pair returned is (x,y) where x is the longest path in the subgraph
 // > and y is the associated longest path in the graph
-std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvector &chains, FastBitset &longest_chain, FastBitset *workspace, FastBitset *subworkspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level)
+std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvector &chains, Bitvector &chains2, FastBitset &longest_chain, FastBitset *workspace, FastBitset *subworkspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level)
 {
 	#if DEBUG
 	if (!level) {
@@ -1453,6 +1453,7 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 	//These will be passed to the next recursion
 	FastBitset test_chain(N);
 	FastBitset work(N_sub);
+	FastBitset internal_chain(N);
 
 	//Iterate over all bits set to 1
 	for (uint64_t k = 0; k < subworkspace->getNumBlocks(); k++) {
@@ -1478,8 +1479,11 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 				//If this set defined by 'work' is not the null set...
 				if (work.any_in_range(glob_idx, j - glob_idx + 1)) {
 					//Recurse to the next level to traverse elements between glob_idx and j
-					c = longestChainGuided(adj, subadj, chains, test_chain, workspace, &work, candidates, lengths, sublengths, N, N_sub, glob_idx, j, level + 1);
+					c = longestChainGuided(adj, subadj, chains, chains2, test_chain, workspace, &work, candidates, lengths, sublengths, N, N_sub, glob_idx, j, level + 1);
 					if (std::get<0>(c) == -1 || std::get<0>(c) == -1) printChk(5);
+
+					std::get<1>(c) += longestChain_v3(adj, chains2, internal_chain, workspace, lengths, N, candidates[i], candidates[glob_idx], 0);
+
 					//The recursion returned the longest paths in the subgraph and graph, respectively
 					sublengths[glob_idx] = c;
 
@@ -1487,28 +1491,31 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 					schain_length = std::get<0>(c);
 					chain_length = std::get<1>(c);
 
-					if (schain_length > slongest) {
+					if (schain_length > slongest || (schain_length == slongest && chain_length > longest)) {
 						test_chain.partial_clone(chains[candidates[i]], candidates[i] + 1, N - candidates[i] - 1);
 						chains[candidates[i]].set(candidates[glob_idx]);
 						slongest = schain_length;
 						longest = chain_length;
+						chains[candidates[i]].setUnion(internal_chain);
 						chains[candidates[i]].partial_clone(longest_chain, candidates[i] + 1, N - candidates[i] - 1);
 					}
 				} else {	//It is the null set - the elements are directly linked
 					//Then glob_idx and j are directly linked in the subgraph
 					schain_length = 1;
 					//Check if there are other nodes in between glob_idx and j in the original graph
-					chain_length = longestChain_v2(adj, workspace, lengths, N, candidates[glob_idx], candidates[j], 0);
+					//chain_length = longestChain_v2(adj, workspace, lengths, N, candidates[glob_idx], candidates[j], 0);
+					chain_length = longestChain_v3(adj, chains2, internal_chain, workspace, lengths, N, candidates[glob_idx], candidates[j], 0);
 
 					//Record these values in sublengths so this branch
 					//is not traversed again
 					sublengths[glob_idx] = std::make_pair(schain_length, chain_length);
-					if (schain_length > slongest) {
+					if (schain_length > slongest || (schain_length == slongest && chain_length > longest)) {
 						for (int m = candidates[i] + 1; m < N; m++)
 							chains[candidates[i]].unset(m);
 						chains[candidates[i]].set(candidates[glob_idx]);
 						slongest = 1;
 						longest = chain_length;
+						chains[candidates[i]].setUnion(internal_chain);
 						chains[candidates[i]].partial_clone(longest_chain, candidates[i] + 1, N - candidates[i] - 1);
 					}
 				}
@@ -1516,11 +1523,13 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 				//The branch has previously been traversed, so just use those values
 				schain_length = std::get<0>(sublengths[glob_idx]);
 				chain_length = std::get<1>(sublengths[glob_idx]);
+				chain_length += longestChain_v3(adj, chains2, internal_chain, workspace, lengths, N, candidates[i], candidates[glob_idx], 0);
 
-				if (schain_length > slongest) {
+				if (schain_length > slongest || (schain_length == slongest && chain_length > longest)) {
 					chains[candidates[glob_idx]].partial_clone(chains[candidates[i]], candidates[i] + 1, N - candidates[i] - 1);
 					slongest = schain_length;
 					longest = chain_length;
+					chains[candidates[i]].setUnion(internal_chain);
 					chains[candidates[i]].partial_clone(longest_chain, candidates[i] + 1, N - candidates[i] - 1);
 				}
 			}
@@ -1532,8 +1541,8 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 	
 	slongest++;
 	if (outer) {
-		slongest++;
-		longest += longestChain_v2(adj, workspace, lengths, N, candidates[i], candidates[j], 0);
+		//slongest++; longest++;
+		//longest += longestChain_v2(adj, workspace, lengths, N, candidates[i], candidates[j], 0);
 		longest_chain.set(candidates[j]);
 	}
 
@@ -1541,7 +1550,7 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 }
 
 //Version 3 returns the chain of elements as well
-//chains - for each chain, the bitset represents the path to the final node
+//chains - for each chain, the bitset represents the longest path to the final node
 //         by definition, chains[k].read(k) = 1 since node k is the first node in chain[k]
 //longest_chain - the longest chain between the source and destination
 //workspace - temporary workspace used for intersections
@@ -1577,7 +1586,7 @@ int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain
 
 	if (!level) {
 		//If the nodes are not even related, return a distance of -1
-		if (!nodesAreConnected_v2(adj, N, i, j)) { printChk(2); return 0; }
+		if (!nodesAreConnected_v2(adj, N, i, j)) { printChk(2); return -1; }
 		outer = true;
 
 		longest_chain.reset();
@@ -1601,7 +1610,6 @@ int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain
 	for (uint64_t k = 0; k < workspace->getNumBlocks(); k++) {
 		uint64_t block;
 		while ((block = workspace->readBlock(k))) {	//If all bits are zero, continue to the next block
-			int chain_length = 0;
 			test_chain.reset();
 
 			//Find the first bit set in this block
@@ -1609,10 +1617,12 @@ int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain
 			//This index is 'global' - it is the column index in the adj. matrix
 			glob_idx = loc_idx + (k << BLOCK_SHIFT);
 
+			int chain_length = 0;	//Length between glob_idx and j
 			//Have not yet studied between glob_idx and j
 			if (lengths[glob_idx] == -1) {
 				workspace->clone(work);
 				work.partial_intersection(adj[glob_idx], glob_idx, j - glob_idx + 1);
+				//'work' now contains elements between glob_idx and j
 
 				//If there are other nodes in between, continue search
 				if (work.any_in_range(glob_idx, j - glob_idx + 1)) {
@@ -1736,7 +1746,7 @@ int longestChain_v2r(Bitvector &adj, FastBitset *workspace, int *lengths, const 
 
 //Version 2 uses 'lengths' which adds a memory to graph traversal
 //so the same path is not traversed twice
-int longestChain_v2(Bitvector &adj, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level)
+int longestChain_v2(const Bitvector &adj, FastBitset *workspace, int *lengths, const int N, int i, int j, unsigned int level)
 {
 	#if DEBUG
 	if (!level) {
@@ -2085,21 +2095,402 @@ int maximalAntichain(FastBitset &antichain, const Bitvector &adj, const int N, c
 	return (int)antichain.count_bits();
 }
 
-void transitiveClosure(Bitvector &adj, const int N)
+//Produce causal matrix 'adj' given link matrix 'links'
+void transitiveClosure(Bitvector &adj, Bitvector &links, const int N)
 {
 	#if DEBUG
+	assert (adj.size() >= (size_t)N);
 	assert (adj.size() >= (size_t)N);
 	assert (N > 0);
 	#endif
 
+	for (int i = 0; i < N; i++)
+		links[i].clone(adj[i]);
+
 	for (int i = 0; i < N - 1; i++) {
 		for (int j = i + 1; j < N; j++) {
-			if (nodesAreConnected_v2(adj, N, i, j)) continue;
-
-			if (adj[i].partial_vecprod(adj[j], i, j - i + 1)) {
-				adj[i].set(j);
-				adj[j].set(i);
+			if (!nodesAreConnected_v2(adj, N, i, j)) continue;
+			else adj[j].set(i);
+			//adj[i].partial_union(adj[j], j, N - j + 1);
+			for (int k = j + 1; k < N; k++) {
+				if (adj[j].read(k)) {
+					adj[i].set(k);
+					adj[k].set(i);
+				}
 			}
 		}
 	}
 }
+
+//Produce link matrix 'links' given causal matrix 'adj'
+void transitiveReduction(Bitvector &links, Bitvector &adj, const int N)
+{
+	#if DEBUG
+	assert (adj.size() >= (size_t)N);
+	assert (links.size() >= (size_t)N);
+	#endif
+
+	for (int i = 0; i < N; i++)
+		adj[i].partial_clone(links[i], i, N - i);
+
+	for (int i = 0; i < N - 1; i++) {
+		for (int j = i + 1; j < N; j++) {
+			if (!nodesAreConnected_v2(adj, N, i, j)) continue;
+
+			if (adj[i].partial_vecprod(adj[j], i, j - i + 1)) {
+				links[i].unset(j);
+				//links[j].unset(i);
+			}
+		}
+	}
+}
+
+std::pair<unsigned,unsigned> randomLink(Bitvector &links, FastBitset &workspace, MersenneRNG &mrng, const uint64_t nlinks)
+{
+	uint64_t rlink = mrng.rng() * nlinks;
+	if (DEBUG_EVOL)
+		printf("Choosing random link [%" PRIu64 "]\n", rlink);
+
+	uint64_t counter = 0;
+	unsigned row = 0;
+	while ((counter += links[row++].count_bits()) <= rlink) {}
+	counter -= links[--row].count_bits();
+
+	uint64_t column_index = rlink - counter;
+	unsigned column = 0;
+	links[row].clone(workspace);
+	for (uint64_t i = 0; i <= column_index; i++)
+		workspace.unset(column = workspace.next_bit());
+
+	std::pair<unsigned, unsigned> random_link = std::make_pair(row, column);
+	if (DEBUG_EVOL) {
+		printf("random link: (%u, %u)\n", row, column);
+		fflush(stdout);
+	}
+
+	return random_link;
+}
+
+std::pair<unsigned, unsigned> randomAntiRelation(Bitvector &adj, Bitvector &links, FastBitset &workspace, const int N, MersenneRNG &mrng, uint64_t  &nrel)
+{
+	uint64_t counter;
+	//printf("nrel: %" PRIu64 "\n", nrel);
+	for (int i = 0; i < N - 1; i++) {
+		for (int j = i + 1; j < N; j++) {
+			counter = 0;
+			if (adj[i].read(j)) continue;
+			//Check for common pairs BOTH are linked to
+			for (int k = 0; k < i; k++)
+				counter += links[k].read(i) & links[k].read(j);
+			for (int k = j + 1; k < N; k++)
+				counter += links[i].read(k) & links[j].read(k);
+			//Check for common pairs one is linked to, the other is related to
+			for (int k = 0; k < i; k++)
+				counter += links[k].read(j) & adj[k].read(i) & links[k].read(i);
+			for (int k = j + 1; k < N; k++)
+				counter += (links[i].read(k) & adj[j].read(k) & !links[j].read(k));
+			//Check for path completion
+			for (int m = 0; m < i; m++)
+				for (int n = j + 1; n < N; n++)
+					counter += adj[m].read(i) & adj[j].read(n) & links[m].read(n);
+			if (counter) {
+				adj[i].set(j);
+				nrel++;
+			}
+		}
+	}
+
+	if (DEBUG_EVOL) {
+		printf_dbg("Effective Adjacency Matrix:\n");
+		for (int j = 0; j < N; j++)
+			adj[j].printBitset();
+	}
+
+	uint64_t max_rel = (uint64_t)N * (N - 1) >> 1;
+	//printf("nrel: %" PRIu64 "\n", nrel);
+	if (max_rel == nrel) {
+		//printf_dbg("Returning with no anti-relation found.\n");
+		return std::make_pair((unsigned)N, (unsigned)N);
+	}
+	
+	uint64_t rdest = mrng.rng() * (max_rel - nrel);
+	unsigned row = 0;
+	counter = 0;
+
+	if (DEBUG_EVOL)
+		printf("Choosing random anti-relation [%" PRIu64 "]\n", rdest);
+
+	while (counter <= rdest) {
+		counter += N - row - 1 - adj[row].partial_count(row + 1, N - row - 1);
+		row++;
+	}
+	row--;
+	counter -= N - row - 1 - adj[row].partial_count(row + 1, N - row - 1);
+
+	uint64_t column_index = rdest - counter;
+	unsigned column = 0;
+	if (DEBUG_EVOL) {
+		printf("column index: %" PRIu64 "\n", column_index);
+		fflush(stdout);
+	}
+
+	adj[row].clone(workspace);
+	workspace.flip();
+	for (unsigned i = 0; i <= row; i++)
+		workspace.unset(i);
+	for (unsigned i = 0; i <= column_index; i++)
+		workspace.unset(column = workspace.next_bit());
+
+	std::pair<unsigned, unsigned> random_anti_relation = std::make_pair(row, column);
+	if (DEBUG_EVOL) {
+		printf("random anti relation: (%u, %u)\n", row, column);
+		fflush(stdout);
+	}
+
+	return random_anti_relation;
+}
+
+void identifyTimelikeCandidates(std::vector<unsigned> &candidates, int *chaintime, int *iwork, Bitvector &fwork, const Node &nodes, const Bitvector &adj, const Spacetime &spacetime, const int N, Stopwatch &sMeasureExtrinsicCurvature, const bool verbose, const bool bench)
+{
+	#if DEBUG
+	assert (chaintime != NULL);
+	assert (iwork != NULL);
+	//assert (fwork.size() > 0 && fwork.size() == fwork[0].size());
+	assert (nodes.crd != NULL);
+	assert (nodes.k_in != NULL);
+	assert (nodes.k_out != NULL);
+	assert (adj.size() > 0 && adj.size() == adj[0].size());
+	assert (spacetime.stdimIs("2") && spacetime.manifoldIs("Minkowski") && spacetime.curvatureIs("Flat"));
+	assert (N > 0);
+	#endif
+
+	int n = N + (N & 1);
+	uint64_t npairs = (uint64_t)n * (n - 1) >> 1;
+
+	candidates.clear();
+	candidates.swap(candidates);
+
+	memset(chaintime, -1, N * omp_get_max_threads());
+	memset(iwork, -1, N * omp_get_max_threads());
+
+	fwork.clear();
+	fwork.swap(fwork);
+	fwork.reserve(omp_get_max_threads());
+	FastBitset fb((uint64_t)N);
+	for (int i = 0; i < omp_get_max_threads(); i++)
+		fwork.push_back(fb);
+
+	stopwatchStart(&sMeasureExtrinsicCurvature);
+
+	//Identify antichains
+
+	#ifdef _OPENMP
+	#pragma omp parallel for schedule (dynamic, 16) if (npairs > 4096)
+	#endif
+	for (uint64_t k = 0; k < npairs; k++) {
+		unsigned int tid = omp_get_thread_num();
+		uint64_t i = k / (n - 1);
+		uint64_t j = k % (n - 1) + 1;
+		uint64_t do_map = (uint64_t)(i >= j);
+		i += do_map * ((((n >> 1) - i) << 1) - 1);
+		j += do_map * (((n >> 1) - j) << 1);
+
+		if (static_cast<int>(j) == N) continue;
+		if (!!nodes.k_in[i]) continue;
+		if (!nodesAreConnected_v2(adj, N, i, j)) continue;	//Continue if not related
+
+		int length = longestChain_v2(adj, &fwork[tid], &iwork[N*tid], N, i, j, 0);
+		chaintime[tid*N+j] = std::max(chaintime[tid*N+j], length);
+	}
+	stopwatchStop(&sMeasureExtrinsicCurvature);
+	printf_dbg("\tIdentified Antichains: %5.6f sec\n", sMeasureExtrinsicCurvature.elapsedTime);
+	stopwatchReset(&sMeasureExtrinsicCurvature);
+	stopwatchStart(&sMeasureExtrinsicCurvature);
+
+	for (int i = 1; i < omp_get_max_threads(); i++)
+		for (int j = 0; j < N; j++)
+			chaintime[j] = std::max(chaintime[j], chaintime[i*N+j]);
+
+	for (int i = 0; i < N; i++)
+		if (!nodes.k_in[i])
+			chaintime[i] = 0;
+
+	//Length of longest (maximum) chain
+	int maximum_chain = *std::max_element(chaintime, chaintime + N);
+
+	//Identify size of each antichain
+	int *num = (int*)calloc(maximum_chain, sizeof(int));
+	for (int i = 0; i < N; i++)
+		num[chaintime[i]]++;
+
+	//Look for edge elements
+	int cutoff = 10, usable = 0;
+	for (int i = maximum_chain - 1; i >= 0; i--) {
+		if (num[i] > cutoff) {
+			usable = i;
+			break;
+		}
+	}
+
+	//Iterate over antichains
+	int k_threshold = 0;
+	for (int k = 0; k < usable; k++) {
+		float min_k = INF;
+		for (int i = 0; i < N; i++)
+			if (chaintime[i] == k)
+				min_k = std::min(min_k, static_cast<float>(nodes.k_in[i] + nodes.k_out[i]));
+
+		//Identify Candidates
+		for (int i = 0; i < N; i++)
+			if (chaintime[i] == k && nodes.k_in[i] > k_threshold && nodes.k_out[i] > k_threshold && nodes.k_in[i] + nodes.k_out[i] < min_k + 1.5 * sqrt(min_k))
+				candidates.push_back(i);
+	}
+	stopwatchStop(&sMeasureExtrinsicCurvature);
+	printf_dbg("\tIdentified Candidates: %5.6f sec\n", sMeasureExtrinsicCurvature.elapsedTime);
+
+	if (!bench) {
+		printf("\tCalculated Timelike Boundary Candidates.\n");
+		printf_cyan();
+		printf("\t\tIdentified [%zd] Candidates.\n", candidates.size());
+		printf_std();
+		printf("\t\tLongest Maximal Chain: [%d]\n", maximum_chain);
+		printf("\t\t > Usable Bins: [%d]\n", usable);
+	}
+}
+
+#include "NetworkCreator.h"
+
+bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigned int> candidates, CaResources * const ca, const CUcontext &ctx)
+{
+	#ifdef DEBUG
+	assert (candidates.size() > 0);
+	#endif
+
+	printf("\n\tPreparing to Generate Subgraph...\n");
+	fflush(stdout);
+
+	subgraph->network_properties.N = candidates.size();
+
+	subgraph->network_properties.flags.use_gpu = false;	
+	subgraph->network_properties.flags.has_exact_k = false;
+
+	subgraph->network_properties.flags.use_bit = true;
+
+	subgraph->network_properties.flags.calc_clustering = false;
+	subgraph->network_properties.flags.calc_components = false;
+	subgraph->network_properties.flags.calc_success_ratio = false;
+	subgraph->network_properties.flags.calc_action = false;
+
+	subgraph->network_properties.flags.verbose = true;
+	subgraph->network_properties.flags.bench = false;
+
+	subgraph->network_observables.clustering = NULL;
+	subgraph->network_observables.cardinalities = NULL;
+
+	CausetPerformance cp = CausetPerformance();
+	if (!createNetwork(subgraph->nodes, subgraph->edges, subgraph->adj, subgraph->links, subgraph->network_properties.spacetime, subgraph->network_properties.N, subgraph->network_properties.k_tar, subgraph->network_properties.core_edge_fraction, subgraph->network_properties.edge_buffer, subgraph->network_properties.gt, subgraph->network_properties.cmpi, subgraph->network_properties.group_size, ca, cp.sCreateNetwork, subgraph->network_properties.flags.use_gpu, subgraph->network_properties.flags.decode_cpu, subgraph->network_properties.flags.link, subgraph->network_properties.flags.relink, subgraph->network_properties.flags.evolve, subgraph->network_properties.flags.no_pos, subgraph->network_properties.flags.use_bit, subgraph->network_properties.flags.mpi_split, subgraph->network_properties.flags.verbose, subgraph->network_properties.flags.bench, subgraph->network_properties.flags.yes))
+		return false;
+
+	for (int i = 0; i < subgraph->network_properties.N; i++) {
+		if (subgraph->nodes.id.tau != NULL)
+			subgraph->nodes.id.tau[i] = nodes.id.tau[candidates[i]];
+		if (subgraph->nodes.crd->v() != NULL)
+			subgraph->nodes.crd->v(i) = nodes.crd->v(candidates[i]);
+		if (subgraph->nodes.crd->w() != NULL)
+			subgraph->nodes.crd->w(i) = nodes.crd->w(candidates[i]);
+		if (subgraph->nodes.crd->x() != NULL)
+			subgraph->nodes.crd->x(i) = nodes.crd->x(candidates[i]);
+		if (subgraph->nodes.crd->y() != NULL)
+			subgraph->nodes.crd->y(i) = nodes.crd->y(candidates[i]);
+		if (subgraph->nodes.crd->z() != NULL)
+			subgraph->nodes.crd->z(i) = nodes.crd->z(candidates[i]);
+	}
+
+	//int low = 0;
+	//int high = subgraph->network_properties.N - 1;
+	//quicksort(subgraph->nodes, subgraph->network_properties.spacetime, low, high);
+
+	if (!linkNodes(subgraph, ca, &cp, ctx))
+		return false;
+
+	printf("\tGenerated Subgraph from Candidates.\n");
+	fflush(stdout);
+
+	return true;
+}
+
+void identifyBoundaryChains(std::vector<std::tuple<FastBitset, int, int>> &boundary_chains, std::vector<std::pair<int,int>> &pwork, int *iwork, std::pair<int,int> *i2work, Bitvector &fwork, Bitvector &fwork2, Network * const network, Network * const subnet, std::vector<unsigned> &candidates)
+{
+	#if DEBUG
+	assert (network != NULL);
+	assert (subnet != NULL);
+	assert (candidates.size() > 0);
+	#endif
+
+	FastBitset excluded(network->network_properties.N);
+	int min_weight = -1;
+
+	boundary_chains.clear();
+	boundary_chains.swap(boundary_chains);
+	boundary_chains.reserve(100);
+
+	pwork.clear();
+	pwork.swap(pwork);
+	pwork.reserve(1000);
+
+	memset(iwork, -1, network->network_properties.N * omp_get_max_threads());
+	for (int i = 0; i < subnet->network_properties.N; i++)
+		i2work[i] = std::make_pair(-1, -1);
+
+	fwork.clear();
+	fwork.swap(fwork);
+	fwork.reserve(network->network_properties.N);
+	FastBitset fb((uint64_t)network->network_properties.N);
+	for (int i = 0; i < network->network_properties.N; i++)
+		fwork.push_back(fb);
+
+	fwork2.clear();
+	fwork2.swap(fwork2);
+	fwork2.reserve(network->network_properties.N);
+	for (int i = 0; i < network->network_properties.N; i++)
+		fwork2.push_back(fb);
+
+	//Make a list of pairs of endpoints (vector of pairs)
+	for (int i = 0; i < subnet->network_properties.N; i++) {
+		if (!!subnet->nodes.k_in[i]) continue;
+		for (int j = 0; j < subnet->network_properties.N; j++) {
+			if (!!subnet->nodes.k_out[j]) continue;
+			if (!nodesAreConnected_v2(subnet->adj, subnet->network_properties.N, i, j)) continue;
+			pwork.push_back(std::make_pair(std::min(i, j), std::max(i, j)));
+		}
+	}
+	
+	while (pwork.size() > 0) {
+		int max_weight = 0, max_idx = -1, end_idx = -1;
+		std::vector<std::tuple<FastBitset,int,int>> possible_chains = getPossibleChains(network->adj, subnet->adj, fwork, fwork2, &excluded, pwork, candidates, iwork, i2work, network->network_properties.N, subnet->network_properties.N, min_weight, max_weight, max_idx, end_idx);
+		if (end_idx == -1) break;
+
+		boundary_chains.push_back(possible_chains[max_idx]);
+		excluded.setUnion(std::get<0>(possible_chains[max_idx]));
+
+		//If there are multiple paths with the same endpoints, check for that here (not sure how yet)
+
+		pwork.erase(pwork.begin() + end_idx);
+		if (min_weight == -1) { min_weight = 10; }
+
+		if (network->network_properties.spacetime.stdimIs("2") && boundary_chains.size() == 2) break;
+	}
+
+	//Extend chains to maximal and minimal elements
+	/*for (size_t i = 0; i < boundary_chains.size(); i++)
+		std::get<2>(boundary_chains[i]) += rootChain(network->adj, fwork, std::get<0>(boundary_chains[i]), network->nodes.k_in, network->nodes.k_out, iwork, network->network_properties.N);*/
+
+	printf("Identified [%zd] Boundary Chains.\n", boundary_chains.size());
+	fflush(stdout);
+}
+
+/*void fillChain(Bitvector &adj, Bitvector &chains, FastBitset &longest, int * const iwork, const int N)
+{
+	FastBitset workspace(N);
+	
+}*/

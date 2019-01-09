@@ -5,15 +5,15 @@
 ###########################
 
 AC_PREREQ([2.63])
-AC_INIT([CausalSet], [5.0], [w.cunningham@northeastern.edu])
+AC_INIT([CausalSet], [5.2], [wcunningham@perimeterinstitute.ca])
 AM_INIT_AUTOMAKE
 
 if [[ -e /home/$USER/.causet ]] ; then
   source /home/$USER/.causet
 fi
 
-if [[[ "$CAUSET_HOME_DIR" == "" ]]] ; then
-  echo "export CAUSET_HOME_DIR=$PWD" >> /home/$USER/.bashrc
+if [[[ "$CAUSET_HOME" == "" ]]] ; then
+  echo "export CAUSET_HOME=$PWD" >> /home/$USER/.bashrc
   source /home/$USER/.bashrc
 fi
 
@@ -49,7 +49,7 @@ AC_CHECK_LIB([stdc++], [main],, AC_MSG_ERROR([Could not find the library "libstd
 AC_CHECK_LIB([pthread], [fork],, AC_MSG_ERROR([Could not find the library "pthread"]))
 
 AC_CHECK_FILES([src/Causet.cu src/CuResources.cu src/Measurements.cu src/NetworkCreator.cu src/Subroutines.cu src/Validate.cu],, AC_MSG_ERROR([Could not find CausalSet source files.]))
-AC_CHECK_FILES([inc/Causet.h inc/Constants.h inc/Coordinates.h inc/CuResources.h inc/Geodesics.h inc/Measurements.h inc/NetworkCreator.h inc/Operations.h inc/Spacetime.h inc/Subroutines.h inc/Validate.h],, AC_MSG_ERROR([Could not find CausalSet header files.]))
+AC_CHECK_FILES([inc/Causet.h inc/Constants.h inc/Coordinates.h inc/CuResources.h inc/Geodesics.h inc/Measurements.h inc/NetworkCreator.h inc/Operations.h inc/SMI.h inc/Spacetime.h inc/Subroutines.h inc/Validate.h],, AC_MSG_ERROR([Could not find CausalSet header files.]))
 
 AC_CHECK_HEADERS([cassert cmath cstring exception fstream getopt.h inttypes.h iomanip iostream limits math.h pthread.h sstream stdarg.h stddef.h stdint.h stdio.h string sys/io.h unordered_set vector],, AC_MSG_ERROR([Could not find C++ header file.]))
 AC_CHECK_HEADERS([boost/functional/hash/hash.hpp boost/random/mersenne_twister.hpp boost/random/normal_distribution.hpp boost/random/poisson_distribution.hpp boost/random/uniform_real.hpp boost/random/variate_generator.hpp boost/unordered_map.hpp],, AC_MSG_ERROR([Could not find Boost header file.]))
@@ -68,9 +68,9 @@ AC_C_INLINE
 AC_C_CONST
 AC_C_VOLATILE
 
-CXXFLAGS="$CXXFLAGS -O3 -g -Wall -x c++ -DBOOST_NO_FENV_H -mpopcnt"
+CXXFLAGS="$CXXFLAGS -O3 -Wall -x c++ -DBOOST_NO_FENV_H -mpopcnt"
 LDFLAGS="-lstdc++ -lpthread -lm -lgsl -lgslcblas"
-AX_GCC_X86_CPU_SUPPORTS([avx2], [AVXFLAGS="-mavx2 -DAVX2_ENABLED"], AC_MSG_RESULT([AVX2 features will be disabled.]))
+#AX_GCC_X86_CPU_SUPPORTS([avx2], [AVXFLAGS="-mavx2 -DAVX2_ENABLED"], AC_MSG_RESULT([AVX2 features will be disabled.]))
 AX_GCC_X86_CPU_SUPPORTS([popcnt],, AC_MSG_ERROR([CPU does not support the popcnt instruction.]))
 AX_GCC_ARCHFLAG([no],, AC_MSG_ERROR([CPU architecture could not be identified.]))
 AC_SUBST([ARCHFLAGS], [$ax_cv_gcc_archflag])

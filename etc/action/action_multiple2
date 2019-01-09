@@ -80,7 +80,7 @@ for job in range(jobstart, jobend + 1):
 	err[i] = np.std(a) / math.sqrt(len(a))
 	i += 1
 
-basedir = os.environ['CAUSET_HOME_DIR']
+basedir = os.environ['CAUSET_HOME']
 
 if stdim == 2:
 	filename = 'd2_'
