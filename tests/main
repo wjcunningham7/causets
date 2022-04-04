@@ -1,0 +1,209 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2014 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+set -eu -o pipefail
+
+# Generate new graph or study an existing one?
+makenew=true
+# Use cluster (SLURM/PBS/LSF) scripts?
+usecluster=test
+# Cluster test script name, if usecluster=true
+experiment="mcmc"
+
+if [ "$usecluster" == "false" ] ; then
+  if [ "$makenew" == "true" ] ; then
+    $CAUSET_HOME/etc/testbed
+  else
+    $CAUSET_HOME/etc/testbed keep
+  fi
+else
+  $CAUSET_HOME/tests/$experiment
+  exit 0
+fi
+
+# NOTE: The variable used for spacetime may change, and should be cross-referenced with doc/VERSION.
+# The current version is indicated in the file inc/config.h
+
+#####################################
+# These are experimental parameters #
+#####################################
+
+[ "$#" -eq 1 ] && PLATFORM=$1
+
+platform=$PLATFORM
+binary="./CausalSet_${platform}"
+nsamples=1
+nprocs=1
+usegpu=false
+# Set this to profile GPU code
+nvprof=false
+usempi=false
+# Set this to true if you compiled with --enable-mpi,
+# even if you're only using one process
+usempirun=true
+# If in an SLURM environment, this will first
+# allocate resources for the job
+useslurm=false
+# Set to false if you don't have this
+blink=false
+
+#spacetime="--type 2d_order"
+spacetime="--type random"
+
+#type="rgg"
+#st="140400011"
+#spacetime="--type $type --spacetime $st"
+
+nodes=64
+age=1.0
+constraints="--nodes $nodes --age $age"
+#radius=10000
+#alpha=1.0
+#constraints+=" --alpha $alpha --radius $radius"
+
+if [[ "$makenew" == "true" ]] ; then
+  link=""
+  #link="--link"
+  [ $usegpu = true ] && link+=" --gpu"
+
+  measure="--mcmc --beta 0.028531 --weight 4 --epsilon 0.1 --sweeps 100 --clusterflip 0.01"
+  nprocs=1
+
+  #measure="--mcmc --exchange --weight relation --couplings 1,0 --sweeps 5000"
+  #nprocs=32
+
+  #measure="--popanneal --popsize 1024 --sweeps 1 --beta 0.1 --weight relation --runs 8"
+  #nprocs=2
+
+  #measure="--chain"
+  #measure="--action smeared --epsilon 0.1"
+  #measure=""
+
+  xtra="--binomial --print --verbose -y --hdf5"
+
+  postprocess=""
+  #postprocess="$CAUSET_HOME/etc/mkdot $TBDIR/causets/data/hasse/*.dot"
+else
+  basedir=$TBDIR/causets
+  graphs=($(awk '{print $1}' $basedir/etc/data_keys.cset.key))
+  graph=${graphs[${#graphs[@]}-1]}
+
+  link="--link"
+  measure="--action smeared"
+  xtra="--verbose -y --graph ${graph} --nopos"
+  postprocess=""
+fi
+cmd="$spacetime $constraints $link $measure $xtra"
+
+slurm=""
+if [ "$useslurm" = true ] ; then
+  nnodes=1
+  [ "$usempi" = true ] && nnodes=$(awk -F ' |=' '{print $3}' $CAUSET_HOME/mpi/rankfile | uniq | wc -l)
+  ntasks=1
+  [ "$usempi" = true ] && ntasks=$(wc -l < $CAUSET_HOME/mpi/rankfile)
+  #slurm="salloc -N $nnodes -n $ntasks --exclusive"
+  #slurm="salloc -N 1 -n 1 -c 8 --gres=gpu:k2000:1 : -N 1 -n 2 -c 16 --gres=gpu:k40c:2"
+  #slurm="salloc -N 1 -n 2 -c 16 --gpus-per-task=gpu:k40c:1"
+  #slurm="salloc -N 1 -c 28 --gres=gpu:v100:8 --mem=183105M"
+  slurm=""
+fi
+
+if [ "$nvprof" = true ] ; then
+  binary="nvprof --print-gpu-trace $binary"
+  #binary="nvprof --kernels ReplicaInitPacked --metrics all $binary"
+fi
+
+for i in $(seq $nsamples) ; do
+  if [ "$usempi" == "true" ] && [ "$useslurm" == "true" ] ; then
+    #(cd $TBDIR/causets && clear && $slurm mpirun -n 3 -rf $CAUSET_HOME/mpi/rankfile -mca mpi_preconnect_mpi 1 $CAUSET_HOME/mpi/mpiwrapper $CAUSET_HOME/bin $cmd --mpi-split)
+    (cd $TBDIR/causets && clear && $slurm srun -N 1 -n 8 --cpu-bind=cores --mem-bind=prefer --gpu-bind=closest --gres-flags=enforce-binding --het-group=0,1 $CAUSET_HOME/mpi/mpiwrapper $CAUSET_HOME/bin $cmd --mpi-split)
+  elif [ "$usempi" == "true" ] ; then
+    [ "$blink" = true ] && color=$(blink1-tool --rgbread | awk '{print $5}')
+    [ "$blink" = true ] && blink1-tool --rgb=0xee,0x6e,0xee -m 1 &> /dev/null
+    #(cd $TBDIR/causets && clear && mpirun -n 2 -rf $CAUSET_HOME/mpi/rankfile $CAUSET_HOME/mpi/mpiwrapper $CAUSET_HOME/bin $cmd)
+    (cd $TBDIR/causets && clear && mpirun -n $nprocs --oversubscribe $CAUSET_HOME/mpi/mpiwrapper $CAUSET_HOME/bin $cmd)
+    [ "$blink" = true ] && blink1-tool --rgb=$color -m 1 &> /dev/null
+  elif [ "$usempirun" == "true" ] ; then
+    (cd $TBDIR/causets && $slurm mpirun -n 1 $binary $cmd)
+  else
+    [ "$blink" = true ] && color=$(blink1-tool --rgbread | awk '{print $5}')
+    [ "$blink" = true ] && blink1-tool --rgb=0xee,0x6e,0xee -m 1 &> /dev/null
+    (cd $TBDIR/causets && $slurm $binary $cmd)
+    [ "$blink" = true ] && blink1-tool --rgb=$color -m 1 &> /dev/null
+  fi
+  if [[ $nsamples -gt 1 ]] ; then
+    sleep 1
+  fi
+done
+
+[ "$usecluster" == "false" ] && $CAUSET_HOME/etc/rmdat $TBDIR/causets
+
+$postprocess
+
+####################################
+# Examples of How to Use CausalSet #
+####################################
+
+# 1+1 flat Minkowski diamond
+#./bin/CausalSet --spacetime 11274 --nodes 1000 --age 0.5 --link --print
+
+# 1+1 de Sitter, spherical foliation
+#./bin/CausalSet --spacetime 12834 --nodes 24586 --age 1.5707577 --link --print
+
+# 3+1 de Sitter, spherical foliation
+#./bin/CausalSet --spacetime 12836 --nodes 65536 --age 1.2 --buffer 0.3 --link --gpu --print
+
+# 3+1 de Sitter, flat foliation
+#./bin/CausalSet --spacetime 10788 --nodes 122880 --age 0.848152 --slice 4.9997 --buffer 0.3 --link --gpu --print
+
+# 3+1 Dust, flat foliation
+#./bin/CausalSet --spacetime 10820 --nodes 65536 --age 0.848152 --alpha 5 --link --gpu --print
+
+# 3+1 FLRW, flat foliation
+#./bin/CausalSet --spacetime 10884 --nodes 10240 --energy 0.7 --alpha 3 --link --gpu --print
+
+# 1+1 Hyperbolic, reading file 'dat/pos/321.cset.pos.dat'
+#./bin/CausalSet --graph 321 --dim 1 --manifold h --relink --print
+
+########################
+# The Validation Tests #
+########################
+
+# de Sitter Embedding
+#./bin/CausalSet --spacetime 12836 --nodes 20480 --age 1.5 --seed 18100 --buffer 0.3 --link --gpu --embedding 1
+
+# de Sitter Distances
+#./bin/CausalSet --spacetime 12836 --nodes 2048 --age 1.2 --seed 18100 --buffer 0.3 --link --gpu --distances 100
+
+######################################
+# These will reproduce known results #
+######################################
+
+# Note: these spacetime values are for Version 0
+
+# Generate causal set for 1+1 de Sitter (no matter)
+#./bin/CausalSet --spacetime 12834 --nodes 24586 --age 1.5707577 --seed 18100 --link --print
+# Should find k = 5.53, gamma = 2
+
+# Generate causal set for 3+1 de Sitter (no matter)
+#./bin/CausalSet --spacetime 12836 --nodes 25441 --age 1.5296963 --seed 18100 --buffer 0.3 --link --print
+# Should find k = 5.29, gamma = 1.75
+
+# Generate causal set for FLRW universe (mix of dark energy and matter)
+#./bin/CausalSet --spacetime 12932 --nodes 1000887 --age 0.8458 --alpha 2.01 --delta 10000 --seed 18100 --link --gpu --verbose -y --print &> causet.log &
+# Should find k = 727, in-degree given by Fig. (S3), out-degree given by Fig. (3a)
+# Note this takes ~ 3.5 days to run without the GPU!!!
+
+# Read hyperbolic graph data and perform greedy routing algorithm
+#./bin/CausalSet --spacetime 11010 --graph 321 --seed 18100 --verbose -y --success 1
+# Should find a success ratio of 1.0 and a single connected component
+
+# Compare to Dima's Fortran Code
+# Make sure to manually alter parameters in fortran code and re-compile!
+#./bin/CausalSet --spacetime 12932 --graph 22222 --nodes 10240 --age 1.5 --delta 1 --link --gpu --components
+#./etc/dk_stats_direct.pl 22222

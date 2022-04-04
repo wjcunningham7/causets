@@ -1,0 +1,36 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2019 #
+#    Perimeter Institute  #
+###########################
+
+set -eu -o pipefail
+
+project=causet
+experiment=0
+missing=false
+if [ $missing = true ] ; then
+  pfile=$CAUSET_HOME/par/CCA-$experiment.missing.par
+else
+  pfile=$CAUSET_HOME/par/CCA-$experiment.par
+fi
+
+partition=gpubase
+ncores=32
+
+gres="gpu\:p100\:2"
+memory="127518M"
+samples=10
+
+while read -a line ; do
+  job=${line[0]}
+  st=${line[1]}
+  age=${line[2]}
+  n=${line[3]}
+
+  echo "Submitting [JOB $job]: (ST=$st, N=$n)"
+  id=$($CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --partition $partition --ncores $ncores --start $job --nsamples $samples --memory $memory --gres $gres --flags "--type rgg --spacetime $st --nodes $n --age $age --binomial --link --gpu --action smeared --verbose -y --print")
+done < $pfile
+
+mailafter $id CCA-$experiment &> /dev/null

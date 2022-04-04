@@ -37,11 +37,17 @@ void quicksort(Node &nodes, const Spacetime &spacetime, int low, int high);
 
 void quicksort(uint64_t *edges, int64_t low, int64_t high);
 
+void quicksort(std::vector<unsigned> &U, std::vector<unsigned> &V, int64_t low, int64_t high);
+
 void swap(Node &nodes, const Spacetime &spacetime, const int i, const int j);
 
 void swap(uint64_t *edges, const int64_t i, const int64_t j);
 
 void swap(const int * const *& list0, const int * const *& list1, int64_t &idx0, int64_t &idx1, int64_t &max0, int64_t &max1);
+
+void swap(std::vector<unsigned> &U, std::vector<unsigned> &V, int64_t i, int64_t j);
+
+void ordered_labeling(std::vector<unsigned> &U, std::vector<unsigned> &V, std::vector<unsigned> &Unew, std::vector<unsigned> &Vnew);
 
 //Cyclesort Algorithm
 void cyclesort(unsigned int &writes, std::vector<unsigned int> elements, std::vector<std::pair<int,int> > *swaps);
@@ -66,9 +72,9 @@ void dfsearch_v2(const Node &nodes, const Bitvector &adj, const int &N, const in
 int shortestPath(const Node &nodes, const Edge &edges, const int &N, int * const distances, const int start, const int end);
 
 //Array Intersection Algorithms
-void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int64_t &pstart, const int64_t &fstart, bool &too_many);
+void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int64_t &pstart, const int64_t &fstart);
 
-void causet_intersection(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int64_t &pstart, const int64_t &fstart, bool &too_many);
+void causet_intersection(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int64_t &pstart, const int64_t &fstart);
 
 //Format Partial Adjacency Matrix Data
 void readDegrees(int * const &degrees, const int * const h_k, const size_t &offset, const size_t &size);
@@ -79,9 +85,9 @@ void readEdges(uint64_t * const &edges, const bool * const h_edges, Bitvector &a
 void scan(const int * const k_in, const int * const k_out, int64_t * const &past_edge_pointers, int64_t * const &future_edge_pointers, const int &N);
 
 //Overloaded Print Statements
-int printf_dbg(const char * format, ...);
+//int printf_dbg(const char * format, ...);
 
-int printf_mpi(int rank, const char * format, ...);
+//int printf_mpi(int rank, const char * format, ...);
 
 //Check for MPI Errors
 bool checkMpiErrors(CausetMPI &cmpi);
@@ -112,7 +118,10 @@ void mpi_swaps(const std::vector<std::pair<int,int> > swaps, Bitvector &adj, Bit
 void sendSignal(const MPISignal signal, const int rank, const int num_mpi_threads);
 #endif
 
+//Chain/Antichain Identification and Measurement Algorithms
 std::vector<std::tuple<FastBitset, int, int> > getPossibleChains(Bitvector &adj, Bitvector &subadj, Bitvector &chains, Bitvector &chains2, FastBitset *excluded, std::vector<std::pair<int,int> > &endpoints, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, const int min_weight, int &max_weight, int &max_idx, int &end_idx);
+
+std::pair<int,int> longestChainGuided_v2(FastBitset &longest_chain, Bitvector &adj, const Bitvector &subadj, Bitvector &fwork, Bitvector &fwork2, FastBitset &fwork3, FastBitset &fwork4, const std::vector<unsigned> &candidates, int * const iwork, std::pair<int,int> * const i2work, const int N, const int NS, int i, int j, const unsigned level);
 
 std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvector &chains, Bitvector &chains2, FastBitset &longest_chain, FastBitset *workspace, FastBitset *subworkspace, const std::vector<unsigned int> &candidates, int * const lengths, std::pair<int,int> * const sublengths, const int N, const int N_sub, int i, int j, const unsigned int level);
 
@@ -134,18 +143,29 @@ Network find_subgraph(const Network &network, std::vector<unsigned int> candidat
 
 int maximalAntichain(FastBitset &antichain, const Bitvector &adj, const int N, const int seed);
 
+//Transitive Closure and Reduction Algorithms
+void closure(Bitvector &adj, Bitvector &links, const int N, const int source, const int v);
+
 void transitiveClosure(Bitvector &adj, Bitvector &links, const int N);
 
 void transitiveReduction(Bitvector &links, Bitvector &adj, const int N);
 
-std::pair<unsigned,unsigned> randomLink(Bitvector &links, FastBitset &workspace, MersenneRNG &mrng, const uint64_t nlinks);
-
-std::pair<unsigned, unsigned> randomAntiRelation(Bitvector &adj, Bitvector &links, FastBitset &workspace, const int N, MersenneRNG &mrng, uint64_t &nrel);
-
+//Timelike Boundary Algorithms
 void identifyTimelikeCandidates(std::vector<unsigned> &candidates, int *chaintime, int *iwork, Bitvector &fwork, const Node &nodes, const Bitvector &adj, const Spacetime &spacetime, const int N, Stopwatch &sMeasureExtrinsicCurvature, const bool verbose, const bool bench);
 
-bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigned int> candidates, CaResources * const ca, const CUcontext &ctx);
+bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigned int> candidates, CaResources * const ca, CUcontext &ctx);
 
 void identifyBoundaryChains(std::vector<std::tuple<FastBitset, int, int>> &boundary_chains, std::vector<std::pair<int,int>> &pwork, int *iwork, std::pair<int,int> *i2work, Bitvector &fwork, Bitvector &fwork2, Network * const network, Network * const subnet, std::vector<unsigned> &candidates);
+
+//Statistical Analysis for Monte Carlo
+void autocorrelation(double *data, double *acorr, const double * const lags, unsigned nsamples, double &tau_exp, double &tau_exp_err, double &tau_int, double &tau_int_err);
+
+double jackknife(double *jacksamples, double mean, unsigned nsamples);
+
+void specific_heat(double &Cv, double &err, double *action, double mean, double stddev, double beta, unsigned nsamples, unsigned stride);
+
+void free_energy(double &F, double &err, double *action, double mean, double beta, unsigned nsamples, unsigned stride);
+
+void entropy(double &s, double &err, double action_mean, double action_stddev, double free_energy, double free_energy_stddev, double beta, uint64_t npairs, unsigned nsamples);
 
 #endif

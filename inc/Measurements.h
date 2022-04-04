@@ -44,13 +44,13 @@ bool traversePath_v3(const Node &nodes, const Bitvector &adj, bool * const &used
 
 void* actionKernel(void *params);
 
-bool measureAction_v6(uint64_t *& cardinalities, float &action, Bitvector &adj, const Spacetime &spacetime, const int N, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureAction, const bool use_bit, const bool split_mpi, const bool verbose, const bool bench);
+bool measureAction_v6(uint64_t *& cardinalities, double &action, Bitvector &adj, const Spacetime &spacetime, const int N, const double epsilon, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureAction, const bool use_bit, const bool split_mpi, const bool verbose, const bool bench);
 
-bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, const Spacetime &spacetime, const int &N, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench);
+bool measureAction_v5(uint64_t *& cardinalities, double &action, Bitvector &adj, const Spacetime &spacetime, const int &N, const double epsilon, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench);
 
-bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, const Spacetime &spacetime, const int &N, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench);
+bool measureAction_v4(uint64_t *& cardinalities, double &action, Bitvector &adj, const Spacetime &spacetime, const int &N, const double epsilon, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench);
 
-bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, const int * const k_in, const int * const k_out, const Spacetime &spacetime, const int N, const GraphType gt, CaResources * const ca, Stopwatch &sMeasureAction, const bool use_bit, const bool verbose, const bool bench);
+bool measureAction_v3(uint64_t *& cardinalities, double &action, Bitvector &adj, const int * const k_in, const int * const k_out, const Spacetime &spacetime, const int N, const double epsilon, const GraphType gt, CaResources * const ca, Stopwatch &sMeasureAction, const bool use_bit, const bool verbose, const bool bench);
 
 bool timelikeActionCandidates(std::vector<unsigned int> &candidates, int *chaintime, const Node &nodes, Bitvector &adj, const int * const k_in, const int * const k_out, const Spacetime &spacetime, const int &N, CaResources * const ca, Stopwatch sMeasureActionTimelike, const bool &use_bit, const bool &verbose, const bool &bench);
 
@@ -58,7 +58,7 @@ bool measureTimelikeAction(Network * const graph, Network * const subgraph, cons
 
 bool measureTheoreticalAction(double *& actth, int N_actth, const Node &nodes, Bitvector &adj, const Spacetime &spacetime, const int N, const double eta0, const double delta, CaResources * const ca, Stopwatch &sMeasureThAction, const bool verbose, const bool bench);
 
-bool measureChain(int &chain_length, std::pair<int,int> &longest_pair, const Node &nodes, Bitvector &adj, const int N, CaResources * const ca, Stopwatch &sMeasureChain, const bool verbose, const bool bench);
+bool measureChain(Bitvector &longest_chains, int &chain_length, std::pair<int,int> &longest_pair, const Node &nodes, Bitvector &adj, const int N, CaResources * const ca, Stopwatch &sMeasureChain, const bool verbose, const bool bench);
 
 bool measureHubDensity(float &hub_density, float *& hub_densities, Bitvector &adj, const int * const k_in, const int * const k_out, const int N, int N_hubs, CaResources * const ca, Stopwatch &sMeasureHubs, const bool verbose, const bool bench);
 
@@ -72,7 +72,7 @@ bool measureDimension(float &dimension, Bitvector &adj, const Spacetime &spaceti
 
 bool measureSpacetimeMutualInformation(uint64_t *& smi, Bitvector &adj, const Node &nodes, const Spacetime &spacetime, const int N, const double eta0, const double r_max, CaResources * const ca, Stopwatch &sMeasureSMI, const bool verbose, const bool bench);
 
-bool measureExtrinsicCurvature(Network *network, CaResources * const ca, const CUcontext ctx);
+bool measureExtrinsicCurvature(Network *network, CaResources * const ca, CUcontext ctx);
 
 //bool measureEntanglementEntropy(const Bitvector &adj, const Spacetime &spacetime, const int N, Stopwatch &sMeasureEntanglementEntropy, const bool verbose, const bool bench);
 

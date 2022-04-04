@@ -1,0 +1,2 @@
+localhost slots=4
+nerva slots=16

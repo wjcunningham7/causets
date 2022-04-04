@@ -17,6 +17,8 @@ homedir=$CAUSET_HOME
 tbdir=$TBDIR/causets
 mkdir -p $tbdir
 
-rm -rf $tbdir/*
+[ "$#" -eq 0 ] && rm -rf $tbdir/*
 cp $homedir/bin/* $tbdir
+#cp $homedir/*.txt $tbdir
 $homedir/etc/mkdat $tbdir
+wait

@@ -1,0 +1,49 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2020 #
+#    Perimeter Institute  #
+###########################
+
+set -eu -o pipefail
+
+experiment=1
+missing=true
+if [ $missing = true ] ; then
+  if [ -e $CAUSET_HOME/par/QSG-$experiment.$CLUSTERNAME.par ] ; then
+    pfile=$CAUSET_HOME/par/QSG-$experiment.$CLUSTERNAME.par
+  else
+    pfile=$CAUSET_HOME/par/QSG-$experiment.missing.par
+  fi
+else
+  pfile=$CAUSET_HOME/par/QSG-$experiment.par
+fi
+
+config="cedar_cpubase"
+configdata=($($CAUSET_HOME/cluster/slurm/slurm_config $config))
+partition=${configdata[0]}
+gres=${configdata[1]}
+memory=${configdata[2]}
+ncores=${configdata[3]}
+
+mkdir -p $SCRATCH/data
+tpfile=$(mktemp -p $SCRATCH/data)
+#sort -n -k4 $pfile > $tpfile
+cat $pfile > $tpfile
+
+while read -a line ; do
+  job=${line[0]}
+  gtype=${line[1]}
+  st=${line[2]}
+  n=${line[3]}
+  t=${line[4]}
+  sweeps=${line[5]}
+  b=${line[6]}
+
+  echo "Submitting Job [$job]"
+  id=$($CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --partition $partition --ncores $ncores --start $job --memory $memory --gres $gres --flags "--type $gtype --spacetime $st --nodes $n --age $t --sweeps $sweeps --beta $b --evolve --binomial --link --verbose -y --print --hdf5")
+done < $tpfile
+
+rm -f $tpfile
+
+mailafter $id QSG-$experiment &> /dev/null

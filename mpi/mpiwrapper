@@ -1,0 +1,33 @@
+#!/bin/bash
+
+source $HOME/.bashrc
+rootdir="$1"
+LOCALRANK=-1
+NTHREADS=1
+[ "$OMP_NUM_THREADS" == "" ] && OMP_NUM_THREADS=$(grep processor /proc/cpuinfo | wc -l)
+#OMP_NUM_THREADS=32
+if [ "$OMPI_COMM_WORLD_LOCAL_RANK" != "" ] ; then
+  LOCALRANK=$OMPI_COMM_WORLD_LOCAL_RANK
+  NTHREADS=$(($OMP_NUM_THREADS/$OMPI_COMM_WORLD_LOCAL_SIZE))
+elif [ "$SLURM_LOCALID" != "" ] ; then
+  LOCALRANK=$SLURM_LOCALID
+  if [ "$SLURM_HET_SIZE" -gt 1 ] ; then
+    NODEID=$SLURM_NODEID
+    NTHREADS=`printenv SLURM_CPUS_PER_TASK_HET_GROUP_$NODEID`
+  else
+    NTHREADS=$SLURM_CPUS_PER_TASK
+  fi
+else
+  echo "Failed to identify local rank ID."
+  exit 1
+fi
+
+if [ $LOCALRANK -eq 0 ] ; then
+  [ "$rootdir" == "$TBDIR/causets" ] && [ -d $TBDIR/causets ] && cp $CAUSET_HOME/bin/CausalSet_$PLATFORM $TBDIR/causets
+else
+  sleep 1 # We don't want the same file being copied multiple times
+fi
+flags="${@:2}"
+export OMP_NUM_THREADS=$NTHREADS
+
+$rootdir/CausalSet_$PLATFORM $flags

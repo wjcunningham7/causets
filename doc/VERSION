@@ -96,7 +96,7 @@ VERSION 3.x
 ===========
 
 STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
-================================================================================
+===============================================================================
 1+1     MINKOWSKI       SLAB            FLAT            SYMMETRIC       880010A 
 1+1     MINKOWSKI       SLAB_T1         FLAT            SYMMETRIC       880020A 
 1+1     MINKOWSKI       SLAB_S1         FLAT            SYMMETRIC       880080A 
@@ -124,7 +124,7 @@ VERSION 4.x
 ===========
 
 STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
-================================================================================
+===================================================================================
 2       Minkowski       Slab            Flat            Temporal        24000209000
 2       Minkowski       Slab            Positive        Temporal        22000209000
 2       Minkowski       Diamond         Flat            None            14040009000
@@ -148,15 +148,19 @@ STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
 4       FLRW            Slab            Positive        None            12000284000
 4       FLRW            Diamond         Flat            None            14040084000
 
-VERSION 5.x
+VERSION 5.0
 ===========
 
 STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
-================================================================================
+=================================================================================
 2       Minkowski       Slab            Flat            Temporal        120000811
 2       Minkowski       Slab            Positive        Temporal        110000811
+2       Minkowski       Slab_T2         Flat            Temporal        120002011
 2       Minkowski       Slab_TS         Flat            Temporal        120004011
+2       Minkowski       Slab_N2         Flat            None            A0040011
+2       Minkowski       Slab_N2         Flat            Temporal        120040011
 2       Minkowski       Slab_N3         Flat            None            A0080011
+2       Minkowski       Half_Diamond    Flat            None            A0100011
 2       Minkowski       Diamond         Flat            None            A0200011
 2       Minkowski       Saucer_T        Flat            None            A0400011
 2       Minkowski       Saucer_T        Flat            Temporal        120400011
@@ -170,11 +174,17 @@ STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
 2       Hyperbolic      Slab            Flat            None            A0000A01
 2       Hyperbolic      Slab            Positive        None            90000A01
 3       Minkowski       Slab            Flat            Temporal        120000812
+3       Minkowski       Slab_T2         Flat            Temporal        120002012
+3       Minkowski       Half_Diamond    Flat            None            A0100012
 3       Minkowski       Diamond         Flat            None            A0200012
 3       Minkowski       Cube            Flat            None            A8000012
 3       De_Sitter       Diamond         Flat            None            A0200022
 3       Dust            Diamond         Flat            None            A0200082
+4       Minkowski       Slab            Flat            None            A0000814
+4       Minkowski       Slab_T2         Flat            Temporal        120002014
+4       Minkowski       Half_Diamond    Flat            None            A0100014
 4       Minkowski       Diamond         Flat            None            A0200014
+4       Minkowski       Cube            Flat            None            A8000014
 4       De_Sitter       Slab            Flat            None            A0000824
 4       De_Sitter       Slab            Positive        None            90000824
 4       De_Sitter       Slab            Positive        Temporal        110000824
@@ -186,3 +196,58 @@ STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
 4       FLRW            Slab            Positive        None            90000904
 4       FLRW            Diamond         Flat            None            A0200104
 5       Minkowski       Diamond         Flat            None            A0200018
+
+VERSION 5.3
+===========
+
+STDIM	MANIFOLD	REGION		CURVATURE	SYMMETRY	ID
+=================================================================================
+2       Minkowski       Slab            Flat            Temporal        240000811
+2       Minkowski       Slab            Positive        Temporal        220000811
+2       Minkowski       Slab_T1         Flat            Temporal        240001011
+2       Minkowski       Slab_T2         Flat            Temporal        240002011
+2       Minkowski       Slab_TS         Flat            Temporal        240004011
+2       Minkowski       Slab_S1         Flat            Temporal        240008011
+2       Minkowski       Slab_N2         Flat            None            140040011
+2       Minkowski       Slab_N2         Flat            Temporal        240040011
+2       Minkowski       Slab_N3         Flat            None            140080011
+2       Minkowski       Half_Diamond    Flat            None            140100011
+2       Minkowski       Half_Diamond_T  Flat            Temporal        240200011
+2       Minkowski       Diamond         Flat            None            140400011
+2       Minkowski       Saucer_T        Flat            None            140800011
+2       Minkowski       Saucer_T        Flat            Temporal        240800011
+2       Minkowski       Saucer_S        Flat            Temporal        241000011
+2       Minkowski       Triangle_T      Flat            Temporal        242000011
+2       Minkowski       Triangle_S      Flat            None            144000011
+2       De_Sitter       Slab            Positive        None            120000821
+2       De_Sitter       Slab            Positive        Temporal        220000821
+2       De_Sitter       Slab            Negative        None            180000821
+2       De_Sitter       Diamond         Flat            None            140400021
+2       Dust            Diamond         Flat            None            140400081
+2       Hyperbolic      Slab            Flat            None            140000A01
+2       Hyperbolic      Slab            Positive        None            120000A01
+3       Minkowski       Slab            Flat            Temporal        240000812
+3       Minkowski       Slab_T2         Flat            Temporal        240002012
+3       Minkowski       Half_Diamond    Flat            None            140100012
+3       Minkowski       Diamond         Flat            None            140400012
+3       Minkowski       Saucer_T        Flat            Temporal        240800012
+3       Minkowski       Cube            Flat            None            150000012
+3       De_Sitter       Diamond         Flat            None            140400022
+3       Dust            Diamond         Flat            None            140400082
+4       Minkowski       Slab            Flat            None            140000814
+4       Minkowski       Slab_T2         Flat            Temporal        240002014
+4       Minkowski       Half_Diamond    Flat            None            140100014
+4       Minkowski       Diamond         Flat            None            140400014
+4       Minkowski       Saucer_T        Flat            Temporal        240800014
+4       Minkowski       Cube            Flat            None            150000014
+4       De_Sitter       Slab            Flat            None            140000824
+4       De_Sitter       Slab            Positive        None            120000824
+4       De_Sitter       Slab            Positive        Temporal        220000824
+4       De_Sitter       Diamond         Flat            None            140400024
+4       De_Sitter       Diamond         Positive        None            120400024
+4       Dust            Slab            Flat            None            140000884
+4       Dust            Diamond         Flat            None            140400084
+4       FLRW            Slab            Flat            None            140000904
+4       FLRW            Slab            Positive        None            120000904
+4       FLRW            Diamond         Flat            None            140400104
+5       Minkowski       Diamond         Flat            None            140400018

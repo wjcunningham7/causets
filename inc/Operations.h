@@ -489,9 +489,15 @@ inline bool nodesAreRelated(Coordinates *c, const Spacetime spacetime, const int
 			#endif
 		} else
 			dx = fabs(c->y(future_idx) - c->y(past_idx));
-	} else if (spacetime.stdimIs("3"))
-		dx = sqrtf(flatProduct_v2(c->getFloat3(past_idx), c->getFloat3(future_idx)));
-	else if (spacetime.stdimIs("4")) {
+	} else if (spacetime.stdimIs("3")) {
+		if (spacetime.curvatureIs("Flat"))
+			dx = sqrtf(flatProduct_v2(c->getFloat3(past_idx), c->getFloat3(future_idx)));
+		else if (spacetime.curvatureIs("Positive")) {
+			float dX = M_PI - fabs(M_PI - fabs(c->y(future_idx) - c->y(past_idx)));
+			float dY = M_PI - fabs(M_PI - fabs(c->z(future_idx) - c->z(past_idx)));
+			dx = sqrtf(POW2(dX) + POW2(dY));
+		}
+	} else if (spacetime.stdimIs("4")) {
 		if (spacetime.curvatureIs("Positive")) {
 			//Spherical Law of Cosines
 			#if EMBED_NODES
@@ -611,7 +617,8 @@ inline bool iad(const float eta, const float x, const double eta_min, const doub
 //Check if point is inside symmetric diamond
 inline bool isd(const float eta, const float x, const float eta0)
 {
-	return eta > -eta0 && ((eta < 0.0 && fabs(x) < eta) || (eta > 0.0 && fabs(x) < eta0 - eta));
+	//return eta > -eta0 && ((eta < 0.0 && fabs(x) < -eta0 - eta) || (eta > 0.0 && fabs(x) < eta0 - eta));
+	return fabs(eta) < eta0 && fabs(x) < eta0 - fabs(eta);
 }
 
 //=================================//
@@ -896,6 +903,16 @@ inline double eta_77834_1(double x, double eta0)
 	#endif
 }
 
+inline double r_240800011_6(double t, double K)
+{
+	#if DEBUG
+	assert (fabs(t) <= 0.5);
+	assert (K >= 0.0);
+	#endif
+
+	return sqrt(0.25 + pow(K, -2.0)) - sqrt(POW2(t) + pow(K, -2.0));
+}
+
 //-----------------------------------//
 // Volume in 1+1 Minkowski Slab (S1) //
 //-----------------------------------//
@@ -1137,19 +1154,17 @@ inline double averageDegree_12932_0_b(double eta, void *params)
 
 //Calculate the action from the abundancy intervals
 //The parameter 'lk' is taken to be expressed in units of the graph discreteness length 'l'
-inline double calcAction(const uint64_t * const cardinalities, const int stdim, const double &lk, const bool &smeared)
+inline double calcAction(const uint64_t * const cardinalities, const int stdim, const double &epsilon)
 {
 	#if DEBUG
 	assert (cardinalities != NULL);
 	assert (stdim >= 2 && stdim <= 5);
-	assert (lk > 0.0);
+	assert (epsilon > 0.0 && epsilon <= 1.0);
 	#endif
 
 	long double action = 0.0;
 
-	if (smeared) {
-		//long double epsilon = static_cast<long double>(pow(lk, -stdim));
-		long double epsilon = 0.21;
+	if (epsilon < 1.0) {
 		long double eps1 = epsilon / (1.0 - epsilon);
 		long double eps2 = eps1 * eps1;
 		long double eps3 = eps2 * eps1;
@@ -1163,8 +1178,7 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 		for (i = 0; i < cardinalities[0] - 3; i++) {
 			ni = static_cast<long double>(cardinalities[i+1]);
 			if (stdim == 2)
-				//action += ni * epsi * (1.0 - 2.0 * eps1 * i + 0.5 * eps2 * i * (i - 1.0));
-				action += ni * epsi * (1.0 - 4.0 * eps1 * i + 2.5 * eps2 * i * (i - 1.0) - eps3 * i * (i - 1.0) * (i - 2.0) / 3.0);
+				action += ni * epsi * (1.0 - 2.0 * eps1 * i + 0.5 * eps2 * i * (i - 1.0));
 			else if (stdim == 3)
 				action += ni * epsi * (1.0 - c3_1 * i * eps1 + c3_2 * i * (i - 1.0) * eps2);
 			else if (stdim == 4)
@@ -1177,8 +1191,7 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 		}
 
 		if (stdim == 2)
-			//action = 2.0 * epsilon * (cardinalities[0] - 2.0 * epsilon * action);
-			action = epsilon * (cardinalities[0] - 6.0 * epsilon * action);
+			action = 2.0 * epsilon * (cardinalities[0] - 2.0 * epsilon * action);
 		else if (stdim == 3)
 			action = pow(M_PI / (3.0 * sqrt(2.0)), 2.0 / 3.0) / GAMMA(5.0 / 3.0) * (pow(epsilon, 2.0 / 3.0) * cardinalities[0] - pow(epsilon, 5.0 / 3.0) * action);
 		else if (stdim == 4)
@@ -1201,6 +1214,16 @@ inline double calcAction(const uint64_t * const cardinalities, const int stdim, 
 	}
 
 	return static_cast<double>(action);
+}
+
+//////////////////////////
+// Monte Carlo Analysis //
+//////////////////////////
+
+inline double specific_heat(double *data, size_t stride, size_t nvals, double beta)
+{
+	double variance = gsl_stats_variance(data, stride, nvals);
+	return beta * beta * variance;
 }
 
 #endif

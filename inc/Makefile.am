@@ -7,4 +7,4 @@
 AUTOMAKE_OPTIONS = foreign
 ACLOCAL_AMFLAGS = -I m4 --install
 
-include_HEADERS = Causet.h config.h Constants.h Coordinates.h CuResources.h Geodesics.h Measurements.h NetworkCreator_GPU.h NetworkCreator.h Operations_GPU.h Operations.h SMI.h Spacetime.h Subroutines_GPU.h Subroutines.h Validate.h
+include_HEADERS = Anneal.h AnnealKernels.h Causet.h config.h Constants.h Coordinates.h CuResources.h Geodesics.h MarkovChain.h Measurements.h NetworkCreator_GPU.h NetworkCreator.h Operations_GPU.h Operations.h SMI.h Spacetime.h Subroutines_GPU.h Subroutines.h Validate.h

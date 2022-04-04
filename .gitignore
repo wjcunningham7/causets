@@ -39,3 +39,4 @@ printcolor/Makefile.in
 
 .stfolder/**
 .stignore
+tags

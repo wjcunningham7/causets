@@ -1,0 +1,52 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2019 #
+#    Perimeter Institute  #
+###########################
+
+set -eu -o pipefail
+
+experiment=8
+missing=false
+if [ $missing = true ] ; then
+  if [ -e $CAUSET_HOME/par/TLA-$experiment.$CLUSTERNAME.par ] ; then
+    pfile=$CAUSET_HOME/par/TLA-$experiment.$CLUSTERNAME.par
+  else
+    pfile=$CAUSET_HOME/par/TLA-$experiment.missing.par
+  fi
+else
+  pfile=$CAUSET_HOME/par/TLA-$experiment.par
+fi
+
+#config="discovery_gpu_k40"
+config="beluga_gpubase"
+configdata=($($CAUSET_HOME/cluster/slurm/slurm_config $config))
+partition=${configdata[0]}
+gres=${configdata[1]}
+memory=${configdata[2]}
+ncores=${configdata[3]}
+
+minsamples=10
+maxsamples=100
+
+mkdir -p $SCRATCH/data
+tpfile=$(mktemp -p $SCRATCH/data)
+sort -n -k4 $pfile > $tpfile
+
+while read -a line ; do
+  job=${line[0]}
+  st=${line[1]}
+  n=${line[3]}
+
+  samples=$((10*$maxsamples/$n))
+  [[ $samples -lt $minsamples ]] && samples=$minsamples
+  [[ $samples -gt $maxsamples ]] && samples=$maxsamples
+
+  echo "Submitting Job [$job]: (ST=$st, N=$n)"
+  id=$($CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --partition $partition --ncores $ncores --start $job --nsamples $samples --memory $memory --gres $gres --flags "--type rgg --spacetime $st --nodes $n --age 1 --binomial --link --gpu --chain --verbose -y --print --hdf5")
+done < $tpfile
+
+rm -f $tpfile
+
+mailafter $id TLA-$experiment &> /dev/null

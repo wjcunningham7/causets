@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -eu -o pipefail
+
+[ $# -lt 1 ] && echo "Arguments are [configname]." && exit 1
+
+case "$1" in
+  "discovery_gpu_k40")
+    partition=gpu
+    gres="gpu\:k40m\:1"
+    memory=128000M
+    ncores=24 ;;
+  "graham_gpubase_t4")
+    partition=gpubase
+    gres="gpu\:t4\:1"
+    memory=191840M
+    ncores=44 ;;
+  "graham_gpubase_v100")
+    partition=gpubase
+    gres="gpu\:v100\:8"
+    memory="183105M"
+    ncores=28 ;;
+  "beluga_gpubase")
+    partition=gpubase
+    gres="gpu\:1"
+    memory=191000M
+    ncores=40 ;;
+  "cedar_cpubase")
+    partition=cpubase
+    gres="''"
+    memory=128000M
+    ncores=32 ;;
+  *) echo "Configuration [$1] not found." ; exit 2 ;;
+esac
+
+echo "$partition $gres $memory $ncores"

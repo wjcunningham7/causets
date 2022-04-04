@@ -15,7 +15,9 @@
 #define omp_get_max_threads() 1
 #endif
 #include <stdio.h>
-#include <FastBitset.h>
+#include <fastmath/fastbitset.h>
+
+using namespace fastmath;
 
 inline uint64_t hex_to_u64(const char *hex64)
 {
@@ -43,7 +45,7 @@ class Spacetime
 public:
 	static constexpr const char *stdims[] = { "2", "3", "4", "5" };
 	static constexpr const char *manifolds[] = { "Minkowski", "De_Sitter", "Anti_de_Sitter", "Dust", "FLRW", "Hyperbolic", "Polycone" };
-	static constexpr const char *regions[] = { "Slab", "Slab_T1", "Slab_T2", "Slab_TS", "Slab_S1", "Slab_S2", "Slab_N1", "Slab_N2", "Slab_N3", "Half_Diamond", "Diamond", "Saucer_T", "Saucer_S", "Triangle_T", "Triangle_S", "Triangle_N", "Cube" };
+	static constexpr const char *regions[] = { "Slab", "Slab_T1", "Slab_T2", "Slab_TS", "Slab_S1", "Slab_S2", "Slab_N1", "Slab_N2", "Slab_N3", "Half_Diamond", "Half_Diamond_T", "Diamond", "Saucer_T", "Saucer_S", "Triangle_T", "Triangle_S", "Triangle_N", "Cube" };
 	static constexpr const char *curvatures[] = { "Positive", "Flat", "Negative" };
 	static constexpr const char *symmetries[] = { "None", "Temporal" };
 
@@ -206,8 +208,8 @@ public:
 		s << std::hex << hs;
 		for (uint64_t i = 0; i <= s.str().size() >> 16; i++)
 			this->spacetime->writeBlock(hex_to_u64(&hs[i<<16]), i);
-		//spacetime->printBitset();
-		this->set = true;
+		if (this->spacetime->any())
+			this->set = true;
 	}
 
 private:

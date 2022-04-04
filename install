@@ -1,3 +1,16 @@
 #!/bin/bash
 
 sh ./bootstrap.sh && ./configure "$@" && ./etc/mkdat && make clean && make
+if [ ! -z "$CLUSTERNAME" ] ; then
+  if [ -e $CAUSET_HOME/cluster/slurm/batch/compile_$CLUSTERNAME ] ; then
+    ln -fs $CAUSET_HOME/cluster/slurm/batch/compile_$CLUSTERNAME $CAUSET_HOME/etc/compile
+  fi
+  if [ -e $CAUSET_HOME/cluster/slurm/batch/compress_$CLUSTERNAME ] ; then
+    ln -fs $CAUSET_HOME/cluster/slurm/batch/compress_$CLUSTERNAME $CAUSET_HOME/etc/compress
+  fi
+fi
+
+if [ ! -z "$TBDIR" ] ; then
+  mkdir -p $TBDIR/causets
+  ln -fs $TBDIR/causets testbed
+fi

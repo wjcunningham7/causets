@@ -1,0 +1,22 @@
+#!/bin/bash
+
+#SBATCH -J cpl
+#SBATCH -o compile.log
+#SBATCH -N 1
+#SBATCH -c 1
+#SBATCH -p gpu
+#SBATCH --gres=gpu:k40m:1
+#SBATCH --mail-user=wjcunningham7@gmail.com
+#SBATCH --mail-type=BEGIN
+
+export PLATFORM=gpu_k40
+export CUDA_ARCH=sm_35
+
+cd $PROJECTS/fastmath
+./install && make install
+
+cd $CAUSET_HOME
+./install --enable-cuda
+./test
+
+wait

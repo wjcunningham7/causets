@@ -25,8 +25,9 @@ if not (stdim == 2 or stdim == 4):
 	sys.stdout.write('Invalid parameter: [stdim]');
 	sys.exit(2)
 
-basedir = ''
+basedir = '/data/testbed/causets/'
 act_files = glob.glob(basedir + 'dat/act/*.cset.act.dat')
+#act_files = glob.glob(basedir + 'dat/smi/*.cset.smi.dat')
 a = []
 c = []
 
@@ -49,8 +50,9 @@ for file in act_files:
 	h.close()
 	
 	if smeared:
-		lk = 4.0
-		epsilon = math.pow(lk, -stdim)
+		#lk = 5.0
+		#epsilon = math.pow(lk, -stdim)
+		epsilon = 0.1
 		eps1 = epsilon / (1.0 - epsilon)
 		for i in range(0, c[0] - 2):
 			ni = float(c[i+1])
@@ -74,7 +76,7 @@ for file in act_files:
 
 avg_action = np.mean(a)
 std_action = np.std(a)
-stderr = std_action #/ math.sqrt(len(act_files))
+stderr = std_action / math.sqrt(len(act_files))
 
 basedir = './dat/ref/'
 
@@ -93,5 +95,7 @@ for i in range(0,len(act_files)):
 	h.write(str(a[i]) + '\n')
 h.close()
 
-sys.stdout.write('Average Action: %f \xC2\xB1 %f\n' % (avg_action, stderr))
+#sys.stdout.write('Average Action: %f \xC2\xB1 %f\n' % (avg_action, stderr))
+sys.stdout.write('Average Action: %f \xB1 %f\n' % (avg_action, stderr))
+sys.stdout.write('Used [%d] samples\n' % len(act_files))
 sys.stdout.write('Completed ACT.\n')

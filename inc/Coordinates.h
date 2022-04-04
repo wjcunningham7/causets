@@ -321,6 +321,24 @@ inline float get_2d_asym_sph_hyperbolic_slab_nonuniform_radius(UGenerator &rng, 
 #define get_3d_sym_flat_minkowski_slab_theta(rng) \
 	get_azimuthal_angle(rng)
 
+////////////////////////////////
+// 3-D Minkowski Slab         //
+// Positive Curvature (Torus) //
+// Symmetric About Eta        //
+////////////////////////////////
+
+//Returns a value for eta
+#define get_3d_sym_sph_minkowski_slab_eta(rng, eta0) \
+	get_uniform_symmetric(rng, eta0)
+
+//Returns a value for x
+#define get_3d_sym_sph_minkowski_slab_x(rng) \
+	get_azimuthal_angle(rng)
+
+//Returns a value for y
+#define get_3d_sym_sph_minkowski_slab_y(rng) \
+	get_azimuthal_angle(rng)
+
 ///////////////////////////
 // 3-D Minkowski Diamond //
 // Flat Curvature        //

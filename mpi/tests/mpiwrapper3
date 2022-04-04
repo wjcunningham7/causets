@@ -1,0 +1,4 @@
+#!/bin/bash
+
+source $HOME/.bashrc
+echo $(hostname)": "$(printenv SLURM_NODEID)

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source $HOME/.bashrc
+echo $(hostname)": "$(printenv SLURM_NODEID)" Launching Task with ["$(printenv OMP_NUM_THREADS)"] Threads.]"
+$CAUSET_HOME/bin/CausalSet_$(printenv PLATFORM) --type rgg --spacetime 140400021 --nodes 131072 --age 1.0 --binomial --link --gpu --mpi-split

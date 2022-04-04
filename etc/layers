@@ -1,0 +1,86 @@
+#!/usr/bin/env python
+
+import fileinput
+import glob
+import numpy as np
+import scipy.stats as sps
+import sys
+
+#basedir = '/data/testbed/causets/'
+basedir = './'
+if len(sys.argv) >= 2:
+	basedir = sys.argv[1]
+	basedir += "/"
+
+xfiles = sorted(glob.glob(basedir + 'data/positions/*.cset.pos.dat'))
+lfiles = sorted(glob.glob(basedir + 'data/layers/*.cset.lay.dat'))
+dfiles = sorted(glob.glob(basedir + 'data/layer_degrees/*.cset.ldg.dat'))
+
+if len(xfiles) == 0 or len(lfiles) != len(xfiles) or len(dfiles) != len(xfiles):
+	print("There is a file error.")
+	sys.exit(1)
+
+nfiles = len(xfiles)
+corr = []
+for i in range(nfiles):
+	with open(xfiles[i]) as xf:
+		x = [ float(line.split()[1]) for line in xf.readlines() ]
+
+	with open(lfiles[i]) as lf:
+		xlayers = [ [ x[int(el)] for el in lline.rstrip().split() ] for lline in lf.readlines() ]
+
+	with open(dfiles[i]) as df:
+		degrees = [ [ int(deg) for deg in dline.rstrip().split() ] for dline in df.readlines() ]
+
+	corr.append([ np.corrcoef(xl, d)[0, 1] if len(set(d)) > 1 else -1.0 for xl, d in zip(xlayers, degrees) ])
+
+minc = min([ len(c) for c in corr ])
+avg_corr = np.mean([ c[:minc] for c in corr ], axis=0)
+for i, ac in enumerate(avg_corr):
+	print(i / minc, ac)
+sys.exit(0)
+
+xfilename = "testbed/ST-240200011_x_dist.cset.dbg.dat"
+xpos = open(xfilename)
+xlines = xpos.readlines()
+x = []
+for line in xlines:
+	x.append(float(line))
+xpos.close()
+
+lfile = open("testbed/layers.dat")
+layers = []
+idx = 0
+for line in lfile.readlines():
+	layers.append([])
+	elements = line.rstrip().split()
+	for el in elements:
+		layers[idx].append(int(el))
+	idx += 1
+lfile.close()
+
+outfile = "testbed/pearson.dat"
+pf = open(outfile, 'w')
+
+dfile = open("testbed/layer_degrees.dat")
+idx = 0
+for line in dfile.readlines():
+	elements = line.rstrip().split()
+	if len(elements) == 1:
+		pf.write('0\n')
+		idx += 1
+		continue
+
+	x_el = []
+	k_el = []
+	idx2 = 0
+	for el in elements:
+		x_el.append(x[layers[idx][idx2]])
+		k_el.append(int(el))
+		idx2 += 1
+	
+	pcorr = np.corrcoef(x_el, k_el)[0, 1]
+	pf.write(str(pcorr) + '\n')
+	idx += 1
+dfile.close()
+pf.close()

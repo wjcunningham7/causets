@@ -1,0 +1,15 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2019 #
+#    Perimeter Institute  #
+###########################
+
+set -eu -o pipefail
+
+basedir='.'
+
+[ $# -eq 1 ] && basedir="$1"
+[ ! -d $basedir/data ] && exit 1
+
+(cd $basedir/data && find . -type d -empty -delete)

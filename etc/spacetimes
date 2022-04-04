@@ -20,7 +20,7 @@ outfile=$CAUSET_HOME/VERSION
 
 stdims=(2 3 4 5)
 manifolds=(Minkowski De_Sitter Anti_de_Sitter Dust FLRW Hyperbolic Polycone)
-regions=(Slab Slab_T1 Slab_T2 Slab_TS Slab_S1 Slab_S2 Slab_N1 Slab_N2 Slab_N3 Half_Diamond Diamond Saucer_T Saucer_S Triangle_T Triangle_S Triangle_N Cube)
+regions=(Slab Slab_T1 Slab_T2 Slab_TS Slab_S1 Slab_S2 Slab_N1 Slab_N2 Slab_N3 Half_Diamond Half_Diamond_T Diamond Saucer_T Saucer_S Triangle_T Triangle_S Triangle_N Cube)
 curvatures=(Flat Positive Negative)
 symmetries=(None Temporal)
 
@@ -34,7 +34,7 @@ binary=$CAUSET_HOME/bin/CausalSet$platform
 echo -e "\nVERSION ${version}.x" >> $outfile
 echo -e "===========\n" >> $outfile
 echo -e "STDIM\tMANIFOLD\tREGION\t\tCURVATURE\tSYMMETRY\tID" >> $outfile
-echo "================================================================================" >> $outfile
+echo "=================================================================================" >> $outfile
 
 for stdim in ${stdims[@]} ; do
   sdim=$((stdim-1))

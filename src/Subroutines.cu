@@ -52,13 +52,13 @@ bool getLookupTable(const char *filename, double **lt, long *size)
 
 		//Return Table
 		*lt = table;
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -104,10 +104,10 @@ double lookupValue(const double *table, const long &size, double *x, double *y, 
 			output = table[t_idx-1] + (table[t_idx+1] - table[t_idx-1]) * (input - table[t_idx-2]) / (table[t_idx] - table[t_idx-2]);
 		else
 			output = table[t_idx-3] + (table[t_idx-1] - table[t_idx-3]) * (input - table[t_idx-2]) / (table[t_idx] - table[t_idx-2]);
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		output = std::numeric_limits<double>::quiet_NaN();
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		output = std::numeric_limits<double>::quiet_NaN();
 	}
@@ -187,6 +187,33 @@ void quicksort(uint64_t *edges, int64_t low, int64_t high)
 		swap(edges, low, j);
 		quicksort(edges, low, j - 1);
 		quicksort(edges, j + 1, high);
+	}
+}
+
+void quicksort(std::vector<unsigned> &U, std::vector<unsigned> &V, int64_t low, int64_t high)
+{
+	int64_t i, j, k;
+	uint64_t key;
+
+	if (low < high) {
+		k = (low + high) >> 1;
+		swap(U, V, low, k);
+		key = U[low] + V[low];
+		i = low + 1;
+		j = high;
+
+		while (i <= j) {
+			while ((i <= high) && (U[i] + V[i] <= key))
+				i++;
+			while ((j >= low) && (U[j] + V[j] > key))
+				j--;
+			if (i < j)
+				swap(U, V, i, j);
+		}
+
+		swap(U, V, low, j);
+		quicksort(U, V, low, j - 1);
+		quicksort(U, V, j + 1, high);
 	}
 }
 
@@ -279,6 +306,21 @@ void swap(const int * const *& list0, const int * const *& list1, int64_t &idx0,
 	max0 ^= max1;
 	max1 ^= max0;
 	max0 ^= max1;
+}
+
+void swap(std::vector<unsigned> &U, std::vector<unsigned> &V, int64_t i, int64_t j)
+{
+	std::swap(U[i], U[j]);
+	std::swap(V[i], V[j]);
+}
+
+void ordered_labeling(std::vector<unsigned> &U, std::vector<unsigned> &V, std::vector<unsigned> &Unew, std::vector<unsigned> &Vnew)
+{
+	if (U != Unew)
+		std::copy(U.begin(), U.begin() + U.size(), Unew.begin());
+	if (V != Vnew)
+		std::copy(V.begin(), V.begin() + V.size(), Vnew.begin());
+	quicksort(Unew, Vnew, 0, U.size() - 1);
 }
 
 //Cyclesort
@@ -376,10 +418,10 @@ bool bisection(double (*solve)(const double x, const double * const p1, const fl
 			*x = (b + a) / 2;
 			iter++;
 		}
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -417,10 +459,10 @@ bool newton(double (*solve)(const double x, const double * const p1, const float
 
 			fflush(stdout);
 		}
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -659,7 +701,7 @@ int shortestPath(const Node &nodes, const Edge &edges, const int &N, int * const
 
 //Modification of v1 which eliminates swaps
 //O(k*log(k)) Efficiency
-void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int64_t &pstart, const int64_t &fstart, bool &too_many)
+void causet_intersection_v2(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int64_t &pstart, const int64_t &fstart)
 {
 	#if DEBUG
 	assert (past_edges != NULL);
@@ -667,7 +709,6 @@ void causet_intersection_v2(int &elements, const int * const past_edges, const i
 	assert (k_i >= 0);
 	assert (k_o >= 0);
 	assert (!(k_i == 0 && k_o == 0));
-	assert (max_cardinality > 1);
 	assert (pstart >= 0);
 	assert (fstart >= 0);
 	#endif
@@ -682,19 +723,13 @@ void causet_intersection_v2(int &elements, const int * const past_edges, const i
 	int64_t max0 = idx0 + k_i;
 	int64_t max1 = idx1 + k_o;
 
-	while (idx0 < max0 && idx1 < max1 && !too_many) {
+	while (idx0 < max0 && idx1 < max1) {
 		if (past_edges[idx0] > future_edges[idx1])
 			idx1++;
 		else if (past_edges[idx0] < future_edges[idx1])
 			idx0++;
 		else {
 			elements++;
-
-			if (elements >= max_cardinality - 1) {
-				too_many = true;
-				break;
-			}
-
 			idx0++;
 			idx1++;
 		}
@@ -704,7 +739,7 @@ void causet_intersection_v2(int &elements, const int * const past_edges, const i
 //Intersection of Sorted Lists
 //Used to find the cardinality of an interval
 //O(k*log(k)) Efficiency
-void causet_intersection(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int &max_cardinality, const int64_t &pstart, const int64_t &fstart, bool &too_many)
+void causet_intersection(int &elements, const int * const past_edges, const int * const future_edges, const int &k_i, const int &k_o, const int64_t &pstart, const int64_t &fstart)
 {
 	#if DEBUG
 	assert (past_edges != NULL);
@@ -712,7 +747,6 @@ void causet_intersection(int &elements, const int * const past_edges, const int 
 	assert (k_i >= 0);
 	assert (k_o >= 0);
 	assert (!(k_i == 0 && k_o == 0));
-	assert (max_cardinality > 1);
 	assert (pstart >= 0);
 	assert (fstart >= 0);
 	#endif
@@ -748,10 +782,6 @@ void causet_intersection(int &elements, const int * const past_edges, const int 
 
 		if ((*primary)[idx0] == (*secondary)[idx1]) {
 			elements++;
-			if (elements >= max_cardinality - 1) {
-				too_many = true;
-				return;
-			}
 			idx0++;
 			idx1++;
 		}
@@ -828,7 +858,7 @@ void scan(const int * const k_in, const int * const k_out, int64_t * const &past
 }
 
 //Debug Print Variadic Function
-int printf_dbg(const char * format, ...)
+/*int printf_dbg(const char * format, ...)
 {
 	printf_mag();
 	va_list argp;
@@ -856,7 +886,7 @@ int printf_mpi(int rank, const char * format, ...)
 	}
 
 	return retval;
-}
+}*/
 
 //Update all processes regarding failure status
 bool checkMpiErrors(CausetMPI &cmpi)
@@ -1282,13 +1312,16 @@ std::vector<std::tuple<FastBitset, int, int> > getPossibleChains(Bitvector &adj,
 	std::vector<std::tuple<FastBitset, int, int> > possible_chains;
 	possible_chains.reserve(100);
 
-	FastBitset workspace = FastBitset(N);
-	FastBitset subworkspace = FastBitset(N_sub);
-	FastBitset ex = FastBitset(N);
+	FastBitset workspace(N);
+	FastBitset subworkspace(N_sub);
+	FastBitset cand(N);
+
 	if (excluded != NULL)
-		excluded->clone(ex);
+		for (size_t i = 0; i < candidates.size(); i++)
+			cand.set(candidates[i]);
 
 	size_t i;
+	//Parallelize this loop
 	for (i = 0; i < endpoints.size(); i++) {
 		if (CHAIN_DEBUG) {
 			printf_cyan();
@@ -1297,7 +1330,7 @@ std::vector<std::tuple<FastBitset, int, int> > getPossibleChains(Bitvector &adj,
 		}
 
 		FastBitset longest_chain(N);
-		std::pair<int, int> lw = longestChainGuided(adj, subadj, chains, chains2, longest_chain, &workspace, &subworkspace, candidates, lengths, sublengths, N, N_sub, std::get<0>(endpoints[i]), std::get<1>(endpoints[i]), 0);
+		std::pair<int,int> lw = longestChainGuided_v2(longest_chain, adj, subadj, chains, chains2, workspace, subworkspace, candidates, lengths, sublengths, N, N_sub, std::get<0>(endpoints[i]), std::get<1>(endpoints[i]), 0);
 
 		if (CHAIN_DEBUG) {
 			printf("weight: %d\n", std::get<0>(lw));
@@ -1312,57 +1345,19 @@ std::vector<std::tuple<FastBitset, int, int> > getPossibleChains(Bitvector &adj,
 			printf_std();
 			int w = longest_chain.count_bits();
 			printf(" > chain size is %d\n", w);
-			/*printf("Re-testing (v2) -> ");
-			int distance = longestChain_v2(subadj, &subworkspace, lengths, N_sub, std::get<0>(endpoints[i]), std::get<1>(endpoints[i]), 0) + 1;	//Add +1 since we are counting nodes, not links in the longest chain
-			printf("distance: %d\n", distance);
-			FastBitset longest_chain2(N);
-			printf("Re-testing (v3) -> ");
-			distance = longestChain_v3(subadj, chains, longest_chain2, &subworkspace, lengths, N_sub, std::get<0>(endpoints[i]), std::get<1>(endpoints[i]), 0) + 1;
-			printf("distance: %d\n", distance);
-			printf(" > chain size: %zd\n", longest_chain2.count_bits());
-			printf("Identified Chain:\n");
-			printf_red();
-			printf("START -> ");
-			for (int j = 0; j < N; j++)
-				if (longest_chain2.read(j))
-					printf("%d -> ", candidates[j]);
-			printf("END\n");
-			printf_mag();
-			printf("START -> ");
-			for (int j = 0; j < N; j++)
-				if (longest_chain2.read(j))
-					printf("%d -> ", j);
-			printf("END\n");
-			printf_std();
-			//if (w != std::get<0>(lw) && w < 8) {
-			if (longest_chain2.count_bits() != distance && distance < 8) {
-				printf("Re-testing (v1) -> ");
-				distance = longestChain_v1(subadj, &subworkspace, N_sub, std::get<0>(endpoints[i]), std::get<1>(endpoints[i]), 0) + 1;
-				printf("distance: %d\n", distance);
-				printChk(6);
-			}*/
 		}
-		//lw = longestChainGuided(adj, subadj, chains, longest_chain, &workspace, &subworkspace, candidates, lengths, sublengths, N, N_sub, std::get<0>(endpoints[i]), std::get<1>(endpoints[i]), 0);
-		//printChk(100);
 
 		if (excluded != NULL) {
-			/*printf("chain before exclusion:\n");
-			for (int j = 0; j < chain.size(); j++)
-				if (chain.read(j))
-					printf(" > %d\n", j);*/
-			//FastBitset fb = longest_chain;
-			longest_chain.setDifference(ex);
-			std::get<0>(lw) = longest_chain.count_bits();
-			//if (longest_chain == fb) printf("MATCH ");
-			//else printf("NO MATCH ");
-			//printf("(w = %d)\n", std::get<0>(lw));
-
-			/*printf("chain after exclusion:\n");
-			for (int j = 0; j < longest_chain.size(); j++)
-				if (longest_chain.read(j))
-					printf(" > %d\n", j);*/
+			longest_chain.setDifference(*excluded);
+			std::get<0>(lw) = longest_chain.partial_vecprod(cand, 0, N);
 		}
-	
+
+		if (CHAIN_DEBUG) {
+			printf("chain size after difference: %u\n", (unsigned)longest_chain.count_bits());
+			printf("min_weight: %d\n", min_weight);
+			fflush(stdout);
+		}
+
 		if (std::get<0>(lw) > std::min(min_weight, 10)) {
 			if (std::get<0>(lw) > max_weight) {
 				max_weight = std::get<0>(lw);
@@ -1373,9 +1368,199 @@ std::vector<std::tuple<FastBitset, int, int> > getPossibleChains(Bitvector &adj,
 			possible_chains.push_back(std::make_tuple(longest_chain, std::get<0>(lw), std::get<1>(lw)));
 		}
 	}
-	//printf_dbg("Max Weight: [%d]\n\n", max_weight);
 
 	return possible_chains;
+}
+
+std::pair<int,int> longestChainGuided_v2(FastBitset &longest_chain, Bitvector &adj, const Bitvector &subadj, Bitvector &fwork, Bitvector &fwork2, FastBitset &fwork3, FastBitset &fwork4, const std::vector<unsigned> &candidates, int * const iwork, std::pair<int,int> * const i2work, const int N, const int NS, int i, int j, const unsigned level)
+{
+	#if DEBUG
+	if (!level) {
+		assert (NS > 0);
+		assert (N >= NS);
+		assert (longest_chain.size() >= (size_t)N);
+		assert (adj.size() >= (size_t)N);
+		assert (adj[0].size() >= (size_t)N);
+		assert (fwork.size() >= (size_t)N);
+		assert (fwork[0].size() >= (size_t)N);
+		assert (fwork2.size() >= (size_t)N);
+		assert (fwork2[0].size() >= (size_t)N);
+		assert (fwork3.size() >= (size_t)N);
+		assert (fwork4.size() >= (size_t)NS);
+		assert (candidates.size() > 0);
+		assert (iwork != NULL);
+		assert (i2work != NULL);
+		assert (i >= 0 && i < NS);
+		assert (j >= 0 && j < NS);
+	}
+	#endif
+
+	static const bool DEBUG_GUIDED = false;
+
+	//Distance between a node and itself is zero
+	if (i == j) return std::make_pair(0, 0);
+	//Enforce i < j
+	if (i > j) std::swap(i, j);
+
+	int longest = 0, heaviest = 0;
+	uint64_t idx;
+	std::pair<int,int> c;
+
+	if (DEBUG_GUIDED) {
+		for (unsigned k = 0; k < level; k++)
+			printf("\t");
+		printf("i, j = [%d, %d]\n", candidates[i], candidates[j]);
+		fflush(stdout);
+	}
+
+	if (!level) {
+		//Throw an error if this function is called for an unrelated pair
+		if (!nodesAreConnected_v2(subadj, NS, i, j))
+			assert (false);
+
+		//The set of elements in the longest chain between i and j
+		longest_chain.reset();
+		longest_chain.set(candidates[i]);
+
+		//The set of longest chains for each element to j
+		for (int k = 0; k < N; k++) {
+			fwork[k].reset();
+			fwork[k].set(k);
+		}
+
+		//The set of elements between i and j in the subgraph
+		subadj[i].clone(fwork4);
+		fwork4.partial_intersection(subadj[j], i, j - i + 1);
+
+		//The lengths and weights of all chains
+		for (int k = 0; k < NS; k++)
+			i2work[k] = std::make_pair(-1, -1);
+
+		//fwork2, fwork3, and iwork are workspaces used
+		//by longestChain_v3 (see below)
+	}
+
+	FastBitset test_chain(N);
+	FastBitset work(NS);
+	FastBitset internal(N);
+	FastBitset internal2(N);
+
+	//Iterate over all elements between i and j
+	while (fwork4.any()) {
+		fwork4.unset(idx = fwork4.next_bit());
+		test_chain.reset();
+		internal.reset();
+		internal2.reset();
+
+		if (DEBUG_GUIDED) {
+			for (unsigned k = 0; k < level; k++)
+				printf("\t");
+			printf("Examining element [%u]:\n", (unsigned)candidates[idx]);
+			fflush(stdout);
+		}
+
+		//Ignore element if it is not directly linked to i in the subgraph
+		subadj[i].clone(work);
+		work.partial_intersection(subadj[idx], i, idx - i + 1);
+		if (work.any()) continue;
+
+		if (std::get<0>(i2work[idx]) != -1) {
+			//We already have calculated the length and weight
+			//of the longest chain from idx to j
+			c = i2work[idx];
+			if (DEBUG_GUIDED) {
+				for (unsigned k = 0; k < level; k++)
+					printf("\t");
+				printf("\tPath has already been traversed: W, L = [%d, %d]\n", std::get<0>(c), std::get<1>(c));
+				fflush(stdout);
+			}
+			fwork[candidates[idx]].partial_clone(test_chain, candidates[idx] + 1, N - candidates[idx] - 1);
+		} else {
+			//We need to calculate the length and weight
+			//of the path from idx to j
+
+			//The set of elements between idx and j in the subgraph
+			subadj[idx].clone(work);
+			work.partial_intersection(subadj[j], idx, j - idx + 1);
+
+			//If this set is empty, idx and j are directly linked in the subgraph
+			if (!work.any()) {
+				if (DEBUG_GUIDED) {
+					for (unsigned k = 0; k < level; k++)
+						printf("\t");
+					printf("\tPair [%d, %d] is directly linked in the subgraph.\n", candidates[idx], candidates[j]);
+					fflush(stdout);
+				}
+				c = std::make_pair(1, longestChain_v3(adj, fwork2, internal, &fwork3, iwork, N, candidates[idx], candidates[j], 0));
+				if (DEBUG_GUIDED) {
+					for (unsigned k = 0; k < level; k++)
+						printf("\t");
+					printf("\tPath has W, L = [%d, %d]\n", std::get<0>(c), std::get<1>(c));
+					fflush(stdout);
+				}
+			//Otherwise we need to recurse to study the interval between idx and j
+			} else {
+				if (DEBUG_GUIDED) {
+					for (unsigned k = 0; k < level; k++)
+						printf("\t");
+					printf("\tRecursing to next level to examine interval [%d, %d]\n", candidates[idx], candidates[j]);
+					fflush(stdout);
+				}
+				c = longestChainGuided_v2(test_chain, adj, subadj, fwork, fwork2, fwork3, work, candidates, iwork, i2work, N, NS, idx, j, level + 1);
+				if (DEBUG_GUIDED) {
+					for (unsigned k = 0; k < level; k++)
+						printf("\t");
+					printf("\tPath has W, L = [%d, %d]\n", std::get<0>(c), std::get<1>(c));
+					fflush(stdout);
+				}
+			}
+
+			//Record the results so the path idx -> j is not checked again
+			i2work[idx] = c;
+		}
+
+		int L_i_idx = longestChain_v3(adj, fwork2, internal2, &fwork3, iwork, N, candidates[i], candidates[idx], 0);
+		internal.unset(candidates[idx]);
+		internal.unset(candidates[j]);
+		internal2.unset(candidates[i]);
+		internal2.unset(candidates[idx]);
+
+		if (DEBUG_GUIDED) {
+			for (unsigned k = 0; k < level; k++)
+				printf("\t");
+			printf("\tDistance between [%d, %d] is %d.\n", candidates[i], candidates[idx], L_i_idx);
+			fflush(stdout);
+		}
+	
+		//Identify the longest path i-j via element idx
+		if (std::get<0>(c) + 1 > heaviest || (std::get<0>(c) + 1 == heaviest && std::get<1>(c) + L_i_idx > longest)) {
+			heaviest = std::get<0>(c) + 1;
+			longest = std::get<1>(c) + L_i_idx;
+			test_chain.setUnion(internal);
+			test_chain.setUnion(internal2);
+			test_chain.partial_clone(fwork[candidates[i]], candidates[i] + 1, N - candidates[i] - 1);
+			fwork[candidates[i]].set(candidates[idx]);
+			fwork[candidates[i]].partial_clone(longest_chain, candidates[i] + 1, N - candidates[i] - 1);
+			if (internal.any())
+				internal.partial_clone(fwork[candidates[idx]], candidates[idx] + 1, N - candidates[idx] - 1);
+
+			if (DEBUG_GUIDED) {
+				for (unsigned k = 0; k < level; k++)
+					printf("\t");
+				printf("Path [%d, %d] contains elements: ", candidates[i], candidates[j]);
+				for (int J = 0; J < N; J++)
+					if (fwork[candidates[i]].read(J))
+						printf("%d -> ", J);
+				printf("END\n");
+				fflush(stdout);
+			}
+		}
+	}
+
+	if (!level)
+		longest_chain.set(candidates[j]);
+
+	return std::make_pair(heaviest, longest);
 }
 
 //Finds the longest chain using the candidates
@@ -1405,6 +1590,8 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 	assert (workspace != NULL);
 	assert (subworkspace != NULL);
 	#endif
+
+	assert (false);	//This method is not working; use v2 above instead
 
 	//If the two indices are equal, they must be the same node
 	//Define the distance between a node and itself to be zero
@@ -1454,6 +1641,7 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 	FastBitset test_chain(N);
 	FastBitset work(N_sub);
 	FastBitset internal_chain(N);
+	FastBitset internal_chain2(N);
 
 	//Iterate over all bits set to 1
 	for (uint64_t k = 0; k < subworkspace->getNumBlocks(); k++) {
@@ -1482,8 +1670,7 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 					c = longestChainGuided(adj, subadj, chains, chains2, test_chain, workspace, &work, candidates, lengths, sublengths, N, N_sub, glob_idx, j, level + 1);
 					if (std::get<0>(c) == -1 || std::get<0>(c) == -1) printChk(5);
 
-					std::get<1>(c) += longestChain_v3(adj, chains2, internal_chain, workspace, lengths, N, candidates[i], candidates[glob_idx], 0);
-
+					//std::get<1>(c) += longestChain_v3(adj, chains2, internal_chain, workspace, lengths, N, candidates[i], candidates[glob_idx], 0);
 					//The recursion returned the longest paths in the subgraph and graph, respectively
 					sublengths[glob_idx] = c;
 
@@ -1496,15 +1683,14 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 						chains[candidates[i]].set(candidates[glob_idx]);
 						slongest = schain_length;
 						longest = chain_length;
-						chains[candidates[i]].setUnion(internal_chain);
 						chains[candidates[i]].partial_clone(longest_chain, candidates[i] + 1, N - candidates[i] - 1);
 					}
 				} else {	//It is the null set - the elements are directly linked
 					//Then glob_idx and j are directly linked in the subgraph
 					schain_length = 1;
 					//Check if there are other nodes in between glob_idx and j in the original graph
-					//chain_length = longestChain_v2(adj, workspace, lengths, N, candidates[glob_idx], candidates[j], 0);
-					chain_length = longestChain_v3(adj, chains2, internal_chain, workspace, lengths, N, candidates[glob_idx], candidates[j], 0);
+					chain_length = longestChain_v2(adj, workspace, lengths, N, candidates[glob_idx], candidates[j], 0);
+					//chain_length = longestChain_v3(adj, chains2, internal_chain, workspace, lengths, N, candidates[glob_idx], candidates[j], 0);
 
 					//Record these values in sublengths so this branch
 					//is not traversed again
@@ -1515,7 +1701,6 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 						chains[candidates[i]].set(candidates[glob_idx]);
 						slongest = 1;
 						longest = chain_length;
-						chains[candidates[i]].setUnion(internal_chain);
 						chains[candidates[i]].partial_clone(longest_chain, candidates[i] + 1, N - candidates[i] - 1);
 					}
 				}
@@ -1523,13 +1708,12 @@ std::pair<int,int> longestChainGuided(Bitvector &adj, Bitvector &subadj, Bitvect
 				//The branch has previously been traversed, so just use those values
 				schain_length = std::get<0>(sublengths[glob_idx]);
 				chain_length = std::get<1>(sublengths[glob_idx]);
-				chain_length += longestChain_v3(adj, chains2, internal_chain, workspace, lengths, N, candidates[i], candidates[glob_idx], 0);
+				//chain_length += longestChain_v3(adj, chains2, internal_chain, workspace, lengths, N, candidates[i], candidates[glob_idx], 0);
 
 				if (schain_length > slongest || (schain_length == slongest && chain_length > longest)) {
 					chains[candidates[glob_idx]].partial_clone(chains[candidates[i]], candidates[i] + 1, N - candidates[i] - 1);
 					slongest = schain_length;
 					longest = chain_length;
-					chains[candidates[i]].setUnion(internal_chain);
 					chains[candidates[i]].partial_clone(longest_chain, candidates[i] + 1, N - candidates[i] - 1);
 				}
 			}
@@ -1663,8 +1847,10 @@ int longestChain_v3(Bitvector &adj, Bitvector &chains, FastBitset &longest_chain
 	}
 
 	longest++;
-	if (outer)
+	if (outer) {
+		longest++;
 		longest_chain.set(j);
+	}
 
 	return longest;
 }
@@ -1788,7 +1974,7 @@ int longestChain_v2(const Bitvector &adj, FastBitset *workspace, int *lengths, c
 	for (uint64_t k = 0; k < workspace->getNumBlocks(); k++) {
 		uint64_t block;
 		while ((block = workspace->readBlock(k))) {	//If all bits are zero, continue to the next block
-			int chain_length = 0;
+			//int chain_length = 0;
 
 			//Find the first bit set in this block
 			asm volatile("bsfq %1, %0" : "=r" (loc_idx) : "r" (block));
@@ -1799,18 +1985,20 @@ int longestChain_v2(const Bitvector &adj, FastBitset *workspace, int *lengths, c
 				workspace->clone(work);
 				work.partial_intersection(adj[glob_idx], glob_idx, j - glob_idx + 1);
 
-				if (work.any_in_range(glob_idx, j - glob_idx + 1)) {
+				//if (work.any_in_range(glob_idx, j - glob_idx + 1)) {
+				if (work.any()) {
 					c = longestChain_v2(adj, &work, lengths, N, glob_idx, j, level + 1);
 					lengths[glob_idx] = c;
-					chain_length = c;
+					//chain_length = c;
 				} else {
-					chain_length = 1;
+					//chain_length = 1;
 					lengths[glob_idx] = 1;
 				}
-			} else
-				chain_length = lengths[glob_idx];
+			} //else
+			//	chain_length = lengths[glob_idx];
 
-			longest = std::max(chain_length, longest);
+			//longest = std::max(chain_length, longest);
+			longest = std::max(lengths[glob_idx], longest);
 			workspace->unset(glob_idx);
 		}
 	}
@@ -1965,7 +2153,7 @@ int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * 
 		}
 	}
 
-	new_elements += longest.count_bits();
+	new_elements += longest.count_bits() - 1;
 	chain.setUnion(longest);
 	longest.reset();
 
@@ -1980,7 +2168,7 @@ int rootChain(Bitvector &adj, Bitvector &chains, FastBitset &chain, const int * 
 		}
 	}
 
-	new_elements += longest.count_bits();
+	new_elements += longest.count_bits() - 1;
 	chain.setUnion(longest);
 
 	return new_elements;
@@ -2095,7 +2283,21 @@ int maximalAntichain(FastBitset &antichain, const Bitvector &adj, const int N, c
 	return (int)antichain.count_bits();
 }
 
+//We always have source <= v < N
+void closure(Bitvector &adj, Bitvector &links, const int N, const int source, const int v)
+{
+	//We have the relation [source -> v]
+	adj[source].set(v);
+	adj[v].set(source);
+	//Take the forward closure
+	for (int i = v + 1; i < N; i++)
+		//If there is a link [v -> i], but not the relation [source -> i], take the closure
+		if (links[v].read(i) && !adj[source].read(i))
+			closure(adj, links, N, source, i);
+}
+
 //Produce causal matrix 'adj' given link matrix 'links'
+//Note: we only need the upper triangular link matrix
 void transitiveClosure(Bitvector &adj, Bitvector &links, const int N)
 {
 	#if DEBUG
@@ -2105,24 +2307,15 @@ void transitiveClosure(Bitvector &adj, Bitvector &links, const int N)
 	#endif
 
 	for (int i = 0; i < N; i++)
-		links[i].clone(adj[i]);
-
-	for (int i = 0; i < N - 1; i++) {
-		for (int j = i + 1; j < N; j++) {
-			if (!nodesAreConnected_v2(adj, N, i, j)) continue;
-			else adj[j].set(i);
-			//adj[i].partial_union(adj[j], j, N - j + 1);
-			for (int k = j + 1; k < N; k++) {
-				if (adj[j].read(k)) {
-					adj[i].set(k);
-					adj[k].set(i);
-				}
-			}
-		}
-	}
+		adj[i].reset();
+	for (int i = 0; i < N; i++)
+		closure(adj, links, N, i, i);
+	for (int i = 0; i < N; i++)
+		adj[i].unset(i);
 }
 
 //Produce link matrix 'links' given causal matrix 'adj'
+//Only the upper triangular portion is produced
 void transitiveReduction(Bitvector &links, Bitvector &adj, const int N)
 {
 	#if DEBUG
@@ -2130,124 +2323,20 @@ void transitiveReduction(Bitvector &links, Bitvector &adj, const int N)
 	assert (links.size() >= (size_t)N);
 	#endif
 
+	//Copy the upper triangular portion of adj into links
 	for (int i = 0; i < N; i++)
 		adj[i].partial_clone(links[i], i, N - i);
 
-	for (int i = 0; i < N - 1; i++) {
-		for (int j = i + 1; j < N; j++) {
-			if (!nodesAreConnected_v2(adj, N, i, j)) continue;
-
-			if (adj[i].partial_vecprod(adj[j], i, j - i + 1)) {
-				links[i].unset(j);
-				//links[j].unset(i);
-			}
-		}
-	}
-}
-
-std::pair<unsigned,unsigned> randomLink(Bitvector &links, FastBitset &workspace, MersenneRNG &mrng, const uint64_t nlinks)
-{
-	uint64_t rlink = mrng.rng() * nlinks;
-	if (DEBUG_EVOL)
-		printf("Choosing random link [%" PRIu64 "]\n", rlink);
-
-	uint64_t counter = 0;
-	unsigned row = 0;
-	while ((counter += links[row++].count_bits()) <= rlink) {}
-	counter -= links[--row].count_bits();
-
-	uint64_t column_index = rlink - counter;
-	unsigned column = 0;
-	links[row].clone(workspace);
-	for (uint64_t i = 0; i <= column_index; i++)
-		workspace.unset(column = workspace.next_bit());
-
-	std::pair<unsigned, unsigned> random_link = std::make_pair(row, column);
-	if (DEBUG_EVOL) {
-		printf("random link: (%u, %u)\n", row, column);
-		fflush(stdout);
-	}
-
-	return random_link;
-}
-
-std::pair<unsigned, unsigned> randomAntiRelation(Bitvector &adj, Bitvector &links, FastBitset &workspace, const int N, MersenneRNG &mrng, uint64_t  &nrel)
-{
-	uint64_t counter;
-	//printf("nrel: %" PRIu64 "\n", nrel);
-	for (int i = 0; i < N - 1; i++) {
-		for (int j = i + 1; j < N; j++) {
-			counter = 0;
-			if (adj[i].read(j)) continue;
-			//Check for common pairs BOTH are linked to
-			for (int k = 0; k < i; k++)
-				counter += links[k].read(i) & links[k].read(j);
-			for (int k = j + 1; k < N; k++)
-				counter += links[i].read(k) & links[j].read(k);
-			//Check for common pairs one is linked to, the other is related to
-			for (int k = 0; k < i; k++)
-				counter += links[k].read(j) & adj[k].read(i) & links[k].read(i);
-			for (int k = j + 1; k < N; k++)
-				counter += (links[i].read(k) & adj[j].read(k) & !links[j].read(k));
-			//Check for path completion
-			for (int m = 0; m < i; m++)
-				for (int n = j + 1; n < N; n++)
-					counter += adj[m].read(i) & adj[j].read(n) & links[m].read(n);
-			if (counter) {
-				adj[i].set(j);
-				nrel++;
-			}
-		}
-	}
-
-	if (DEBUG_EVOL) {
-		printf_dbg("Effective Adjacency Matrix:\n");
-		for (int j = 0; j < N; j++)
-			adj[j].printBitset();
-	}
-
-	uint64_t max_rel = (uint64_t)N * (N - 1) >> 1;
-	//printf("nrel: %" PRIu64 "\n", nrel);
-	if (max_rel == nrel) {
-		//printf_dbg("Returning with no anti-relation found.\n");
-		return std::make_pair((unsigned)N, (unsigned)N);
-	}
-	
-	uint64_t rdest = mrng.rng() * (max_rel - nrel);
-	unsigned row = 0;
-	counter = 0;
-
-	if (DEBUG_EVOL)
-		printf("Choosing random anti-relation [%" PRIu64 "]\n", rdest);
-
-	while (counter <= rdest) {
-		counter += N - row - 1 - adj[row].partial_count(row + 1, N - row - 1);
-		row++;
-	}
-	row--;
-	counter -= N - row - 1 - adj[row].partial_count(row + 1, N - row - 1);
-
-	uint64_t column_index = rdest - counter;
-	unsigned column = 0;
-	if (DEBUG_EVOL) {
-		printf("column index: %" PRIu64 "\n", column_index);
-		fflush(stdout);
-	}
-
-	adj[row].clone(workspace);
-	workspace.flip();
-	for (unsigned i = 0; i <= row; i++)
-		workspace.unset(i);
-	for (unsigned i = 0; i <= column_index; i++)
-		workspace.unset(column = workspace.next_bit());
-
-	std::pair<unsigned, unsigned> random_anti_relation = std::make_pair(row, column);
-	if (DEBUG_EVOL) {
-		printf("random anti relation: (%u, %u)\n", row, column);
-		fflush(stdout);
-	}
-
-	return random_anti_relation;
+	for (int i = 0; i < N - 1; i++)
+		for (int j = i + 1; j < N; j++)
+			//A[i,j]=1 indicates a possible transitive relation
+			//The partial_vecprod returns non-zero if the relation is transitive
+			//We can't use the partial_vecprod if 'adj' is not symmetric
+			//if (adj[i].read(j) && adj[i].partial_vecprod(adj[j], i, j - i + 1))
+			if (adj[i].read(j))
+				for (int k = i + 1; k < j; k++)
+					if (adj[i].read(k) && adj[k].read(j))
+						links[i].unset(j);
 }
 
 void identifyTimelikeCandidates(std::vector<unsigned> &candidates, int *chaintime, int *iwork, Bitvector &fwork, const Node &nodes, const Bitvector &adj, const Spacetime &spacetime, const int N, Stopwatch &sMeasureExtrinsicCurvature, const bool verbose, const bool bench)
@@ -2264,14 +2353,11 @@ void identifyTimelikeCandidates(std::vector<unsigned> &candidates, int *chaintim
 	assert (N > 0);
 	#endif
 
-	int n = N + (N & 1);
-	uint64_t npairs = (uint64_t)n * (n - 1) >> 1;
-
 	candidates.clear();
 	candidates.swap(candidates);
 
 	memset(chaintime, -1, N * omp_get_max_threads());
-	memset(iwork, -1, N * omp_get_max_threads());
+	//memset(iwork, -1, N * omp_get_max_threads());
 
 	fwork.clear();
 	fwork.swap(fwork);
@@ -2280,73 +2366,111 @@ void identifyTimelikeCandidates(std::vector<unsigned> &candidates, int *chaintim
 	for (int i = 0; i < omp_get_max_threads(); i++)
 		fwork.push_back(fb);
 
-	stopwatchStart(&sMeasureExtrinsicCurvature);
+	FastBitset visited(N);
+	Bitvector frontier;
+	for (int i = 0; i < omp_get_max_threads(); i++)
+		frontier.push_back(fb);
+	unsigned *layer_sizes = (unsigned*)malloc(N * omp_get_max_threads() * sizeof(unsigned));
+	unsigned *min_k = (unsigned*)malloc(N * omp_get_max_threads() * sizeof(unsigned));
 
-	//Identify antichains
-
-	#ifdef _OPENMP
-	#pragma omp parallel for schedule (dynamic, 16) if (npairs > 4096)
+	//Identify antichain layers
+	unsigned layer, num_visited, maximum_chain;
+	unsigned cutoff = 10;
+	float epsilon = 1.5;
+	bool forward = true;
+	//First element will always belong to layer 0
+	frontier[0].set(0);
+	chaintime[0] = 0;
+	layer_sizes[0] = 1;
+	min_k[0] = nodes.k_in[0] + nodes.k_out[0];
+	layer = 0;
+	visited.set(0);
+	printf("\tForward Pass:\n"); fflush(stdout);
+	#if !LAYER_ONLY
+	Layers:
 	#endif
-	for (uint64_t k = 0; k < npairs; k++) {
-		unsigned int tid = omp_get_thread_num();
-		uint64_t i = k / (n - 1);
-		uint64_t j = k % (n - 1) + 1;
-		uint64_t do_map = (uint64_t)(i >= j);
-		i += do_map * ((((n >> 1) - i) << 1) - 1);
-		j += do_map * (((n >> 1) - j) << 1);
+	memset(layer_sizes, 0, sizeof(unsigned) * N * omp_get_max_threads());
+	memset(min_k, UINT32_MAX, N * omp_get_max_threads() * sizeof(unsigned));
+	num_visited = 0;
+	stopwatchStart(&sMeasureExtrinsicCurvature);
+	while (num_visited != (unsigned)N) {
+		#pragma omp parallel for schedule (guided) if (N - num_visited > 1024)
+		for (unsigned i = 0; i < (unsigned)N; i++) {
+			if (visited.read(i)) continue;
+			unsigned tid = omp_get_thread_num();
+			adj[i].clone(fwork[tid]);
+			fwork[tid].setDifference(visited);
+			if ((forward && !fwork[tid].partial_count(0, i)) || (!forward && !fwork[tid].partial_count(i, N - i + 1))) {
+				frontier[tid].set(i);
+				chaintime[i] = layer;
+				layer_sizes[N*tid+layer]++;
+				min_k[N*tid+layer] = std::min(min_k[N*tid+layer], (unsigned)(nodes.k_in[i] + nodes.k_out[i]));
+			}
+		}
 
-		if (static_cast<int>(j) == N) continue;
-		if (!!nodes.k_in[i]) continue;
-		if (!nodesAreConnected_v2(adj, N, i, j)) continue;	//Continue if not related
+		for (unsigned i = 0; i < (unsigned)omp_get_max_threads(); i++) {
+			visited.setUnion(frontier[i]);
+			frontier[i].reset();
+			if (!!i) {
+				layer_sizes[layer] += layer_sizes[N*i+layer];
+				min_k[layer] = std::min(min_k[layer], min_k[N*i+layer]);
+			}
+		}
+		//printf("layer [%u] size: [%u] min_k: [%u]\n", layer, layer_sizes[layer], min_k[layer]);
 
-		int length = longestChain_v2(adj, &fwork[tid], &iwork[N*tid], N, i, j, 0);
-		chaintime[tid*N+j] = std::max(chaintime[tid*N+j], length);
+		num_visited = visited.count_bits();
+		if (forward)
+			layer++;
+		else
+			layer--;
 	}
+
 	stopwatchStop(&sMeasureExtrinsicCurvature);
 	printf_dbg("\tIdentified Antichains: %5.6f sec\n", sMeasureExtrinsicCurvature.elapsedTime);
 	stopwatchReset(&sMeasureExtrinsicCurvature);
 	stopwatchStart(&sMeasureExtrinsicCurvature);
 
-	for (int i = 1; i < omp_get_max_threads(); i++)
-		for (int j = 0; j < N; j++)
-			chaintime[j] = std::max(chaintime[j], chaintime[i*N+j]);
-
-	for (int i = 0; i < N; i++)
-		if (!nodes.k_in[i])
-			chaintime[i] = 0;
-
 	//Length of longest (maximum) chain
-	int maximum_chain = *std::max_element(chaintime, chaintime + N);
+	maximum_chain = *std::max_element(chaintime, chaintime + N);
 
-	//Identify size of each antichain
-	int *num = (int*)calloc(maximum_chain, sizeof(int));
-	for (int i = 0; i < N; i++)
-		num[chaintime[i]]++;
-
-	//Look for edge elements
-	int cutoff = 10, usable = 0;
-	for (int i = maximum_chain - 1; i >= 0; i--) {
-		if (num[i] > cutoff) {
-			usable = i;
-			break;
-		}
+	//Identify the boundary candidates
+	float threshold;
+	for (unsigned i = 0; i < (unsigned)N; i++) {
+		layer = chaintime[i];
+		if (layer_sizes[layer] < cutoff) continue;
+		threshold = epsilon * sqrt((float)min_k[layer]);
+		if (layer >= maximum_chain * 0.4 && layer < maximum_chain * 0.6)
+			threshold *= 5.0;
+		threshold += min_k[layer];
+		if ((float)(nodes.k_in[i] + nodes.k_out[i]) < threshold && ((forward && layer >= maximum_chain * 0.35) || (!forward && layer < maximum_chain * 0.65)))
+			candidates.push_back(i);
 	}
 
-	//Iterate over antichains
-	int k_threshold = 0;
-	for (int k = 0; k < usable; k++) {
-		float min_k = INF;
-		for (int i = 0; i < N; i++)
-			if (chaintime[i] == k)
-				min_k = std::min(min_k, static_cast<float>(nodes.k_in[i] + nodes.k_out[i]));
-
-		//Identify Candidates
-		for (int i = 0; i < N; i++)
-			if (chaintime[i] == k && nodes.k_in[i] > k_threshold && nodes.k_out[i] > k_threshold && nodes.k_in[i] + nodes.k_out[i] < min_k + 1.5 * sqrt(min_k))
-				candidates.push_back(i);
-	}
 	stopwatchStop(&sMeasureExtrinsicCurvature);
 	printf_dbg("\tIdentified Candidates: %5.6f sec\n", sMeasureExtrinsicCurvature.elapsedTime);
+
+	#if !LAYER_ONLY
+	if (forward) {
+		forward = false;
+		layer = maximum_chain;
+		//Last element will always belong to layer 'maximum_chain'
+		frontier[0].set(N - 1);
+		chaintime[N-1] = layer;
+		layer_sizes[layer] = 1;
+		min_k[layer] = nodes.k_in[N-1] + nodes.k_out[N-1];
+		visited.reset();
+		visited.set(N-1);
+		printf("\n\tBackward Pass:\n"); fflush(stdout);
+		goto Layers;
+	}
+
+	candidates.push_back(0);
+	candidates.push_back(N-1);
+	std::sort(candidates.begin(), candidates.end());
+	#endif
+
+	free(layer_sizes);
+	free(min_k);
 
 	if (!bench) {
 		printf("\tCalculated Timelike Boundary Candidates.\n");
@@ -2354,13 +2478,12 @@ void identifyTimelikeCandidates(std::vector<unsigned> &candidates, int *chaintim
 		printf("\t\tIdentified [%zd] Candidates.\n", candidates.size());
 		printf_std();
 		printf("\t\tLongest Maximal Chain: [%d]\n", maximum_chain);
-		printf("\t\t > Usable Bins: [%d]\n", usable);
 	}
 }
 
 #include "NetworkCreator.h"
 
-bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigned int> candidates, CaResources * const ca, const CUcontext &ctx)
+bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigned int> candidates, CaResources * const ca, CUcontext &ctx)
 {
 	#ifdef DEBUG
 	assert (candidates.size() > 0);
@@ -2380,6 +2503,7 @@ bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigne
 	subgraph->network_properties.flags.calc_components = false;
 	subgraph->network_properties.flags.calc_success_ratio = false;
 	subgraph->network_properties.flags.calc_action = false;
+	subgraph->network_properties.flags.calc_extrinsic_curvature = false;
 
 	subgraph->network_properties.flags.verbose = true;
 	subgraph->network_properties.flags.bench = false;
@@ -2388,7 +2512,7 @@ bool configureSubgraph(Network *subgraph, const Node &nodes, std::vector<unsigne
 	subgraph->network_observables.cardinalities = NULL;
 
 	CausetPerformance cp = CausetPerformance();
-	if (!createNetwork(subgraph->nodes, subgraph->edges, subgraph->adj, subgraph->links, subgraph->network_properties.spacetime, subgraph->network_properties.N, subgraph->network_properties.k_tar, subgraph->network_properties.core_edge_fraction, subgraph->network_properties.edge_buffer, subgraph->network_properties.gt, subgraph->network_properties.cmpi, subgraph->network_properties.group_size, ca, cp.sCreateNetwork, subgraph->network_properties.flags.use_gpu, subgraph->network_properties.flags.decode_cpu, subgraph->network_properties.flags.link, subgraph->network_properties.flags.relink, subgraph->network_properties.flags.evolve, subgraph->network_properties.flags.no_pos, subgraph->network_properties.flags.use_bit, subgraph->network_properties.flags.mpi_split, subgraph->network_properties.flags.verbose, subgraph->network_properties.flags.bench, subgraph->network_properties.flags.yes))
+	if (!createNetwork(subgraph->nodes, subgraph->edges, subgraph->adj, subgraph->links, subgraph->U, subgraph->V, subgraph->network_properties.spacetime, subgraph->network_properties.N, subgraph->network_properties.k_tar, subgraph->network_properties.core_edge_fraction, subgraph->network_properties.edge_buffer, subgraph->network_properties.gt, subgraph->network_properties.cmpi, subgraph->network_properties.group_size, ca, cp.sCreateNetwork, subgraph->network_properties.flags.use_gpu, subgraph->network_properties.flags.decode_cpu, subgraph->network_properties.flags.link, subgraph->network_properties.flags.relink, subgraph->network_properties.flags.mcmc, subgraph->network_properties.flags.no_pos, subgraph->network_properties.flags.use_bit, subgraph->network_properties.flags.mpi_split, subgraph->network_properties.flags.verbose, subgraph->network_properties.flags.bench, subgraph->network_properties.flags.yes))
 		return false;
 
 	for (int i = 0; i < subgraph->network_properties.N; i++) {
@@ -2456,14 +2580,27 @@ void identifyBoundaryChains(std::vector<std::tuple<FastBitset, int, int>> &bound
 		fwork2.push_back(fb);
 
 	//Make a list of pairs of endpoints (vector of pairs)
-	for (int i = 0; i < subnet->network_properties.N; i++) {
+	/*for (int i = 0; i < subnet->network_properties.N; i++) {
 		if (!!subnet->nodes.k_in[i]) continue;
 		for (int j = 0; j < subnet->network_properties.N; j++) {
 			if (!!subnet->nodes.k_out[j]) continue;
 			if (!nodesAreConnected_v2(subnet->adj, subnet->network_properties.N, i, j)) continue;
 			pwork.push_back(std::make_pair(std::min(i, j), std::max(i, j)));
 		}
+	}*/
+	pwork.push_back(std::make_pair(0, subnet->network_properties.N - 1));
+
+	std::unordered_set<unsigned> past;
+	std::unordered_set<unsigned> future;
+	for (unsigned i = 0; i < pwork.size(); i++) {
+		past.emplace(pwork[i].first);
+		future.emplace(pwork[i].second);
 	}
+
+	printf("Checking [%zd] possible chains.\n", pwork.size());
+	printf(" > [%zd] past elements\n", past.size());
+	printf(" > [%zd] future elements\n", future.size());
+	fflush(stdout);
 	
 	while (pwork.size() > 0) {
 		int max_weight = 0, max_idx = -1, end_idx = -1;
@@ -2478,19 +2615,128 @@ void identifyBoundaryChains(std::vector<std::tuple<FastBitset, int, int>> &bound
 		pwork.erase(pwork.begin() + end_idx);
 		if (min_weight == -1) { min_weight = 10; }
 
-		if (network->network_properties.spacetime.stdimIs("2") && boundary_chains.size() == 2) break;
+		if (network->network_properties.spacetime.stdimIs("2") && ((network->network_properties.spacetime.regionIs("Half_Diamond_T") && boundary_chains.size() == 1) || boundary_chains.size() == 2)) break;
 	}
 
 	//Extend chains to maximal and minimal elements
-	/*for (size_t i = 0; i < boundary_chains.size(); i++)
-		std::get<2>(boundary_chains[i]) += rootChain(network->adj, fwork, std::get<0>(boundary_chains[i]), network->nodes.k_in, network->nodes.k_out, iwork, network->network_properties.N);*/
+	//for (size_t i = 0; i < boundary_chains.size(); i++)
+	//	std::get<2>(boundary_chains[i]) += rootChain(network->adj, fwork, std::get<0>(boundary_chains[i]), network->nodes.k_in, network->nodes.k_out, iwork, network->network_properties.N);
 
 	printf("Identified [%zd] Boundary Chains.\n", boundary_chains.size());
 	fflush(stdout);
 }
 
-/*void fillChain(Bitvector &adj, Bitvector &chains, FastBitset &longest, int * const iwork, const int N)
+//Estimate the integrated and exponential autocorrelations of 'data'
+//data: the target data sequence
+//acorr: workspace for the autocorrelation coefficients
+//lags: workspace which should contain log({1,2,3,...,n-1})
+//nsamples: number of samples in 'data'
+//tau_exp: exponential autocorrelation time
+//tau_int: integrated autocorrelation time
+void autocorrelation(double *data, double *acorr, const double * const lags, unsigned nsamples, double &tau_exp, double &tau_exp_err, double &tau_int, double &tau_int_err)
 {
-	FastBitset workspace(N);
-	
-}*/
+	memset(acorr, 0, sizeof(double) * nsamples);
+	acorr[0] = 1;
+	tau_int = acorr[0] / 2.0;
+	tau_int_err = 0.0;
+	tau_exp_err = 0.0;
+
+	unsigned max_lag = 0;
+
+	for (unsigned lag = 1; lag < nsamples / 2; lag++) {
+		//Calculate the autocorrelation coefficients
+		acorr[lag] = gsl_stats_correlation(data, 1, data + lag, 1, nsamples - lag);
+		if (acorr[lag] != acorr[lag])
+			acorr[lag] = 0.0;
+
+		//Sum them to estimate the integrated autocorrelation
+		tau_int += acorr[lag];
+		tau_int_err += POW2(1.0 - POW2(acorr[lag])) / (nsamples - lag);
+		if (lag >= 6 * tau_int) {
+			max_lag = lag;
+			break;
+		}
+	}
+	tau_int_err = sqrt(tau_int_err);
+
+	if (!max_lag || max_lag == 1) {
+		//There is not enough data to estimate these
+		//tau_int = tau_exp = nsamples;
+		tau_int = tau_exp = 1.0;
+		tau_int_err = tau_exp_err = 1.0;
+		return;
+	}
+
+	//Prepare data for a linear fit
+	for (unsigned lag = 1; lag <= max_lag; lag++)
+		acorr[lag] = log(acorr[lag] + 1.0);
+
+	double c0, c1, cov00, cov01, cov11, sumsq;
+	gsl_fit_linear(lags, 1, acorr, 1, max_lag + 1, &c0, &c1, &cov00, &cov01, &cov11, &sumsq);
+	tau_exp = -1.0 / c1;
+	tau_exp_err = sumsq;
+}
+
+double jackknife(double *jacksamples, double mean, unsigned nsamples)
+{
+	double sigma = 0.0;
+	for (unsigned i = 0; i < nsamples; i++)
+		sigma += POW2(jacksamples[i] - mean);
+	sigma = sqrt(sigma * (nsamples - 1) / nsamples);
+	return sigma;
+}
+
+void specific_heat(double &Cv, double &err, double *action, double mean, double stddev, double beta, unsigned nsamples, unsigned stride)
+{
+	if (beta == 0.0) {
+		Cv = err = 0.0;
+		return;
+	}
+
+	Cv = POW2(beta * stddev);
+
+	std::vector<double> jacksamples(nsamples, 0.0);
+	for (unsigned i = 0; i < nsamples; i++) {
+		//jacksamples[i] = POW2(beta) * (POW2(stddev) * (nsamples - 1) - POW2(action[i*stride] - mean));
+		for (unsigned j = 0; j < nsamples; j++)
+			if (i != j)
+				jacksamples[j] += POW2(action[i*stride] - mean);
+	}
+	for (unsigned i = 0; i < nsamples; i++)
+		jacksamples[i] = POW2(beta) * jacksamples[i] / (nsamples - 1.0);
+	err = jackknife(jacksamples.data(), Cv, nsamples);
+}
+
+//Returns dimensionless free energy, -beta*F
+void free_energy(double &F, double &err, double *action, double mean, double beta, unsigned nsamples, unsigned stride)
+{
+	if (beta == 0.0) {
+		F = err = 0.0;
+		return;
+	}
+
+	F = 0.0;
+	std::vector<double> jacksamples(nsamples, 0.0);
+	for (unsigned i = 0; i < nsamples; i++) {
+		double Fi = exp(-beta * (action[i*stride] - mean));
+		F += Fi;
+		for (unsigned j = 0; j < nsamples; j++)
+			if (i != j)
+				jacksamples[j] += Fi;
+	}
+	F = log(F) - beta * mean;
+	for (unsigned i = 0; i < nsamples; i++)
+		jacksamples[i] = log(jacksamples[i]) - beta * mean;
+	err = jackknife(jacksamples.data(), F, nsamples);
+}
+
+void entropy(double &s, double &err, double action_mean, double action_stddev, double free_energy, double free_energy_stddev, double beta, uint64_t npairs, unsigned nsamples)
+{
+	if (beta == 0.0) {
+		s = err = 0.0;
+		return;
+	}
+
+	s = beta * (action_mean - free_energy) / npairs;
+	err = sqrt((POW2(action_stddev) + POW2(free_energy_stddev)) / nsamples);
+}

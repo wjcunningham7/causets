@@ -1,0 +1,40 @@
+#!/bin/bash
+
+set -eu -o pipefail
+
+#echo "Testing allocation of <2> jobs on <nerva> with <mpirun>"
+#mpirun -n 2 --hostfile hostfile1.txt --display-allocation --display-map printenv OMPI_COMM_WORLD_RANK
+
+#echo -e "\nTesting allocation of <2> jobs on <nerva> with <mpirun> (wrapper)"
+#mpirun -n 2 -N 2 --hostfile hostfile1.txt --display-allocation --display-map /data/tmp/mpi/mpiwrapper1
+
+#echo -e "\nTesting allocation of <1,1> jobs on <titus,nerva> with <mpirun> (wrapper)"
+#mpirun -n 2 -N 1 --hostfile hostfile2.txt --display-allocation --display-map /data/tmp/mpi/mpiwrapper2
+
+#echo -e "\nTesting allocation of <4,16> jobs on <titus,nerva> with <mpirun> (wrapper)"
+#mw2=/data/tmp/mpi/mpiwrapper2
+#mpirun -n 4 -N 4 --host titus:4 $mw2 : \
+#       -n 16 -N 16 --host nerva:16 $mw2
+
+#echo -e "\nTesting allocation of <1,1> jobs on <titus,nerva> with <sbatch/srun>"
+mw3=/data/tmp/mpi/mpiwrapper3
+#sbatch -N 2 -n 2 -c 1 -o slurm.log << EOF
+##!/bin/bash
+#srun $mw3
+#EOF
+
+#echo -e "\nTesting allocation of <4,16> jobs on <titus,nerva> with <sbatch/srun>"
+#sbatch -o slurm.log -N 1 -n 1 -c 4 -w titus : -N 1 -n 1 -c 16 -w nerva << EOF
+#!/bin/bash
+#srun --het-group=0,1 $mw3
+#EOF
+
+#echo -e "\nTesting allocation of <4,4> jobs on <titus,nerva> with <mpirun> for CausalSet"
+mw4=/data/tmp/mpi/mpiwrapper4
+echo -e "\nTesting allocation of <8,32> threads on <titus,nerva> for CausalSet"
+sbatch -o /data/tmp/mpi/slurm.log -e /data/tmp/mpi/slurm.err \
+       -N 1 -n 1 -c 4 --gres=gpu:k2000:1 : \
+       -N 1 -n 2 -c 8 --gres=gpu:k40c:2 << EOF
+#!/bin/bash
+srun --het-group=0,1 $mw4
+EOF

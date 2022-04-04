@@ -7,13 +7,13 @@
 #ifndef CAUSET_H_
 #define CAUSET_H_
 
-#ifdef __CUDACC_VER__
+/*#ifdef __CUDACC_VER__
 #undef __CUDACC_VER__
 #define __CUDACC_VER__ 90000
-#endif
+#endif*/
 
 #ifdef AVX2_ENABLED
-#include <intrinsics/x86intrin.h>
+#include <x86intrin.h>
 #endif
 
 //Core System Files
@@ -42,6 +42,7 @@
 //System Files for Parallel Acceleration
 #ifdef CUDA_ENABLED
   #include <cuda.h>
+  #include <curand_kernel.h>
 #endif
 
 #ifdef MPI_ENABLED
@@ -63,20 +64,26 @@
 #include <boost/random/uniform_real.hpp>
 #include <boost/random/variate_generator.hpp>
 #include <boost/unordered_map.hpp>
+#include <gsl/gsl_fit.h>
 #include <gsl/gsl_sf_lambert.h>
+#include <gsl/gsl_statistics_double.h>
 #include <sys/io.h>
 
 //Custom System Files
-#include <FastBitset.h>
-#include <FastMath.h>
-#include <FastNumInt.h>
-#include <stopwatch.h>
-#include <printcolor.h>
-#include <progressbar.h>
+#include "config.h" //Required before FastBitset.h
+#include <fastmath/fastbitset.h>
+#include <fastmath/fastmath.h>
+#include <fastmath/integration.h>
+#include <fastmath/stopwatch.h>
+#include <fastmath/printcolor.h>
+#include <fastmath/progressbar.h>
+#include <fastmath/resources.h>
 
 //Local Files
 #include "Constants.h"
 #include "Spacetime.h"
+
+using namespace fastmath;
 
 //////////////////////////////////////////////////////////////////////////////
 //References								    //
@@ -405,19 +412,32 @@ struct Coordinates5D : Coordinates {
 };
 
 enum GraphType {
-	RGG,
-	KR_ORDER,
-	_2D_ORDER
+	RGG = 0,
+	KR_ORDER = 1,
+	_2D_ORDER = 2,
+	LATTICE = 3,
+	RANDOM = 4,
+	RANDOM_DAG = 5,
+	ANTICHAIN = 6
 };
+
+static constexpr const char *gt_strings[] = { "RGG", "KR_ORDER", "2D_ORDER", "LATTICE", "RANDOM", "RANDOM_DAG", "ANTICHAIN" };
 
 //Function used in the Metropolis step
 //of Monte Carlo evolutions of the causal set
 enum WeightFunction {
-	WEIGHTLESS,
-	BD_ACTION_2D,
-	BD_ACTION_3D,
-	BD_ACTION_4D
+	WEIGHTLESS = 0,
+	BD_ACTION_2D = 1,
+	BD_ACTION_3D = 2,
+	BD_ACTION_4D = 3,
+	RELATION = 4,
+	RELATION_PAIR = 5,
+	LINK_PAIR = 6,
+	DIAMOND = 7,
+	ANTIPERCOLATION = 8
 };
+
+static constexpr const char *wf_strings[] = { "WEIGHTLESS", "BD_ACTION_2D", "BD_ACTION_3D", "BD_ACTION_4D", "RELATION", "RELATION_PAIR", "LINK_PAIR", "DIAMOND", "ANTIPERCOLATION" };
 
 //Node ID
 //This is a bit of a messy hack to deal with extra variables
@@ -487,18 +507,22 @@ struct CausetMPI {
 
 //Boolean flags used to reflect command line parameters
 struct CausetFlags {
-	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), print_dot(false), growing(false), link(false), relink(false), link_epso(false), evolve(false), has_exact_k(false), binomial(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(true), mpi_split(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_stretch(false), calc_action(false), calc_action_theory(false), calc_chain(false), calc_hubs(false), calc_geo_dis(false), calc_antichain(false), calc_entanglement_entropy(false), calc_foliation(false), calc_dimension(false), calc_smi(false), calc_extrinsic_curvature(false), strict_routing(false), verbose(false), bench(false), yes(false), test(false) {}
+	CausetFlags() : use_gpu(false), decode_cpu(false), print_network(false), print_edges(false), print_dot(false), print_hdf5(false), growing(false), link(false), relink(false), link_epso(false), mcmc(false), exchange_replicas(false), cluster_flips(false), popanneal(false), has_exact_k(false), binomial(false), read_old_format(false), quiet_read(false), no_pos(false), use_bit(true), mpi_split(false), calc_clustering(false), calc_components(false), calc_success_ratio(false), calc_stretch(false), calc_action(false), calc_action_theory(false), calc_chain(false), calc_hubs(false), calc_geo_dis(false), calc_antichain(false), calc_entanglement_entropy(false), calc_foliation(false), calc_dimension(false), calc_smi(false), calc_extrinsic_curvature(false), strict_routing(false), verbose(false), bench(false), yes(false), test(false) {}
 
 	bool use_gpu;			//Use GPU to Accelerate Select Algorithms
 	bool decode_cpu;		//Decode edge list using serial sort
 	bool print_network;		//Print to File
 	bool print_edges;		//Print Edge List to File
 	bool print_dot;			//Print Edges to Dot File
+	bool print_hdf5;		//Print Using HDF5 Format
 	bool growing;			//Use Static/Growing H2 Model
 	bool link;			//Link Nodes after Generation
 	bool relink;			//Link Nodes in Graph Identified by 'graphID'
 	bool link_epso;			//Link Nodes in H2 Using EPSO Rule
-	bool evolve;			//Evolve using Metropolis Monte Carlo
+	bool mcmc;			//Markov Chain Monte Carlo (with Metropolis update)
+	bool exchange_replicas;		//Replica Exchange Monte Carlo
+	bool cluster_flips;		//Attempt Wolff cluster flips
+	bool popanneal;			//Evolve using Population Annealing
 	bool has_exact_k;		//True if there exists an exact expression for <k>
 	bool binomial;			//Use exactly N_tar elements; otherwise choose a Poisson
 					//random variable with mean N_tar
@@ -536,7 +560,7 @@ struct CausetFlags {
 
 //Numerical parameters constraining the network
 struct NetworkProperties {
-	NetworkProperties() : flags(CausetFlags()), spacetime(Spacetime()), N_tar(0), k_tar(0.0), N(0), sweeps(0), N_sr(0.0), max_cardinality(0), N_hubs(0), N_gd(0.0), entropy_size(0.0), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), beta(0.0), epsilon(0.0), mu(0.0), gamma(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(1.0), edge_buffer(0.0), gt(RGG), wf(WEIGHTLESS), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1), datdir("./dat/") {}
+	NetworkProperties() : flags(CausetFlags()), spacetime(Spacetime()), N_tar(0), k_tar(0.0), N(0), sweeps(0), cluster_rate(0.0), N_sr(0.0), N_hubs(0), N_gd(0.0), entropy_size(0.0), a(0.0), eta0(0.0), zeta(0.0), zeta1(0.0), r_max(0.0), tau0(0.0), alpha(0.0), delta(0.0), K(0.0), beta(0.0), epsilon(0.0), mu(0.0), gamma(0.0), omegaM(0.0), omegaL(0.0), core_edge_fraction(1.0), edge_buffer(0.0), gt(RGG), wf(WEIGHTLESS), seed(12345L), graphID(0), cmpi(CausetMPI()), mrng(MersenneRNG()), group_size(1), datdir("./data/"), R0(128), runs(1) {}
 
 	CausetFlags flags;
 	Spacetime spacetime;		//Encodes dimension, manifold, region, curvature, and symmetry
@@ -546,9 +570,10 @@ struct NetworkProperties {
 	int N;				//Actual Number of Nodes
 
 	unsigned sweeps;		//Number of sweeps used for MMC
+	float cluster_rate;		//Rate at which cluster flips are attempted
+	double couplings[2] = {0,0};	//Couplings used for generalized action
 
 	long double N_sr;		//Number of Pairs Used in Success Ratio
-	int max_cardinality;		//Elements used in Action Calculation
 	int N_actth;			//2^(N_actth) is the Largest Theoretical Value to Calculate
 	int N_hubs;			//Number of Nodes Used to Calculate Hub Connectivity
 	long double N_gd;		//Number of Pairs Used in Geodesic Disconnectedness Measurements
@@ -563,6 +588,7 @@ struct NetworkProperties {
 	double tau0;			//Rescaled Age
 	double alpha;			//Rescaled Ratio of Matter Density to Dark Energy Density
 	double delta;			//Node Density
+	double K;			//Extrinsic curvature
 
 	double beta;			//Inverse Temperature
 	double epsilon;			//Action Smearing Parameter
@@ -587,11 +613,15 @@ struct NetworkProperties {
 	int group_size;			//Number of mega-blocks per grid dimension
 
 	std::string datdir;		//Directory to read and write data
+
+	//Population Annealing
+	unsigned R0;			//Target Population Size
+	unsigned runs;			//Number of Sequential Runs
 };
 
 //Measured values of the network
 struct NetworkObservables {
-	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), success_ratio(0.0), success_ratio2(0.0), stretch(0.0), cardinalities(NULL), action(0.0f), chaintime(NULL), actth(NULL), longest_chain(0), hub_density(0.0), hub_densities(NULL), geo_discon(0.0), dimension(0.0), smi(NULL), extrinsic_curvature(0.0) {}
+	NetworkObservables() : N_res(0), k_res(0.0f), N_deg2(0), N_cc(0), N_gcc(0), clustering(NULL), average_clustering(0.0), success_ratio(0.0), success_ratio2(0.0), stretch(0.0), cardinalities(NULL), action(0.0f), chaintime(NULL), actth(NULL), longest_chain_length(0), hub_density(0.0), hub_densities(NULL), geo_discon(0.0), dimension(0.0), smi(NULL), layers(NULL), extrinsic_curvature(0.0) {}
 	
 	int N_res;			//Resulting Number of Connected Nodes
 	float k_res;			//Resulting Average Degree
@@ -609,14 +639,15 @@ struct NetworkObservables {
 	float stretch;			//Average Stretch Across Greedy Paths
 
 	uint64_t *cardinalities;	//M-Element Inclusive-Order-Interval Cardinalities
-	float action;			//Action
+	double action;			//Action
 
 	std::vector<unsigned int> timelike_candidates;	//Candidates for a timelike boundary
 	int *chaintime;			//Maximal chain length to each node
 
 	double *actth;			//Theoretical values of action for different densities
 
-	int longest_chain;		//Longest (maximum) chain
+	Bitvector longest_chains;	//Longest chains' elements
+	int longest_chain_length;	//Longest (maximum) chain
 	std::pair<int,int> longest_pair;//Pair of elements bounding maximum chain
 
 	float hub_density;		//Density of Hubs
@@ -632,7 +663,9 @@ struct NetworkObservables {
 
 	uint64_t *smi;			//Spacetime Mutual Information Cardinalities;
 
+	int *layers;			//Proper time, as defined by layering
 	float extrinsic_curvature;	//Mean extrinsic curvature of timelike boundaries
+	std::vector<std::tuple<FastBitset, int, int>> boundary_chains;
 };
 
 //Network object containing minimal unique information
@@ -648,6 +681,9 @@ struct Network {
 	Edge edges;
 	Bitvector adj;
 	Bitvector links;
+
+	std::vector<unsigned> U;
+	std::vector<unsigned> V;
 };
 
 //Algorithmic Performance
@@ -683,13 +719,14 @@ struct CausetPerformance {
 
 //Benchmark Statistics
 struct Benchmark {
-	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bGenKR(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0), bMeasureAction(0.0), bMeasureChain(0.0), bMeasureHubs(0.0), bMeasureGeoDis(0.0), bMeasureFoliation(0.0), bMeasureAntichain(0.0), bMeasureDimension(0.0), bMeasureEntanglementEntropy(0.0), bMeasureSMI(0.0), bMeasureExtrinsicCurvature(0.0) {}
+	Benchmark() : bCalcDegrees(0.0), bCreateNetwork(0.0), bGenerateNodes(0.0), bGenerateNodesGPU(0.0), bGenKR(0.0), bGenRandom(0.0), bQuicksort(0.0), bLinkNodes(0.0), bLinkNodesGPU(0.0), bMeasureClustering(0.0), bMeasureConnectedComponents(0.0), bMeasureSuccessRatio(0.0), bMeasureAction(0.0), bMeasureChain(0.0), bMeasureHubs(0.0), bMeasureGeoDis(0.0), bMeasureFoliation(0.0), bMeasureAntichain(0.0), bMeasureDimension(0.0), bMeasureEntanglementEntropy(0.0), bMeasureSMI(0.0), bMeasureExtrinsicCurvature(0.0) {}
 
 	double bCalcDegrees;
 	double bCreateNetwork;
 	double bGenerateNodes;
 	double bGenerateNodesGPU;
 	double bGenKR;
+	double bGenRandom;
 	double bQuicksort;
 	double bLinkNodes;
 	double bLinkNodesGPU;
@@ -724,20 +761,24 @@ protected:
 //Function prototypes for those described in src/Causet.cu
 NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi);
 
-bool initializeNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
+void printModules(const int mpi_procs, const int rank);
 
-bool evolveNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
+bool initializeNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, CUcontext &ctx, const size_t dev_memory);
+
+bool annealNetwork(Network * const network, CuResources * const cu, CaResources * const ca);
 
 bool measureNetworkObservables(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
 
-bool loadNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx);
+bool loadNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, CUcontext &ctx, const size_t dev_memory);
 
-bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID);
+bool printNetworkHDF5(Network &network, CausetPerformance &cp);
+
+bool printNetwork(Network &network, CausetPerformance &cp);
 
 bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link, const bool &relink);
 
 void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMemUsed);
 
-bool linkNodes(Network * const network, CaResources * const ca, CausetPerformance * const cp, const CUcontext &ctx);
+bool linkNodes(Network * const network, CaResources * const ca, CausetPerformance * const cp, CUcontext &ctx);
 
 #endif

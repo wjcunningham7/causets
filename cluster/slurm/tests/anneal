@@ -1,0 +1,35 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2020 #
+#    Perimeter Institute  #
+###########################
+
+set -eu -o pipefail
+
+#config="graham_gpubase_v100"
+#configdata=($($CAUSET_HOME/cluster/slurm/slurm_config ${config}))
+#partition=${configdata[0]}
+#gres=${configdata[1]}
+#memory=${configdata[2]}
+#ncores=${configdata[3]}
+
+source $HOME/.cluster
+
+partition=gpubase_t4
+gres="gpu\:t4\:4"
+memory="100G"
+ncores=1
+nodes=2
+tasks=8
+
+job=0-0
+gtype="2d_order"
+n=64
+R0=16384
+sweeps=4
+beta=2.0
+weight="relation"
+runs=1
+
+$CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --partition $partition --nodes $nodes --tasks $tasks --ncores $ncores --start $job --memory $memory --gres $gres --flags "--type $gtype --nodes $n --popanneal --gpu --popsize $R0 --sweeps $sweeps --beta $beta --weight $weight --runs $runs --binomial"

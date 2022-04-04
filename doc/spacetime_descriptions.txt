@@ -1,0 +1,29 @@
+This serves as a description of various spacetimes referenced in doc/VERSION
+
+STDIM refers to the spacetime dimension, i.e., the number of spatial dimensions plus one temporal dimension. The only exception is for the Hyperbolic manifold, which is the Riemannian H2 disc.
+
+MANIFOLD refers to the manifold we are considering. Together with STDIM one can deduce the metric. In the case of De_Sitter manifolds, one must also consider the CURVATURE to deduce the foliation.
+
+CURVATURE refers to the curvature of spatial slices of the MANIFOLD. Positive curvature implies closed spherically symmetric spatial slices, while Flat implies there are spatial cutoffs determined by the REGION. The exception is the 3D Slab, where Positive curvature implies toroidal topology.
+
+SYMMETRY refers to the temporal symmetry of the region. Temporal symmetry implies the region extends from t=-t0 to t=+t0, while None implies the region extends from t=0 to t=+t0. For some spacetimes, like Minkowski spacetimes, this has no effect on the resulting graphs.
+
+REGION refers to the specific region studied. A SLAB is a spherically symmetric region spanning two constant-time hypersurfaces. Variants of the slab are
+ > SLAB_T1 is a slab with concave constant-curvature spherically symmetric spatial boundaries
+ > SLAB_T2 is the same with convex boundaries
+ > SLAB_S1 has flat spatial boundaries and concave temporal boundaries
+ > SLAB_TS is a region with concave temporal boundaries and convex spatial boundaries
+ > SLAB_N2 is a trapezoid when SYMMETRY=None, and a Hexagon when SYMMETRY=Temporal
+ > SLAB_N3 is an isosceles right pentagon
+ > CUBE is a slab which is not spherically symmetric
+There are also variants of causal diamonds:
+ > DIAMOND is a symmetric causal diamond
+ > HALF_DIAMOND is a causal diamond cut in half down the middle by a timelike hypersurface
+ > HALF_DIAMOND_T is the same as the above, but the timelike portion of the boundary is convex and has constant curvature
+Some other regions are the saucers, i.e., regions bounded only by intersecting constant-curvature hypersurfaces:
+ > SAUCER_T consists of two constant-curvature timelike hypersurfaces: ()
+ > SAUCER_S is the same , rotated 90deg on its side
+ > If the flag SPECIAL_SAUCER=true, the saucers are not constant-curvature, but the intersection angles are fixed to be right angles
+Finally, there are the isosceles triangles:
+ > TRIANGLE_T is like the half-diamond, but the angles may vary
+ > TRIANGLE_S has only spacelike hypersurfaces, and the angles also may vary

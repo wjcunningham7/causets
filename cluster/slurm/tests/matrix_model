@@ -1,0 +1,46 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2020 #
+#    Perimeter Institute  #
+###########################
+
+set -eu -o pipefail
+
+experiment=0
+missing=false
+if [ $missing = true ] ; then
+  if [ -e $CAUSET_HOME/par/CMM-$experiment.$CLUSTERNAME.par ] ; then
+    pfile=$CAUSET_HOME/par/CMM-$experiment.$CLUSTERNAME.par
+  else
+    pfile=$CAUSET_HOME/par/CMM-$experiment.missing.par
+  fi
+else
+  pfile=$CAUSET_HOME/par/CMM-$experiment.par
+fi
+
+# Settings for supernova/nerva
+partition=nerva
+memory=8G
+ncores=1
+
+mkdir -p $SCRATCH/data
+tpfile=$(mktemp -p $SCRATCH/data)
+#sort -n -k4 $pfile > $tpfile
+cat $pfile > $tpfile
+
+while read -a line ; do
+  job=${line[0]}
+  gtype=${line[1]}
+  wtype=${line[2]}
+  n=${line[3]}
+  sweeps=${line[4]}
+  b=${line[5]}
+
+  echo "Submitting Job [$job]"
+  id=$($CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --partition $partition --ncores $ncores --start $job --memory $memory --flags "--type $gtype --weight $wtype --nodes $n --spacetime 140400011 --age 1.0 --sweeps $sweeps --beta $b --mcmc --binomial --link --verbose -y --print --hdf5")
+done < $tpfile
+
+rm -f $tpfile
+
+mailafter $id CMM-$experiment &> /dev/null

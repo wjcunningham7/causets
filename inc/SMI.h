@@ -20,7 +20,14 @@ inline bool smi_hypersurface(Coordinates * const &crd, const Spacetime &spacetim
 	//r_max is the max. radial coordinate
 
 	bool elementAboveHS = false;
-	if (spacetime.spacetimeIs("2", "Minkowski", "Diamond", "Flat", "None")) {
+	if (spacetime.spacetimeIs("2", "Minkowski", "Slab_N2", "Flat", "None")) {
+		if (fabs(crd->y(idx)) < 0.5 - eta0)
+			elementAboveHS = true;
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_N2", "Flat", "Temporal")) {
+		//if (fabs(crd->y(idx)) < 0.5 - eta0)
+		if (fabs(crd->y(idx)) < eta_77834_1(2.0 * crd->x(idx), 1.0 - sqrt(1.0 - POW2(2.0 * eta0))) + r_max / 2.0)
+			elementAboveHS = true;
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Diamond", "Flat", "None")) {
 		double t = crd->x(idx);
 		//double x = crd->y(idx);
 

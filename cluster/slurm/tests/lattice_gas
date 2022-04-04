@@ -1,0 +1,30 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2019 #
+#    Perimeter Institute  #
+###########################
+
+set -eu -o pipefail
+
+experiment=23
+parfile="EVO-$experiment.par"
+
+partition="gpu_k40"
+ncores=28
+gres="gpu\:k40m\:1"
+memory="128000M"
+samples=100
+
+while read line ; do
+  aline=($line)
+  job=${aline[0]}
+  st=${aline[1]}
+  n=${aline[2]}
+  t=${aline[3]}
+
+  echo "Submitting Job [$job]: (ST=$st, N=$n, t=$t)"
+  id=$($CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --partition $partition --ncores $ncores --start $job --nsamples $samples --memory $memory --gres $gres --flags "--type rgg --spacetime $st --nodes $n --age $t --binomial --link --gpu --action smeared --verbose -y --print")
+done < $CAUSET_HOME/tests/par/$parfile
+
+mailafter $id EVO-$experiment &> /dev/null

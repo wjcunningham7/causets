@@ -1,0 +1,38 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2019 #
+#    Perimeter Institute  #
+###########################
+
+set -eu -o pipefail
+
+experiment=7
+parfile="TLA-$experiment.par"
+
+partitionC="skylake"
+ncoresC=48
+constraintC="skylake"
+
+partitionG="gpubase"
+ncoresG=32
+constraintG="broadwell"
+gres="gpu\:p100\:2"
+memory="124G"
+samples=100
+
+while read line ; do
+  aline=($line)
+  job=${aline[0]}
+  st=${aline[1]}
+  n=${aline[3]}
+  r=${aline[4]}
+
+  echo "Submitting Job [$job]: (ST=$st, N=$n, r=$r)"
+  #id=$($CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --partition $partitionG --ncores $ncoresG --start ${job}.L --nsamples $samples --memory $memory --gres $gres --constraint $constraintG --flags "--type rgg --spacetime $st --nodes $n --radius $r --age 1 --binomial --link --gpu --verbose -y --print --print-edges")
+  #id=$($CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --partition $partitionC --ncores $ncoresC --start ${job}.A --memory $memory --readjob ${job}.L --waitfor $id --constraint $constraintC --flags "--type rgg --spacetime $st --nodes $n --radius $r --age 1 --link --action smeared --verbose -y --print")
+  
+  id=$($CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --partition $partitionG --ncores $ncoresG --start $job --nsamples $samples --memory $memory --gres $gres --flags "--type rgg --spacetime $st --nodes $n --radius $r --age 1 --binomial --link --gpu --chain --extrinsic --verbose -y --print")
+done < $CAUSET_HOME/tests/par/$parfile
+
+mailafter $id TLA-$experiment &> /dev/null

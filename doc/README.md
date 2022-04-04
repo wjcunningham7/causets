@@ -62,6 +62,8 @@ The C code lets you measure the following:
 8. Timelike and spacelike partitions
 9. Myrheim-Meyer dimension
 10. Entanglement entropy (COMING SOON)
+11. Generate a Markov chain using Metropolis sampling
+12. Timelike boundary geometry (under revision)
 
 In addition, the Python code can measure
 
@@ -77,4 +79,4 @@ In addition, the Python code can measure
 ## Maintenance
 Contact <wjcunningham7@gmail.com> to report bugs or get help.  
 
-&copy; Will Cunningham 2013-2018
+&copy; Will Cunningham 2013-2020

@@ -32,7 +32,7 @@ bool measureClustering(float *& clustering, const Node &nodes, const Edge &edges
 			throw std::bad_alloc();
 		memset(clustering, 0, sizeof(float) * N);
 		ca->hostMemUsed += sizeof(float) * N;
-	} catch (std::bad_alloc()) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Failed to allocate memory in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -169,7 +169,7 @@ bool measureConnectedComponents(Node &nodes, const Edge &edges, const Bitvector 
 			else
 				return false;
 		}
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -326,7 +326,7 @@ bool measureSuccessRatio(const Node &nodes, const Edge &edges, const Bitvector &
 			else
 				return false;
 		}
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -947,7 +947,7 @@ void* actionKernel(void *params)
 	pthread_exit(NULL);
 }
 
-bool measureAction_v6(uint64_t *& cardinalities, float &action, Bitvector &adj, const Spacetime &spacetime, const int N, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureAction, const bool use_bit, const bool split_mpi, const bool verbose, const bool bench)
+bool measureAction_v6(uint64_t *& cardinalities, double &action, Bitvector &adj, const Spacetime &spacetime, const int N, const double epsilon, CausetMPI &cmpi, MersenneRNG &mrng, CaResources * const ca, Stopwatch &sMeasureAction, const bool use_bit, const bool split_mpi, const bool verbose, const bool bench)
 {
 	#if DEBUG
 	assert (adj.size() >= (size_t)N);
@@ -975,7 +975,6 @@ bool measureAction_v6(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	uint64_t start = rank * npairs;
 	uint64_t finish = start + npairs;
 	unsigned int nthreads = omp_get_max_threads();
-	double lk = 2.0;
 
 	stopwatchStart(&sMeasureAction);
 
@@ -985,7 +984,7 @@ bool measureAction_v6(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			if (cardinalities == NULL)
 				throw std::bad_alloc();
 			ca->hostMemUsed += sizeof(uint64_t) * N * nthreads;
-		} catch (std::bad_alloc) {
+		} catch (const std::bad_alloc&) {
 			fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 			return false;
 		}
@@ -1023,9 +1022,10 @@ bool measureAction_v6(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	#endif
 
 	cardinalities[0] = N;
-	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, true);
-	//action = calcAction(cardinalities, 3, lk, true);
-	assert (action == action);
+	if (spacetime.is_set()) {
+		action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), epsilon);
+		assert (action == action);
+	}
 
 	stopwatchStop(&sMeasureAction);
 
@@ -1051,7 +1051,7 @@ bool measureAction_v6(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 //Algorithm has been optimized for MPI load balancing
 //Requires the existence of the whole adjacency matrix
 //This will calculate all cardinality intervals by construction
-bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, const Spacetime &spacetime, const int &N, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v5(uint64_t *& cardinalities, double &action, Bitvector &adj, const Spacetime &spacetime, const int &N, const double epsilon, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (adj.size() >= (size_t)N);
@@ -1077,18 +1077,17 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	#endif
 
 	int rank = cmpi.rank;
-	double lk = 2.0;
 
 	stopwatchStart(&sMeasureAction);
 
-	//Allocate memory for cardinality measurements and workspace
+	//Allocate memory for cardinality measurements
 	try {
 		cardinalities = (uint64_t*)malloc(sizeof(uint64_t) * N * omp_get_max_threads());
 		if (cardinalities == NULL)
 			throw std::bad_alloc();
 		memset(cardinalities, 0, sizeof(uint64_t) * N * omp_get_max_threads());
 		ca->hostMemUsed += sizeof(uint64_t) * N * omp_get_max_threads();
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -1154,13 +1153,11 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	//is always smaller than the second
 	int pair[2];
 	std::unordered_set<std::pair<int,int> > new_pairs;
-	init_mpi_pairs(new_pairs, current, split_job);
+	init_mpi_pairs(new_pairs, current);
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	if (split_job) {
-		remove_bad_perms(permutations, new_pairs);
-		printCardinalities(cardinalities, N, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
-	}
+	remove_bad_perms(permutations, new_pairs);
+	//printCardinalities(cardinalities, N, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
 
 	//These next four steps identify the swaps necessary
 	//to obtain the first memory permutation
@@ -1215,10 +1212,9 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	action_params p;	//Parameters passed to the actionKernel
 				//These are needed to send variables to a pthread
 	p.adj = &adj;
-	p.workspace = &workspace;
 	p.current = &current;
 	p.cardinalities = cardinalities;
-	p.clone_length = clone_length;
+	//p.clone_length = clone_length;
 	p.npairs = npairs;
 	p.N = N;
 	p.N_eff = N_eff;
@@ -1297,9 +1293,9 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 					lock[rank] = LOCKED;
 				}
 
-				if (split_job && new_pairs.find(std::make_pair(std::min(current[rank<<1], current[(rank<<1)+1]), std::max(current[rank<<1], current[(rank<<1)+1]))) != new_pairs.end()) {
+				if (new_pairs.find(std::make_pair(std::min(current[rank<<1], current[(rank<<1)+1]), std::max(current[rank<<1], current[(rank<<1)+1]))) != new_pairs.end()) {
 					printf_dbg("Rank [%d] printing for [%d - %d]\n", rank, current[rank<<1], current[(rank<<1)+1]);
-					printCardinalities(cardinalities, N - 1, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
+					//printCardinalities(cardinalities, N - 1, nthreads, current[rank<<1], current[(rank<<1)+1], 5);
 				}
 
 				//State is now passive - the signal (if sent) has been sent to itself as well
@@ -1533,11 +1529,11 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			current[pair[0]] ^= current[pair[1]];
 			current[pair[1]] ^= current[pair[0]];
 			current[pair[0]] ^= current[pair[1]];
-			printf_cyan();
-			printf("\nCurrent permutation:\t");
-			print_pairs(current);
-			printf_std();
-			fflush(stdout);
+			//printf_cyan();
+			//printf("\nCurrent permutation:\t");
+			//print_pairs(current);
+			//printf_std();
+			//fflush(stdout);
 
 			int r0 = pair[0] >> 1;
 			int r1 = pair[1] >> 1;
@@ -1612,7 +1608,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	#endif
 	cardinalities[0] = N;
 
-	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, true);
+	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), epsilon);
 	assert (action == action);
 
 	stopwatchStop(&sMeasureAction);
@@ -1638,7 +1634,7 @@ bool measureAction_v5(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 //Algorithm has been optimized using minimal bitwise operations
 //Requires the existence of the whole adjacency matrix
 //This will calculate all cardinality intervals by construction
-bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, const Spacetime &spacetime, const int &N, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v4(uint64_t *& cardinalities, double &action, Bitvector &adj, const Spacetime &spacetime, const int &N, const double epsilon, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	assert (adj.size() >= (size_t)N);
@@ -1660,7 +1656,6 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	}
 
 	static const bool ACTION_DEBUG = false;
-	double lk = 2.0;
 
 	stopwatchStart(&sMeasureAction);
 
@@ -1671,7 +1666,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			throw std::bad_alloc();
 		memset(cardinalities, 0, sizeof(uint64_t) * N * omp_get_max_threads());
 		ca->hostMemUsed += sizeof(uint64_t) * N * omp_get_max_threads();
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -1868,7 +1863,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	//The first element will be N
 	cardinalities[0] = N;
 
-	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, true);
+	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), epsilon);
 	assert (action == action);
 
 	stopwatchStop(&sMeasureAction);
@@ -1894,7 +1889,7 @@ bool measureAction_v4(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 //Algorithm has been optimized using minimal bitwise operations
 //Requires the existence of the whole adjacency matrix
 //This will calculate all cardinality intervals by construction
-bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, const int * const k_in, const int * const k_out, const Spacetime &spacetime, const int N, const GraphType gt, CaResources * const ca, Stopwatch &sMeasureAction, const bool use_bit, const bool verbose, const bool bench)
+bool measureAction_v3(uint64_t *& cardinalities, double &action, Bitvector &adj, const int * const k_in, const int * const k_out, const Spacetime &spacetime, const int N, const double epsilon, const GraphType gt, CaResources * const ca, Stopwatch &sMeasureAction, const bool use_bit, const bool verbose, const bool bench)
 {
 	#if DEBUG
 	assert (adj.size() >= (size_t)N);
@@ -1903,12 +1898,15 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 	assert (use_bit);
 	#endif
 
-	if (verbose || bench)
+	if (verbose || bench) {
 		printf_dbg("Using Version 3 (measureAction).\n");
+		#ifdef AVX512_ENABLED
+		printf_dbg(" > enabling AVX-512 features\n");
+		#endif
+	}
 
 	int n = N + N % 2;
 	uint64_t npairs = static_cast<uint64_t>(n) * (n - 1) / 2;
-	double lk = 2.0;
 
 	stopwatchStart(&sMeasureAction);
 
@@ -1918,7 +1916,7 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		if (cardinalities == NULL)
 			throw std::bad_alloc();
 		ca->hostMemUsed += sizeof(uint64_t) * N * omp_get_max_threads();
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -1932,7 +1930,7 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 
 	unsigned int nthreads = omp_get_max_threads();
 	#ifdef AVX2_ENABLED
-	nthreads >>= 1;
+	//nthreads >>= 1;
 	#endif
 
 	//Compare all pairs of elements
@@ -1953,7 +1951,11 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 		if (!nodesAreConnected_v2(adj, N, static_cast<int>(i), static_cast<int>(j))) continue;
 
 		//Save the cardinality
+		#ifdef AVX512_ENABLED
+		cardinalities[tid*N+adj[i].partial_vecprod_avx512(adj[j], i, j - i + 1)+1]++;
+		#else
 		cardinalities[tid*N+adj[i].partial_vecprod(adj[j], i, j - i + 1)+1]++;
+		#endif
 	}
 
 	//Reduction for OpenMP
@@ -1962,7 +1964,7 @@ bool measureAction_v3(uint64_t *& cardinalities, float &action, Bitvector &adj, 
 			cardinalities[j] += cardinalities[i*N+j];
 
 	if (gt == RGG) {
-		action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, true);
+		action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), epsilon);
 		assert (action == action);
 	}
 
@@ -2046,7 +2048,7 @@ bool timelikeActionCandidates(std::vector<unsigned int> &candidates, int *chaint
 			workspaces.push_back(fb);
 			ca->hostMemUsed += sizeof(BlockType) * fb.getNumBlocks();
 		}
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -2415,7 +2417,7 @@ bool measureTimelikeAction(Network * const graph, Network * const subgraph, cons
 		for (int i = 0; i < subgraph->network_properties.N; i++)
 			sublengths[i] = std::make_pair(-1, -1);
 		ca->hostMemUsed += sizeof(std::pair<int,int>) * subgraph->network_properties.N;
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -2579,7 +2581,7 @@ bool measureTheoreticalAction(double *& actth, int N_actth, const Node &nodes, B
 			throw std::bad_alloc();
 		memset(actth, 0, sizeof(double) * nsamples * omp_get_max_threads());
 		ca->hostMemUsed += sizeof(double) * nsamples * omp_get_max_threads();
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure inn %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -2644,7 +2646,7 @@ bool measureTheoreticalAction(double *& actth, int N_actth, const Node &nodes, B
 	return true;
 }
 
-bool measureChain(int &chain_length, std::pair<int,int> &longest_pair, const Node &nodes, Bitvector &adj, const int N, CaResources * const ca, Stopwatch &sMeasureChain, const bool verbose, const bool bench)
+bool measureChain(Bitvector &longest_chains, int &chain_length, std::pair<int,int> &longest_pair, const Node &nodes, Bitvector &adj, const int N, CaResources * const ca, Stopwatch &sMeasureChain, const bool verbose, const bool bench)
 {
 	#if DEBUG
 	assert (nodes.k_in != NULL);
@@ -2654,7 +2656,9 @@ bool measureChain(int &chain_length, std::pair<int,int> &longest_pair, const Nod
 	assert (ca != NULL);
 	#endif
 
-	FastBitset workspace = FastBitset(N);
+	//static const bool DEBUG_CHAIN = false;
+	FastBitset workspace(N);
+	FastBitset longest_chain(N);
 	int *lengths = NULL;
 
 	stopwatchStart(&sMeasureChain);
@@ -2665,11 +2669,12 @@ bool measureChain(int &chain_length, std::pair<int,int> &longest_pair, const Nod
 			throw std::bad_alloc();
 		memset(lengths, -1, sizeof(int) * N);
 		ca->hostMemUsed += sizeof(int) * N;
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
 
+	//This is the original algorithm
 	int len = 0;
 	for (int i = 0; i < N; i++) {
 		if (!!nodes.k_in[i]) continue;
@@ -2684,34 +2689,35 @@ bool measureChain(int &chain_length, std::pair<int,int> &longest_pair, const Nod
 		}
 	}
 
-	/*printf_red();
-	printf("Value: %d %.6f\n", chain_length, 0.5 * (double)chain_length * pow((double)N, -1.0 / 2.0));
-	printf_std();
-	fflush(stdout);*/
-
 	//DEBUG longestChain_v3
-	printf("Studying Pair (%d, %d):\n", std::get<0>(longest_pair), std::get<1>(longest_pair));
-	printf("Length (v2): %d\n", chain_length);
-	fflush(stdout);
-	std::ofstream f("chains.dat", std::ios::out);
+	//printf("Studying Pair (%d, %d):\n", std::get<0>(longest_pair), std::get<1>(longest_pair));
+	//printf("Length (v2): %d\n", chain_length);
+	//fflush(stdout);
+
+	//This is the version which saves the actual chain elements
+
+	//This was added for Half_Diamond_T ONLY
+	/*longest_pair = std::make_pair(0, N - 1);
 
 	Bitvector chains;
 	chains.reserve(N);
 	workspace.reset();
 	for (int i = 0; i < N; i++)
 		chains.push_back(workspace);
-	FastBitset longest_chain(N);
 	
 	int lc3 = longestChain_v3(adj, chains, longest_chain, &workspace, lengths, N, std::get<0>(longest_pair), std::get<1>(longest_pair), 0);
-	printf("Length (v3): %d\n", lc3);
-	for (int i = 0; i < N; i++)
-		if (longest_chain.read(i))
-			f << i << "\n";
-	f.flush();
-	f.close();
+	longest_chains.push_back(longest_chain);
+	chain_length = lc3;
 
-	fflush(stdout);
-	printChk(3);
+	if (DEBUG_CHAIN) {
+		std::ofstream f("longest_chain.dat", std::ios::out);
+		for (int i = 0; i < N; i++)
+			if (longest_chain.read(i))
+				f << i << "\n";
+		f.flush();
+		f.close();
+	}*/
+
 	//END DEBUG
 
 	free(lengths);
@@ -2758,7 +2764,7 @@ bool measureHubDensity(float &hub_density, float *& hub_densities, Bitvector &ad
 		if (hub_densities == NULL)
 			throw std::bad_alloc();
 		ca->hostMemUsed += sizeof(float) * (N_hubs + 1);
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Failed to allocate memory in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -2958,7 +2964,7 @@ bool measureFoliation(Bitvector &timelike_foliation, Bitvector &spacelike_foliat
 			throw std::bad_alloc();
 		memset(lengths, -1, sizeof(int) * N * omp_get_max_threads());
 		ca->hostMemUsed += sizeof(int) * N * omp_get_max_threads();
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -3353,28 +3359,42 @@ bool measureSpacetimeMutualInformation(uint64_t *& smi, Bitvector &adj, const No
 	#endif
 
 	//Partition the causal set
-	FastBitset partition(N);
+	FastBitset set0(N);	//Past elements
+	FastBitset set1(N);	//Future elements
 
 	//Partition it
+	set0.set();
 	for (int i = 0; i < N; i++)
 		if (smi_hypersurface(nodes.crd, spacetime, eta0, r_max, i))
-			partition.set(i);
+			set1.set(i);
+	//set1.clone(set0);
 
-	FastBitset workspace(N);
-	partition.clone(workspace);
-	workspace.flip();
+	uint64_t s0size = set0.count_bits();
+	uint64_t s1size = set1.count_bits();
+	printf("s0size: %u\n", (unsigned)s0size);
+	printf("s1size: %u\n", (unsigned)s1size);
+	uint64_t npairs = s0size * s1size;
 
-	uint64_t p1size = partition.count_bits();
-	uint64_t p2size = workspace.count_bits();
-	uint64_t npairs = p1size * p2size;
+	std::vector<int> idxA(s0size);
+	std::vector<int> idxB(s1size);
 
-	std::vector<int> idxA(p1size);
-	std::vector<int> idxB(p2size);
+	for (unsigned i = 0; i < s0size; i++)
+		set0.unset(idxA[i] = set0.next_bit());
+	for (unsigned i = 0; i < s1size; i++)
+		set1.unset(idxB[i] = set1.next_bit());
 
-	for (unsigned i = 0; i < p1size; i++)
-		partition.unset(idxA[i] = partition.next_bit());
-	for (unsigned i = 0; i < p2size; i++)
-		workspace.unset(idxB[i] = workspace.next_bit());
+	std::ofstream os0("i.dat");
+	for (unsigned i = 0; i < s0size; i++)
+		os0 << nodes.crd->y(idxA[i]) << " " << nodes.crd->x(idxA[i]) << "\n";
+	os0.flush();
+	os0.close();
+
+	std::ofstream os1("j.dat");
+	for (unsigned i = 0; i < s1size; i++)
+		os1 << nodes.crd->y(idxB[i]) << " " << nodes.crd->x(idxB[i]) << "\n";
+	os1.flush();
+	os1.close();
+	//printChk();
 
 	stopwatchStart(&sMeasureSMI);
 
@@ -3384,7 +3404,7 @@ bool measureSpacetimeMutualInformation(uint64_t *& smi, Bitvector &adj, const No
 		if (smi == NULL)
 			throw std::bad_alloc();
 		ca->hostMemUsed += sizeof(uint64_t) * N * omp_get_max_threads();
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -3394,7 +3414,8 @@ bool measureSpacetimeMutualInformation(uint64_t *& smi, Bitvector &adj, const No
 		printMemUsed("to Measure Spacetime Mutual Information", ca->hostMemUsed, ca->devMemUsed, 0);
 
 	//The first element will be N
-	smi[0] = N;
+	//smi[0] = N;
+	smi[0] = s1size;
 
 	unsigned int nthreads = omp_get_max_threads();
 	#ifdef AVX2_ENABLED
@@ -3408,14 +3429,14 @@ bool measureSpacetimeMutualInformation(uint64_t *& smi, Bitvector &adj, const No
 	for (uint64_t k = 0; k < npairs; k++) {
 		unsigned int tid = omp_get_thread_num();
 		//Choose a pair
-		uint64_t i = k / p2size;
-		uint64_t j = k % p2size;
+		uint64_t i = k / s1size;
+		uint64_t j = k % s1size;
 		i = idxA[i];
 		j = idxB[j];
-		if (i > j) std::swap(i, j);
+		if (i >= j) continue;
 
 		//Ignore pairs which are not connected
-		if (!nodesAreConnected_v2(adj, N, static_cast<int>(i), static_cast<int>(j))) continue;
+		if (!nodesAreConnected_v2(adj, N, (int)i, (int)j)) continue;
 
 		//Save the cardinality
 		smi[tid*N+adj[i].partial_vecprod(adj[j], i, j - i + 1)+1]++;
@@ -3441,24 +3462,27 @@ bool measureSpacetimeMutualInformation(uint64_t *& smi, Bitvector &adj, const No
 	return true;
 }
 
-bool measureExtrinsicCurvature(Network *network, CaResources * const ca, const CUcontext ctx)
+bool measureExtrinsicCurvature(Network *network, CaResources * const ca, CUcontext ctx)
 {
 	#if DEBUG
 	assert (network != NULL);
 	assert (ca != NULL);
 	#endif
 
-	int *chaintime = NULL;
+	static const bool DEBUG_EXTRINSIC = false;
+
 	int *iwork = NULL;
+	Network subgraph;
 	Bitvector fwork, fwork2, chains;
 	std::vector<std::pair<int, int>> pwork;
 	std::pair<int, int> *i2work = NULL;
-	std::vector<std::tuple<FastBitset, int, int>> boundary_chains;
 	Stopwatch sIdentify;
+	unsigned L;
+	//float K = 0.0;
 
 	try {
-		chaintime = (int*)malloc(sizeof(int) * network->network_properties.N * omp_get_max_threads());
-		if (chaintime == NULL)
+		network->network_observables.layers = (int*)malloc(sizeof(int) * network->network_properties.N * omp_get_max_threads());
+		if (network->network_observables.layers == NULL)
 			throw std::bad_alloc();
 		ca->hostMemUsed += sizeof(int) * network->network_properties.N * omp_get_max_threads();
 
@@ -3466,7 +3490,7 @@ bool measureExtrinsicCurvature(Network *network, CaResources * const ca, const C
 		if (iwork == NULL)
 			throw std::bad_alloc();
 		ca->hostMemUsed += sizeof(int) * network->network_properties.N * omp_get_max_threads();
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -3475,12 +3499,44 @@ bool measureExtrinsicCurvature(Network *network, CaResources * const ca, const C
 	if (network->network_properties.flags.verbose)
 		printMemUsed("to Identify Boundary Candidates", ca->hostMemUsed, ca->devMemUsed, 0);
 
-	identifyTimelikeCandidates(network->network_observables.timelike_candidates, chaintime, iwork, fwork, network->nodes, network->adj, network->network_properties.spacetime, network->network_properties.N, sIdentify, network->network_properties.flags.verbose, network->network_properties.flags.bench);
+	identifyTimelikeCandidates(network->network_observables.timelike_candidates, network->network_observables.layers, iwork, fwork, network->nodes, network->adj, network->network_properties.spacetime, network->network_properties.N, sIdentify, network->network_properties.flags.verbose, network->network_properties.flags.bench);
+	if (LAYER_ONLY)
+		goto ExtrinsicExit;
 
-	free(chaintime);
-	chaintime = NULL;
-	ca->hostMemUsed -= sizeof(int) * network->network_properties.N * omp_get_max_threads();
+	if (DEBUG_EXTRINSIC) {
+		//Print Coordinates
+		printValues(network->nodes, network->network_properties.spacetime, network->network_properties.N, "eta_dist.cset.dbg.dat", "x");
+		printValues(network->nodes, network->network_properties.spacetime, network->network_properties.N, "x_dist.cset.dbg.dat", "y");
 
+		std::ofstream layers("layers.dat", std::ios::out);
+		std::ofstream lds("layer_degrees.dat", std::ios::out);
+		for (int i = 0; i < network->network_properties.N; i++) {
+			bool found = false;
+			for (int j = 0; j < network->network_properties.N; j++) {
+				if (network->network_observables.layers[j] == i) {
+					layers << j << " ";
+					lds << (network->nodes.k_in[j] + network->nodes.k_out[j]) << " ";
+					found = true;
+				}
+			}
+			if (found) {
+				layers << "\n";
+				lds << "\n";
+			}
+		}
+		layers.flush();
+		layers.close();
+		lds.flush();
+		lds.close();
+
+		std::ofstream cs("candidates.dat", std::ios::out);
+		for (size_t i = 0; i < network->network_observables.timelike_candidates.size(); i++)
+			cs << network->network_observables.timelike_candidates[i] << "\n";
+		cs.flush();
+		cs.close();
+	}
+
+	{
 	Network subgraph = Network(*network);
 	if (!configureSubgraph(&subgraph, network->nodes, network->network_observables.timelike_candidates, ca, ctx))
 		return false;
@@ -3492,7 +3548,7 @@ bool measureExtrinsicCurvature(Network *network, CaResources * const ca, const C
 		for (int i = 0; i < subgraph.network_properties.N; i++)
 			i2work[i] = std::make_pair(-1, -1);
 		ca->hostMemUsed += sizeof(std::pair<int,int>) * subgraph.network_properties.N;
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -3501,116 +3557,80 @@ bool measureExtrinsicCurvature(Network *network, CaResources * const ca, const C
 	if (network->network_properties.flags.verbose)
 		printMemUsed("to Identify Boundary Chains", ca->hostMemUsed, ca->devMemUsed, 0);
 
-	identifyBoundaryChains(boundary_chains, pwork, iwork, i2work, fwork, fwork2, network, &subgraph, network->network_observables.timelike_candidates);
+	identifyBoundaryChains(network->network_observables.boundary_chains, pwork, iwork, i2work, fwork, fwork2, network, &subgraph, network->network_observables.timelike_candidates);
 
-	//DEBUG
-	//Print Coordinates
-	printValues(network->nodes, network->network_properties.spacetime, network->network_properties.N, "eta_dist.cset.dbg.dat", "x");
-	printValues(network->nodes, network->network_properties.spacetime, network->network_properties.N, "x_dist.cset.dbg.dat", "y");
-
-	//Fill in Boundary Elements
-	FastBitset ws(network->network_properties.N);
-	FastBitset ws2 = ws;
-	FastBitset ws3 = ws;
-	/*for (size_t i = 0; i < boundary_chains.size(); i++) {
-		std::get<0>(boundary_chains[i]).clone(ws);
-		int64_t idx0 = ws.next_bit(), idx1 = -1;
-		ws.unset(idx0);
-		while (ws.any()) {
-			ws.unset(idx1 = ws.next_bit());
-			int length = -1;
-			printf("Examining node pair (%u, %u)\n", (unsigned)idx0, (unsigned)idx1);
+	if (DEBUG_EXTRINSIC) {
+		//Print Boundary Elements
+		std::ofstream f("chains.dat", std::ios::out);
+		uint64_t IDX = 0;
+		for (size_t i = 0; i < network->network_observables.boundary_chains.size(); i++) {
+			printf("Chain [%zd] size: [%" PRIu64 "]\n", i, std::get<0>(network->network_observables.boundary_chains[i]).count_bits());
+			printf(" > Length: [%d]\tWeight: [%d]\n", std::get<2>(network->network_observables.boundary_chains[i]), std::get<1>(network->network_observables.boundary_chains[i]));
 			fflush(stdout);
-			if (length = longestChain_v3(network->adj, fwork, ws, &ws2, iwork, network->network_properties.N, idx0, idx1, 0)) {
-				printf("\tBoundary Elements: (%" PRId64 ", %" PRId64 ") has subinterval length [%d] with these entries: [", idx0, idx1, length);
-				std::get<0>(boundary_chains[i]).setUnion(ws);
-				while (ws.any()) {
-					uint64_t x = ws.next_bit();
-					printf("%u ", (unsigned)x);
-					ws.unset(x);
-				}
-				printf("]\n");
-				fflush(stdout);
+
+			std::get<0>(network->network_observables.boundary_chains[i]).clone(fwork[0]);
+			while (fwork[0].any()) {
+				fwork[0].unset(IDX = fwork[0].next_bit());
+				f << (unsigned)IDX << "\n";
 			}
-			idx0 = idx1;
 		}
-	}*/
-
-	//int length = longestChain_v3(network->adj, fwork, ws, &ws2, iwork, network->network_properties.N, 2707, 3662, 0);
-	//printf("length: %d\n", length);
-	//printChk(3);
-
-	//Print Boundary Elements
-	std::ofstream f("chains.dat", std::ios::out);
-	uint64_t IDX = 0;
-	for (size_t i = 0; i < boundary_chains.size(); i++) {
-		printf("Chain [%zd] size: [%" PRIu64 "]\n", i, std::get<0>(boundary_chains[i]).count_bits());
-		printf(" > Length: [%d]\tWeight: [%d]\n", std::get<2>(boundary_chains[i]), std::get<1>(boundary_chains[i]));
-		fflush(stdout);
-		while (std::get<0>(boundary_chains[i]).any()) {
-			std::get<0>(boundary_chains[i]).unset(IDX = std::get<0>(boundary_chains[i]).next_bit());
-			f << (unsigned)IDX << "\n";
-		}
+		printf("\n"); fflush(stdout);
+		f.flush();
+		f.close();
 	}
-	f.flush();
-	f.close();
-	printChk(2);
-	//END DEBUG
 
 	//Estimate extrinsic curvature
-	FastBitset workspace((uint64_t)network->network_properties.N);
-	FastBitset workspace2 = workspace;
-	FastBitset workspace3 = workspace;
-	int min_length = 24, tot_length = 0;
+	/*int min_length = 12, max_length = 32, tot_length = 0;
 	float K = 0.0;
 	for (size_t i = 0; i < boundary_chains.size(); i++) {
-		//Fill in the other elements
-		int64_t idx0 = -1, idx1 = -1;
-		std::get<0>(boundary_chains[i]).clone(workspace3);
-		while (workspace3.any()) {
-			idx1 = idx0;
-			workspace3.unset(idx0 = workspace3.next_bit());
-			if (idx1 >= 0) {
-				longestChain_v3(network->adj, fwork, workspace, &workspace2, iwork, network->network_properties.N, idx1, idx0, 0);
-				std::get<0>(boundary_chains[i]).setUnion(workspace);
-			}
-		}
-
 		printf("Examining chain [%zd] of length [%d] with weight [%d].\n", i, std::get<2>(boundary_chains[i]), std::get<1>(boundary_chains[i]));
 		printf("bitset length: %" PRIu64 "\n", std::get<0>(boundary_chains[i]).count_bits());
 		fflush(stdout);
-		printChk(231231);
 		uint64_t idx = 0;
 		std::get<0>(boundary_chains[i]).clone(fwork[0]);
-		for (int j = 0; j < std::get<2>(boundary_chains[i]) - min_length; j++) {
+		for (int j = 0; j < std::get<2>(boundary_chains[i]) + 1 - min_length; j++) {
 			fwork[0].unset(idx = fwork[0].next_bit());
-			printf("idx: %" PRIu64 "\n", idx); fflush(stdout);
 			std::get<0>(boundary_chains[i]).clone(fwork[1]);
 			uint64_t jdx = 0;
 			for (int k = 0; k < std::get<2>(boundary_chains[i]); k++) {
 				fwork[1].unset(jdx = fwork[1].next_bit());
-				printf("k: [%d]\tjdx: %" PRIu64 "\n", k, jdx); fflush(stdout);
-				if (k < j + min_length) continue;
+				int Lp = k - j;
+				if (Lp < min_length || Lp > max_length) continue;
+				//printChk(1);
 
 				//Look at interval (idx, jdx)
-				int L = k - j;
+				//Longest chain w.r.t. entire causal set
+				//int L = longestChain_v2(network->adj, &fwork[2], iwork, network->network_properties.N, idx, jdx, 0);
 				network->adj[idx].clone(fwork[2]);
+				//Size of causal interval
 				uint64_t N = fwork[2].partial_vecprod(network->adj[jdx], idx, jdx - idx + 1);
-				printf("L: [%d]\tN: [%" PRIu64 "]\n", L, N);
-				fflush(stdout);
-				K += -(1.0 - (32.0 * N / POW2((double)L))) * 6.0 * sqrtf(2.0) / L;
-				//printf("K: %.6f\n", K);
+
+				//Extrinsic Curvature
+				//float kK = (32.0 * N / POW2((double)L) - 1.0) * 6.0 * sqrt(2.0) / L;
+				float kK = (4.0 * N / POW2((double)Lp) - 1.0) * 3.0 / Lp;
+				//float kK = (32.0 * N / POW2((double)L) - 1.0) * 3.0 / Lp;
+				kK *= sqrt(network->network_properties.delta);
+				K += kK;
+				//printf("Interval [%d, %d]\tL: [%d]\tK: %.6f\n", idx, jdx, Lp, kK);
 				//fflush(stdout);
-				tot_length += L;
-				//printf("tot_length: %d\n", tot_length);
-				//fflush(stdout);
-				printf("Mean curvature: %.6f\n", K / tot_length);
-				fflush(stdout);
+
+				tot_length++;
 			}
-			printChk(1);
 		}
 	}
-	K /= tot_length;
+	K /= tot_length;*/
+
+	L = std::get<2>(network->network_observables.boundary_chains[0]);
+	//K = (3.0 * sqrt(2.0) / L) * (1.0 - 8.0 * network->network_properties.N / POW2(L)) * sqrt(network->network_properties.delta);
+
+	free(i2work);
+	i2work = NULL;
+	ca->hostMemUsed -= sizeof(std::pair<int,int>) * subgraph.network_properties.N;
+
+	destroyNetwork(&subgraph, ca->hostMemUsed, ca->devMemUsed);
+	}
+
+	ExtrinsicExit:
 
 	free(iwork);
 	iwork = NULL;
@@ -3619,20 +3639,15 @@ bool measureExtrinsicCurvature(Network *network, CaResources * const ca, const C
 	pwork.clear();
 	pwork.swap(pwork);
 
-	free(i2work);
-	i2work = NULL;
-	ca->hostMemUsed -= sizeof(std::pair<int,int>) * subgraph.network_properties.N;
-
 	fwork.clear();
 	fwork.swap(fwork);
 
-	destroyNetwork(&subgraph, ca->hostMemUsed, ca->devMemUsed);
-
 	printf("Measured Extrinsic Curvature.\n");
 	printf_cyan();
-	printf("Minimum chain length used: %d\n", min_length);
-	printf("Maximum chain length used: %d\n", std::get<2>(boundary_chains[0]) - min_length);
-	printf("Mean extrinsic curvature: %.6f\n", K);
+	//printf("Minimum chain length used: %d\n", min_length);
+	//printf("Maximum chain length used: %d\n", max_length);
+	//printf("Mean extrinsic curvature: %.6f\n", K);
+	printf("Longest Boundary Chain: %d\n", L);
 	printf_std();
 	fflush(stdout);
 

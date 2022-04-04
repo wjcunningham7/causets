@@ -1,0 +1,10 @@
+#!/bin/bash
+
+[ $# -ne 1 ] && echo "Arguments are [remote]." && exit 1
+
+remote="$1"
+rsync -rP $CAUSET_HOME/src/*.cu ${remote}:'$CAUSET_HOME'/src
+rsync -rP $CAUSET_HOME/mpi ${remote}:'$CAUSET_HOME'
+rsync -rP --exclude config.h $CAUSET_HOME/inc/*.h ${remote}:'$CAUSET_HOME'/inc
+rsync -rP $CAUSET_HOME/tests/main ${remote}:'$CAUSET_HOME'/tests
+ssh ${remote} make -j 8 -C '$CAUSET_HOME'

@@ -45,6 +45,12 @@
 
 #define ACTION_MPI_V4 800000
 
+#define LAYER_ONLY false
+
+#define MARKOV_SAMPLE_ALL true	//If true, save data every step; otherwise, save it every n^2 steps
+
+#define ACORR_UPDATE_PERIOD 1	//Attempt to update the autocorrelation every N sweeps (MCMC)
+
 //Debugging Flags
 #define DEBUG true	//Determines whether unit testing is in effect
 			//Set to false to disable assert statements

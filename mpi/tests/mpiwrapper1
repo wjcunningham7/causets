@@ -1,0 +1,4 @@
+#!/bin/bash
+
+source $HOME/.bashrc
+printenv OMPI_COMM_WORLD_RANK

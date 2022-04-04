@@ -6,6 +6,10 @@
 
 #include "NetworkCreator.h"
 #include "Measurements.h"
+#include "MarkovChain.h"
+#ifdef CUDA_ENABLED
+#include "Anneal.h"
+#endif
 
 int main(int argc, char **argv)
 {
@@ -21,6 +25,7 @@ int main(int argc, char **argv)
 	MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
 	MPI_Comm_size(MPI_COMM_WORLD, &cmpi.num_mpi_threads);
 	MPI_Comm_rank(MPI_COMM_WORLD, &cmpi.rank);
+	MPI_Barrier(MPI_COMM_WORLD);
 	#endif
 
 	CausetPerformance cp = CausetPerformance();
@@ -33,32 +38,50 @@ int main(int argc, char **argv)
 	if (_bench)
 		network.network_properties.flags.bench = false;
 
-	int e_start = printStart((const char**)argv, cmpi.rank);
+	int e_start = printStart((const char**)argv, cmpi.num_mpi_threads, cmpi.rank);
 	bool success = false;
 
 	#ifdef CUDA_ENABLED
 	//Identify and Connect to GPU
-	if (network.network_properties.flags.use_gpu)
-		connectToGPU(&cu, argc, argv, cmpi.rank);
+	if (network.network_properties.flags.use_gpu) {
+		for (int i = 0; i < cmpi.num_mpi_threads; i++) {
+			#ifdef MPI_ENABLED
+			MPI_Barrier(MPI_COMM_WORLD);
+			#endif
+			if (i == cmpi.rank)
+				connectToGPU(&cu, argc, argv, cmpi.rank);
+			#ifdef MPI_ENABLED
+			MPI_Barrier(MPI_COMM_WORLD);
+			#endif
+		}
+	}
 	#endif
 
+	printModules(cmpi.num_mpi_threads, cmpi.rank);
+
 	//Create Causal Set Graph	
-	if (network.network_properties.graphID == 0 && !initializeNetwork(&network, &ca, &cp, &bm, cu.cuContext)) goto CausetExit;
-	else if (network.network_properties.graphID != 0 && !loadNetwork(&network, &ca, &cp, &bm, cu.cuContext)) goto CausetExit;
+	unsigned gpu_id = cu.dev_count > 0 ? rand() % cu.dev_count : 0;
+	if (network.network_properties.graphID == 0 && !initializeNetwork(&network, &ca, &cp, &bm, cu.cuContext[gpu_id], cu.dev_memory[gpu_id])) goto CausetExit;
+	else if (network.network_properties.graphID != 0 && !loadNetwork(&network, &ca, &cp, &bm, cu.cuContext[gpu_id], cu.dev_memory[gpu_id])) goto CausetExit;
 
 	if (_bench)
 		network.network_properties.flags.bench = true;
 	if (network.network_properties.flags.test) goto CausetPoint2;
 
-	//Evolve Graph
-	if (network.network_properties.flags.evolve && !evolveNetwork(&network, &ca, &cp, &bm, cu.cuContext))
+	//Evolve Graph (Metropolis Monte Carlo)
+	if (network.network_properties.flags.mcmc && !generateMarkovChain(&network, &ca, &cp, &bm, cu.cuContext[0]))
 		goto CausetPoint2;
+	//Evolve Graph (Population Annealing Monte Carlo)
+	#ifdef CUDA_ENABLED
+	if (network.network_properties.flags.popanneal && !annealNetwork_v2(&network, &cu, &ca))
+		goto CausetPoint2;
+	#endif
 
 	//Measure Graph Properties
-	if (!measureNetworkObservables(&network, &ca, &cp, &bm, cu.cuContext)) goto CausetExit;
+	if (!measureNetworkObservables(&network, &ca, &cp, &bm, cu.cuContext[0])) goto CausetExit;
 
 	//Print Results
-	if (!network.network_properties.flags.bench) printMemUsed(NULL, ca.maxHostMemUsed, ca.maxDevMemUsed, cmpi.rank);
+	if (!network.network_properties.flags.bench && (ca.maxHostMemUsed + ca.maxDevMemUsed) > 0) printMemUsed(NULL, ca.maxHostMemUsed, ca.maxDevMemUsed, cmpi.rank);
 	#ifdef MPI_ENABLED
 	if (!cmpi.rank)
 	#endif
@@ -67,9 +90,12 @@ int main(int argc, char **argv)
 		cmpi.fail = 1;
 		goto CausetPoint1;
 	}
-	if (network.network_properties.flags.print_network && !printNetwork(network, cp, cu.gpuID)) {
-		cmpi.fail = 1;
-		goto CausetPoint1;
+	if (network.network_properties.flags.print_network) {
+		if ((network.network_properties.flags.print_hdf5 && !printNetworkHDF5(network, cp)) || 
+		    (!network.network_properties.flags.print_hdf5 && !printNetwork(network, cp))) {
+			cmpi.fail = 1;
+			goto CausetPoint1;
+		}
 	}
 	}
 
@@ -82,7 +108,9 @@ int main(int argc, char **argv)
 	CausetPoint2:
 	#ifdef CUDA_ENABLED
 	//Release GPU
-	if (network.network_properties.flags.use_gpu) cuCtxDetach(cu.cuContext);
+	if (network.network_properties.flags.use_gpu)
+		for (int i = 0; i < cu.dev_count; i++)
+			cuCtxDestroy(cu.cuContext[i]);
 	#endif
 
 	//Identify Potential Memory Leaks
@@ -127,10 +155,10 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 
 	int c, longIndex;
 	//Single-character options
-	static const char *optString = ":A:a:b:Cc:Dd:Ee:Fg:H:hm:n:r:s:S:t:vw:yz:";
+	static const char *optString = ":Aa:b:Cc:Dd:Ee:Fg:H:hm:n:r:s:S:t:vw:yz:";
 	//Multi-character options
 	static const struct option longOpts[] = {
-		{ "action",		required_argument,	NULL, 'A' },
+		{ "action",		no_argument,		NULL, 'A' },
 		{ "action-theory",	required_argument,	NULL,  0  },
 		{ "age",		required_argument,	NULL, 'a' },
 		{ "alpha",		required_argument,	NULL,  0  },
@@ -140,9 +168,11 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "binomial",		no_argument,		NULL,  0  },
 		{ "buffer",		required_argument,	NULL, 'b' },
 		{ "chain",		no_argument,		NULL,  0  },
+		{ "clusterflip",	required_argument,	NULL,  0  },
 		{ "clustering",		no_argument,		NULL, 'C' },
 		{ "components", 	no_argument,		NULL,  0  },
 		{ "core",		required_argument,	NULL, 'c' },
+		{ "couplings",		required_argument,	NULL,  0  },
 		{ "curvature",		required_argument,	NULL,  0  },
 		{ "datdir",		required_argument,	NULL,  0  },
 		{ "delta",		required_argument,	NULL, 'd' },
@@ -150,7 +180,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "energy",		required_argument,	NULL, 'e' },
 		{ "ent-entropy",	required_argument,	NULL,  0  },
 		{ "epsilon",		required_argument,	NULL,  0  },
-		{ "evolve",		no_argument,		NULL,  0  },
+		{ "exchange",		no_argument,    	NULL,  0  },
 		{ "extrinsic",		no_argument,		NULL, 'E' },
 		{ "foliation",		no_argument,		NULL, 'F' },
 		{ "gamma",		required_argument,	NULL,  0  },
@@ -158,13 +188,17 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "gpu", 		no_argument, 		NULL,  0  },
 		{ "graph",		required_argument,	NULL, 'g' },
 		{ "growing",		no_argument,		NULL,  0  },
+		{ "hdf5",		no_argument,		NULL,  0  },
 		{ "help", 		no_argument,		NULL, 'h' },
 		{ "hubs",		required_argument,	NULL, 'H' },
 		{ "link",		no_argument,		NULL,  0  },
 		{ "link-epso",		no_argument,		NULL,  0  },
 		{ "manifold",		required_argument,	NULL, 'm' },
+		{ "mcmc",		no_argument,		NULL,  0  },
 		{ "mpi-split",		no_argument,		NULL,  0  },
 		{ "mu",			required_argument,	NULL,  0  },
+		{ "popanneal",		no_argument,		NULL,  0  },
+		{ "popsize",		required_argument,	NULL,  0  },
 		{ "print", 		no_argument, 		NULL,  0  },
 		{ "print-edges",	no_argument,		NULL,  0  },
 		{ "print-dot",		no_argument,		NULL,  0  },
@@ -175,6 +209,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 		{ "read-old-format",	no_argument,		NULL,  0  },
 		{ "region",		required_argument,	NULL, 'r' },
 		{ "relink",		no_argument,		NULL,  0  },
+		{ "runs",		required_argument,	NULL,  0  },
 		{ "seed",		required_argument,	NULL, 's' },
 		{ "spacetime",		required_argument,	NULL,  0  },
 		{ "smi",		no_argument,		NULL,  0  },
@@ -198,12 +233,6 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 			switch (c) {
 			case 'A':	//Flag for calculating action
 				network_properties.flags.calc_action = true;
-				if (!strcmp(optarg, "local"))
-					network_properties.max_cardinality = -1;
-				else if (!strcmp(optarg, "smeared"))
-					network_properties.max_cardinality = 1;
-				else
-					throw CausetException("Invalid argument for 'action' parameter!\n");
 				break;
 			case 'a':	//Temporal cutuff (age)
 				network_properties.tau0 = atof(optarg);
@@ -251,6 +280,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				break;
 			case 'g':	//Graph ID
 				network_properties.graphID = atoi(optarg);
+				network_properties.flags.binomial = true;
 				if (network_properties.graphID < 0)
 					throw CausetException("Invalid argument for 'Graph ID' parameter!\n");
 				break;
@@ -291,10 +321,16 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 			case 't':	//Graph type
 				if (!strcmp("rgg", optarg))
 					network_properties.gt = RGG;
-				else if (!strcmp("kr-order", optarg))
+				else if (!strcmp("kr_order", optarg))
 					network_properties.gt = KR_ORDER;
-				else if (!strcmp("2d-order", optarg))
+				else if (!strcmp("2d_order", optarg))
 					network_properties.gt = _2D_ORDER;
+				else if (!strcmp("random", optarg))
+					network_properties.gt = RANDOM;
+				else if (!strcmp("random_dag", optarg))
+					network_properties.gt = RANDOM_DAG;
+				else if (!strcmp("antichain", optarg))
+					network_properties.gt = ANTICHAIN;
 				else
 					throw CausetException("Invalid argument for 'type' parameter!\n");
 				break;
@@ -306,6 +342,16 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					network_properties.wf = BD_ACTION_3D;
 				else if (atoi(optarg) == 4)
 					network_properties.wf = BD_ACTION_4D;
+				else if (!strcmp(optarg, "relation"))
+					network_properties.wf = RELATION;
+				else if (!strcmp(optarg, "relation_pair"))
+					network_properties.wf = RELATION_PAIR;
+				else if (!strcmp(optarg, "link_pair"))
+					network_properties.wf = LINK_PAIR;
+				else if (!strcmp(optarg, "diamond"))
+					network_properties.wf = DIAMOND;
+				else if (!strcmp(optarg, "antipercolation"))
+					network_properties.wf = ANTIPERCOLATION;
 				else
 					throw CausetException("Invalid argument for 'weight' parameter!\n");
 				break;
@@ -349,10 +395,20 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				else if (!strcmp("chain", longOpts[longIndex].name))
 					//Calculate longest chain
 					network_properties.flags.calc_chain = true;
-				else if (!strcmp("components", longOpts[longIndex].name))
+				else if (!strcmp("clusterflip", longOpts[longIndex].name)) {
+					//Enable Wolff cluster flips during Monte Carlo
+					network_properties.flags.cluster_flips = true;
+					network_properties.cluster_rate = atof(optarg);
+					if (network_properties.cluster_rate < 0.0 || network_properties.cluster_rate > 1.0)
+						throw CausetException("Invalid argument for 'clusterflip' parameter!\n");
+				} else if (!strcmp("components", longOpts[longIndex].name))
 					//Flag for Finding Connected Components
 					network_properties.flags.calc_components = true;
-				else if (!strcmp("curvature", longOpts[longIndex].name)) {
+				else if (!strcmp("couplings", longOpts[longIndex].name)) {
+					//Specify couplings used in non-BD actions
+					network_properties.couplings[0] = atof(strtok(optarg, ","));
+					network_properties.couplings[1] = atof(strtok(NULL, ","));
+				} else if (!strcmp("curvature", longOpts[longIndex].name)) {
 					//Flag for setting spatial curvature
 					if (std::find(Spacetime::curvatures, Spacetime::curvatures + Spacetime::ncurvatures, std::string(optarg)) == Spacetime::curvatures + Spacetime::ncurvatures)
 						throw CausetException("Invalid argument for 'curvature' parameter!\n");
@@ -370,11 +426,14 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				} else if (!strcmp("epsilon", longOpts[longIndex].name)) {
 					//Smearing parameter
 					network_properties.epsilon = atof(optarg);
-					if (network_properties.epsilon <= 0.0 || network_properties.epsilon >= 1.0)
+					if (network_properties.epsilon <= 0.0 || network_properties.epsilon > 1.0)
 						throw CausetException("Invalid argument for 'epsilon' parameter!\n");
-				} else if (!strcmp("evolve", longOpts[longIndex].name))
-					network_properties.flags.evolve = true;
-				else if (!strcmp("gamma", longOpts[longIndex].name)) {
+				} else if (!strcmp("exchange", longOpts[longIndex].name)) {
+					network_properties.flags.exchange_replicas = true;
+					#ifndef MPI_ENABLED
+					throw CausetException("Cannot use parameter --exchange without MPI support. Reinstall with --enable-mpi.\n");
+					#endif
+				} else if (!strcmp("gamma", longOpts[longIndex].name)) {
 					//Degree exponent
 					network_properties.gamma = atof(optarg);
 					if (network_properties.gamma <= 2.0)
@@ -388,18 +447,24 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 					//Flag to use GPU accelerated routines
 					network_properties.flags.use_gpu = true;
 					#ifndef CUDA_ENABLED
-					throw CausetException("Recompile with 'make gpu' to use the --gpu flag!\n");
+					throw CausetException("Reinstall with '--enable-cuda' to use the --gpu flag!\n");
 					#endif
 				} else if (!strcmp("growing", longOpts[longIndex].name))
 					//Use growing H2 model
 					network_properties.flags.growing = true;
+				else if (!strcmp("hdf5", longOpts[longIndex].name))
+					//Print using HDF5 format
+					network_properties.flags.print_hdf5 = true;
 				else if (!strcmp("link", longOpts[longIndex].name))
 					//Flag for Reading Nodes (and not links) and Re-Linking
 					network_properties.flags.link = true;
 				else if (!strcmp("link-epso", longOpts[longIndex].name))
 					//Use EPSO for linking threshold in H2 model
 					network_properties.flags.link_epso = true;
-				else if (!strcmp("mpi-split", longOpts[longIndex].name))
+				else if (!strcmp("mcmc", longOpts[longIndex].name)) {
+					network_properties.flags.mcmc = true;
+					network_properties.flags.link = true;
+				} else if (!strcmp("mpi-split", longOpts[longIndex].name))
 					//Split adjacency matrix
 					network_properties.flags.mpi_split = true;
 				else if (!strcmp("mu", longOpts[longIndex].name)) {
@@ -410,16 +475,27 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				} else if (!strcmp("nopos", longOpts[longIndex].name))
 					//Flag to Skip Node Generation/Reading
 					network_properties.flags.no_pos = true;
-				else if (!strcmp("print", longOpts[longIndex].name))
+				else if (!strcmp("popanneal", longOpts[longIndex].name))
+					//Flag to use population annealing Monte Carlo
+					network_properties.flags.popanneal = true;
+				else if (!strcmp("popsize", longOpts[longIndex].name)) {
+					//Target population size for population annealing
+					network_properties.R0 = atoi(optarg);
+					if (network_properties.R0 < 1)
+						throw CausetException("Invalid argument for 'popsize' parameter!\n");
+				} else if (!strcmp("print", longOpts[longIndex].name))
 					//Flag to print results to file in 'dat' folder
 					network_properties.flags.print_network = true;
-				else if (!strcmp("print-edges", longOpts[longIndex].name))
+				else if (!strcmp("print-edges", longOpts[longIndex].name)) {
 					//Flag to print links to file in 'dat/edg' folder
+					network_properties.flags.print_network = true;
 					network_properties.flags.print_edges = true;
-				else if (!strcmp ("print-dot", longOpts[longIndex].name))
+				} else if (!strcmp ("print-dot", longOpts[longIndex].name)) {
 					//Flag to print links to dot file in 'dat/dot' folder
+					network_properties.flags.print_network = true;
+					network_properties.flags.print_edges = true;
 					network_properties.flags.print_dot = true;
-				else if (!strcmp("quiet-read", longOpts[longIndex].name))
+				} else if (!strcmp("quiet-read", longOpts[longIndex].name))
 					//Flag to ignore warnings when reading graph
 					network_properties.flags.quiet_read = true;
 				else if (!strcmp("radius", longOpts[longIndex].name))
@@ -430,6 +506,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				else if (!strcmp("relink", longOpts[longIndex].name))
 					//Flag for Reading Nodes (and not links) and Re-Linking
 					network_properties.flags.relink = true;
+				else if (!strcmp("runs", longOpts[longIndex].name))
+					//Independent annealing runs
+					network_properties.runs = atoi(optarg);
 				else if (!strcmp("spacetime", longOpts[longIndex].name))
 					//Spacetime ID
 					network_properties.spacetime.fromHexString(optarg);
@@ -479,9 +558,9 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 			case 'v':
 				//Print the version information
 				printf_mpi(rank, "CausalSet (Northeastern Causal Set Simulator)\n");
-				printf_mpi(rank, "Copyright (C) 2013-2018 Will Cunningham\n");
+				printf_mpi(rank, "Copyright (C) 2013-2020 Will Cunningham\n");
 				printf_mpi(rank, "Platform: Gentoo Linux 64-bit Kernel\n");
-				printf_mpi(rank, "Developed for use with NVIDIA K20m GPU\n");
+				printf_mpi(rank, "Developed for use with NVIDIA K40 GPU\n");
 				printf_mpi(rank, "Version %s\n", VERSION);
 				printf_mpi(rank, "See doc/VERSION for supported spacetimes\n");
 				#ifdef MPI_ENABLED
@@ -495,7 +574,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "CausalSet Options...................\n");
 				printf_mpi(rank, "====================================\n");
 				printf_mpi(rank, "Flag:\t\t\tMeaning:\t\t\tSuggested Values:\n");
-				printf_mpi(rank, "  -A, --action\t\tMeasure Action\t\t\t\"local\", \"smeared\"\n");
+				printf_mpi(rank, "  -A, --action\t\tMeasure Action\n");
 				printf_mpi(rank, "      --action-theory\tMeasure Th. Action to 2^x\t20\n");
 				printf_mpi(rank, "  -a, --age\t\tRescaled (Conformal) Age of\n");
 				printf_mpi(rank, "\t\t\tFLRW (de Sitter) Spacetime\t0.85\n");
@@ -507,6 +586,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --binomial\tUse Binomial Distribution for\n\t\t\tSprinkling\n");
 				printf_mpi(rank, "  -b, --buffer\t\tEdge Buffer\t\t\t0.3\n");
 				printf_mpi(rank, "      --chain\t\tMeasure Maximal Chain\n");
+				printf_mpi(rank, "      --clusterflip\t\tWolff cluster flip rate\t0.1\n");
 				printf_mpi(rank, "  -C, --clustering\tMeasure Clustering\n");
 				printf_mpi(rank, "      --components\tMeasure Graph Components\n");
 				printf_mpi(rank, "  -c, --core\t\tCore Edge Fraction\t\t0.01\n");
@@ -517,7 +597,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -e, --energy\t\tDark Energy Density\t\t0.73\n");
 				printf_mpi(rank, "      --ent-entropy\tCalculate Entanglement Entropy\t0.5\n");
 				printf_mpi(rank, "      --epsilon\t\tAction Smearing Parameter\t0.1\n");
-				printf_mpi(rank, "      --evolve\t\tEvolve using Metropolis\n\t\t\tMonte Carlo\n");
+				printf_mpi(rank, "      --exchange\tReplica Exchange(MPI Req.)\n");
 				printf_mpi(rank, "  -E, --extrinsic\tCalculate Mean Extrinsic\n\t\t\tCurvature of Boundaries\n");
 				printf_mpi(rank, "  -F, --foliation\tGenerate Spacetime Foliation\n");
 				printf_mpi(rank, "      --gamma\t\tDegree Exponent\t\t\t2.1\n");
@@ -527,6 +607,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				#endif
 				printf_mpi(rank, "  -g, --graph\t\tGraph ID\t\t\tCheck dat/*.cset.out files\n");
 				printf_mpi(rank, "      --growing\t\tUse Growing H2 Model\n");
+				printf_mpi(rank, "      --hdf5\t\tPrint using HDF5 format\n");
 				printf_mpi(rank, "  -h, --help\t\tDisplay This Menu\n");
 				printf_mpi(rank, "  -H, --hubs\t\tCalculate Hub Density\t\t20\n");
 				printf_mpi(rank, "      --link\t\tLink Nodes to Create Graph\n");
@@ -534,9 +615,12 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "  -m, --manifold\tSpacetime Manifold\t\t\"Minkowski\", \"De_Sitter\",\n");
 				printf_mpi(rank, "\t\t\t\t\t\t\t\"Anti_de_Sitter\", \"Dust\", \"FLRW\",\n");
 				printf_mpi(rank, "\t\t\t\t\t\t\t\"Hyperbolic\"\n");
+				printf_mpi(rank, "      --mcmc\t\tGenerate Markov Chain\n");
 				printf_mpi(rank, "      --mu\t\tChemical Potential\t\t10.0\n");
 				printf_mpi(rank, "  -n, --nodes\t\tNumber of Nodes\t\t\t1000, 10000, 100000\n");
 				printf_mpi(rank, "      --nopos\t\tNo Node Positions\n");
+				printf_mpi(rank, "      --popanneal\tEvolve using Population Annealing\n");
+				printf_mpi(rank, "      --popsize\t\tPopulation Size\n");
 				printf_mpi(rank, "      --print\t\tPrint Results\n");
 				printf_mpi(rank, "      --print-edges\tPrint Edge List\n");
 				printf_mpi(rank, "      --print-dot\tPrint Edges to Dot File\n");
@@ -560,14 +644,14 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				printf_mpi(rank, "      --sweeps\t\tNumber of Sweeps in Evolution\t10000\n");
 				printf_mpi(rank, "      --symmetry\tTemporal Symmetry\t\t\"None\", \"Temporal\"\n");
 				printf_mpi(rank, "      --test\t\tTest Parameters Only\n");
-				printf_mpi(rank, "  -t, --type\t\tGraph Type\t\t\trgg, kr-order, 2d-order\n");
+				printf_mpi(rank, "  -t, --type\t\tGraph Type\t\t\trgg, kr_order, 2d_order, random, random_dag, antichain\n");
 				printf_mpi(rank, "      --verbose\t\tVerbose Output\n");
 				printf_mpi(rank, "  -w, --weight\t\tMMC Weight Function\t\t[2]d, [3]d, or [4]d action\n");
 				printf_mpi(rank, "  -y\t\t\tSuppress User Queries\n");
 				printf_mpi(rank, "  -z, --zeta\t\tHyperbolic Curvature\t\t1.0\n");
 				printf_mpi(rank, "\n");
 
-				printf_mpi(rank, "Report bugs to wcunningham@perimeterinstitute.ca\n");
+				printf_mpi(rank, "Report bugs to wjcunningham7@gmail.com\n");
 				printf_mpi(rank, "Bitbucket repository home page: <https://bitbucket.org/dk-lab/2015_code_causets>\n");
 				#ifdef MPI_ENABLED
 				MPI_Abort(MPI_COMM_WORLD, 0);
@@ -612,18 +696,14 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 				throw CausetException("The symmetry has not been defined!  Use flag '--symmetry' to continue.\n");
 			network_properties.spacetime.set_spacetime(stdim.c_str(), manifold.c_str(), region.c_str(), curvature.c_str(), symmetry.c_str());
 		}
-
-		//printf("%d\n", network_properties.spacetime.spacetimeIs("2", "Minkowski", "Diamond", "Flat", "None"));
-		//fflush(stdout);
-		//printChk();
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		#ifdef MPI_ENABLED
 		MPI_Abort(MPI_COMM_WORLD, 8);
 		#else
 		exit(8);
 		#endif
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		#ifdef MPI_ENABLED
 		MPI_Abort(MPI_COMM_WORLD, 9);
@@ -634,7 +714,7 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 
 	//Initialize RNG
 	if (network_properties.seed == 12345L) {
-		srand(time(NULL));
+		srand(time(NULL) ^ getpid());
 		network_properties.seed = static_cast<long>(time(NULL));
 	}
 	#ifdef MPI_ENABLED
@@ -649,8 +729,56 @@ NetworkProperties parseArgs(int argc, char **argv, CausetMPI *cmpi)
 	return network_properties;
 }
 
+void printModules(const int mpi_procs, const int rank)
+{
+	printf_mpi(rank, "\nDetecting Compute Modules...\n");
+	#ifdef MPI_ENABLED
+	printf_mpi(rank, "> Using MPI Module.\n");
+	printf_mpi(rank, "  Using [%d] MPI processes.\n", mpi_procs);
+	if (!rank) fflush(stdout);
+	MPI_Barrier(MPI_COMM_WORLD);
+	for (int i = 0; i < mpi_procs; i++) {
+		if (rank == i) {
+			printf("  Rank [%u] reporting.\n", i);
+			fflush(stdout);
+		} else
+			usleep(100);
+		MPI_Barrier(MPI_COMM_WORLD);
+	}
+	#endif
+
+	#ifdef _OPENMP
+	printf_mpi(rank, "> Using OpenMP Module.\n");
+	#ifdef MPI_ENABLED
+	MPI_Barrier(MPI_COMM_WORLD);
+	for (int i = 0; i < mpi_procs; i++) {
+		if (rank == i) {
+			printf("  Rank [%d] has [%d] threads.\n", rank, omp_get_max_threads());
+			fflush(stdout);
+		} else
+			usleep(100);
+		MPI_Barrier(MPI_COMM_WORLD);
+	}
+	#else
+	printf_mpi(rank, "  Using [%d] threads.\n", omp_get_max_threads());
+	#endif
+	#endif
+
+	#ifdef AVX512_ENABLED
+	printf_mpi(rank, "> Using AVX512 Module.\n");
+	printf_mpi(rank, "  Data is 64-byte aligned.\n");
+	#else
+	#ifdef AVX2_ENABLED
+	printf_mpi(rank, "> Using AVX2 Module.\n");
+	printf_mpi(rank, "  Data is 32-byte aligned.\n");
+	#endif
+	#endif
+
+	printf_mpi(rank, "\n");
+}
+
 //Handles all network generation and initialization procedures
-bool initializeNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx)
+bool initializeNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, CUcontext &ctx, const size_t dev_memory)
 {
 	#if DEBUG
 	assert (network != NULL);
@@ -663,24 +791,15 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 	int nb = static_cast<int>(network->network_properties.flags.bench) * (NBENCH - 1);
 	int i;
 
-	#ifdef _OPENMP
-	printf_mpi(rank, "\n\t[ *** OPENMP MODULE ACTIVE *** ]\n");
-	#endif
-
-	#ifdef AVX2_ENABLED
-	printf_mpi(rank, "\n\t[ ***  AVX2 MODULE ACTIVE  *** ]\n");
-	#endif
-
-	#ifdef MPI_ENABLED
-	printf_mpi(rank, "\n\t[ ***   MPI MODULE ACTIVE  *** ]\n");
-	#endif
-
 	//Initialize variables using constraints
-	if (!initVars(&network->network_properties, ca, cp, bm))
+	if (!initVars(&network->network_properties, ca, cp, bm, dev_memory))
 		return false;
 
 	//If 'test' flag specified, exit here
 	if (network->network_properties.flags.test)
+		return true;
+
+	if (network->network_properties.flags.popanneal)
 		return true;
 
 	printf_mpi(rank, "\nInitializing Network...\n");
@@ -688,7 +807,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 
 	//Allocate memory needed by pointers
 	for (i = 0; i <= nb; i++) {
-		if (!createNetwork(network->nodes, network->edges, network->adj, network->links, network->network_properties.spacetime, network->network_properties.N, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.gt, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sCreateNetwork, network->network_properties.flags.use_gpu, network->network_properties.flags.decode_cpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.evolve, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
+		if (!createNetwork(network->nodes, network->edges, network->adj, network->links, network->U, network->V, network->network_properties.spacetime, network->network_properties.N, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.gt, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sCreateNetwork, network->network_properties.flags.use_gpu, network->network_properties.flags.decode_cpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.mcmc, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 			return false;
 		if (!!(i-nb))
 			destroyNetwork(network, ca->hostMemUsed, ca->devMemUsed);
@@ -703,7 +822,7 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 		int high = network->network_properties.N - 1;
 
 		for (i = 0; i <= nb; i++) {
-			if (!generateNodes(network->nodes, network->network_properties.spacetime, network->network_properties.N, network->network_properties.k_tar, network->network_properties.a, network->network_properties.eta0, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.gamma, network->network_properties.cmpi, network->network_properties.mrng, cp->sGenerateNodes, network->network_properties.flags.growing, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+			if (!generateNodes(network->nodes, network->network_properties.spacetime, network->network_properties.N, network->network_properties.a, network->network_properties.eta0, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.tau0, network->network_properties.alpha, network->network_properties.K, network->network_properties.gamma, network->network_properties.cmpi, network->network_properties.mrng, cp->sGenerateNodes, network->network_properties.flags.growing, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
 				goto InitExit;
 			}
@@ -713,6 +832,11 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 				network->nodes.crd->y(0) = 0.0;
 				network->nodes.crd->x(network->network_properties.N_tar-1) = network->network_properties.eta0;
 				network->nodes.crd->y(network->network_properties.N_tar-1) = 0.0;
+			} else if (network->network_properties.spacetime.regionIs("Half_Diamond_T")) {
+				network->nodes.crd->x(0) = -0.5;
+				network->nodes.crd->y(0) = 0.0;
+				network->nodes.crd->x(1) = 0.5;
+				network->nodes.crd->y(1) = 0.0;
 			}
 
 			//Quicksort
@@ -734,6 +858,8 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 				if (st.manifoldIs("Minkowski")) {
 					if (st.stdimIs("2"))
 						min_time = network->nodes.crd->x(0);
+					else if (st.stdimIs("4"))
+						min_time = network->nodes.crd->w(0);
 				} else
 					min_time = network->nodes.id.tau[0];
 				printf("\t\tMinimum Rescaled Time:  %f\n", min_time);
@@ -766,164 +892,28 @@ bool initializeNetwork(Network * const network, CaResources * const ca, CausetPe
 			}
 		}
 	} else if (network->network_properties.gt == KR_ORDER) {
-		if (!generateKROrder(network->nodes, network->adj, network->network_properties.N_tar, network->network_properties.N, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, cp->sGenKR, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+		if (!generateKROrder(network->nodes, network->adj, network->network_properties.N_tar, network->network_properties.N, network->network_properties.cmpi, network->network_properties.mrng, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, cp->sGenKR, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 			goto InitExit;
+	} else if (network->network_properties.gt == RANDOM) {
+		if (!generateRandomOrder(network->nodes, network->adj, network->network_properties.N, network->network_properties.cmpi, network->network_properties.mrng, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, cp->sGenRandom, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			goto InitExit;
+	} else if (network->network_properties.gt == RANDOM_DAG) {
+		if (!generateRandomDAG(network->nodes, network->adj, network->network_properties.N, network->network_properties.cmpi, network->network_properties.mrng, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, cp->sGenRandom, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			goto InitExit;
+	} else if (network->network_properties.gt == _2D_ORDER) {
+		if (!generateRandom2dOrder(network->adj, network->U, network->V, network->network_properties.N, network->network_properties.cmpi, network->network_properties.mrng, cp->sGenRandom, network->network_properties.flags.verbose, network->network_properties.flags.bench))
+			goto InitExit;
+	} else {
+		fprintf(stderr, "Not yet implemented!\n");
+		return false;
 	}
 
 	InitExit:
 	if (checkMpiErrors(network->network_properties.cmpi))
 		return false;
 
-	/*std::ofstream d;
-	d.open("degrees.cset.dbg.dat");
-	if (d.is_open()) {
-		for (int i = 0; i < network->network_properties.N; i++) {
-			d << network->nodes.id.tau[i] << " " << (network->nodes.k_in[i] + network->nodes.k_out[i]) << std::endl;
-		}
-		d.flush();
-		d.close();
-	}*/
-
 	printf_mpi(rank, "Task Completed.\n");
 	fflush(stdout);
-	return true;
-}
-
-bool evolveNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx)
-{
-	#if DEBUG
-	assert (network != NULL);
-	assert (ca != NULL);
-	assert (cp != NULL);
-	assert (bm != NULL);
-	#endif
-
-	if (!network->network_properties.flags.evolve)
-		return true;
-
-	printf("\nEvolving Network...\n");
-	fflush(stdout);
-
-	FastBitset workspace(network->network_properties.N);
-
-	std::ofstream intervals, lnks;
-	intervals.open("intervals.dat");
-	lnks.open("links.dat");
-	uint64_t npairs = (uint64_t)network->network_properties.N * (network->network_properties.N - 1) >> 1;
-
-	if (network->network_properties.gt == RGG || network->network_properties.gt == KR_ORDER) {
-		float new_action = 0.0;
-		measureAction_v6(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, false, true);
-		uint64_t nlinks = network->network_observables.cardinalities[1];
-		//printf("nlinks: [%" PRIu64 "]\n", nlinks);
-		uint64_t nrel = 0;
-		for (int i = 0; i < network->network_properties.N; i++)
-			nrel += network->nodes.k_in[i];
-
-		//1. Transitive reduction gives the link matrix
-		transitiveReduction(network->links, network->adj, network->network_properties.N);
-
-		//Evolve using link moves (coordinates are erased)
-		ProgressBar pb = ProgressBar(network->network_properties.sweeps);
-		for (unsigned i = 0; i < network->network_properties.sweeps; i++) {
-			if(DEBUG_EVOL) {
-				printf_dbg("\n\nSTART [%u]\n", i);
-				printf_dbg("Adjacency Matrix:\n");
-				for (int j = 0; j < network->network_properties.N; j++)
-					network->adj[j].printBitset();
-
-				printf_dbg("Link Matrix:\n");
-				for (int j = 0; j < network->network_properties.N; j++)
-					network->links[j].printBitset();
-			}
-
-			//2a. Choose a random link
-			std::pair<unsigned, unsigned> source_pair = randomLink(network->links, workspace, network->network_properties.mrng, nlinks);
-
-			//2b. Choose a random destination
-			uint64_t nrel_eff = nrel;
-			std::pair<unsigned, unsigned> dest_pair = randomAntiRelation(network->adj, network->links, workspace, network->network_properties.N, network->network_properties.mrng, nrel_eff);
-
-			/*if (i & 1) {
-				//3a. Exchange them
-				if (DEBUG_EVOL)
-					printf_dbg("Exchanging links.\n");
-				if (std::get<0>(dest_pair) == (unsigned)network->network_properties.N) {
-					printf("Skipping pair.\n");
-					transitiveClosure(network->adj, network->links, network->network_properties.N);
-					continue;
-				}
-				network->links[std::get<0>(source_pair)].unset(std::get<1>(source_pair));
-				network->links[std::get<0>(dest_pair)].set(std::get<1>(dest_pair));
-			} else {*/
-				//3b. Balance condition
-				float prob_add = 1.0 - (float)nrel_eff / ((uint64_t)network->network_properties.N * (network->network_properties.N - 1) * 0.5);
-				//printf("probability of adding: %f\n", prob_add);
-				//if (network->network_properties.mrng.rng() > (float)nrel_eff / (network->network_properties.N * (network->network_properties.N - 1) * 0.5)) {
-				if (network->network_properties.mrng.rng() < prob_add) {
-					if (DEBUG_EVOL)
-						printf_dbg("Adding link.\n");
-					network->links[std::get<0>(dest_pair)].set(std::get<1>(dest_pair));
-				} else {
-					if (DEBUG_EVOL)
-						printf_dbg("Removing link.\n");
-					network->links[std::get<0>(source_pair)].unset(std::get<1>(source_pair));
-				}
-			//}
-
-			//4. Get the transitive closure
-			transitiveClosure(network->adj, network->links, network->network_properties.N);
-
-			//5. Update the action
-			measureAction_v6(network->network_observables.cardinalities, new_action, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, false, true);
-			if (DEBUG_EVOL)
-				{ printf("Identified [%u] links.\n", (unsigned)network->network_observables.cardinalities[1]); fflush(stdout); }
-
-			//6. Metropolis step
-			double dS = network->network_properties.beta * (new_action - network->network_observables.action);
-			//printf("dS: %f\n", dS);
-			bool accept = dS <= 0 || exp(-dS) > network->network_properties.mrng.rng();
-			if (accept) {
-				network->network_observables.action = new_action;
-				nlinks = network->network_observables.cardinalities[1];
-				for (int j = nrel = 0; j < network->network_properties.N; nrel += network->adj[j++].count_bits()) {}
-				nrel >>= 1;
-				transitiveReduction(network->links, network->adj, network->network_properties.N);
-			} else {
-				//Exchange the links back
-				network->links[std::get<0>(source_pair)].set(std::get<1>(source_pair));
-				network->links[std::get<0>(dest_pair)].unset(std::get<1>(dest_pair));
-				transitiveClosure(network->adj, network->links, network->network_properties.N);
-			}
-
-			//7. Measure observables
-			//measureChain(network->network_observables.longest_chain, network->network_observables.longest_pair, network->nodes, network->adj, network->network_properties.N, ca, cp->sMeasureChain, false, true);
-			//measureDimension(network->network_observables.dimension, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_observables.longest_pair, cp->sMeasureDimension, false, true);
-			//printf("Action: %.5f\tDimension: %.5f\n", network->network_observables.action, network->network_observables.dimension);
-			if (!(i % npairs)) {
-				for (int j = 0; j < network->network_properties.N; j++)
-					intervals << network->network_observables.cardinalities[j] << " ";
-				intervals << "\n";
-				lnks << nlinks << "\n";
-			}
-			if (DEBUG_EVOL)
-				{ printf("END\n"); fflush(stdout); }
-
-			updateProgress(pb, i);
-		}
-	}
-
-	intervals.flush();
-	intervals.close();
-
-	lnks.flush();
-	lnks.close();
-
-	//printChk();
-
-	printf("Task Completed.\n");
-	fflush(stdout);
-
 	return true;
 }
 
@@ -1086,17 +1076,17 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			#ifdef MPI_ENABLED
 			if (network->network_properties.cmpi.num_mpi_threads > 1) {
 				if (network->network_properties.N >= ACTION_MPI_V5) {
-					if (!measureAction_v5(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+					if (!measureAction_v5(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.epsilon, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 						network->network_properties.cmpi.fail = 1;
 						break;
 					}
 				} else if (network->network_properties.flags.mpi_split || network->network_properties.N >= ACTION_MPI_V4) {
-					if (!measureAction_v4(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+					if (!measureAction_v4(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.epsilon, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 						network->network_properties.cmpi.fail = 1;
 						break;
 					}
 				} else {
-					if (!measureAction_v6(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+					if (!measureAction_v6(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.epsilon, network->network_properties.cmpi, network->network_properties.mrng, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 						network->network_properties.cmpi.fail = 1;
 						break;
 					}
@@ -1106,16 +1096,16 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 			{
 			#if ACTION_V2
 			if (network->network_properties.flags.use_bit && (network->network_properties.flags.link || network->network_properties.flags.relink)) {
-				if (!measureAction_v3(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->nodes.k_in, network->nodes.k_out, network->network_properties.spacetime, network->network_properties.N, network->network_properties.gt, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+				if (!measureAction_v3(network->network_observables.cardinalities, network->network_observables.action, network->adj, network->nodes.k_in, network->nodes.k_out, network->network_properties.spacetime, network->network_properties.N, network->network_properties.epsilon, network->network_properties.gt, ca, cp->sMeasureAction, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 					network->network_properties.cmpi.fail = 1;
 					break;
 				}
-			} else if (!measureAction_v2(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.k_tar, network->network_properties.max_cardinality, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+			} else if (!measureAction_v2(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.k_tar, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
 				break;
 			}
 			#else
-			if (!measureAction_v1(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.max_cardinality, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+			if (!measureAction_v1(network->network_observables.cardinalities, network->network_observables.action, network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.a, network->network_properties.zeta, network->network_properties.zeta1, network->network_properties.r_max, network->network_properties.alpha, network->network_properties.core_edge_fraction, ca, cp->sMeasureAction, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
 				break;
 			}
@@ -1216,10 +1206,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 				break;
 			}
 
-			//Print Coordinates
-			printValues(network->nodes, network->network_properties.spacetime, network->network_properties.N, "eta_dist.cset.dbg.dat", "x");
-			printValues(network->nodes, network->network_properties.spacetime, network->network_properties.N, "x_dist.cset.dbg.dat", "y");
-			if (!measureChain(network->network_observables.longest_chain, network->network_observables.longest_pair, network->nodes, network->adj, network->network_properties.N, ca, cp->sMeasureChain, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
+			if (!measureChain(network->network_observables.longest_chains, network->network_observables.longest_chain_length, network->network_observables.longest_pair, network->nodes, network->adj, network->network_properties.N, ca, cp->sMeasureChain, network->network_properties.flags.verbose, network->network_properties.flags.bench)) {
 				network->network_properties.cmpi.fail = 1;
 				break;
 			}
@@ -1469,7 +1456,7 @@ bool measureNetworkObservables(Network * const network, CaResources * const ca, 
 //Reads the following files:
 //	-Node position data		(./dat/pos/*.cset.pos.dat)
 //	-Edge data			(./dat/edg/*.cset.edg.dat)
-bool loadNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, const CUcontext &ctx)
+bool loadNetwork(Network * const network, CaResources * const ca, CausetPerformance * const cp, Benchmark * const bm, CUcontext &ctx, const size_t dev_memory)
 {
 	#if DEBUG
 	assert (network != NULL);
@@ -1543,7 +1530,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		//Identify Basic Network Properties
 		if (!network->network_properties.flags.no_pos) {
 			network->network_properties.N = 0;
-			dataname << prefix << "pos/" << network->network_properties.graphID << ".cset.pos.dat";
+			dataname << prefix << "positions/" << network->network_properties.graphID << ".cset.pos.dat";
 			dataStream.open(dataname.str().c_str());
 			if (dataStream.is_open()) {
 				while (getline(dataStream, line))
@@ -1562,7 +1549,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		else if (network->network_properties.flags.link) {	
 			dataname.str("");
 			dataname.clear();
-			dataname << prefix << "edg/" << network->network_properties.graphID << ".cset.edg.dat";
+			dataname << prefix << "edges/" << network->network_properties.graphID << ".cset.edg.dat";
 			dataStream.open(dataname.str().c_str());
 			if (dataStream.is_open()) {
 				while (getline(dataStream, line))
@@ -1589,7 +1576,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		MPI_Bcast(&network->network_properties.N, 1, MPI_INT, 0, MPI_COMM_WORLD);
 		#endif
 
-		if (!initVars(&network->network_properties, ca, cp, bm))
+		if (!initVars(&network->network_properties, ca, cp, bm, dev_memory))
 			return false;
 		if (!!N_edg)
 			network->network_properties.k_tar = static_cast<float>(static_cast<long double>(N_edg) * 2.0 / network->network_properties.N);
@@ -1601,7 +1588,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			return true;
 
 		//Allocate Memory	
-		if (!createNetwork(network->nodes, network->edges, network->adj, network->links, spacetime, network->network_properties.N, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.gt, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sCreateNetwork, network->network_properties.flags.use_gpu, network->network_properties.flags.decode_cpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.evolve, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
+		if (!createNetwork(network->nodes, network->edges, network->adj, network->links, network->U, network->V, spacetime, network->network_properties.N, network->network_properties.k_tar, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.gt, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sCreateNetwork, network->network_properties.flags.use_gpu, network->network_properties.flags.decode_cpu, network->network_properties.flags.link, network->network_properties.flags.relink, network->network_properties.flags.mcmc, network->network_properties.flags.no_pos, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, network->network_properties.flags.verbose, network->network_properties.flags.bench, network->network_properties.flags.yes))
 			return false;
 
 		#ifdef MPI_ENABLED
@@ -1614,7 +1601,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			fflush(stdout);
 			dataname.str("");
 			dataname.clear();
-			dataname << prefix << "pos/" << network->network_properties.graphID << ".cset.pos.dat";
+			dataname << prefix << "positions/" << network->network_properties.graphID << ".cset.pos.dat";
 			dataStream.open(dataname.str().c_str());
 			if (dataStream.is_open()) {
 				for (i = 0; i < network->network_properties.N; i++) {
@@ -1749,7 +1736,7 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 		fflush(stdout);
 		dataname.str("");
 		dataname.clear();
-		dataname << prefix << "edg/" << network->network_properties.graphID << ".cset.edg.dat";
+		dataname << prefix << "edges/" << network->network_properties.graphID << ".cset.edg.dat";
 		if (network->network_properties.flags.use_bit)
 			dataStream.open(dataname.str().c_str(), std::ios::binary);
 		else
@@ -1935,16 +1922,16 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 			return true;
 
 		printf_mpi(rank, "\t\tCompleted.\n");
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
-	} catch (std::out_of_range) {
+	} catch (const std::out_of_range&) {
 		fprintf(stderr, "Error using unordered map when reading edge list!\n");
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -1963,8 +1950,347 @@ bool loadNetwork(Network * const network, CaResources * const ca, CausetPerforma
 	return true;
 }
 
+//Print to HDF5 File
+bool printNetworkHDF5(Network &network, CausetPerformance &cp)
+{
+	if (!(network.network_properties.flags.print_network && network.network_properties.flags.print_hdf5))
+		return false;
+
+	#ifdef MPI_ENABLED
+	if (network.network_properties.cmpi.rank)
+		return true;
+	#endif
+
+	printf("Printing Results to HDF5 File...\n");
+	fflush(stdout);
+
+	const char *filename = network.network_properties.datdir.append("observables.h5").c_str();
+	if (network.network_properties.graphID == 0)
+		network.network_properties.graphID = (int)(network.network_properties.mrng.rng() * INT_MAX);
+	const char *samplename = std::to_string(network.network_properties.graphID).c_str();
+
+	//Flags are saved as metadata
+	printf(" > Saving flags and metadata...\n");
+	fflush(stdout);
+	CausetFlags &cf = network.network_properties.flags;
+	save_h5_metadata(filename, "use_gpu", cf.use_gpu);
+	save_h5_metadata(filename, "decode_cpu", cf.decode_cpu);
+	save_h5_metadata(filename, "print_network", cf.print_network);
+	save_h5_metadata(filename, "print_edges", cf.print_edges);
+	save_h5_metadata(filename, "print_dot", cf.print_dot);
+	save_h5_metadata(filename, "print_hdf5", cf.print_hdf5);
+	save_h5_metadata(filename, "growing", cf.growing);
+	save_h5_metadata(filename, "link", cf.link);
+	save_h5_metadata(filename, "relink", cf.relink);
+	save_h5_metadata(filename, "link_epso", cf.link_epso);
+	save_h5_metadata(filename, "mcmc", cf.mcmc);
+	save_h5_metadata(filename, "has_exact_k", cf.has_exact_k);
+	save_h5_metadata(filename, "binomial", cf.binomial);
+	save_h5_metadata(filename, "read_old_format", cf.read_old_format);
+	save_h5_metadata(filename, "quiet_read", cf.quiet_read);
+	save_h5_metadata(filename, "no_pos", cf.no_pos);
+	save_h5_metadata(filename, "use_bit", cf.use_bit);
+	save_h5_metadata(filename, "mpi_split", cf.mpi_split);
+	save_h5_metadata(filename, "calc_clustering", cf.calc_clustering);
+	save_h5_metadata(filename, "calc_components", cf.calc_components);
+	save_h5_metadata(filename, "calc_success_ratio", cf.calc_success_ratio);
+	save_h5_metadata(filename, "calc_stretch", cf.calc_stretch);
+	save_h5_metadata(filename, "calc_action", cf.calc_action);
+	save_h5_metadata(filename, "calc_action_theory", cf.calc_action_theory);
+	save_h5_metadata(filename, "calc_chain", cf.calc_chain);
+	save_h5_metadata(filename, "calc_hubs", cf.calc_hubs);
+	save_h5_metadata(filename, "calc_geo_dis", cf.calc_geo_dis);
+	save_h5_metadata(filename, "calc_antichain", cf.calc_antichain);
+	save_h5_metadata(filename, "calc_entanglement_entropy", cf.calc_entanglement_entropy);
+	save_h5_metadata(filename, "calc_foliation", cf.calc_foliation);
+	save_h5_metadata(filename, "calc_dimension", cf.calc_dimension);
+	save_h5_metadata(filename, "calc_smi", cf.calc_smi);
+	save_h5_metadata(filename, "calc_extrinsic_curvature", cf.calc_extrinsic_curvature);
+	save_h5_metadata(filename, "strict_routing", cf.strict_routing);
+	save_h5_metadata(filename, "verbose", cf.verbose);
+	save_h5_metadata(filename, "bench", cf.bench);
+	save_h5_metadata(filename, "yes", cf.yes);
+	save_h5_metadata(filename, "test", cf.test);
+
+	//Constants are also saved as metadata
+	save_h5_metadata(filename, "APPROX", APPROX);
+	save_h5_metadata(filename, "USE_GSL", USE_GSL);
+	save_h5_metadata(filename, "EMBED_NODES", EMBED_NODES);
+	save_h5_metadata(filename, "DIST_V2", DIST_V2);
+	save_h5_metadata(filename, "SPECIAL_SAUCER", SPECIAL_SAUCER);
+	save_h5_metadata(filename, "SR_RANDOM", SR_RANDOM);
+	save_h5_metadata(filename, "TRAVERSE_V2", TRAVERSE_V2);
+	save_h5_metadata(filename, "TRAVERSE_VECPROD", TRAVERSE_VECPROD);
+	save_h5_metadata(filename, "ACTION_V2", ACTION_V2);
+	save_h5_metadata(filename, "ACTION_MPI_V5", ACTION_MPI_V5);
+	save_h5_metadata(filename, "ACTION_MPI_V4", ACTION_MPI_V4);
+	save_h5_metadata(filename, "LAYER_ONLY", LAYER_ONLY);
+	save_h5_metadata(filename, "DEBUG", DEBUG);
+	save_h5_metadata(filename, "DEBUG_EVOL", DEBUG_EVOL);
+	save_h5_metadata(filename, "NPRINT", NPRINT);
+	save_h5_metadata(filename, "NBENCH", NBENCH);
+	#ifdef CUDA_ENABLED
+	save_h5_metadata(filename, "GPU_MIN", GPU_MIN);
+	save_h5_metadata(filename, "BLOCK_SIZE", BLOCK_SIZE);
+	save_h5_metadata(filename, "THREAD_SIZE", THREAD_SIZE);
+	save_h5_metadata(filename, "NBUFFERS", NBUFFERS);
+	save_h5_metadata(filename, "LINK_NODES_GPU_V2", LINK_NODES_GPU_V2);
+	save_h5_metadata(filename, "GEN_ADJ_LISTS_GPU_V2", GEN_ADJ_LISTS_GPU_V2);
+	save_h5_metadata(filename, "DECODE_LISTS_GPU_V2", DECODE_LISTS_GPU_V2);
+	#endif
+	save_h5_metadata(filename, "FBALIGN", FBALIGN);
+	save_h5_metadata(filename, "OMP_THREADS", omp_get_max_threads());
+	save_h5_metadata(filename, "VERSION", VERSION);
+
+	//Input parameters are saved as metadata
+	//and output parameters are saved as scalars or vectors
+	printf(" > Saving network properties...\n");
+	fflush(stdout);
+	NetworkProperties &np = network.network_properties;
+	std::string st(np.spacetime.toHexString());
+	save_h5_metadata(filename, "spacetime", st.c_str());
+	if (np.gt == RGG) {
+		save_h5_metadata(filename, "stdim", atoi(Spacetime::stdims[np.spacetime.get_stdim()]));
+		save_h5_metadata(filename, "manifold", Spacetime::manifolds[np.spacetime.get_manifold()]);
+		save_h5_metadata(filename, "region", Spacetime::regions[np.spacetime.get_region()]);
+		save_h5_metadata(filename, "curvature", Spacetime::curvatures[np.spacetime.get_curvature()]);
+		save_h5_metadata(filename, "symmetry", Spacetime::symmetries[np.spacetime.get_symmetry()]);
+	}
+	save_h5_metadata(filename, "N_tar", np.N_tar);
+	save_h5_metadata(filename, "k_tar", np.k_tar);
+	save_h5_scalar(filename, "N", np.N);
+	save_h5_metadata(filename, "sweeps", np.sweeps);
+	save_h5_metadata(filename, "N_sr", (double)np.N_sr);
+	save_h5_metadata(filename, "N_actth", np.N_actth);
+	save_h5_metadata(filename, "N_hubs", np.N_hubs);
+	save_h5_metadata(filename, "N_gd", (double)np.N_gd);
+	save_h5_metadata(filename, "entropy_size", np.entropy_size);
+	save_h5_metadata(filename, "a", np.a);
+	save_h5_metadata(filename, "eta0", np.eta0);
+	save_h5_metadata(filename, "zeta", np.zeta);
+	save_h5_metadata(filename, "zeta1", np.zeta1);
+	save_h5_metadata(filename, "r_max", np.r_max);
+	save_h5_metadata(filename, "tau0", np.tau0);
+	save_h5_metadata(filename, "alpha", np.alpha);
+	save_h5_scalar(filename, "delta", np.delta);
+	save_h5_metadata(filename, "K", np.K);
+	save_h5_metadata(filename, "beta", np.beta);
+	save_h5_metadata(filename, "epsilon", np.epsilon);
+	save_h5_metadata(filename, "mu", np.mu);
+	save_h5_metadata(filename, "gamma", np.gamma);
+	save_h5_metadata(filename, "omegaM", np.omegaM);
+	save_h5_metadata(filename, "omegaL", np.omegaL);
+	save_h5_metadata(filename, "core_edge_fraction", np.core_edge_fraction);
+	save_h5_metadata(filename, "edge_buffer", np.edge_buffer);
+	save_h5_metadata(filename, "graph_type", gt_strings[np.gt]);
+	save_h5_metadata(filename, "weight_function", wf_strings[np.wf]);
+	save_h5_scalar(filename, "seed", np.seed);
+	save_h5_scalar(filename, "graphID", np.graphID);
+	save_h5_metadata(filename, "num_mpi_threads", np.cmpi.num_mpi_threads);
+	save_h5_metadata(filename, "group_size", np.group_size);
+	save_h5_metadata(filename, "datdir", np.datdir.c_str());
+
+	//Write nodes and edges to file here
+	printf(" > Saving graph nodes...\n");
+	fflush(stdout);
+	hsize_t shape[1] = { (hsize_t)np.N };
+	if (!cf.no_pos && np.gt == RGG) {
+		unsigned stdim = atoi(Spacetime::stdims[np.spacetime.get_stdim()]);
+		if (stdim == 5)
+			save_h5_vector(filename, "v", samplename, network.nodes.crd->v(), shape, 1);
+		if (stdim >= 4)
+			save_h5_vector(filename, "w", samplename, network.nodes.crd->w(), shape, 1);
+		if (stdim >= 3)
+			save_h5_vector(filename, "z", samplename, network.nodes.crd->z(), shape, 1);
+		save_h5_vector(filename, "x", samplename, network.nodes.crd->x(), shape, 1);
+		save_h5_vector(filename, "y", samplename, network.nodes.crd->y(), shape, 1);
+		if (np.spacetime.manifoldIs("Dust") || np.spacetime.manifoldIs("FLRW") || (np.spacetime.manifoldIs("Hyperbolic") && np.spacetime.curvatureIs("Positive")))
+			save_h5_vector(filename, "tau", samplename, network.nodes.id.tau, shape, 1);
+		if (np.spacetime.manifoldIs("Hyperbolic") && np.spacetime.curvatureIs("Flat"))
+			save_h5_vector(filename, "AS", samplename, network.nodes.id.AS, shape, 1);
+	}
+
+	bool links_exist = cf.link || cf.relink;
+	hid_t file, group, dspace, mspace;
+	hsize_t rowdim[2];
+	hsize_t offset[2] = { 0, 0 };
+	hsize_t nrow, ncol;
+	if (links_exist) {
+		if (cf.print_edges) {
+			printf(" > Saving graph edges...\n");
+			fflush(stdout);
+			std::vector<std::pair<hid_t,std::string>> dset { std::make_pair(0, samplename) };
+			if (cf.use_bit) {
+				ncol = network.adj[0].getNumBlocks();
+				nrow = network.adj.size();
+				save_h5_matrix_init<uint64_t>(filename, "adj", dset, file, group, dspace, mspace, rowdim, nrow, ncol);
+				for (unsigned i = 0; i < network.adj.size(); i++) {
+					save_h5_matrix_row((uint64_t*)network.adj[i].getAddress(), dset[0].first, dspace, mspace, rowdim, offset, H5P_DEFAULT);
+				}
+				save_h5_matrix_close(file, group, dspace, mspace, dset);
+
+				if (cf.print_dot) {
+					std::string dot_filename = np.datdir;
+					dot_filename.append("hasse/");
+					dot_filename.append(samplename);
+					dot_filename.append(".dot");
+
+					FILE *f = fopen(dot_filename.c_str(), "w");
+					fprintf(f, "digraph \"causet\" {\n");
+					fprintf(f, "rankdir=BT; concentrate=true;\n");
+					for (int i = 0; i < np.N; i++) {
+						fprintf(f, "%d [shape=plaintext];\n", i);
+						for (int j = i + 1; j < np.N; j++)
+							if (network.adj[i].read(j))
+								fprintf(f, "%d->%d;", i, j);
+						if (network.adj[i].partial_count(i, np.N - i))
+							fprintf(f, "\n");
+					}
+					fprintf(f, "}\n");
+					fflush(f); fclose(f);
+				}
+			} else {
+				uint64_t N_edges = 0, eidx = 0;
+				int epair[2];
+				for (int i = 0; i < np.N; i++)
+					N_edges += network.adj[i].partial_count(i, np.N - i);
+				nrow = N_edges;
+				ncol = 2;
+				save_h5_matrix_init<int>(filename, "edge_list", dset, file, group, dspace, mspace, rowdim, nrow, ncol);
+				for (int i = 0; i < np.N; i++) {
+					for (int j = 0; j < network.nodes.k_out[i]; j++) {
+						epair[0] = i;
+						epair[1] = network.edges.future_edges[j+eidx];
+						save_h5_matrix_row(epair, dset[0].first, dspace, mspace, rowdim, offset, H5P_DEFAULT);
+					}
+					eidx += network.nodes.k_out[i];
+				}
+				save_h5_matrix_close(file, group, dspace, mspace, dset);
+			}
+		}
+
+		save_h5_vector(filename, "k_in", samplename, network.nodes.k_in, shape, 1);
+		save_h5_vector(filename, "k_out", samplename, network.nodes.k_out, shape, 1);
+
+		//Degree distribution data
+	}
+
+	printf(" > Saving measured values...\n");
+	fflush(stdout);
+	NetworkObservables &no = network.network_observables;
+	save_h5_scalar(filename, "N_res", no.N_res);
+	save_h5_scalar(filename, "k_res", no.k_res);
+	save_h5_scalar(filename, "N_deg2", no.N_deg2);
+
+	//Clustering
+	if (cf.calc_clustering) {
+		save_h5_scalar(filename, "avg_clustering", no.average_clustering);
+		save_h5_vector(filename, "clustering_coefficients", samplename, no.clustering, shape, 1);
+		//
+	}
+
+	//Components
+	if (cf.calc_components) {
+		save_h5_scalar(filename, "N_cc", no.N_cc);
+		save_h5_scalar(filename, "N_gcc", no.N_gcc);
+		save_h5_vector(filename, "components", samplename, network.nodes.cc_id, shape, 1);
+		//
+	}
+
+	//Action
+	if (cf.calc_action) {
+		save_h5_scalar(filename, "action", no.action);
+		save_h5_vector(filename, "intervals", samplename, no.cardinalities, shape, 1);
+	}
+
+	//Hubs
+	if (cf.calc_hubs) {
+		save_h5_scalar(filename, "avg_hub_density", no.hub_density);
+		shape[0] = np.N_hubs;
+		save_h5_vector(filename, "hub_density", samplename, no.hub_densities, shape, 1);
+		shape[0] = np.N;
+	}
+
+	//Foliation
+	if (cf.calc_foliation) {
+		//
+	}
+
+	//Spacetime Mutual Information
+	if (cf.calc_smi) {
+		save_h5_vector(filename, "smi_intervals", samplename, no.smi, shape, 1);
+		//
+	}
+
+	//Extrinsic Curvature
+	if (cf.calc_extrinsic_curvature) {
+		save_h5_scalar(filename, "extrinsic_curvature", no.extrinsic_curvature);
+		save_h5_vector(filename, "layers", samplename, no.layers, shape, 1);
+
+		std::string layer_filename = np.datdir;
+		layer_filename.append("layers/");
+		layer_filename.append(samplename);
+		layer_filename.append(".cset.lay.dat");
+
+		std::string layer_degrees_filename = np.datdir;
+		layer_degrees_filename.append("layer_degrees/");
+		layer_degrees_filename.append(samplename);
+		layer_degrees_filename.append(".cset.ldg.dat");
+
+		FILE *f1 = fopen(layer_filename.c_str(), "w");
+		FILE *f2 = fopen(layer_degrees_filename.c_str(), "w");
+
+		for (int i = 0; i < np.N; i++) {
+			bool found = false;
+			for (int j = 0; j < np.N; j++) {
+				if (no.layers[j] == i) {
+					fprintf(f1, "%d ", j);
+					fprintf(f2, "%d ", network.nodes.k_in[j] + network.nodes.k_out[j]);
+					found = true;
+				}
+			}
+			if (found) {
+				fprintf(f1, "\n");
+				fprintf(f2, "\n");
+			}
+		}
+
+		fflush(f1); fclose(f1);
+		fflush(f2); fclose(f2);
+	}
+
+	//Success Ratio
+	if (cf.calc_success_ratio) {
+		save_h5_scalar(filename, "success_ratio", no.success_ratio);
+		save_h5_scalar(filename, "success_ratio_alt", no.success_ratio2);
+	}
+
+	//Stretch
+	if (cf.calc_stretch)
+		save_h5_scalar(filename, "stretch", no.stretch);
+
+	//Geodesically Disconnected Fraction
+	if (cf.calc_geo_dis)
+		save_h5_scalar(filename, "geodesic_disconnection", no.geo_discon);
+
+	//Chain
+	if (cf.calc_chain) {
+		save_h5_scalar(filename, "longest_chain", no.longest_chain_length);
+		//
+	}
+
+	//Dimension
+	if (cf.calc_dimension)
+		save_h5_scalar(filename, "dimension", no.dimension);
+
+	printf("Task Completed.\n\n");
+	fflush(stdout);
+
+	return true;
+}
+
 //Print to File
-bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
+bool printNetwork(Network &network, CausetPerformance &cp)
 {
 	if (!network.network_properties.flags.print_network)
 		return false;
@@ -1983,12 +2309,12 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 	try {
 		std::ofstream outputStream;
 		std::ofstream mapStream;
-		std::ofstream dataStream;
+		std::ofstream dataStream, dataStream2;
 		std::stringstream sstm;
 
 		//Generate Filename
 		if (network.network_properties.flags.use_gpu)
-			sstm << "Dev" << gpuID << "_";
+			sstm << "Dev0_";
 		else
 			sstm << "CPU_";
 		if (network.network_properties.gt == RGG) {
@@ -2107,22 +2433,22 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 
 		outputStream << "\nNetwork Analysis Results:" << std::endl;
 		outputStream << "-------------------------" << std::endl;
-		outputStream << "Node Position Data:\t\t\t" << "pos/" << network.network_properties.graphID << ".cset.pos.dat" << std::endl;
+		outputStream << "Node Position Data:\t\t\t" << "postions/" << network.network_properties.graphID << ".cset.pos.dat" << std::endl;
 		if (links_exist) {
 			if (network.network_properties.flags.print_edges)
-				outputStream << "Node Edge Data:\t\t\t\t" << "edg/" << network.network_properties.graphID << ".cset.edg.dat" << std::endl;
-			outputStream << "Degree Distribution Data:\t\t" << "dst/" << network.network_properties.graphID << ".cset.dst.dat" << std::endl;
-			outputStream << "In-Degree Distribution Data:\t\t" << "idd/" << network.network_properties.graphID << ".cset.idd.dat" << std::endl;
-			outputStream << "Out-Degree Distribution Data:\t\t" << "odd/" << network.network_properties.graphID << ".cset.odd.dat" << std::endl;
+				outputStream << "Node Edge Data:\t\t\t\t" << "edges/" << network.network_properties.graphID << ".cset.edg.dat" << std::endl;
+			outputStream << "Degree Distribution Data:\t\t" << "degree_distribution/" << network.network_properties.graphID << ".cset.dst.dat" << std::endl;
+			outputStream << "In-Degree Distribution Data:\t\t" << "in_degree_distribution/" << network.network_properties.graphID << ".cset.idd.dat" << std::endl;
+			outputStream << "Out-Degree Distribution Data:\t\t" << "out_degree_distribution/" << network.network_properties.graphID << ".cset.odd.dat" << std::endl;
 		}
 
 		if (network.network_properties.flags.calc_clustering) {
-			outputStream << "Clustering Coefficient Data:\t\t" << "cls/" << network.network_properties.graphID << ".cset.cls.dat" << std::endl;
-			outputStream << "Clustering by Degree Data:\t\t" << "cdk/" << network.network_properties.graphID << ".cset.cdk.dat" << std::endl;
+			outputStream << "Clustering Coefficient Data:\t\t" << "clustering/" << network.network_properties.graphID << ".cset.cls.dat" << std::endl;
+			outputStream << "Clustering by Degree Data:\t\t" << "clustering_by_degree/" << network.network_properties.graphID << ".cset.cdk.dat" << std::endl;
 		}
 
 		if (network.network_properties.flags.calc_action)
-			outputStream << "Action/Cardinality Data:\t\t" << "act/" << network.network_properties.graphID << ".cset.act.dat" << std::endl;
+			outputStream << "Action/Cardinality Data:\t\t" << "action/" << network.network_properties.graphID << ".cset.act.dat" << std::endl;
 
 		outputStream << "\nAlgorithmic Performance:" << std::endl;
 		outputStream << "--------------------------" << std::endl;
@@ -2169,7 +2495,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 		if (!network.network_properties.flags.no_pos) {
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "pos/" << network.network_properties.graphID << ".cset.pos.dat";
+			sstm << prefix << "positions/" << network.network_properties.graphID << ".cset.pos.dat";
 			printf("Node position filename: %s\n", sstm.str().c_str());
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
@@ -2180,7 +2506,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 					if (spacetime.stdimIs("4")) {
 						if (spacetime.manifoldIs("Dust") || spacetime.manifoldIs("FLRW"))
 							dataStream << network.nodes.id.tau[i];
-						else if (spacetime.manifoldIs("De_Sitter"))
+						else if (spacetime.manifoldIs("Minkowski") || spacetime.manifoldIs("De_Sitter"))
 							dataStream << network.nodes.crd->w(i);
 						dataStream << " " << network.nodes.crd->x(i) << " " << network.nodes.crd->y(i) << " " << network.nodes.crd->z(i);
 					} else if (spacetime.stdimIs("3"))
@@ -2203,25 +2529,25 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			if (network.network_properties.flags.print_edges) {
 				sstm.str("");
 				sstm.clear();
-				sstm << prefix << "edg/" << network.network_properties.graphID << ".cset.edg.dat";
+				sstm << prefix << "edges/" << network.network_properties.graphID << ".cset.edg.dat";
 
 				if (network.network_properties.flags.use_bit) {
-					//dataStream.open(sstm.str().c_str(), std::ios::binary);
-					dataStream.open(sstm.str().c_str());
+					dataStream.open(sstm.str().c_str(), std::ios::binary);
+					//dataStream.open(sstm.str().c_str());
 					if (!dataStream.is_open())
 						throw CausetException("Failed to open edge list file!\n");
 					for (i = 0; i < network.network_properties.N; i++)
-						//dataStream.write(reinterpret_cast<const char*>(network.adj[i].getAddress()), sizeof(BlockType) * network.adj[i].getNumBlocks());
-						for (j = i + 1; j < network.network_properties.N; j++)
-							dataStream << (unsigned)network.adj[i].read(j);
-					dataStream << " " << network.network_observables.action << "\n";
+						dataStream.write(reinterpret_cast<const char*>(network.adj[i].getAddress()), sizeof(BlockType) * network.adj[i].getNumBlocks());
+						//for (j = i + 1; j < network.network_properties.N; j++)
+						//	dataStream << (unsigned)network.adj[i].read(j);
+					//dataStream << " " << network.network_observables.action << "\n";
 					dataStream.flush();
 					dataStream.close();
 
 					if (network.network_properties.flags.print_dot) {
 						sstm.str("");
 						sstm.clear();
-						sstm << prefix << "dot/" << network.network_properties.graphID << ".cset.dot";
+						sstm << prefix << "hasse/" << network.network_properties.graphID << ".cset.dot";
 						dataStream.open(sstm.str().c_str());
 						if (!dataStream.is_open())
 							throw CausetException("Failed to open dot file!\n");
@@ -2229,10 +2555,12 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 						dataStream << "rankdir=BT; concentrate=true;\n";
 						for (int i = 0; i < network.network_properties.N; i++) {
 							dataStream << i << " [shape=plaintext];\n";
+							//dataStream << i << ";\n";
 							for (int j = i + 1; j < network.network_properties.N; j++)
 								if (network.adj[i].read(j))
-									dataStream << i << "->" << j << "; ";
-							if (!!network.nodes.k_out[i])
+									dataStream << i << "->" << j << ";";
+							//if (!!network.nodes.k_out[i])
+							if (network.adj[i].partial_count(i, network.network_properties.N - i))
 								dataStream << "\n";
 						}
 						dataStream << "}\n";
@@ -2255,7 +2583,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "dst/" << network.network_properties.graphID << ".cset.dst.dat";
+			sstm << prefix << "degree_distribution/" << network.network_properties.graphID << ".cset.dst.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open degree distribution file!\n");
@@ -2277,7 +2605,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "idd/" << network.network_properties.graphID << ".cset.idd.dat";
+			sstm << prefix << "in_degree_distribution/" << network.network_properties.graphID << ".cset.idd.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open in-degree distribution file!\n");
@@ -2295,7 +2623,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "odd/" << network.network_properties.graphID << ".cset.odd.dat";
+			sstm << prefix << "out_degree_distribution/" << network.network_properties.graphID << ".cset.odd.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open out-degree distribution file!\n");
@@ -2318,7 +2646,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 		if (network.network_properties.flags.calc_clustering) {
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "cls/" << network.network_properties.graphID << ".cset.cls.dat";
+			sstm << prefix << "clustering/" << network.network_properties.graphID << ".cset.cls.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open clustering coefficient file!\n");
@@ -2330,7 +2658,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "cdk/" << network.network_properties.graphID << ".cset.cdk.dat";
+			sstm << prefix << "clustering_by_degree/" << network.network_properties.graphID << ".cset.cdk.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open clustering distribution file!\n");
@@ -2357,11 +2685,11 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 		if (network.network_properties.flags.calc_action) {
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "act/" << network.network_properties.graphID << ".cset.act.dat";
+			sstm << prefix << "action/" << network.network_properties.graphID << ".cset.act.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open action file!\n");
-			for (i = 0; i < network.network_properties.max_cardinality; i++)
+			for (i = 0; i < network.network_properties.N; i++)
 				dataStream << network.network_observables.cardinalities[i] << "\n";
 
 			dataStream.flush();
@@ -2371,7 +2699,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 		if (network.network_properties.flags.calc_hubs) {
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "hub/" << network.network_properties.graphID << ".cset.hub.dat";
+			sstm << prefix << "hubs/" << network.network_properties.graphID << ".cset.hub.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open hub file!\n");
@@ -2384,10 +2712,10 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 		if (network.network_properties.flags.calc_foliation) {
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "fol/tl/" << network.network_properties.graphID << ".cset.fol.dat";
+			sstm << prefix << "foliation_timelike/" << network.network_properties.graphID << ".cset.fol.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
-				throw CausetException("Failed to open fol/tl file!\n");
+				throw CausetException("Failed to open foliation_timelike file!\n");
 			for (i = 0; i < (int)network.network_observables.timelike_foliation.size(); i++)
 				dataStream << network.network_observables.timelike_foliation[i].count_bits() << "\n";
 			dataStream.flush();
@@ -2395,10 +2723,10 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "fol/sl/" << network.network_properties.graphID << ".cset.fol.dat";
+			sstm << prefix << "foliation_spacelike/" << network.network_properties.graphID << ".cset.fol.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
-				throw CausetException("Failed to open fol/sl file!\n");
+				throw CausetException("Failed to open foliation_spacelike file!\n");
 			for (i = 0; i < (int)network.network_observables.spacelike_foliation.size(); i++)
 				dataStream << network.network_observables.spacelike_foliation[i].count_bits() << "\n";
 			dataStream.flush();
@@ -2406,10 +2734,10 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "fol/as/" << network.network_properties.graphID << ".cset.fol.dat";
+			sstm << prefix << "foliation_alexandroff_set/" << network.network_properties.graphID << ".cset.fol.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
-				throw CausetException("Failed to open fol/as file!\n");
+				throw CausetException("Failed to open foliation_alexandroff_set file!\n");
 			for (i = 0; i < (int)network.network_observables.ax_set.size(); i++)
 				dataStream << network.network_observables.ax_set[i] << "\n";
 			dataStream.flush();
@@ -2419,7 +2747,7 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 		if (network.network_properties.flags.calc_smi) {
 			sstm.str("");
 			sstm.clear();
-			sstm << prefix << "smi/" << network.network_properties.graphID << ".cset.smi.dat";
+			sstm << prefix << "spacetime_mutual_information/" << network.network_properties.graphID << ".cset.smi.dat";
 			dataStream.open(sstm.str().c_str());
 			if (!dataStream.is_open())
 				throw CausetException("Failed to open smi file!\n");
@@ -2429,14 +2757,50 @@ bool printNetwork(Network &network, CausetPerformance &cp, const int &gpuID)
 			dataStream.close();
 		}
 
+		if (network.network_properties.flags.calc_extrinsic_curvature) {
+			sstm.str("");
+			sstm.clear();
+			sstm << prefix << "layers/" << network.network_properties.graphID << ".cset.lay.dat";
+			dataStream.open(sstm.str().c_str());
+			if (!dataStream.is_open())
+				throw CausetException("Failed to open layer file!\n");
+
+			sstm.str("");
+			sstm.clear();
+			sstm << prefix << "layer_degrees/" << network.network_properties.graphID << ".cset.ldg.dat";
+			dataStream2.open(sstm.str().c_str());
+			if (!dataStream2.is_open())
+				throw CausetException("Failed to open layer degree file!\n");
+
+			for (i = 0; i < network.network_properties.N; i++) {
+				bool found = false;
+				for (int j = 0; j < network.network_properties.N; j++) {
+					if (network.network_observables.layers[j] == i) {
+						dataStream << j << " ";
+						dataStream2 << (network.nodes.k_in[j] + network.nodes.k_out[j]) << " ";
+						found = true;
+					}
+				}
+				if (found) {
+					dataStream << "\n";
+					dataStream2 << "\n";
+				}
+
+			}
+			dataStream.flush();
+			dataStream.close();
+			dataStream2.flush();
+			dataStream2.close();
+		}
+
 		PrintExit:
 
 		printf("\tFilename: %s.cset.out\n", filename.c_str());
 		fflush(stdout);
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -2481,10 +2845,10 @@ bool printBenchmark(const Benchmark &bm, const CausetFlags &cf, const bool &link
 			fprintf(f, "\tmeasureAction:\t%5.6f sec\n", bm.bMeasureAction);
 
 		fclose(f);
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -2600,6 +2964,12 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		}
 	}
 
+	if (network->network_properties.gt == _2D_ORDER && !network->network_properties.flags.popanneal) {
+		VFREE(network->U);
+		VFREE(network->V);
+		hostMemUsed -= sizeof(unsigned) * network->network_properties.N * 2;
+	}
+
 	if (links_exist) {
 		free(network->nodes.k_in);
 		network->nodes.k_in = NULL;
@@ -2640,7 +3010,7 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		network->adj.clear();
 		network->adj.swap(network->adj);
 
-		if (network->network_properties.flags.evolve) {
+		if (network->network_properties.flags.mcmc) {
 			for (int i = 0; i < length; i++)
 				hostMemUsed -= sizeof (BlockType) * network->links[i].getNumBlocks();
 			network->links.clear();
@@ -2675,10 +3045,10 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		hostMemUsed -= sizeof(int) * network->network_properties.N;
 	}
 
-	if (network->network_properties.flags.calc_action || network->network_properties.flags.evolve) {
+	if (network->network_properties.flags.calc_action /*|| network->network_properties.flags.mcmc*/) {
 		free(network->network_observables.cardinalities);
 		network->network_observables.cardinalities = NULL;
-		hostMemUsed -= sizeof(uint64_t) * network->network_properties.max_cardinality * omp_get_max_threads();
+		hostMemUsed -= sizeof(uint64_t) * network->network_properties.N * omp_get_max_threads();
 
 		/*hostMemUsed -= sizeof(unsigned int) * network->network_observables.timelike_candidates.size();
 		network->network_observables.timelike_candidates.clear();
@@ -2708,16 +3078,22 @@ void destroyNetwork(Network * const network, size_t &hostMemUsed, size_t &devMem
 		network->network_observables.smi = NULL;
 		hostMemUsed -= sizeof(uint64_t) * network->network_properties.N * omp_get_max_threads();
 	}
+
+	if (network->network_properties.flags.calc_extrinsic_curvature) {
+		free(network->network_observables.layers);
+		network->network_observables.layers = NULL;
+		hostMemUsed -= sizeof(int) * network->network_properties.N * omp_get_max_threads();
+	}
 }
 
 //--------------------//
 // Additional Methods //
 //--------------------//
 
-bool linkNodes(Network * const network, CaResources * const ca, CausetPerformance * const cp, const CUcontext &ctx)
+bool linkNodes(Network * const network, CaResources * const ca, CausetPerformance * const cp, CUcontext &ctx)
 {
 	#ifdef CUDA_ENABLED
-	if (network->network_properties.flags.use_gpu && network->network_properties.N >= GPU_MIN) {
+	if (network->network_properties.flags.use_gpu && network->network_properties.N >= GPU_MIN * NBUFFERS) {
 		#if LINK_NODES_GPU_V2
 		if (!linkNodesGPU_v2(network->nodes, network->edges, network->adj, network->network_properties.spacetime, network->network_properties.N, network->network_properties.k_tar, network->network_observables.N_res, network->network_observables.k_res, network->network_observables.N_deg2, network->network_properties.r_max, network->network_properties.core_edge_fraction, network->network_properties.edge_buffer, network->network_properties.cmpi, network->network_properties.group_size, ca, cp->sLinkNodesGPU, ctx, network->network_properties.flags.decode_cpu, network->network_properties.flags.link_epso, network->network_properties.flags.has_exact_k, network->network_properties.flags.use_bit, network->network_properties.flags.mpi_split, network->network_properties.flags.verbose, network->network_properties.flags.bench))
 			return false;

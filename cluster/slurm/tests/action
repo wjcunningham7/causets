@@ -1,0 +1,78 @@
+#!/bin/bash
+
+###########################
+#(C) Will Cunningham 2016 #
+#         DK Lab          #
+# Northeastern University #
+###########################
+
+# Action Experiments
+
+# Use 'setnextjob' command
+# Set spacetime details
+# Set age
+# Specify details of .par file
+# Choose 'readstart' and 'samples'
+# Choose 'queue' and 'mpi'
+
+set -eu -o pipefail
+
+if [[ "$#" -lt 1 ]] ; then
+  echo "Arguments are [curvature parfile]"
+  exit 1
+fi
+
+type="rgg"
+st="240200011"
+#age=1.0
+#radius=0.5
+
+source $HOME/.queues
+jobstart=$NEXT_JOB
+readstart=0
+samples=1
+partitionG="gpubase"
+ncoresG=10
+gres="gpu\:1"
+partitionC="cpubase"
+ncoresC=40
+memory="4gb"
+mpi=1
+#ncores=$(sinfo -p $partition -e -o "%c" | awk 'NR==2 {print $1}')
+
+parfile=$1
+readarray -t vars < $parfile
+
+for i in $(seq ${#vars[@]}) ; do
+  job=$(($i+$jobstart-1))
+  var=(${vars[${i}-1]})
+  if [[ ${var:0:1} == "#" ]] ; then
+    continue
+  fi
+
+  age=${var[0]}
+  radius=$age
+  nodes=${var[1]}
+
+  if [[ "$readstart" -ne 0 ]] ; then
+    readjob=$(($i+$readstart-1))
+    nodes=0
+    samples=1
+
+    echo "Attempting to read job $readjob."
+    basedir=$SCRATCH_DIR
+    if [[ ! -d $basedir/causet${readjob} ]] ; then
+      echo "Job ${readjob} could not be found."
+      continue
+    fi
+  else
+    readjob=0
+  fi
+
+  echo "Submitting [JOB $job] (ST=$st, N=$nodes, age=$age)"
+  #$CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --account $account --partition $partition --ncores $ncores --start $job --nsamples $samples --memory $memory --flags "--type $type --spacetime $st --nodes $nodes --binomial --age $age --radius $radius --link --core 1 --gpu --action smeared --verbose -y --print"
+  id=$($CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --partition $partitionG --ncores $ncoresG --start ${job}.L --nsamples $samples --memory $memory --gres $gres --flags "--type $type --spacetime $st --nodes $nodes --binomial --age $age --radius $radius --link --core 1 --gpu --verbose -y --print --print-edges")
+  $CAUSET_HOME/cluster/slurm/wrapper/causet_wrp --partition $partitionC --ncores $ncoresC --start ${job}.A --nsamples $samples --memory $memory --readjob ${job}.L --waitfor $id --flags "--type $type --spacetime $st --nodes $nodes --age $age --radius $radius --link --core 1 --action smeared --verbose -y --print" > /dev/null
+done
+
+#setnextjob $(($job+1))

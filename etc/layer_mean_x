@@ -1,0 +1,36 @@
+#!/usr/bin/env python
+
+import glob
+import math
+import numpy as np
+import sys
+
+basedir = './'
+if len(sys.argv) >= 2:
+	basedir = sys.argv[1]
+	basedir += "/"
+
+xfiles = sorted(glob.glob(basedir + 'data/positions/*.cset.pos.dat'))
+lfiles = sorted(glob.glob(basedir + 'data/layers/*.cset.lay.dat'))
+
+if len(xfiles) == 0 or len(xfiles) != len(lfiles):
+	print("There is a file error.")
+	sys.exit(1)
+
+nfiles = len(xfiles)
+avgx = []
+for i in range(nfiles):
+	with open(xfiles[i]) as xf:
+		x = [ float(line.split()[1]) for line in xf.readlines() ]
+
+	with open(lfiles[i]) as lf:
+		xlayers = [ [ x[int(el)] for el in lline.rstrip().split() ] for lline in lf.readlines() ]
+
+	avgx.append(xlayers)
+
+min_layers = min([ len(x) for x in avgx ])
+all_layers = [ list(set([ j for i in range(nfiles) for j in avgx[i][l] ])) for l in range(min_layers) ]
+avgx_all = []
+stdx_all = []
+for i, layer in enumerate(all_layers):
+	print(i / min_layers, np.mean(layer), np.std(layer) / math.sqrt(len(layer)))

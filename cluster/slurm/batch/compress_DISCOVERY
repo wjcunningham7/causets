@@ -1,0 +1,82 @@
+#!/bin/bash
+
+#SBATCH -J txz
+#SBATCH -o txz.log
+#SBATCH -e txz.err
+#SBATCH -N 2
+#SBATCH -c 20
+#SBATCH -p test
+#SBATCH --time=01:00:00
+#SBATCH --mail-user=wjcunningham7@gmail.com
+#SBATCH --mail-type=END
+
+experiment=8
+append=false
+project=TLA
+slprj=CSET
+projhome=$CAUSET_HOME
+dirpattern=causet
+
+parfile=$projhome/tests/par/$project-$experiment.par
+ids=($(awk '{print $1}' $parfile))
+[ "$SLURM_JOB_NUM_NODES" == "" ] && SLURM_JOB_NUM_NODES=1
+numnodes=$SLURM_JOB_NUM_NODES
+numtasks=${#ids[@]}
+tasks_per_node=$(($numtasks/$numnodes))
+
+echo "Number of nodes allocated is $numnodes"
+echo "Number of tasks is $numtasks"
+
+prep_sample() {
+  id="$1"
+  node="$2"
+  [ ! -d $SCRATCH/$dirpattern$id ] && \
+    echo "Skipping [$id]: Missing directory" && \
+    return 1
+  state="$(sacct -X -S 010101 --name $slprj-$id -o State | tail -n 1 | awk '{print $1}')"
+  if [[ "$state" == "RUNNING" || "$state" == "PENDING" ]] ; then
+    echo "Skipping [$id]: $state"
+    return 2
+  fi
+  cd $SCRATCH/$dirpattern$id
+  if [ -e $dirpattern$id.err ] ; then
+    >&2 echo "$id"
+    cat $dirpattern$id.err 1>&2
+  fi
+
+  [ $(ls -1 data/*.h5 2> /dev/null | wc -l) == 0 ] && \
+    echo "Skipping [$id]: Missing h5" && \
+    return 3
+  [ -e $project-$id.txz ] && \
+    echo "Skipping [$id]: Already compressed" && \
+    return 4
+  echo "Compressing [$id]"
+  mkdir -p log
+  mv *.err *.log log 2> /dev/null
+  if [ $append = true ] ; then
+    outfile=$project-$id-1.txz
+  else
+    outfile=$project-$id.txz
+  fi
+  if [ "$SLURM_JOB_NUM_NODES" -gt 1 ] ; then
+    srun -n 1 -N 1 -r $node /bin/bash -c "txz data/*.h5 log $outfile" &
+  else
+    txz data/*.h5 log $outfile
+  fi
+}
+
+for i in $(seq 0 $(($tasks_per_node-1))) ; do
+  for j in $(seq 0 $(($numnodes-1))) ; do
+    idx=$(($j*$tasks_per_node+$i))
+    prep_sample ${ids[$idx]} $j
+  done
+  wait
+done
+
+for idx in $(seq $(($numnodes*$tasks_per_node)) $(($numtasks-1))) ; do
+  prep_sample ${ids[$idx]} $(($idx-$numnodes*$tasks_per_node))
+done
+
+wait
+
+echo "Completed."

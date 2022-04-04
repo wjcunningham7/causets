@@ -136,10 +136,10 @@ bool compareCoreEdgeExists(const int * const k_out, const int * const future_edg
 					throw CausetException("Adjacency matrix does not match sparse list!\n");
 			}
 		}
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -343,7 +343,7 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 			throw std::bad_alloc();
 		memset(g_idx, 0, sizeof(unsigned long long int));
 		ca->hostMemUsed += sizeof(unsigned long long int);
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -433,10 +433,10 @@ bool linkNodesGPU_v1(Node &nodes, const Edge &edges, Bitvector &adj, const Space
 	try {
 		if (*g_idx + 1 >= static_cast<uint64_t>(N * k_tar * (1.0 + edge_buffer) / 2))
 			throw CausetException("Not enough memory in edge adjacency list.  Increase edge buffer or decrease network size.\n");
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -728,7 +728,7 @@ bool generateLists_v1(Node &nodes, uint64_t * const &edges, Bitvector &adj, int6
 			throw std::bad_alloc();
 		memset(h_edges, 0, sizeof(bool) * m_edges_size);
 		ca->hostMemUsed += sizeof(bool) * m_edges_size;
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -1108,10 +1108,10 @@ bool printValues(Node &nodes, const Spacetime &spacetime, const int num_vals, co
 	
 		outputStream.flush();
 		outputStream.close();
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -1151,10 +1151,10 @@ bool printDegrees(const Node &nodes, const int num_vals, const char *filename_in
 
 		outputStream_out.flush();
 		outputStream_out.close();
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -1193,10 +1193,10 @@ bool printEdgeLists(const Edge &edges, const int64_t num_vals, const char *filen
 
 		outputStream_future.flush();
 		outputStream_future.close();
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -1236,10 +1236,10 @@ bool printEdgeListPointers(const Edge &edges, const int num_vals, const char *fi
 
 		outputStream_future.flush();
 		outputStream_future.close();
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -1295,10 +1295,10 @@ bool printAdjMatrix(const Bitvector &adj, const int N, const char *filename, con
 				os.close();
 			}
 		}
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
 		return false;
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 		return false;
 	}
@@ -1597,7 +1597,7 @@ bool traversePath_v1(const Node &nodes, const Edge &edges, const Bitvector &adj,
 //Measure Causal Set Action
 //O(N*k^2*ln(k)) Efficiency (Linked)
 //O(N^2*k) Efficiency (No Links)
-bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v1(uint64_t *& cardinalities, double &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -1627,7 +1627,6 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 	assert (ca != NULL);
 		
 	assert (N > 0);
-	assert (max_cardinality > 0);
 	assert (a > 0.0);
 	if (spacetime.curvatureIs("Positive")) {
 		assert (zeta > 0.0);
@@ -1643,24 +1642,22 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 	if (verbose || bench)
 		printf_dbg("Using Version 1 (measureAction).\n");
 
-	double lk = 2.0;
-	bool smeared = max_cardinality == N;
+	double epsilon = 0.2;
 	int core_limit = static_cast<int>(core_edge_fraction * N);
 	int elements;
 	int64_t fstart, pstart;
 	int i, j, k;
-	bool too_many;
 
 	stopwatchStart(&sMeasureAction);
 
 	//Allocate memory for cardinality data
 	try {
-		cardinalities = (uint64_t*)malloc(sizeof(uint64_t) * max_cardinality);
+		cardinalities = (uint64_t*)malloc(sizeof(uint64_t) * N);
 		if (cardinalities == NULL)
 			throw std::bad_alloc();
-		memset(cardinalities, 0, sizeof(uint64_t) * max_cardinality);
-		ca->hostMemUsed += sizeof(uint64_t) * max_cardinality * omp_get_max_threads();
-	} catch (std::bad_alloc) {
+		memset(cardinalities, 0, sizeof(uint64_t) * N);
+		ca->hostMemUsed += sizeof(uint64_t) * N * omp_get_max_threads();
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -1671,10 +1668,6 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 
 	cardinalities[0] = N;
 
-	if (max_cardinality == 1)
-		goto ActionExit;
-
-	too_many = false;
 	for (i = 0; i < N - 1; i++) {
 		for (j = i + 1; j < N; j++) {
 			elements = 0;
@@ -1695,13 +1688,11 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 					uint64_t col1 = static_cast<uint64_t>(j) * core_limit;
 					for (k = i + 1; k < j; k++)
 						elements += (int)(adj[col0].read(k) & adj[col1].read(k));
-					if (elements >= max_cardinality - 1)
-						too_many = true;
 				} else {
 					pstart = edges.past_edge_row_start[j];
 					fstart = edges.future_edge_row_start[i];
 					//printf("\nLooking at %d future neighbors of [node %d] and %d past neighbors of [node %d].\n", nodes.k_out[i], i, nodes.k_in[j], j);
-					causet_intersection_v2(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], max_cardinality, pstart, fstart, too_many);
+					causet_intersection_v2(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], pstart, fstart);
 				}
 			} else {
 				if (!nodesAreRelated(nodes.crd, spacetime, N, a, zeta, zeta1, r_max, alpha, i, j, NULL))
@@ -1710,37 +1701,22 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 				for (k = i + 1; k < j; k++) {
 					if (nodesAreRelated(nodes.crd, spacetime, N, a, zeta, zeta1, alpha, r_max, i, k, NULL) && nodesAreRelated(nodes.crd, spacetime, N, a, zeta, zeta1, r_max, alpha, k, j, NULL))
 						elements++;
-					if (elements >= max_cardinality - 1) {
-						too_many = true;
-						break;
-					}
 				}
 			}
 
-			if (!too_many)
-				cardinalities[elements+1]++;
-
-			too_many = false;
+			cardinalities[elements+1]++;
 		}
 	}
 
-	if (max_cardinality < 5)
-		goto ActionExit;
-
-	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, smeared);
+	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), epsilon);
 	assert (action == action);
 	
-	ActionExit:
 	stopwatchStop(&sMeasureAction);
 
 	if (!bench) {
 		printf("\tCalculated Action.\n");
-		printf("\t\tTerms Used: %d\n", max_cardinality);
 		printf_cyan();
 		printf("\t\tCausal Set Action: %f\n", action);
-		if (max_cardinality < 10)
-			for (i = 0; i < max_cardinality; i++)
-				printf("\t\t\tN%d: %" PRIu64 "\n", i, cardinalities[i]);
 		printf_std();
 		fflush(stdout);
 	} 
@@ -1755,7 +1731,7 @@ bool measureAction_v1(uint64_t *& cardinalities, float &action, const Node &node
 
 //Measure Causal Set Action
 //Algorithm has been parallelized on the CPU
-bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N, const float &k_tar, const int &max_cardinality, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
+bool measureAction_v2(uint64_t *& cardinalities, double &action, const Node &nodes, const Edge &edges, const Bitvector &adj, const Spacetime &spacetime, const int &N, const float &k_tar, const double &a, const double &zeta, const double &zeta1, const double &r_max, const double &alpha, const float &core_edge_fraction, const float &edge_buffer, CausetMPI &cmpi, CaResources * const ca, Stopwatch &sMeasureAction, const bool &link, const bool &relink, const bool &no_pos, const bool &use_bit, const bool &verbose, const bool &bench)
 {
 	#if DEBUG
 	if (!no_pos)
@@ -1786,7 +1762,6 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 
 	assert (N > 0);
 	assert (k_tar > 0.0f);
-	assert (max_cardinality > 0);
 	assert (a > 0.0);
 	if (spacetime.curvatureIs("Positive")) {
 		assert (zeta > 0.0);
@@ -1809,8 +1784,7 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 	uint64_t finish = npairs;
 	int core_limit = static_cast<int>(core_edge_fraction * N);
 	int rank = cmpi.rank;
-	bool smeared = (max_cardinality == N);
-	double lk = 2.0;
+	double epsilon = 0.2;
 
 	#ifdef MPI_ENABLED
 	assert (false);	//MPI code not maintained
@@ -1822,13 +1796,13 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 
 	//Allocate memory for cardinality measurements
 	try {
-		cardinalities = (uint64_t*)malloc(sizeof(uint64_t) * max_cardinality * omp_get_max_threads());
+		cardinalities = (uint64_t*)malloc(sizeof(uint64_t) * N * omp_get_max_threads());
 		if (cardinalities == NULL) {
 			cmpi.fail = 1;
 			goto ActPoint;
 		}
-		memset(cardinalities, 0, sizeof(uint64_t) * max_cardinality * omp_get_max_threads());
-		ca->hostMemUsed += sizeof(uint64_t) * max_cardinality * omp_get_max_threads();
+		memset(cardinalities, 0, sizeof(uint64_t) * N * omp_get_max_threads());
+		ca->hostMemUsed += sizeof(uint64_t) * N * omp_get_max_threads();
 
 		ActPoint:
 		if (checkMpiErrors(cmpi)) {
@@ -1837,7 +1811,7 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 			else
 				return false;
 		}
-	} catch (std::bad_alloc) {
+	} catch (const std::bad_alloc&) {
 		fprintf(stderr, "Memory allocation failure in %s on line %d!\n", __FILE__, __LINE__);
 		return false;
 	}
@@ -1872,9 +1846,6 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 	start = rank * mpi_chunk;
 	finish = start + mpi_chunk;*/
 	#endif
-
-	if (max_cardinality == 1)
-		goto ActionExit;
 
 	#ifdef _OPENMP
 	#pragma omp parallel for schedule (dynamic, 4)
@@ -1913,9 +1884,6 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 
 				for (int k = i + 1; k < j; k++)
 					elements += (int)(adj[col0].read(k) & adj[col1].read(k));
-
-				if (elements >= max_cardinality - 1)
-					too_many = true;
 			} else {
 				//Index of first past neighbor of the 'future element j'
 				int64_t pstart = edges.past_edge_row_start[j];
@@ -1923,7 +1891,7 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 				int64_t fstart = edges.future_edge_row_start[i];
 
 				//Intersection of edge lists
-				causet_intersection_v2(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], max_cardinality, pstart, fstart, too_many);
+				causet_intersection_v2(elements, edges.past_edges, edges.future_edges, nodes.k_in[j], nodes.k_out[i], pstart, fstart);
 			}
 		} else {
 			//If nodes have not been linked, do each comparison
@@ -1933,48 +1901,35 @@ bool measureAction_v2(uint64_t *& cardinalities, float &action, const Node &node
 			for (int k = i + 1; k < j; k++) {
 				if (nodesAreRelated(nodes.crd, spacetime, N, a, zeta, zeta1, r_max, alpha, i, k, NULL) && nodesAreRelated(nodes.crd, spacetime, N, a, zeta, zeta1, r_max, alpha, k, j, NULL))
 					elements++;
-
-				if (elements >= max_cardinality - 1) {
-					too_many = true;
-					break;
-				}
 			}
 		}
 
 		if (!too_many)
-			cardinalities[omp_get_thread_num()*max_cardinality+elements+1]++;
+			cardinalities[omp_get_thread_num()*N+elements+1]++;
 	}
 
 	//Reduction used when OpenMP has been used
 	for (int i = 1; i < omp_get_max_threads(); i++)
-		for (int j = 0; j < max_cardinality; j++)
-			cardinalities[j] += cardinalities[i*max_cardinality+j];
+		for (int j = 0; j < N; j++)
+			cardinalities[j] += cardinalities[i*N+j];
 
 	#ifdef MPI_ENABLED
 	/*MPI_Barrier(MPI_COMM_WORLD);
 	if (!rank)
-		MPI_Reduce(MPI_IN_PLACE, cardinalities, max_cardinality, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Reduce(MPI_IN_PLACE, cardinalities, N, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 	else
-		MPI_Reduce(cardinalities, NULL, max_cardinality, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);*/
+		MPI_Reduce(cardinalities, NULL, N, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);*/
 	#endif
 
-	if (max_cardinality < 5)
-		goto ActionExit;
-
-	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), lk, smeared);
+	action = calcAction(cardinalities, atoi(Spacetime::stdims[spacetime.get_stdim()]), epsilon);
 	assert (action == action);
 
-	ActionExit:
 	stopwatchStop(&sMeasureAction);
 
 	if (!bench) {
 		printf_mpi(rank, "\tCalculated Action.\n");
-		printf_mpi(rank, "\t\tTerms Used: %d\n", max_cardinality);
 		if (!rank) printf_cyan();
 		printf_mpi(rank, "\t\tCausal Set Action: %f\n", action);
-		if (max_cardinality < 10)
-			for (int i = 0; i < max_cardinality; i++)
-				printf_mpi(rank, "\t\t\tN%d: %d\n", i, cardinalities[i]);
 		if (!rank) printf_std();
 		fflush(stdout);
 	}
@@ -2011,9 +1966,21 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_TS", "Flat", "Temporal")) {
 		if (!(fabs(nodes.crd->x(i)) < 1.0)) return false;
 		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_N2", "Flat", "None")) {
+		if (!(nodes.crd->x(i) > 0.0 && nodes.crd->x(i) < eta0)) return false;
+		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_N2", "Flat", "Temporal")) {
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
 	} else if (spacetime.spacetimeIs("2", "Minkowski", "Slab_N3", "Flat", "None")) {
 		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < 1.5)) return false;
 		if (!(fabs(nodes.crd->y(i)) < 0.5)) return false;
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Half_Diamond", "Flat", "None")) {
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
+		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
+	} else if (spacetime.spacetimeIs("2", "Minkowski", "Half_Diamond_T", "Flat", "Temporal")) {
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!isd(nodes.crd->x(i), nodes.crd->y(i), eta0)) return false;
 	} else if (spacetime.spacetimeIs("2", "Minkowski", "Diamond", "Flat", "None")) {
 		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
 		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
@@ -2082,14 +2049,31 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
 		if (!(nodes.crd->y(i) < r_max)) return false;
 		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("3", "Minkowski", "Slab", "Positive", "Temporal")) {
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!(nodes.crd->y(i) > 0.0 && nodes.crd->y(i) < TWO_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
+		
+	} else if (spacetime.spacetimeIs("3", "Minkowski", "Slab_T2", "Flat", "Temporal")) {
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!(fabs(nodes.crd->y(i)) < r_max)) return false;
+		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("3", "Minkowski", "Half_Diamond", "Flat", "None")) {
+		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
+		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
+		if (!(nodes.crd->z(i) > 0.0 && nodes.crd->z(i) < M_PI)) return false;
 	} else if (spacetime.spacetimeIs("3", "Minkowski", "Diamond", "Flat", "None")) {
 		if (!(nodes.crd->x(i) > 0.0f && nodes.crd->x(i) < eta0)) return false;
 		if (!iad(nodes.crd->x(i), nodes.crd->y(i), 0.0, eta0)) return false;
 		if (!(nodes.crd->z(i) > 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("3", "Minkowski", "Saucer_T", "Flat", "Temporal")) {
+		if (!(fabs(nodes.crd->x(i)) < eta0)) return false;
+		if (!(nodes.crd->y(i) < r_max)) return false;
+		if (!(nodes.crd->z(i) > 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
 	} else if (spacetime.spacetimeIs("3", "Minkowski", "Cube", "Flat", "None")) {
 		if (!(nodes.crd->x(i) >= 0.0 && nodes.crd->x(i) <= eta0)) return false;
-		if (!(nodes.crd->y(i) >= 0.0 && nodes.crd->y(i) <= r_max)) return false;
-		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) <= r_max)) return false;
+		if (!(nodes.crd->y(i) >= 0.0 && nodes.crd->y(i) <= sqrt(2.0) * r_max)) return false;
+		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) <= HALF_PI)) return false;
 	} else if (spacetime.spacetimeIs("3", "De_Sitter", "Diamond", "Flat", "None")) {
 		if (!(nodes.id.tau[i] < tau0)) return false;
 		if (!(nodes.crd->x(i) > -1.0f && nodes.crd->x(i) < HALF_PI - zeta1)) return false;
@@ -2105,16 +2089,31 @@ bool validateCoordinates(const Node &nodes, const Spacetime &spacetime, const do
 		if (!(nodes.crd->x(i) >= 0.0 && nodes.crd->x(i) <= r_max)) return false;
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("4", "Minkowski", "Slab_T2", "Flat", "Temporal")) {
+		if (!(fabs(nodes.crd->w(i)) < eta0)) return false;
+		if (!(fabs(nodes.crd->x(i)) < r_max)) return false;
+		if (!(nodes.crd->y(i) >= 0.0 && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("4", "Minkowski", "Half_Diamond", "Flat", "None")) {
+		if (!(nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < eta0)) return false;
+		if (!iad(nodes.crd->w(i), nodes.crd->x(i), 0.0, eta0)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < M_PI)) return false;
 	} else if (spacetime.spacetimeIs("4", "Minkowski", "Diamond", "Flat", "None")) {
 		if (!(nodes.crd->w(i) > 0.0f && nodes.crd->w(i) < eta0)) return false;
 		if (!iad(nodes.crd->w(i), nodes.crd->x(i), 0.0, eta0)) return false;
 		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
 		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
+	} else if (spacetime.spacetimeIs("4", "Minkowski", "Saucer_T", "Flat", "Temporal")) {
+		if (!(fabs(nodes.crd->w(i)) < eta0)) return false;
+		if (!(nodes.crd->x(i) < r_max)) return false;
+		if (!(nodes.crd->y(i) > 0.0f && nodes.crd->y(i) < M_PI)) return false;
+		if (!(nodes.crd->z(i) > 0.0f && nodes.crd->z(i) < TWO_PI)) return false;
 	} else if (spacetime.spacetimeIs("4", "Minkowski", "Cube", "Flat", "None")) {
 		if (!(nodes.crd->w(i) >= 0.0 && nodes.crd->w(i) <= eta0)) return false;
-		if (!(nodes.crd->x(i) >= 0.0 && nodes.crd->x(i) <= r_max)) return false;
-		if (!(nodes.crd->y(i) >= 0.0 && nodes.crd->y(i) <= r_max)) return false;
-		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) <= r_max)) return false;
+		if (!(nodes.crd->x(i) >= 0.0 && nodes.crd->x(i) <= sqrt(3.0) * r_max)) return false;
+		if (!(nodes.crd->y(i) >= 0.0 && nodes.crd->y(i) <= M_PI)) return false;
+		if (!(nodes.crd->z(i) >= 0.0 && nodes.crd->z(i) <= HALF_PI)) return false;
 	} else if (spacetime.spacetimeIs("4", "De_Sitter", "Slab", "Flat", "None")) {
 		if (!(nodes.id.tau[i] > 0.0f && nodes.id.tau[i] < tau0)) return false;
 		#if EMBED_NODES
@@ -2272,9 +2271,9 @@ void printDot(Bitvector &adj, const int * const k_out, int N, const char *filena
 		data << "}\n";
 		data.flush();
 		data.close();
-	} catch (CausetException c) {
+	} catch (const CausetException &c) {
 		fprintf(stderr, "CausetException in %s: %s on line %d\n", __FILE__, c.what(), __LINE__);
-	} catch (std::exception e) {
+	} catch (const std::exception &e) {
 		fprintf(stderr, "Unknown Exception in %s: %s on line %d\n", __FILE__, e.what(), __LINE__);
 	}
 }
